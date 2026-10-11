@@ -1,6 +1,6 @@
 # Review: Claude-Mem 소개글 (X, 2026-09-13)
 
-검토일 2026-10-11. 출처: [GitHub 저장소](https://github.com/thedotmack/claude-mem), README(main), GitHub API. 이 문서는 소개글의 주장 검증과 이 설정(claude-global)과의 적합성만 다룬다. 설치는 하지 않았다.
+검토일 2026-10-11 (설치 결과 추가 같은 날). 출처: [GitHub 저장소](https://github.com/thedotmack/claude-mem), README(main), GitHub API. 이 문서는 소개글의 주장 검증과 이 설정(claude-global)과의 적합성만 다룬다. 
 
 ## 1. 주장 검증
 
@@ -40,3 +40,16 @@
 ## 검증하지 못한 것
 
 설치·실행 테스트, docs.claude-mem.ai 본문, 토큰 절감 실측, 릴리스 노트(WebFetch에서 Releases 비어 있음).
+
+## 5. 설치 결과 (2026-10-11, Windows 10)
+
+- 공식 마켓(`claude-plugins-official`)에는 없다. 제작자 마켓 `thedotmack`을 추가해야 한다 (제3자 신뢰).
+- `npx claude-mem install`: 설치 중 `bun install`이 `spawn EINVAL`로 실패, 의존성 없는 반쪽 설치가 남음. 원인은 미확인 (Windows의 Node spawn 제한으로 추정). `--help`를 줘도 실제 설치가 실행되니 주의.
+- `claude plugin marketplace add thedotmack/claude-mem` + `claude plugin install claude-mem@thedotmack`: 성공, 13.35.0, 의존성 설치됨.
+- 제거 시 chroma-mcp 프로세스(`--data-dir ~/.claude-mem/chroma`)가 파일을 잡고 있어 먼저 종료해야 `~/.claude-mem` 삭제 가능. PowerShell에서는 `rm -rf`가 아니라 `Remove-Item -Recurse -Force`.
+- 재시작 후 워커 정상 (`127.0.0.1:37777`, status ok). 기본 provider는 `claude`이고 Claude Code OAuth 토큰을 자격증명 저장소에서 읽어 사용. Cloud Sync 토큰은 비어 있음(미로그인). 첫 요약 생성 성공, `mem_search`로 조회됨.
+- 이 저장소 반영: `claude/settings.json`에 마켓과 `enabledPlugins`를 추가함. 이 브랜치를 머지하고 apply.sh를 실행해야 유지된다. 그 전에 apply.sh가 돌면 항목이 제거되어 플러그인이 `disabled`가 됨 (실제로 발생).
+
+## 6. 아직 남은 검증
+
+토큰 사용량 비교(미측정), RTK 훅과의 공존, `qa-deny.sh` 통과, Cloud Sync 전송 범위, 삭제·프로젝트 분리 절차, 저장된 관찰에 비밀값이 섞이는지 점검.
