@@ -1,5 +1,10 @@
 # Operations
 
+For browser/native UI capability checks, installed SDK ownership, sanitized failure
+records and narrowly scoped home cleanup, follow
+[Computer Use maintenance](computer-use-maintenance.md). The saved host schedule
+and separately approved dependency-cleanup policy remain authoritative.
+
 Start from the repository README and installer help for executable commands. Resolve paths from the script location, explicit root and supported user directories; never assume a drive letter or current shell directory. Honor CODEX_HOME. Authenticate separately on each host with the installed CLI's supported ChatGPT login flow; do not copy auth files into this repository.
 
 ## Managed lifecycle
@@ -61,7 +66,7 @@ no additional scheduler, hook or background event service is installed.
 |---|---|---|
 | Stable CLI/RTK release discovery | Existing registered cadence | Review relevant changes; install only an eligible changed release |
 | RTK ownership/hash | Each explicit owned-runner invocation | Existing local checks; no network lookup |
-| Output compression | Needed supported noisy diagnostic | Preserve exits/evidence; prefer native concise or final acceptance output |
+| Output compression | Every needed supported diagnostic, including nested orchestration | Use verified RTK; preserve exits/evidence and native exact reads, structured data, mutations and final acceptance |
 | Compression path health | Changed tool/filter identity or relevant failure | One affected byte/exit/evidence check; reuse matching success |
 | Affected runtime revalidation | Tool/filter change or new relevant failure | Smallest affected existing checks; reuse unchanged evidence |
 | Feedback and failure handling | Observation in active authorized task | Diagnose and finish authorized fix now; retain summary for scheduled review |

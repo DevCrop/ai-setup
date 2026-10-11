@@ -14,5 +14,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python -B -m unittest discover -s scripts -p 'test_*.py' -v
+      - run: node scripts/test_rtk_dashboard_client.cjs
       - run: python -B scripts/validate_repo.py

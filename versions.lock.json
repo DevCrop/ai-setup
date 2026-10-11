@@ -129,7 +129,7 @@
     }
   ],
   "runtime": {
-    "codex_cli_reviewed": "0.160.0",
+    "codex_cli_reviewed": "0.161.0",
     "codex_cli_policy": "preserve host runtime unless user approves; installed CLI validated separately",
     "archify_requires": "Node.js",
     "installer_requires": "Python 3.11+; standard library only"

@@ -1,8 +1,8 @@
 # RTK command output
 
-Load when choosing output handling for noisy development commands. RTK is a third-party output filter, not an OpenAI feature or proof of subscription token savings. TRACE pins the reviewed release in versions.lock.json and installs one binary into private host state with scripts/tools.py install-rtk. No shared machine path, credentials, permission change, PATH edit, injected RTK.md or transparent rewrite hook is installed.
+Load when choosing output handling for development diagnostics. RTK is a third-party output filter, not an OpenAI feature or proof of subscription token savings. TRACE pins the reviewed release in versions.lock.json and installs one binary into private host state with scripts/tools.py install-rtk. No shared machine path, credentials, permission change, PATH edit, injected RTK.md or transparent rewrite hook is installed.
 
-Use scripts/tools.py verify from the setup checkout to locate the owned binary, or scripts/tools.py run git status for explicit filtering. Prefer ordinary targeted rg and concise Git output when already sufficient. Use RTK only for supported, read-only diagnostic commands whose compression helps. Preserve arguments, exit codes and needed evidence. Read exact source code and authoritative acceptance-check output directly; rerun the original command when filtering obscures failures. Never interpret rtk gain estimates as actual OpenAI billed tokens or included allowance saved.
+Use scripts/tools.py verify from the setup checkout to locate the owned binary, or scripts/tools.py run git status for explicit filtering. Use the verified runner for every supported read-only diagnostic invocation by default, including short output. Keep searches narrowly scoped; short output can have zero savings. Do not add a diagnostic or repeat it merely to generate a gain record. Preserve arguments, exit codes and needed evidence. Read exact source code and authoritative acceptance-check output directly; rerun the original command when filtering obscures failures. Never interpret rtk gain estimates as actual OpenAI billed tokens or included allowance saved.
 
 Outside the setup checkout, run the managed `bin/trace_rtk.py` in Codex home by absolute path with Python. Resolve Codex home from CODEX_HOME, otherwise the supported user home `.codex`; for example pass `git status` as arguments from the current project directory. The runner derives private tool state from that home, verifies the binary ownership/hash and preserves the caller's working directory. No project-local RTK files or extra project installation are needed. Custom deployment `--state` locations require tools.py --state STATE run instead; they are not guessed by the global runner.
 
@@ -44,8 +44,9 @@ Sources: [Codex configuration reference](https://learn.chatgpt.com/docs/config-f
 
 ## Use, release review and validation timing
 
-Use the owned runner when a supported diagnostic is actually needed and its
-output benefits from filtering; prefer already concise native output. Ownership
+Use the owned runner on every actually needed, supported read-only diagnostic
+invocation. Exact source reads, machine-readable JSON, mutating operations and
+final acceptance use native output; do not add checks only to increase savings. Ownership
 and SHA-256 verification already run per invocation in trace_rtk.py. This is a
 local runtime check, not a network release lookup or universal hook interception.
 
@@ -64,3 +65,28 @@ Confirm release compatibility before installation; stable releases may change
 argument handling. Preserve existing hooks, trust, permissions and tool selection.
 A task-observed failure is handled in that task, then summarized for scheduled review;
 this does not install an event listener or authorize unrelated project commands.
+
+## Per-invocation routing preference — 2026-10-08
+
+This user explicitly wants RTK used whenever an eligible diagnostic runs. Resolve
+`CODEX_HOME/bin/trace_rtk.py` once per task and pass the diagnostic arguments to
+that runner, retaining the project working directory. In Python orchestration,
+invoke Python plus that runner rather than hiding a bare diagnostic in
+`subprocess`. PowerShell environment setup does not itself need filtering. Read
+code files and structured JSON directly; never use `rtk proxy` to pretend that
+an unsupported command was compressed. A native hook recognizes only supported
+command forms and does not recursively inspect Python or PowerShell programs.
+
+An existing opt-in hook may also rewrite simple diagnostics automatically. Its
+configuration, trust and legacy binary are separate from the verified runner;
+keep their evidence separate. The existing hook can be restricted with RTK's
+user-owned `[hooks].exclude_commands` setting for mutating command families.
+Review and test those exclusions against every installed hook binary before
+relying on them. Exclusions narrow rewriting; they are not an execution permission
+policy. For exact native commands use the verified executable directly, and
+retain the platform's normal approval and sandbox checks. Changing a hook
+definition still needs official `/hooks` review; never edit its trust hash.
+
+Sources: [RTK hook exclusions](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/core/config.rs),
+[rewrite prefix matching](https://github.com/rtk-ai/rtk/blob/v0.51.0/src/discover/registry.rs),
+[Codex hook behavior and trust](https://learn.chatgpt.com/docs/hooks).

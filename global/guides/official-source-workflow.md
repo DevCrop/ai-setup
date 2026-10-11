@@ -47,7 +47,8 @@ Treat explicit durable preferences as confirmed; inferred or one-off lessons sta
 candidates. Classify gaps as missing guidance, existing guidance not followed,
 tool/runtime defect, access/permission limit or requirement conflict. Adding more
 instructions is not a substitute for fixing the actual cause. Prefer existing
-native tools and checks; use RTK only where supported output benefits. Keep
+native tools and checks; route every supported diagnostic through verified RTK
+under guides/rtk.md, including nested calls. Keep
 Ponytail/Archify explicit and retain exact evidence for final acceptance.
 
 During the authorized host's existing scheduled routine, review new or changed lessons
@@ -64,7 +65,14 @@ remote publication require separate authority; learning never grants authority.
 Preserve one current feedback_loop object beside existing maintenance evidence,
 with preferences, lessons, decisions and distinct review/apply/verify times.
 A subsequent user correction supersedes the exact older preference; keep only a
-compact supersession reason. Judge efficiency by correct task completion at the
+compact supersession reason. Each scheduled review reconciles confirmed preferences,
+new/changed incidents, relevant official changes and unresolved candidates with
+the installed guidance, actual saved routine and report. Check contradictions,
+obsolete advice, omitted required tools and premature completion claims. Reuse
+matching reviews; classify each changed candidate as keep, apply, defer or unknown
+with evidence and a reconsideration trigger. Repair the actual authorized cause,
+then verify the original affected path; do not manufacture a daily rule change.
+Record completion and unpublished approved work separately. Judge efficiency by correct task completion at the
 same acceptance standard, avoidable corrections/retries and total task usage
 including verification and delegation when observable. Keep unavailable usage
 unknown; RTK estimates and shorter guidance do not establish whole-task savings. Retire obsolete guidance after conflict review,
@@ -75,6 +83,96 @@ conversations. Unavailable evidence and failed checks remain unknown/failed.
 
 Sources: [Customization feedback](https://learn.chatgpt.com/docs/customization/overview),
 [Best practices](https://learn.chatgpt.com/guides/best-practices).
+
+## Active-project tool routing and acceptance
+
+Use this procedure for an observed routing gap, cross-project setup question or
+durable workflow change. The agreement supplies lightweight defaults for normal
+tasks; do not load this guide or perform a full setup audit at every task start.
+
+1. Resolve the actual working root and effective global/project instructions.
+   Check relevant overrides and project runtime pins; non-Git document folders
+   use their applicable local guidance. Define the requested result and acceptance.
+2. Select available purpose-built tools, connectors and applicable skills for the
+   task; resolve required access when needed, rather than testing every integration.
+   Use existing project tools for project checks. Keep Ponytail/Archify explicit;
+   delegate only when the current host and applicable instructions permit it.
+3. Route each supported diagnostic through verified RTK, including orchestration
+   subprocesses; preserve native exact reads, structured data, mutations and final
+   acceptance. A missing tool, unsupported command or zero saving is not proof of
+   failure. Use an authorized native fallback and explain a material limitation.
+4. On an observed failure or skipped required tool, follow the incident procedure
+   below; distinguish selection mistakes, interception gaps, runtime defects and
+   permission limits. Validate the original affected path and review the diff.
+   Stop after acceptance; report unavailable checks as unverified. Instruction
+   installation proves deployment, not execution or obedience in every project.
+
+Reuse matching evidence. Starting a project does not authorize background sibling
+scans, dependency installs or source repairs in other projects. Tool usefulness
+and verified completion matter more than invocation counts. These are TRACE's
+operating choices, supported by official instruction layering and focused skills:
+[AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+[skills](https://learn.chatgpt.com/docs/build-skills),
+[best practices](https://learn.chatgpt.com/guides/best-practices).
+
+## Errors encountered during project work
+
+Apply when an authorized task produces an unexpected tool/runtime failure, failed
+acceptance check, user-reported defect or incorrect observable result. Work in the
+actual active project, including non-Git document folders; directory names do not
+grant authority to inspect siblings. Expected search misses, deliberate negative
+tests and normal pending states are not product defects. If a setup/search mistake
+blocks work, record its corrected cause as a workflow incident rather than a
+project bug. Capture distinct failures promptly and update the same ID after repair.
+
+1. Resolve the working root and its applicable instructions; preserve local edits.
+   Establish the expected result and smallest safe reproduction or existing check.
+   Inspect only relevant source, tool identity and redacted diagnostic evidence.
+   After a timeout, inspect actual state before retrying a possible completed action.
+2. Distinguish application code, dependencies/environment, tool transport, access,
+   stale state, unmet requirements and an agent procedure mistake. Separate confirmed
+   cause from hypotheses. Consult the relevant vendor's current documentation when
+   needed; OpenAI documentation governs Codex behavior, not a project's framework.
+3. Complete the smallest authorized repair in the active task, using existing tools
+   and project checks. Do not postpone a blocking repair to daily maintenance.
+   Reassess a repeated failure; an unchanged retry needs new evidence or explicit
+   retry authorization. Wider permissions, unrelated upgrades and speculative
+   rewrites are not remedies. On partial failure, recover owned changes where safe
+   and preserve user edits; report any remaining state or exact external decision.
+4. Re-run the original failing path and affected acceptance checks. For UI defects,
+   use the available official UI tool and computer-use-workflow; file inspection
+   alone is not rendering evidence. A missing capability remains unverified.
+   Review the affected diff and stop when acceptance is met. Distinguish repaired,
+   verified, deferred and unresolved; never promise complete prevention of errors.
+5. Write a compact incident to the designated host's existing private
+   routine-review.json, using the installed TRACE runner's CODEX_HOME-aware
+   state_location helper. Use the same incidents collection, not another log store.
+   Keep a stable ID, opaque project/root fingerprint when necessary, surface/stage,
+   sanitized signature, first/last observation, tool identity, cause confidence,
+   impact, bounded recovery results, original-path validation and next action.
+   Merge recurrence by identity; retain last-notified fingerprint and unknown cause.
+   Do not copy raw output, source, customer data, screenshots, command arguments,
+   prompts, secrets or transcript contents. A write failure is an explicit gap.
+
+Daily maintenance reviews only new/changed incident summaries and existing approved
+scope. It may apply compatible global fixes within its recorded authorization;
+project source changes still require that project's active task authority. A folder
+preference does not register every project or authorize background file/chat scans.
+Promote only confirmed transferable causes to a concise lesson; keep project-specific
+rules in the project. Reuse unchanged successful validation rather than making a new
+test, skill or permanent instruction for every failure.
+
+This is TRACE's instruction-based workflow, not an OpenAI-provided error collector.
+Official PostToolUse hooks observe supported local tool outputs, including nonzero
+shell exits, but hosted/specialized paths and cloud orchestration have limitations.
+They cannot undo an executed action or guarantee collection of all errors. Preserve
+existing hooks; consider a new hook only for a demonstrated deterministic gap with
+tested client coverage, redaction, trust, failure behavior and rollback. Never use
+a transcript scan or an approval-changing hook to make collection appear complete.
+
+Reviewed 2026-10-08: [global/project instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md),
+[focused instruction-first skills](https://learn.chatgpt.com/docs/build-skills),
+[hook coverage and PostToolUse](https://learn.chatgpt.com/docs/hooks).
 
 ## Scheduled maintenance and in-task response
 

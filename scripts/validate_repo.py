@@ -70,7 +70,8 @@ def main():
                     continue
                 if not (p.parent / target.split('#')[0]).exists():
                     raise ValueError(f'Broken documentation link: {p.relative_to(ROOT)} -> {target}')
-    print(json.dumps({"status": "pass", "managed_files": len(targets), "references": len(sources), "skills": 2}))
+    skill_count = sum(f['target'].endswith('/SKILL.md') for f in manifest['files'])
+    print(json.dumps({"status": "pass", "managed_files": len(targets), "references": len(sources), "skills": skill_count}))
 
 
 if __name__ == "__main__":

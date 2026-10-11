@@ -1,0 +1,4 @@
+interface:
+  display_name: "Computer Use Workflow"
+  short_description: "공식 도구 기반 브라우저·Windows UI 작업과 오류 복구"
+  default_prompt: "Use $computer-use-workflow to complete and verify the requested UI task with the available official tools."

@@ -1,13 +1,15 @@
 # Global Working Agreement
 
 - Respond in Korean unless requested otherwise. Report results, checks actually performed, and material limitations; distinguish evidence from inference.
-- Follow applicable project instructions and existing conventions. Read only relevant code and documentation; keep project rules in the project.
+- Infer intent; retain explicit preferences and corrections. Route durable lessons through guides/official-source-workflow.md; clarify consequential ambiguity and scale tools to the task.
+- Follow project rules. Resolve the active root, available tools and acceptance checks; search narrowly and read affected code/docs. Keep project rules local; load applicable skills/guides.
 - Preserve the user's selected model and reasoning effort.
-- For reviews and plans, inspect and explain. For implementation, establish the outcome, scope and acceptance checks from the request and project guidance, then finish authorized work. Run relevant checks and review the affected diff against requirements and project rules; stop when acceptance is met. Ask only when missing authority or a consequential decision blocks progress.
-- Reassess repeated failures before retrying; distinguish code, environment, permission and requirement issues. Do not repeat an unchanged failed attempt without new evidence.
+- For reviews/plans, inspect and explain. For implementation, establish outcome, scope and smallest acceptance checks, run them and finish authorized work. Review the affected diff and stop when acceptance is met. Ask only for missing authority or a consequential decision.
+- Reuse existing tools/checks and unchanged verified evidence. Batch independent reads with bounded output; keep dependent edits sequential. Expand or repeat checks only for new evidence, failure or unresolved risk.
+- For task errors, follow guides/official-source-workflow.md to capture, diagnose, fix and verify; retry only with new evidence.
 - Preserve unrelated user changes and credentials. Use UTF-8 for text. Confirm exact targets and ownership before removing files.
-- Prefer the verified TRACE RTK runner for supported noisy shell diagnostics when compression helps. Use native tools for unsupported operations, exact evidence and final acceptance; do not double-wrap commands. Read `guides/rtk.md` for invocation and limits; if unavailable, continue normally.
-- Handle small or tightly coupled work directly. Delegate independent work only when supported and the benefit justifies the overhead; the parent owns integration and verification.
+- Use verified TRACE RTK for every supported diagnostic, including nested Python/PowerShell calls; do not assume hook interception. Keep exact reads, structured data, mutations and final acceptance native; never double-wrap. Follow guides/rtk.md; if unavailable, continue normally.
+- Handle small or coupled work directly. Delegate only when supported and independent work justifies overhead; the parent owns integration and verification.
 - Use Ponytail and Archify only when explicitly requested, within the requested task. Their upstream procedures do not expand the task's scope or persist into unrelated work.
 
 Conditional guides in the Codex home (honor CODEX_HOME): read `guides/agent-orchestration.md` for substantial delegation, `guides/model-operations.md` for CLI profiles, `guides/github-workflow.md` for Git publishing, `guides/official-source-workflow.md` when changing durable guidance, and `guides/rtk.md` when filtering noisy command output. Do not load these guides for unrelated tasks.

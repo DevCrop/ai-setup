@@ -5,6 +5,23 @@ and ownership-based deployment. Python 3.11+ and Git are required; Node.js is ne
 to render Archify. Use ChatGPT subscription login on each host. No API key and no
 50/200-run model benchmark are required.
 
+For the current reviewed development branch, start with the Korean
+[2026-10-08 setup handoff](docs/setup-handoff-20261008.md): what changed, why,
+host-specific authority, incident recovery, actual checks and another-PC acceptance.
+Portable report UI sources are in [templates/reports](templates/reports/README.md).
+Follow the [detailed Windows installation guide](docs/install-another-windows-pc.md)
+for missing dependencies/folders, project packages, login and host-local scheduling.
+The v1.2.4 tag remains the preceding published release; branch publication is separate.
+
+For the final two-lane task/maintenance flow, per-diagnostic RTK routing and
+confirmed-history review, see the Korean [shareable routine](docs/codex-routine-share.md).
+The current branch carries these added policies; installing v1.2.4 does not.
+
+The 2026-10-08 branch also includes an opt-in [RTK live viewer](docs/rtk-live-dashboard.md):
+local read-only aggregate polling, visible-tab refresh, pause/error states and a
+Windows launcher. The existing daily maintenance and stored probe timestamps
+remain independent. No startup task, hook or public web service is installed.
+
 ## Install
 
 Clone this repository anywhere, including paths with spaces and non-Latin names.
@@ -31,6 +48,12 @@ TRACE adds only `agents/openai.yaml` with implicit invocation disabled for these
 two skills. Invoke `$ponytail` or `$archify` explicitly (or select the skill in the
 app). This retains their full upstream procedures; it does not shorten the skills.
 `setup.py` is the sole install/update/verify/remove entry point, including skills.
+
+The personal `computer-use-workflow` skill is deployed to the supported user skill
+root (`~/.agents/skills`, or `--personal-skills`) for use across projects. It follows
+the available official Computer Use runtime and keeps browser/native execution
+evidence separate. It is a TRACE-authored workflow, not an OpenAI-published plugin.
+See [Computer Use maintenance](docs/computer-use-maintenance.md).
 
 See [Ponytail·Archify usage examples](docs/skill-usage.md) for explicit selection,
 task scope, intensity and completion criteria. The English personalization source
@@ -167,9 +190,11 @@ acceptance checklist, see [the portable setup guide](docs/portable-routine.md) a
 per-invocation local RTK checks and responses to observed failures are separate;
 this repository does not install an event daemon or perform model training.
 
-The adaptive loop keeps the v1.2.3 always-loaded agreement unchanged. Confirmed
-feedback, minimal changes and retirement live in conditional guidance and the
-existing private routine state. Efficiency means correct completion with less
+The published v1.2.4 retains the preceding agreement. This development branch
+adds active-root/tool/acceptance routing and verified RTK for every supported
+diagnostic, including nested orchestration, while retaining native evidence and
+final acceptance. Confirmed feedback, minimal changes and retirement live in
+conditional guidance and the existing private routine state. Efficiency means correct completion with less
 avoidable rework and total task usage when observed, not a shorter prompt alone.
 RTK release planning reuses collection, preserves stable pins and reports conflicts
 before installation. Unchanged checks are reused only with matching identities.

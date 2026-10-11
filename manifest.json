@@ -576,6 +576,24 @@
       "source": "vendor/archify/skill-release.json",
       "target": "skills/archify/skill-release.json",
       "kind": "upstream-skill"
+    },
+    {
+      "source": "global/skills/computer-use-workflow/SKILL.md",
+      "target": "computer-use-workflow/SKILL.md",
+      "root": "personal_skills",
+      "kind": "personal-skill"
+    },
+    {
+      "source": "global/skills/computer-use-workflow/agents/openai.yaml",
+      "target": "computer-use-workflow/agents/openai.yaml",
+      "root": "personal_skills",
+      "kind": "personal-skill"
+    },
+    {
+      "source": "global/skills/computer-use-workflow/references/recovery.md",
+      "target": "computer-use-workflow/references/recovery.md",
+      "root": "personal_skills",
+      "kind": "personal-skill"
     }
   ],
   "agent_settings": {
