@@ -4,7 +4,7 @@
 # Fail-closed: when a command that could stage files cannot be judged (jq or git missing, unreadable hook input) it is blocked with exit 2.
 # Commands without a git word are never touched. settings.json gives this hook "onFailure": "block" and a 30 s timeout, so a crash or a
 # timeout blocks the call too (a huge repo can make `git status`-like calls slow).
-# Limit: it reads the command string. Not seen: aliases, scripts that call git, git itself held in a variable, brace expansion, eval, a path
+# Limit: it reads the command string. Not seen: aliases, scripts that call git, git itself or the staging verb held only in a variable (git $v -A), brace expansion, eval, a path
 # with a space given as one quoted argument, an apply/am patch that adds a secret name when the work tree has none. A variable, $() or
 # xargs/find -exec as an argument of add/stage/update-index/apply/am/mv is read as "everything pending" (judged like git add -A).
 input="$(cat)"
@@ -72,7 +72,7 @@ while IFS= read -r seg; do
   if [ "$1" = cd ] && [ -n "${2:-}" ]; then d="${2/#\~/$HOME}"; n="$(absdir "$cur" "$d")"; [ -n "$n" ] && cur="$n"; continue; fi
   genv=()
   while [ "$#" -gt 0 ] && [ "${1##*/}" != git ]; do
-    case "$1" in GIT_DIR=*|GIT_WORK_TREE=*) genv+=("$1") ;; esac
+    case "$1" in GIT_DIR=|GIT_WORK_TREE=) ;; GIT_DIR=*|GIT_WORK_TREE=*) genv+=("$1") ;; esac
     shift
   done
   [ "$#" -gt 0 ] || continue
@@ -81,13 +81,18 @@ while IFS= read -r seg; do
     case "$1" in
       __EXP__) # an expansion where an option or the verb belongs (git${IFS}add, -C "$PWD" add): take the next staging verb, judge as add -A
         shift
-        while [ "$#" -gt 0 ]; do case "$1" in add|stage|commit|push|update-index|mv|apply|am) break ;; esac; shift; done
+        while [ "$#" -gt 0 ]; do
+          case "$1" in add|stage|commit|push|update-index|mv|apply|am|status|log|diff|show|branch|fetch|rev-parse|ls-files|remote|config|tag|stash|describe|blame|grep|reflog|checkout|switch|restore|reset|clean|merge|rebase|pull|clone|init|cherry-pick|revert|worktree|submodule|bisect|ls-tree|cat-file) break ;; esac
+          shift
+        done
+        [ "$#" -gt 0 ] || set -- add  # no recognisable verb behind an expansion (git ${x:-add} -A): judge it as git add -A
         expverb=1; break ;;
       -C) if [ "${2:-}" = __EXP__ ]; then shift; continue; fi
           d="${2/#\~/$HOME}"; n="$(absdir "$dir" "$d")"; [ -n "$n" ] && dir="$n"; shift 2 || shift ;;
       -c) shift 2 || shift ;;
+      --git-dir=|--work-tree=) shift ;;  # value was an expansion; the next word is __EXP__ and takes the verb scan
       --git-dir=*|--work-tree=*) gitopts+=("$1"); shift ;;
-      --git-dir|--work-tree) gitopts+=("$1" "${2:-}"); shift 2 || shift ;;
+      --git-dir|--work-tree) if [ "${2:-}" = __EXP__ ]; then shift; else gitopts+=("$1" "${2:-}"); shift 2 || shift; fi ;;
       -*) shift ;;
       *) break ;;
     esac

@@ -109,6 +109,13 @@ run 2 "\$'\\147\\151\\164' add -A"
 CWD="$t" run 2 "git --git-dir=$r/.git --work-tree=$r add -A"
 CWD="$t" run 2 "git --git-dir $r/.git --work-tree $r add -A"
 CWD="$t" run 2 "GIT_DIR=$r/.git GIT_WORK_TREE=$r git add -A"
+run 2 'git --work-tree="$PWD" add -A'
+run 2 'git --git-dir="$PWD/.git" add -A'
+run 2 'git --git-dir=.git --work-tree="$PWD" add -A'
+run 2 'GIT_DIR="$PWD/.git" git add -A'
+run 2 'git ${x:-add} -A'
+run 0 'git -C "$PWD" status'
+run 0 'git -C "$PWD" log --oneline'
 CWD="$t" run 0 'git status'
 run 0 "echo \$'a\\tb'"
 run 0 'git${IFS}status'
