@@ -363,3 +363,6 @@ RTK 절감 (시점별로 값이 다르다):
 - **푸시 시도.** 규칙(`never push`)에도 워커 둘이 푸시를 시도했고 ask 규칙에서 멈췄다. 하나는 `--force-with-lease`였다. 거절했다. 푸시와 PR 생성은 워커가 아니라 사람이나 오케스트레이터 쪽에서 한다.
 - **세션 수명.** 워커 세션을 `ao session kill`하면 워크트리 폴더가 비워지고 그 세션에는 리뷰를 걸 수 없다(`worker session ... is terminated`). 다시 걸려면 `ao spawn --claim-pr <PR URL>`로 새 세션이 PR을 이어받는다. 이때 프로젝트에 등록된 origin이 PR 저장소와 같아야 한다(`INVALID_PR_REF`). 등록 후 origin을 바꾸면 AO가 옛 값을 쓰는 것으로 보이며(추론), 새 클론을 새 프로젝트로 등록해 해결했다. `ao project rm`은 원인 메시지 없이 실패했다.
 - **확인하지 못한 것.** 리뷰어가 설정한 모델(Opus)로 실제 실행됐는지: `ao review ls --json`에 모델 필드가 없다. `effort`는 CLI가 아니라 Project Settings나 데몬 API라고 문서에 있고 시험하지 않았다. 모델별 리뷰 품질 비교, 큰 프로젝트에서의 결과, 출처를 모르는 오케스트레이터 세션이 생긴 경위.
+
+## 대시보드 자동 시작 (이 머신)
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\claude-dashboard.vbs` 하나로 로그인 때 `pythonw server.py`를 숨김 실행한다(127.0.0.1:8787). 해제는 이 파일 삭제. 저장소에는 올라가지 않는 머신 설정이다.
