@@ -118,6 +118,7 @@
   "enabledPlugins": {
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "desktop-commander@synced": false
   }
 }
