@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Global Workflow</title>
 <style>
-/* Direction: Claude Code's terminal look. One monospace face for everything (the font a terminal gives Claude Code),
+/* Direction: Claude's own look. UI sans, serif headings, monospace only for code and logs,
    warm near-black canvas, Claude orange as the single accent, dim gray secondary text, hairline borders, no shadows.
    State is carried by badges (OK / WARN / FAIL / info), never by color alone. Charts update with transitions.
    Layout: one-screen app shell on desktop (KPI strip, pipeline, three panels); below 1100px it stacks and scrolls. */
@@ -13,8 +13,8 @@
   --bg: #faf9f5; --panel: #ffffff; --line: #e8e6dc; --fg: #141413; --muted: #5e5d59; --faint: #8a887f;
   --accent: #d77757; --accent-soft: #f6e6de; --accent-ink: #b9532f;
   --ok: #3f7a3a; --ok-soft: #e4efdf; --warn: #9a6200; --warn-soft: #f7ecd2; --bad: #b53333; --bad-soft: #f6e0dc; --info: #3c6fa8; --info-soft: #e1ebf6;
-  --sans: Poppins, "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
-  --serif: Lora, "Noto Serif KR", "Batang", Georgia, serif;
+  --sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --serif: "Source Serif 4", "Noto Serif KR", Georgia, "Batang", serif;
   --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "D2Coding", "Malgun Gothic", Menlo, monospace;
   --s2: 8px; --s3: 12px; --s4: 16px;
   --r-sm: 4px; --r-lg: 8px;
@@ -99,17 +99,36 @@ details.fold[open] summary { margin-bottom: var(--s2); }
 .svgi { flex: none; vertical-align: -3px; }
 .card .ch { display: flex; align-items: center; gap: 8px; color: var(--accent); }
 .card .ch b { color: var(--fg); }
-.card { transition: border-color .15s, box-shadow .15s; } .card:hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+.card { transition: border-color .15s; } .card:hover { border-color: var(--accent); }
 .ck .i-ok, .ck .i-bad, .ck .i-warn { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; }
 .ck .i-ok { background: rgba(120,140,93,.18); } .ck .i-bad { background: rgba(190,70,60,.15); } .ck .i-warn { background: rgba(217,160,60,.18); }
 .erow .ico, .side button .ic { display: inline-flex; align-items: center; justify-content: center; }
 .dia .fl { font-style: italic; }
-.logcard { border: 1px solid var(--line); border-left: 3px solid var(--faint); border-radius: var(--r); padding: var(--s3); display: grid; gap: 6px; background: var(--panel); }
-.logcard.warn { border-left-color: var(--warn); } .logcard.bad { border-left-color: var(--bad); }
+.logcard { border: 1px solid var(--line); border-radius: var(--r); padding: var(--s3); display: grid; gap: 6px; background: var(--panel); }
 .logcard .lh { display: flex; align-items: center; gap: var(--s2); } .logcard p { margin: 0; font-size: var(--t-sm); overflow-wrap: anywhere; }
 .logcard .btn { justify-self: start; } .fixtxt { color: var(--fg); } .fixlab { color: var(--accent-ink); font-weight: 600; }
 .logrow { grid-template-columns: 64px 160px minmax(0, 1fr); } @media (max-width: 760px) { .logrow { grid-template-columns: 64px minmax(0, 1fr); } .logrow .when { display: none; } }
 .fixbar { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
+.codebar { display: flex; align-items: center; gap: var(--s2); margin: var(--s2) 0; flex-wrap: wrap; } .codebar .muted { margin-left: auto; font-size: var(--t-xs); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; } .chip { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 2px 10px; font: 500 var(--t-xs)/1.6 var(--sans, inherit); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.code { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); max-height: 56vh; overflow: auto; font: 400 var(--t-xs)/1.7 var(--mono); }
+.code .ln { display: grid; grid-template-columns: 44px minmax(0, 1fr); } .code .ln:hover { background: var(--accent-soft); }
+.code .no { text-align: right; padding-right: 10px; color: var(--faint); user-select: none; border-right: 1px solid var(--line); background: var(--panel); position: sticky; left: 0; }
+.code .tx { padding: 0 var(--s3); white-space: pre-wrap; overflow-wrap: anywhere; }
+.code .lv { display: inline-block; min-width: 4.4em; margin-right: 8px; font-weight: 700; } .code .lv-FAIL, .code .t-bad { color: var(--bad); } .code .lv-WARN, .code .t-warn { color: var(--warn); } .code .lv-PASS, .code .t-ok { color: var(--ok); }
+.code .ln.is-FAIL { background: rgba(190, 70, 60, .08); } .code .ln.is-WARN { background: rgba(217, 160, 60, .08); }
+.code .t-h { color: var(--accent-ink); font-weight: 700; } .code .t-code { color: var(--accent-ink); background: var(--accent-soft); border-radius: 4px; padding: 0 4px; } .code .t-dim { color: var(--faint); } .code .t-cell { color: var(--muted); }
+.code .empty { padding: var(--s3); color: var(--muted); }
+.ph h2, dialog h2 { font-family: var(--serif); font-weight: 600; letter-spacing: 0; }
+.logcard { gap: 8px; } .logcard p { line-height: 1.6; } .logcard .fixtxt { padding: 8px 10px; background: var(--bg); border-radius: var(--r-sm); font-size: var(--t-sm); }
+.flowbox { display: grid; gap: var(--s3); } .flowbox svg { width: 100%; height: auto; display: block; min-width: 640px; }
+.fl-n { fill: var(--panel); stroke: var(--line); } .fl-t { fill: var(--fg); font: 600 12px var(--sans); } .fl-s { fill: var(--muted); font: 400 11px var(--sans); }
+.fl-a { stroke: var(--faint); stroke-width: 1.4; fill: none; } .fl-h { fill: var(--faint); } .fl-l { fill: var(--faint); font: 500 11px var(--sans); }
+.dot-ok { fill: var(--ok); } .dot-warn { fill: var(--warn); } .dot-bad { fill: var(--bad); } .dot-na { fill: var(--faint); }
+.sbar { display: grid; grid-template-columns: 110px minmax(0, 1fr) 70px; gap: var(--s2); align-items: center; font-size: var(--t-sm); }
+.sbar .tr { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); } .sbar .tr i { display: block; height: 100%; }
+.sbar .tr .o { background: var(--ok); } .sbar .tr .w { background: var(--warn); } .sbar .tr .b { background: var(--bad); } .sbar .n { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .dia { overflow-x: auto; }
 .dia svg { display: block; width: 100%; height: auto; min-width: 760px; }
 .dia text { font-family: var(--sans); font-size: 12px; fill: var(--fg); }
@@ -367,7 +386,8 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
 <dialog id="dlg">
   <div class="dh"><h2>전체 로그</h2><button class="btn" id="dlgClose" type="button">닫기</button></div>
   <div class="tabs"><button class="btn" id="tabV" type="button" aria-pressed="true">verify --live</button><button class="btn" id="tabR" type="button" aria-pressed="false">루틴 보고서</button><button class="btn" id="tabA" type="button" aria-pressed="false">AO 세션</button></div>
-  <pre id="dlgPre" tabindex="0"></pre>
+  <div class="codebar"><div class="chips" id="dlgChips"></div><span class="muted" id="dlgMeta"></span><button class="btn" id="dlgCopy" type="button">복사</button></div>
+  <div class="code" id="dlgPre" tabindex="0" role="log" aria-label="로그"></div>
 </dialog>
 
 <script>
@@ -424,12 +444,33 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     rowsEl.replaceChildren(...(list.length ? [head, ...nodes] : []));
   }
   $("tabV").onclick = () => { tab = "v"; fillDlg(); }; $("tabR").onclick = () => { tab = "r"; fillDlg(); }; $("tabA").onclick = () => { tab = "a"; fillDlg(); };
+  // Code-style log viewer: line numbers, level colouring, `code` spans, filter chips and copy. Text only (no innerHTML).
+  let dlgFilter = "ALL";
+  const tokens = (text, parent) => { text.split(/(`[^`]+`|\b(?:OUTDATED|FAIL|WARN|PASS|BLOCKED|EXPOSED)\b)/).forEach((t) => {
+    if (!t) return; if (t[0] === "`" && t.length > 2) parent.append(el("span", "t-code", t.slice(1, -1)));
+    else if (t === "FAIL" || t === "BLOCKED" || t === "EXPOSED") parent.append(el("span", "t-bad", t)); else if (t === "WARN" || t === "OUTDATED") parent.append(el("span", "t-warn", t)); else if (t === "PASS") parent.append(el("span", "t-ok", t));
+    else parent.append(document.createTextNode(t)); }); };
+  function codeLine(n, raw, kind, lv) {
+    const row = el("div", "ln" + (lv === "FAIL" || lv === "WARN" ? " is-" + lv : "")), tx = el("div", "tx"); row.append(el("div", "no", String(n)), tx);
+    const m = /^(FAIL|WARN|PASS)\s+(.*)$/.exec(raw);
+    if (kind === "log" && m) { tx.append(el("span", "lv lv-" + m[1], m[1])); tokens(m[2], tx); }
+    else if (kind === "md") { if (/^#{1,6}\s/.test(raw)) tx.append(el("span", "t-h", raw)); else if (/^\s*\|/.test(raw)) tx.append(el("span", "t-cell", raw)); else if (/^\s*(---|===)/.test(raw)) tx.append(el("span", "t-dim", raw)); else tokens(raw, tx); }
+    else if (kind === "ao") { raw.split(" | ").forEach((c, i) => { if (i) tx.append(el("span", "t-dim", " │ ")); tokens(c, tx); }); }
+    else tokens(raw, tx);
+    return row;
+  }
   function fillDlg() {
     $("tabV").setAttribute("aria-pressed", tab === "v"); $("tabR").setAttribute("aria-pressed", tab === "r"); $("tabA").setAttribute("aria-pressed", tab === "a");
-    const pre = $("dlgPre"); if (!last) { pre.textContent = "데이터를 기다리는 중"; return; }
-    if (tab === "v") pre.replaceChildren(...last.verify.lines.flatMap((l) => [el("span", "l-" + l.split(" ")[0], l), document.createTextNode("\n")]));
-    else if (tab === "a") pre.textContent = aoText(last);
-    else pre.textContent = (last.reports[0] || {}).text || "보고서가 아직 없습니다.";
+    const box = $("dlgPre"), chips = $("dlgChips"); if (!last) { box.replaceChildren(el("div", "empty", "데이터를 기다리는 중")); return; }
+    const lines = tab === "v" ? last.verify.lines : tab === "a" ? aoText(last).split("\n") : (((last.reports[0] || {}).text) || "보고서가 아직 없습니다.").split("\n");
+    const kind = tab === "v" ? "log" : tab === "a" ? "ao" : "md", lvl = (l) => (/^(FAIL|WARN|PASS)\b/.exec(l) || [])[1] || (tab === "v" ? "" : /\b(FAIL|OUTDATED|BLOCKED|EXPOSED)\b/.test(l) ? "FAIL" : /\bWARN\b/.test(l) ? "WARN" : "");
+    const cnt = { ALL: lines.length, FAIL: 0, WARN: 0, PASS: 0 }; lines.forEach((l) => { const k = lvl(l); if (k === "FAIL") cnt.FAIL++; else if (k === "WARN") cnt.WARN++; else if (k === "PASS") cnt.PASS++; });
+    if (!cnt[dlgFilter]) dlgFilter = "ALL";
+    chips.replaceChildren(...["ALL", "FAIL", "WARN", "PASS"].filter((k) => k === "ALL" || cnt[k]).map((k) => { const b = el("button", "chip", k + " " + cnt[k]); b.type = "button"; b.setAttribute("aria-pressed", String(dlgFilter === k)); b.addEventListener("click", () => { dlgFilter = k; fillDlg(); }); return b; }));
+    const rows = []; lines.forEach((l, i) => { const k = lvl(l); if (dlgFilter === "ALL" || k === dlgFilter) rows.push(codeLine(i + 1, l, kind, k)); });
+    box.replaceChildren(...(rows.length ? rows : [el("div", "empty", "표시할 줄이 없습니다.")]));
+    $("dlgMeta").textContent = rows.length + " / " + lines.length + "줄";
+    $("dlgCopy").onclick = () => { const t = lines.join("\n"); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $("dlgCopy").textContent = "복사됨"; setTimeout(() => { $("dlgCopy").textContent = "복사"; }, 1200); }, () => { $("dlgCopy").textContent = "복사 불가"; }); };
   }
 
   const ago = (iso, now) => { const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
@@ -896,6 +937,33 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
   }
   $("fixClose").addEventListener("click", () => { $("fixdlg").close(); if (curTab === "log") show("log"); });
   const LV = { ok: "정상", warn: "확인", bad: "오류" };
+  // Monitoring flow: each node is one real check, its dot is that check's current level. Rows follow the data path.
+  function flowSvg(tl) {
+    const lv = (n) => { const x = tl.find((t) => t.name === n); return x ? x.level : "na"; }, dt = (n) => { const x = tl.find((t) => t.name === n); return x ? x.detail.split(" · ")[0] : "미설치"; };
+    const rows = [
+      ["기록 → 기억", [["프롬프트 기록", "프롬프트 기록"], ["세션 로그", "세션 로그"], ["claude-mem 워커", "워커"], ["observer", "관찰자(observer)"], ["DB", "DB"], ["마스킹", "비밀 마스킹(redact)"]]],
+      ["병렬 작업(AO)", [["데몬", "데몬"], ["승인 대기", "승인 대기(blocked)"], ["멈춤", "멈춤(stuck)"], ["조용한 세션", "6시간 넘게 조용한 세션"], ["리뷰", "리뷰 없는 PR"], ["세션", "세션 합계"]]],
+      ["도구·백업", [["RTK", "RTK 버전"], ["apply 백업", "apply 백업"]]],
+    ];
+    const W = 920, NW = 128, NH = 52, GX = 28, X0 = 12, svg = sv("svg", { viewBox: "0 0 " + W + " " + (rows.length * 96 + 12), role: "img", "aria-label": "모니터링 흐름" });
+    rows.forEach((r, ri) => {
+      const y = 22 + ri * 96; svg.append(SN("text", { x: X0, y: y - 8, class: "fl-l" }, r[0]));
+      r[1].forEach((n, i) => {
+        const x = X0 + i * (NW + GX), name = n[1], level = lv(name);
+        svg.append(SN("rect", { x, y, width: NW, height: NH, rx: 8, class: "fl-n" }), SN("circle", { cx: x + 14, cy: y + 18, r: 4.5, class: "dot-" + level }),
+          SN("text", { x: x + 26, y: y + 22, class: "fl-t" }, n[0]), SN("text", { x: x + 14, y: y + 41, class: "fl-s" }, dt(name).slice(0, 18)));
+        if (i < r[1].length - 1) { const ax = x + NW + 4, ay = y + NH / 2; svg.append(SN("line", { x1: ax, y1: ay, x2: ax + GX - 12, y2: ay, class: "fl-a" }), SN("polygon", { points: (ax + GX - 7) + "," + ay + " " + (ax + GX - 13) + "," + (ay - 3.5) + " " + (ax + GX - 13) + "," + (ay + 3.5), class: "fl-h" })); }
+      });
+    });
+    const w = el("div", "dia flowbox"); w.append(svg); return w;
+  }
+  function groupBars(tl) {
+    const g = {}; tl.forEach((x) => { const o = g[x.group] || (g[x.group] = { ok: 0, warn: 0, bad: 0 }); o[x.level === "ok" ? "ok" : x.level === "bad" ? "bad" : "warn"]++; });
+    const box = el("div", "rows"); Object.keys(g).forEach((k) => { const o = g[k], n = o.ok + o.warn + o.bad, r = el("div", "sbar"), tr = el("div", "tr");
+      [["o", o.ok], ["w", o.warn], ["b", o.bad]].forEach(([c, v]) => { if (v) { const i = el("i", c); i.style.width = (v / n * 100) + "%"; tr.append(i); } });
+      r.append(el("span", null, k), tr, el("span", "n", o.ok + "/" + n + " 정상")); box.append(r); });
+    return box;
+  }
   function drawLog(v) {
     const s = last; if (!s) { wait(v); return; }
     const tl = (s.tools || []).filter((x) => x.level !== "na"), need = tl.filter((x) => x.level === "warn" || x.level === "bad");
@@ -916,7 +984,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     (s.fixlog || []).slice(0, 30).forEach((e) => { const r = el("div", "row logrow"); r.append(badge(e.ok ? "ok" : "bad", e.ok ? "완료" : "실패"), el("span", "when muted", new Date(e.at).toLocaleString("ko-KR")), el("span", "t", e.id + " · " + (e.msg || "") + ((e.targets || []).length ? " (" + e.targets.length + "건)" : ""))); hist.append(r); });
     const all = el("div", "rows");
     tl.forEach((x) => { const r = el("div", "row chk"); const t = el("span", "t", x.group + " · " + x.name + " — " + x.detail); t.title = t.textContent; r.append(badge(x.level, LV[x.level]), t); all.append(r); });
-    v.replaceChildren(head, panel("조치 필요", "버튼은 허용 목록의 안전한 조치만 실행합니다", todo), panel("조치 기록", "state/fix-log.jsonl", hist), panel("전체 점검", tl.length + "개", all));
+    v.replaceChildren(head, panel("모니터링 흐름", "점의 색이 지금 상태입니다", flowSvg(tl), groupBars(tl)), panel("조치 필요", "버튼은 허용 목록의 안전한 조치만 실행합니다", todo), panel("조치 기록", "state/fix-log.jsonl", hist), panel("전체 점검", tl.length + "개", all));
   }
   const DRAW = { orch: drawOrch, route: drawRoute, feat: drawFeat, prac: drawPrac, dbg: drawDbg, setup: drawSetup };
   async function loadInv() {
