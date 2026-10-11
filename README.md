@@ -31,7 +31,7 @@ Scope: local machines only. Cloud sessions read the project's own `.claude/`, no
 
 ## Verifying
 
-Run `bash scripts/qa-deny.sh` on each machine after `apply.sh`. It first checks without the CLI that every Bash deny pattern has an `rtk ` twin, then needs the `claude` CLI, uses a throwaway repo with no remote and the haiku model, and prints PASS or FAIL per command. Undo an apply by copying files back from `~/.claude-backup-<timestamp>/`.
+Run `bash scripts/qa-deny.sh` on each machine after `apply.sh`. It first checks without the CLI that every Bash deny pattern has an `rtk ` twin, then needs the `claude` CLI, uses a throwaway repo with no remote and the haiku model, and prints PASS or FAIL per command. Undo an apply by checking out the older commit and running `apply.sh` again (there is no backup; see docs/GUIDE.md).
 
 ## Status
 

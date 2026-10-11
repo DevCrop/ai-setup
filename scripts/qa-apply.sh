@@ -48,6 +48,14 @@ out="$(apply)"
   && printf '%s' "$out" | grep -q "removed (no longer in the repo): agents/old-agent.md" \
   && pass "3 stale file removed; user file kept and reported; unsafe manifest lines ignored" || bad "3 stale handling ($out)"
 
+# 3b. a symlinked directory inside a managed folder is never followed out of the config dir, and a directory line in the manifest is skipped
+newcfg; apply >/dev/null; mkdir -p "$base/out/dir"; echo keep > "$base/out/victim"; echo keep > "$base/out/dir/inner"
+ln -s "$base/out" "$cfg/agents/linkdir"; mkdir -p "$cfg/agents/realdir"; echo y > "$cfg/agents/stale.md"
+{ cat "$cfg/.claude-global-manifest"; echo "agents/linkdir/victim"; echo "agents/linkdir/dir/inner"; echo "agents/realdir"; echo "agents/stale.md"; } > "$base/m"; cp "$base/m" "$cfg/.claude-global-manifest"
+out="$(apply)"; rc=$?
+[ -e "$base/out/victim" ] && [ -e "$base/out/dir/inner" ] && [ -d "$cfg/agents/realdir" ] && [ ! -e "$cfg/agents/stale.md" ] && [ -f "$cfg/.claude-global-manifest" ] \
+  && pass "3b symlinked dir not followed, directory line skipped, later stale file still removed" || bad "3b symlink/directory handling ($out)"
+
 # 4. machine-only keys survive and are reported
 newcfg; apply >/dev/null
 jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .someAppKey="v"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
@@ -77,6 +85,29 @@ jq 'del(.permissions.allow) | del(.skillOverrides)' "$repo/claude/settings.json"
 newcfg; apply >/dev/null; jq '.permissions.allow=["Bash(*)"] | .skillOverrides={"x":"y"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$r2/scripts/apply.sh" >/dev/null 2>&1
 [ "$(live '.permissions | has("allow")')" = false ] && [ "$(live 'has("skillOverrides")')" = false ] && pass "6b a key the repo lacks is deleted from the owned set" || bad "6b owned key missing in the repo stayed live"
+
+# 6c. what else changes is reported: a repo-valued key (theme) and a forced enabledPlugins value
+newcfg; apply >/dev/null
+jq '.theme="light" | .enabledPlugins["ponytail@ponytail"]=false' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+out="$(apply)"
+printf '%s' "$out" | grep "replaced live value of" | grep -q "theme" && printf '%s' "$out" | grep "replaced live value of" | grep -q "enabledPlugins.ponytail@ponytail" \
+  && [ "$(live .theme)" = dark ] && pass "6c replaced non-owned keys are reported too" || bad "6c report of replaced keys ($out)"
+
+# 6d. a live settings.json that is empty counts as {}; one that is JSON but not an object is refused
+newcfg; mkdir -p "$cfg"; : > "$cfg/settings.json"; out="$(apply)"
+[ -s "$cfg/settings.json" ] && [ "$(live .permissions.defaultMode)" = auto ] && pass "6d empty live settings.json is treated as {}" || bad "6d empty settings.json ($out)"
+for bodytxt in '[]' '"str"' 'null' '5'; do
+  newcfg; mkdir -p "$cfg"; printf '%s' "$bodytxt" > "$cfg/settings.json"
+  out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2>&1)"; rc=$?
+  [ "$rc" = 1 ] && [ "$(cat "$cfg/settings.json")" = "$bodytxt" ] && [ ! -e "$cfg/CLAUDE.md" ] || bad "6d live settings.json $bodytxt: rc=$rc ($out)"
+done
+pass "6d JSON that is not an object is refused with exit 1 and nothing written (four shapes)"
+
+# 6e. a repo item that is missing is found before anything is written
+r3="$base/repo3"; mkdir -p "$r3/scripts" "$r3/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$r3/scripts/"; cp -R "$repo/claude/." "$r3/claude/"; rm "$r3/claude/statusline.sh"
+newcfg; mkdir -p "$cfg"; echo '{"keep":"me"}' > "$cfg/settings.json"; cp "$cfg/settings.json" "$base/b6e"
+out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$r3/scripts/apply.sh" 2>&1)"; rc=$?
+[ "$rc" = 2 ] && cmp -s "$base/b6e" "$cfg/settings.json" && [ ! -e "$cfg/CLAUDE.md" ] && pass "6e missing repo item: exit 2 before anything is written" || bad "6e preflight (rc=$rc; $out)"
 
 # 7. trailing slash in the config directory
 newcfg; out="$(apply "$cfg/")"

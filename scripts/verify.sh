@@ -195,7 +195,7 @@ if [ "$live" -eq 1 ]; then
     if [ ! -e "$dest/$item" ]; then fail "not applied: $item (run: bash scripts/apply.sh)"; continue; fi
     if [ "$item" = "settings.json" ]; then
       if ! command -v jq >/dev/null 2>&1; then skip "settings.json comparison (needs jq)"; continue; fi
-      if ! jq empty "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is not valid JSON"; continue; fi
+      if ! jq -e 'type == "object"' "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is empty or not a JSON object (run: bash scripts/apply.sh)"; continue; fi
       owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '
         def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
         def own_perm: ["defaultMode","deny","ask","allow"];

@@ -25,9 +25,13 @@ items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks routines skills
 
 command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). macOS: brew install jq   Windows: winget install jqlang.jq" >&2; exit 2; }
 [ -f "$repo/scripts/removed-keys.json" ] || { echo "apply: scripts/removed-keys.json is missing" >&2; exit 2; }
+missing=""
+for item in $items; do [ -e "$src/$item" ] || missing="$missing $item"; done
+[ -z "$missing" ] || { echo "apply: the repo has no claude/{$missing }; nothing was changed." >&2; exit 2; }
 live="$dest/settings.json"
-if [ -f "$live" ] && ! jq empty "$live" >/dev/null 2>&1; then
-  echo "apply: $live is not valid JSON. Fix or move it; nothing was changed." >&2
+# An empty file counts as {}; anything else must be a JSON object. Nothing is written before this passes.
+if [ -s "$live" ] && ! jq -e 'type == "object"' "$live" >/dev/null 2>&1; then
+  echo "apply: $live is not a valid JSON object. Fix or move it; nothing was changed." >&2
   exit 1
 fi
 
@@ -36,7 +40,7 @@ tmp="$(mktemp -d "${TMPDIR:-/tmp}/apply.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
 # ---- settings.json ----
-if [ -f "$live" ]; then cp "$live" "$tmp/live.json"; else echo '{}' > "$tmp/live.json"; fi
+if [ -s "$live" ]; then cp "$live" "$tmp/live.json"; else echo '{}' > "$tmp/live.json"; fi
 jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '
   def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
   def own_perm: ["defaultMode","deny","ask","allow"];
@@ -52,7 +56,9 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
   def own_perm: ["defaultMode","deny","ask","allow"];
   $l[0] as $l | $r[0] as $r | $x[0] as $x
   | ([own_top[] as $k | select(($l | has($k)) and ($l[$k] != $r[$k])) | $k]
-     + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]) as $replaced
+     + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]
+     + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "env") | not) | select(($l | has($k)) and $l[$k] != $r[$k]) | $k]
+     + [($r.enabledPlugins // {} | to_entries[]) as $e | select((($l.enabledPlugins // {}) | has($e.key)) and (($l.enabledPlugins // {})[$e.key] != $e.value)) | "enabledPlugins." + $e.key]) as $replaced
   | ($x | map(select(. as $p | ($l | getpath($p)) != null)) | map(join("."))) as $removed
   | (($l | keys) - ($r | keys) - ($x | map(select(length == 1) | .[0]))) as $only_top
   | ((($l.enabledPlugins // {}) | keys) - (($r.enabledPlugins // {}) | keys) - ($x | map(select(.[0] == "enabledPlugins" and length == 2) | .[1]))) as $only_plugins
@@ -84,14 +90,26 @@ done
 sort -o "$tmp/new.list" "$tmp/new.list"
 manifest="$dest/.claude-global-manifest"
 managed() { for it in $items; do case "$1" in "$it"|"$it"/*) return 0 ;; esac; done; return 1; }
+# A path from the manifest is deleted only when it stays inside $dest: no ".." component, no symlinked directory on the way (rm would
+# follow it out of the config directory), and the last component is a regular file or a link (a link is removed, never followed).
+removable() {
+  case "/$1/" in */../*|*//*) return 1 ;; esac
+  cur="$dest"; rest="$1"
+  while :; do
+    case "$rest" in */*) ;; *) break ;; esac
+    cur="$cur/${rest%%/*}"; rest="${rest#*/}"
+    [ -L "$cur" ] && return 1
+  done
+  [ -f "$dest/$1" ] || [ -L "$dest/$1" ]
+}
 if [ -f "$manifest" ]; then
   grep -vxFf "$tmp/new.list" "$manifest" > "$tmp/stale.list" || true
   while IFS= read -r p; do
     [ -n "$p" ] || continue
-    case "$p" in /*|*..*) continue ;; esac
+    case "$p" in /*) continue ;; esac
     managed "$p" || continue
-    [ -e "$dest/$p" ] || continue
-    rm -f "$dest/$p"
+    removable "$p" || continue
+    rm -f "$dest/$p" || continue
     (cd "$dest" && rmdir -p "$(dirname "$p")" 2>/dev/null) || true
     echo "removed (no longer in the repo): $p"
   done < "$tmp/stale.list"
@@ -102,7 +120,7 @@ for item in $items; do
   (cd "$dest" && find "$item" -type f 2>/dev/null) | grep -vxFf "$tmp/new.list" >> "$tmp/foreign.list" || true
 done
 if [ -s "$tmp/foreign.list" ]; then
-  head -n 20 "$tmp/foreign.list" | sed 's/^/kept (not from this repo): /'
+  sort "$tmp/foreign.list" | head -n 20 | sed 's/^/kept (not from this repo): /'
   [ "$(wc -l < "$tmp/foreign.list")" -gt 20 ] && echo "kept (not from this repo): ... and $(( $(wc -l < "$tmp/foreign.list") - 20 )) more"
 fi
 cp "$tmp/new.list" "$manifest.new" && mv "$manifest.new" "$manifest"
