@@ -37,6 +37,9 @@ for f in "$repo"/claude/agents/*.md; do
   got="$(printf '%s' "$iv" | jq -r --arg a "$a" '.agents[] | select(.name==$a) | .skills')"
   case "$got" in *"$want"*) pass "inventory shows the preloaded skill of $a ($want)";; *) bad "inventory skills cell of $a is [$got], expected to contain [$want]";; esac
 done
+# tools health: fixed keys only, levels in the allowed set, claude-mem, history and AO groups present
+printf '%s' "$s" | jq -e '[.tools[] | select((keys|sort) != ["detail","fix","group","level","name"] or (.level|IN("ok","warn","bad","na")|not))] | length == 0' >/dev/null && pass "tools items have fixed keys and valid levels" || bad "tools items malformed"
+printf '%s' "$s" | jq -e '[.tools[].group] | (index("claude-mem") != null) and (index("기록") != null) and (index("AO") != null)' >/dev/null && pass "tools cover claude-mem, history and AO" || bad "tools groups missing"
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"

@@ -315,6 +315,10 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
         <div class="ph"><h2>AO 워커</h2><span class="hint" id="aoNote"></span></div>
         <div class="rows" id="aoRows"></div>
       </div>
+      <div class="panel">
+        <div class="ph"><h2>도구 점검</h2><span class="hint" id="toolNote"></span></div>
+        <div class="rows" id="toolRows"></div>
+      </div>
     </div>
     <div class="col">
       <div class="panel">
@@ -555,6 +559,10 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     $("aoNote").textContent = !ao.available ? "ao 없음" : aoDown ? "데몬 " + ((ao.daemon || {}).state || "?") : aoLive.length + " 실행 · " + (aoS.length - aoLive.length) + " 종료 · 데몬 " + (ao.daemon || {}).state;
     $("aoRows").replaceChildren(...(aoRows.length ? aoRows : [el("div", "empty", ao.available ? "AO 세션이 없습니다." : "AO를 찾지 못했습니다.")]));
 
+    const tl = (s.tools || []).filter((x) => x.level !== "na"), toolBad = tl.filter((x) => x.level === "bad" || x.level === "warn");
+    $("toolNote").textContent = toolBad.length ? toolBad.length + "건 확인 필요" : tl.length + "개 정상";
+    $("toolRows").replaceChildren(...tl.map((x) => { const r = el("div", "row chk"); const t = el("span", "t", x.group + " · " + x.name + " — " + x.detail + (x.fix ? " ▶ 조치: " + x.fix : "")); t.title = t.textContent; if (x.fix) t.style.whiteSpace = "normal"; r.append(badge(x.level, x.level === "ok" ? "OK" : x.level === "bad" ? "FAIL" : "WARN"), t); return r; }));
+
     // history
     $("prNote").textContent = open + " 열림 · " + merged + " 머지";
     const list = prs.slice(0, 5).map((p) => {
@@ -571,6 +579,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     const items = [];
     s.verify.lines.filter((l) => /^(FAIL|WARN)/.test(l)).forEach((l) => items.push([l.split(" ")[0] === "FAIL" ? "bad" : "warn", l.split(" ")[0], l.replace(/^(FAIL|WARN)\s+/, "")]));
     if (aoDown) items.push(["bad", "AO DOWN", "AO 데몬 상태 " + ((ao.daemon || {}).state || "?")]);
+    (s.tools || []).filter((x) => x.level === "bad").forEach((x) => items.push(["bad", x.group.toUpperCase(), x.name + " · " + x.detail]));
     aoBlocked.forEach((x) => items.push(["bad", "BLOCKED", x.id + " · 사용자 입력 대기"]));
     aoLive.flatMap((x) => x.prs || []).filter((p) => p.verdict === "changes_requested").forEach((p) => items.push(["warn", "REVIEW", "PR #" + p.number + " 수정 요청"]));
     ((rep || {}).text || "").split("\n").filter((l) => /OUTDATED/.test(l)).forEach((l) => items.push(["info", "UPDATE", l.split("|")[0].trim() + " · 업데이트 필요"]));
