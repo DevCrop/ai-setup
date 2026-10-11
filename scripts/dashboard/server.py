@@ -8,7 +8,7 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import json, os, re, shutil, subprocess, sys, threading, time
+import json, os, re, shutil, subprocess, sys, threading, time, urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -433,10 +433,123 @@ def projects():
     return out
 
 
+def _age(ms_or_ts, now=None):
+    """Seconds since an epoch-millisecond number or an ISO string; None when unknown."""
+    try:
+        now = now or time.time()
+        if isinstance(ms_or_ts, (int, float)):
+            return max(0, now - ms_or_ts / 1000)
+        return max(0, now - datetime.fromisoformat(str(ms_or_ts).replace("Z", "+00:00")).timestamp())
+    except Exception:
+        return None
+
+
+def _span(sec):
+    return "?" if sec is None else f"{int(sec // 86400)}일" if sec >= 86400 else f"{int(sec // 3600)}시간" if sec >= 3600 else f"{int(sec // 60)}분"
+
+
+def mem_health(now=None):
+    """claude-mem worker, database, observer and redaction. Numbers and flags only; no observation text."""
+    out = []
+    mem = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem"))
+    port = 37777
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=2) as r:
+            h = json.load(r)
+        ai = (h.get("ai") or {}).get("lastInteraction") or {}
+        out.append(("claude-mem", "워커", "ok" if h.get("status") == "ok" and h.get("initialized") else "bad",
+                    f"v{h.get('version')} · 가동 {_span(h.get('uptime'))} · MCP {'준비' if h.get('mcpReady') else '미준비'}"))
+        age = _age(ai.get("timestamp"), now)
+        out.append(("claude-mem", "마지막 AI 호출", "ok" if ai.get("success") else "warn", f"{_span(age)} 전 · {'성공' if ai.get('success') else '실패'}", "" if ai.get("success") else "`claude auth status` 로 로그인 확인, 필요하면 `claude auth login`"))
+    except Exception:
+        out.append(("claude-mem", "워커", "bad", "127.0.0.1:37777 응답 없음 (플러그인 비활성 또는 중지)", "Claude Code를 다시 시작한다. 계속 안 되면 `claude plugin list`로 claude-mem@thedotmack 활성 여부 확인 [출처: 미확인, 일반 절차]"))
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/stats", timeout=2) as r:
+            d = (json.load(r).get("database") or {})
+        out.append(("claude-mem", "DB", "ok", f"관찰 {d.get('observations')}건 · 세션 {d.get('sessions')} · 요약 {d.get('summaries')} · {round((d.get('size') or 0) / 1048576, 1)}MB"))
+    except Exception:
+        pass
+    try:
+        o = json.loads((mem / "observer-health.json").read_text(encoding="utf-8"))
+        fails = o.get("consecutiveFailures") or 0
+        ok_age = _age(o.get("lastSuccessAt"), now)
+        err_age = _age(o.get("lastErrorAt"), now)
+        recovered = (o.get("lastSuccessAt") or 0) > (o.get("lastErrorAt") or 0)
+        lvl = "bad" if fails >= 3 or o.get("quotaCooldown") else "warn" if fails or (o.get("lastErrorAt") and not recovered) else "ok"
+        detail = f"연속 실패 {fails} · 마지막 성공 {_span(ok_age)} 전"
+        if o.get("lastErrorKind"):
+            detail += f" · 마지막 오류 {o.get('lastErrorKind')} ({_span(err_age)} 전{', 복구됨' if recovered else ''})"
+        if o.get("quotaCooldown"):
+            detail += " · 쿼터 대기 중"
+        fix = o.get("lastErrorAction") if lvl != "ok" else ""  # claude-mem's own guidance, verbatim
+        out.append(("claude-mem", "관찰자(observer)", lvl, detail, fix or ""))
+    except Exception:
+        out.append(("claude-mem", "관찰자(observer)", "warn", "observer-health.json 없음"))
+    try:
+        st = json.loads((mem / "settings.json").read_text(encoding="utf-8"))
+        on = str(st.get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
+        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else "~/.claude-mem/settings.json 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]"))
+    except Exception:
+        pass
+    return out
+
+
+def history_health(now=None):
+    """Sizes and ages of the prompt history, session logs and apply backups. Never reads their content."""
+    out = []
+    try:
+        h = CONFIG / "history.jsonl"
+        n = sum(1 for _ in open(h, "rb")) if h.is_file() else 0
+        age = _age(h.stat().st_mtime * 1000, now) if h.is_file() else None
+        out.append(("기록", "프롬프트 기록", "ok" if h.is_file() else "warn", f"{n}줄 · {round(h.stat().st_size / 1024, 1) if h.is_file() else 0}KB · 마지막 기록 {_span(age)} 전"))
+    except Exception:
+        pass
+    try:
+        logs = list(PROJECTS.glob("*/*.jsonl")) if PROJECTS.is_dir() else []
+        total = sum(f.stat().st_size for f in logs)
+        mb = total / 1048576
+        out.append(("기록", "세션 로그", "warn" if mb > 500 else "ok", f"{len(logs)}개 · {round(mb, 1)}MB" + (" · 500MB 초과, 정리 검토" if mb > 500 else ""), "Claude Code의 cleanupPeriodDays 설정으로 보관 기간을 줄인다 [출처: 공식 settings 문서, 이번에 재확인 안 함]" if mb > 500 else ""))
+    except Exception:
+        pass
+    try:
+        bk = sorted(Path.home().glob(".claude-backup-*"))
+        out.append(("기록", "apply 백업", "warn" if len(bk) > 15 else "ok", f"{len(bk)}개" + (f" · 가장 오래된 {bk[0].name[-15:]}" if bk else "") + (" · 15개 초과, 정리 검토" if len(bk) > 15 else ""), "오래된 ~/.claude-backup-* 폴더를 목록 확인 후 사용자 승인으로 삭제 [출처: 이 저장소 규칙, 자동 삭제 안 함]" if len(bk) > 15 else ""))
+    except Exception:
+        pass
+    return out
+
+
+def ao_health(ao, now=None):
+    """Detail checks over ao_state(): daemon, blocked or stuck workers, finished PRs with no review, stale live sessions."""
+    if not ao.get("available"):
+        return [("AO", "설치", "na", "ao CLI 없음 (이 PC에는 미설치)")]
+    d = ao.get("daemon") or {}
+    out = [("AO", "데몬", "ok" if d.get("state") in ("running", "ready") else "bad" if d.get("state") == "down" else "warn",
+            f"{d.get('state')} · 포트 {d.get('port')} · 가동 {d.get('uptime')}", "`ao status`로 확인 후 `ao doctor` 실행 [출처: AO 문서 계획서, 미확인]" if d.get("state") == "down" else "")]
+    ss = ao.get("sessions") or []
+    live = [x for x in ss if not x.get("isTerminated")]
+    for key, lvl, label in (("blocked", "bad", "승인 대기(blocked)"), ("stuck", "warn", "멈춤(stuck)")):
+        n = [x for x in live if x.get("activity") == key]
+        out.append(("AO", label, lvl if n else "ok", f"{len(n)}개" + (": " + ", ".join(str(x.get("id")) for x in n[:3]) if n else ""), "AO 세션을 열어 승인/답변을 직접 입력 (사람만 가능)" if n and key == "blocked" else "AO 세션 상태를 확인하고 필요하면 종료 후 재시작 [미확인]" if n else ""))
+    stale = [x for x in live if (_age(x.get("lastActivityAt"), now) or 0) > 6 * 3600]
+    out.append(("AO", "6시간 넘게 조용한 세션", "warn" if stale else "ok", f"{len(stale)}개", "끝난 세션이면 종료 처리" if stale else ""))
+    noreview = [x for x in ss if any(p.get("number") and not p.get("reviewStatus") for p in (x.get("prs") or []))]
+    out.append(("AO", "리뷰 없는 PR", "warn" if noreview else "ok", f"{len(noreview)}개 세션", "`ao review` 로 리뷰어 실행 [미확인]" if noreview else ""))
+    out.append(("AO", "세션 합계", "ok", f"실행 {len(live)} · 종료 {len(ss) - len(live)} · 프로젝트 {len(ao.get('projects') or [])}"))
+    return out
+
+
+def tools_health():
+    ao = cached("ao", 8, ao_state, slow=True, placeholder={"available": bool(ao_bin()), "daemon": {"state": "loading"}, "sessions": []})
+    items = mem_health() + history_health() + ao_health(ao)
+    return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": i[4] if len(i) > 4 else ""} for i in items]
+
+
 def state():
     return {
         "now": datetime.now(timezone.utc).isoformat(),
         "git": cached("git", 5, git_history),
+        "tools": cached("tools", 10, tools_health),
         "prs": cached("prs", 60, pull_requests, slow=True, placeholder=[]),
         "verify": cached("verify", 60, verify, slow=True, placeholder={"at": datetime.now(timezone.utc).isoformat(), "counts": {"PASS": 0, "FAIL": 0, "WARN": 0}, "lines": ["검증 실행 중..."]}),
         "settings": cached("settings", 5, settings),
