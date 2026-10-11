@@ -16,7 +16,7 @@
 # Known holes: sql_built/sql_placeholder read single lines (a query built in a variable or across lines is not seen; the pair still
 # fails most of those); the commit/install regex covers subagents only and common spellings; CHK words are weak evidence.
 set -u
-repo="$(cd "$(dirname "$0")/.." && pwd)"
+repo="$(cd "$(dirname "$0")/.." && pwd -W 2>/dev/null || pwd)"  # pwd -W: native Windows path for claude.exe (Git Bash)
 work="${1:?usage: bash scripts/qa-role-agents.sh <work-dir> [case...]}"; shift
 CASES="pub-missing-spec pub-scope-creep pub-contrast fe-no-contract be-destructive inject fe-install be-commit qa-failing qa-unverifiable qa-no-fix route-fullstack be-contract be-security qa-visual cr-update env-search env-worker env-reviewer"
 [ $# -gt 0 ] && names="$*" || names="$CASES"

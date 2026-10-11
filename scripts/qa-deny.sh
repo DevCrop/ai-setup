@@ -7,7 +7,7 @@
 # Works on macOS bash and Git Bash on Windows (no python or jq needed).
 set -u
 
-repo="$(cd "$(dirname "$0")/.." && pwd)"
+repo="$(cd "$(dirname "$0")/.." && pwd -W 2>/dev/null || pwd)"  # pwd -W: native Windows path for claude.exe (Git Bash)
 settings="${CLAUDE_QA_SETTINGS:-$repo/claude/settings.json}"
 
 fail=0
