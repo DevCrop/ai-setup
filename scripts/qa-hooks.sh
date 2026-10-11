@@ -151,6 +151,11 @@ run 2 'git commit -m "never add .env"'
 git rm -q --cached .env.production; git commit -qm rm
 run 0 'git commit -m x'
 # Fail-closed: when the hook cannot judge a command that could stage files, it blocks; other commands still pass.
+# The no-jq / no-git cases fake a PATH with links to single tools. Git Bash copies the .exe files without msys-2.0.dll, so grep/sed cannot
+# run there and the result says nothing about the hook: skip on MSYS/MINGW (checklist L-1 covers jq-less Windows by hand).
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) echo "SKIP  no-jq / no-git simulation (Git Bash cannot fake a reduced PATH)" ;;
+  *)
 nojq="$t/nojq"; mkdir "$nojq"
 for tool in bash cat tr sed grep basename git; do ln -s "$(command -v $tool)" "$nojq/$tool"; done
 realbash="$(command -v bash)"
@@ -173,6 +178,8 @@ nogit_run() { # expect cmd
 nogit_run 2 'git add .env'
 nogit_run 0 'git status'
 nogit_run 0 'ls -la'
+    ;;
+esac
 raw_run() { # expect raw-stdin
   out="$(printf '%s' "$2" | bash "$hook" 2>&1)"; rc=$?
   if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  (raw) $2"; else echo "FAIL want=$1 got=$rc  (raw) $2  [$out]"; fail=$((fail+1)); fi

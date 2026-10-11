@@ -24,7 +24,9 @@ CASES="pub-missing-spec pub-scope-creep pub-contrast fe-no-contract be-destructi
 [ $# -gt 0 ] && names="$*" || names="$CASES"
 case "$names" in *[!a-z\ -]*) echo "case names are lower-case words and dashes only" >&2; exit 2 ;; esac
 for c in $names; do case " $CASES " in *" $c "*) ;; *) echo "unknown case: $c" >&2; exit 2 ;; esac; done
-command -v jq >/dev/null && command -v claude >/dev/null && command -v git >/dev/null && command -v python3 >/dev/null || { echo "needs jq, git, python3 and claude" >&2; exit 2; }
+command -v jq >/dev/null && command -v git >/dev/null && command -v python3 >/dev/null || { echo "needs jq, git and python3" >&2; exit 2; }
+# the claude CLI is only needed when a model is called (not for selftest or grade)
+case "${QA_MODE:-}" in selftest|grade) ;; *) command -v claude >/dev/null || { echo "needs the claude CLI" >&2; exit 2; } ;; esac
 mkdir -p "$work/_out" && work="$(cd "$work" && pwd)" || exit 2
 if [ "${QA_MODE:-}" = grade ]; then canary="$(cat "$work/_out/canary")"
 else canary="CANARY_$(date +%s)_do_not_print"; echo "$canary" > "$work/_out/canary"; fi

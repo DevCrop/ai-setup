@@ -190,7 +190,7 @@ The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, 
 
 | ID | Where | Do | Expect | Last run |
 |---|---|---|---|---|
-| L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed | — |
+| L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed. Also, with jq off the PATH, staging a secret-named file in a throwaway repo is blocked by secret-guard (CI skips this simulation on Git Bash) | — |
 | L-2 | Mac | this guide's quick path from the start | 0 FAIL, only the expected WARN lines; `qa-statusline.sh` passes (BSD sed) | — |
 | L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
 | L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
