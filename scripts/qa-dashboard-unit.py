@@ -118,29 +118,27 @@ check(s.get("liveMissing") is False and s["liveDeny"] == 2 and s["liveAsk"] == 1
 s = live(json.dumps({"permissions": "oops", "enabledPlugins": []}))
 check("liveDeny" in s and s["livePlugins"] == [], "settings(): odd value types do not raise", s)
 
-# ---- safe_command ----
+# ---- safe_command: only known programs, known subcommands and this repo's own scripts leave ----
 cases = {
-    "git log --oneline": "git log",
-    "gh pr list": "gh pr",
-    "rtk git status": "rtk git",
-    "bash scripts/verify.sh --live": "bash verify.sh",
-    "bash /Users/john/private-client/deploy.sh --x": "bash deploy.sh",
-    "TOKEN=abc123def456 npm test": "npm test",
-    "A=1 B=2 git status": "git status",
-    "npm ghp_abcdefghijklmnopqrstuvwxyz0123456789": "npm",
-    "npm sk-abcdefghijklmnopqrstuvwxyz": "npm",
-    "npm AKIAABCDEFGHIJKLMNOP": "npm",
-    "git eyJhbGciOiJIUzI1NiJ9abcdef": "git",
-    "git " + "a" * 40: "git",
-    "curl -H 'Authorization: Bearer x' https://u": "curl",
-    "python3 -c 'print(1)'": "python3",
-    '"C:\\Program Files\\x.exe" a': "",
-    "": "",
-    "   ": "",
+    "git log --oneline": "git log", "gh pr list": "gh pr", "rtk git status": "rtk git", "npm test": "npm test", "ls -la": "ls",
+    "git\tstatus": "git status", "git.exe status": "git status", "docker run -e SECRET=x img": "docker",
+    "bash scripts/verify.sh --live": "bash verify.sh", "python3 scripts/qa-fix.py x": "python3 qa-fix.py",
+    "TOKEN=abc123def456 npm test": "npm test", "A=1 B=2 git status": "git status",
+    "TOKEN='abc def ghi' ls": "ls", "MSG='fix CANARYsecret now' git commit": "git commit", "TOKEN='unclosed ls": "",
+    "bash /Users/john/private-client/deploy.sh --x": "bash", "bash CANARY56client-deploy.sh": "bash", "python3 my_password_is_x.py": "python3",
+    "npx CANARY32tool": "npx", "python3 -c 'print(1)'": "python3", "curl -H 'Authorization: Bearer x' https://u": "curl",
+    "npm ghp_abcdefghijklmnopqrstuvwxyz0123456789": "npm", "npm sk-abcdefghijklmnopqrstuvwxyz": "npm", "npm abc123def456ghi789": "npm",
+    "npm AKIAABCDEFGHIJKLMNOP": "npm", "git eyJhbGciOiJIUzI1NiJ9abcdef": "git", "git " + "a" * 40: "git", "git hunter2": "git",
+    "git sk_live_abcdefghijklmnop": "git", "git 123456": "git",
+    "./CANARY44 x": "other", "$HOME/x/tool": "other", "password123 git": "other", '"C:\\Program Files\\x.exe" a': "other",
+    "": "", "   ": "",
 }
 for cmd, want in cases.items():
     got = server.safe_command(cmd)
     check(got == want, f"safe_command({cmd[:44]!r}) == {want!r}", repr(got))
+import privacy
+check(privacy.file_target("C:\\Users\\NAME\\a.txt") == "a.txt" and privacy.file_target("/x/y/b.txt") == "b.txt" and privacy.file_target("dir/") == "dir",
+      "file_target(): base name for both path styles, never a directory")
 
 # ---- .mcp.json token detector ----
 secret_cases = [
@@ -152,6 +150,13 @@ secret_cases = [
 ]
 for k, v, want in secret_cases:
     check(server.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {str(v)[:20]!r}) is {want}")
+for k, v, want in [("Authorization", "Bearer $TOKEN", False), ("Cookie", "session=abcdefghijklmnop", True), ("passwd", "hunter2hunter2", True),
+                   ("Signature", "abcdefghijklmnop", True), ("url", "postgres://u:p4ssw0rd@h/db", True), ("url", "https://h/mcp?api_key=abcdefghij1234", True),
+                   ("url", "https://mcp.example.com/v1", False), ("note", "uses ${HOME}/x and more text", False)]:
+    check(server.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {v[:24]!r}) is {want}")
+check(server.literal_secret_count({"s": {"args": ["--token", "abcdefghijklmnop"]}}) == 1 and server.literal_secret_count({"s": {"args": ["--token=abcdefghijklmnop"]}}) == 1
+      and server.literal_secret_count({"s": {"args": ["--port", "8080", "x"]}}) == 0 and server.literal_secret_count({"s": {"url": "https://u:pw12345678@h/x"}}) == 1,
+      "literal_secret_count() also reads url and --flag arguments")
 servers = {"a": {"headers": {"Authorization": "Bearer abcdefghijklmnop1234"}, "env": {"OK": "${X}", "SECRET_X": "abcdefghijklmnop"}}, "b": "oops", "c": {"env": []}}
 check(server.literal_secret_count(servers) == 2 and server.literal_secret_count(None) == 0, "literal_secret_count over headers and env, odd shapes tolerated")
 
@@ -186,18 +191,51 @@ try:
     raised = False
 except ValueError:
     raised = True
+import cache as _cm
+_cm.FAIL_WINDOW = 0.1
+time.sleep(0.2)
 try:
     c.get("z", 60, bad_once)
 except ValueError:
     pass
-check(raised and len(calls) == 2, "TtlCache: a failing normal source raises to the caller and caches nothing", (raised, len(calls)))
+_cm.FAIL_WINDOW = 2.0
+check(raised and len(calls) == 2, "TtlCache: a failing normal source raises to the caller, caches no value and is retried after the failure window", (raised, len(calls)))
+
+import cache as cache_mod
+class NoThread:
+    def __init__(self, *a, **k): pass
+    def start(self): raise RuntimeError("can't start new thread")
+real_thread = cache_mod.threading.Thread
+cache_mod.threading.Thread = NoThread
+c = TtlCache()
+v1 = c.get("t", 60, lambda: "real", slow=True, placeholder="ph")
+cache_mod.threading.Thread = real_thread
+v2 = c.get("t", 60, lambda: "real", slow=True, placeholder="ph")
+time.sleep(0.3)
+v3 = c.get("t", 60, lambda: "real", slow=True, placeholder="ph")
+check(v1 == "ph" and v2 == "ph" and v3 == "real", "TtlCache: a thread that cannot start does not wedge the key", (v1, v2, v3))
+c = TtlCache()
+calls = []
+def slow_fail():
+    calls.append(1)
+    time.sleep(0.3)
+    raise OSError("down")
+res = []
+def waiter():
+    try:
+        c.get("f", 60, slow_fail)
+    except OSError:
+        res.append("raised")
+ts = [threading.Thread(target=waiter) for _ in range(5)]
+[t.start() for t in ts]; [t.join() for t in ts]
+check(len(calls) == 1 and res == ["raised"] * 5, "TtlCache: 5 callers queued behind a failing source share its one failure", (len(calls), res))
 
 # ---- AO: only allow-listed PR fields leave ----
 def fake_ao(binary, args):
     if args[0] == "status":
         return {"state": "up"}
     if args[0] == "session":
-        return {"data": [{"id": "s1", "projectId": "p", "prs": [{"number": 3, "url": "u", "ci": "passing", "state": "OPEN", "title": "SECRET TITLE", "body": "SECRET BODY"}, "junk"], "prompt": "SECRET PROMPT"}]}
+        return {"data": [{"id": "s1", "projectId": "p", "prs": [{"number": 3, "url": "https://github.com/SECRETORG/repo/pull/3", "ci": "passing", "state": "OPEN", "title": "SECRET TITLE", "body": "SECRET BODY"}, {"number": 4, "ci": {"log": "SECRETNESTED"}}, "junk"], "prompt": "SECRET PROMPT"}]}
     if args[0] == "review":
         return {"reviews": [{"prNumber": 3, "status": "done", "latestRun": {"verdict": "approved", "body": "SECRET REVIEW"}}]}
     return {"projects": []}
@@ -206,19 +244,21 @@ server.ao_json = fake_ao
 ao = server.ao_state()
 blob = json.dumps(ao)
 pr = ao["sessions"][0]["prs"][0]
-check("SECRET" not in blob and set(pr) == {"number", "url", "ci", "state", "reviewStatus", "verdict"} and pr["verdict"] == "approved" and len(ao["sessions"][0]["prs"]) == 1,
+check("SECRET" not in blob and set(pr) == {"number", "ci", "state", "reviewStatus", "verdict"} and pr["verdict"] == "approved" and len(ao["sessions"][0]["prs"]) == 2 and ao["sessions"][0]["prs"][1]["ci"] is None,
       "ao_state(): PR objects carry only the allow-listed fields; prompts, titles and review bodies never leave", blob)
 
 # ---- session log with odd lines / vanished files ----
 logdir = cfg / "projects" / "p1"
 logdir.mkdir(parents=True)
 (logdir / "s.jsonl").write_text("\n".join([
-    "[1,2]", '"str"', "not json", '{"timestamp":"t0","type":"user","message":{"content":"hello"}}',
+    "[1,2]", '"str"', "not json", '{"timestamp":"t","type":"assistant","message":"str"}', '{"timestamp":"t","type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":["x"]}]}}',
+    '{"timestamp":"t","type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"C:\\\\Users\\\\NAME\\\\a.txt"}}]}}', '{"timestamp":"t0","type":"user","message":{"content":"hello"}}',
     json.dumps({"timestamp": "t1", "type": "assistant", "message": {"content": ["text", {"type": "tool_use", "name": "Bash", "input": {"command": "TOKEN=abc123def456 git status"}}]}}),
 ]), encoding="utf-8")
 server.PROJECTS = cfg / "projects"
 ev = server.session_events()
-check([e["target"] for e in ev["events"] if e["kind"] == "tool"] == ["git status"] and "abc123" not in json.dumps(ev), "session_events(): odd lines skipped; no env assignment in any event", ev)
+check([e["target"] for e in ev["events"] if e["kind"] == "tool"] == ["", "a.txt", "git status"] and "abc123" not in json.dumps(ev) and "NAME" not in json.dumps(ev),
+      "session_events(): odd lines skipped, nothing but tool name, time and base name/safe command in any event", ev)
 check(server.newest_file([tmp / "gone.jsonl", logdir / "s.jsonl"]) == logdir / "s.jsonl" and server.newest_file([]) is None, "newest_file(): a file that vanished does not raise")
 
 # ---- token compare and HTTP guards ----

@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import inventory
+import privacy
 from efficiency import AoEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency
 from cache import TtlCache
 from fixes import FixRegistry, MemRedactOn, RtkUpdate
@@ -115,7 +116,12 @@ def ao_json(binary, args):
         return None
 
 
-PR_KEYS = ("number", "url", "ci", "state")
+PR_KEYS = ("number", "ci", "state")  # no url: it names the organisation and the repository
+
+
+def _scalar(v, limit=40):
+    """A short plain value or None: a nested object or list that AO adds later must not pass through."""
+    return v[:limit] if isinstance(v, str) else v if isinstance(v, (int, bool)) or v is None else None
 
 
 def ao_state():
@@ -130,7 +136,7 @@ def ao_state():
     sessions = []
     for s in raw:
         row = {k: s.get(k) for k in ("id", "projectId", "role", "displayName", "status", "activity", "branch", "isTerminated", "lastActivityAt", "createdAt")}
-        row["prs"] = [{k: p.get(k) for k in PR_KEYS} for p in (s.get("prs") or []) if isinstance(p, dict)]  # nothing else AO puts on a PR leaves the machine
+        row["prs"] = [{k: _scalar(p.get(k)) for k in PR_KEYS} for p in (s.get("prs") or []) if isinstance(p, dict)]  # nothing else AO puts on a PR leaves the machine
         sessions.append(row)
     sessions.sort(key=lambda s: s.get("lastActivityAt") or "", reverse=True)
     for s in [s for s in sessions if s["prs"]][:10]:
@@ -139,32 +145,17 @@ def ao_state():
         for p in s["prs"]:
             r = by_pr.get(p.get("number"))
             if r:
-                p["reviewStatus"] = r.get("status")
-                p["verdict"] = (r.get("latestRun") or {}).get("verdict")
+                p["reviewStatus"] = _scalar(r.get("status"))
+                p["verdict"] = _scalar((r.get("latestRun") or {}).get("verdict") if isinstance(r.get("latestRun"), dict) else None)
     return {"available": True, "daemon": {k: st.get(k) for k in ("state", "uptime", "port", "health", "ready")}, "sessions": sessions[:40],
             "projects": [p.get("id") for p in (ao_json(binary, ["project", "ls", "--json"]) or {}).get("projects", [])]}
 
 
-SUBCOMMAND_HEADS = ("git", "gh", "bash", "python3", "python", "npm", "npx", "rtk", "winget")
-TOKEN_SHAPE = re.compile(r"^(gh[pousr]_|github_pat_|sk-|xox[a-z]-|AKIA|AIza|eyJ)", re.I)
+SCRIPTS = privacy.repo_scripts(ROOT)
 
 
 def safe_command(cmd):
-    """First word, plus the second only when it is a short plain subcommand or a script's base name: never a path, a flag, a value with '='
-    or anything shaped like a token."""
-    w = cmd.split()
-    while w and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", w[0]):  # leading NAME=value assignments never leave the machine
-        w = w[1:]
-    if not w:
-        return ""
-    head = os.path.basename(w[0])[:20]
-    if not re.fullmatch(r"[A-Za-z0-9_.+-]+", head):  # a quote, a redirect or an expansion in the first word: say nothing about it
-        return ""
-    if len(w) > 1 and head in SUBCOMMAND_HEADS and re.fullmatch(r"[A-Za-z0-9_./-]{1,40}", w[1]) and not w[1].startswith("-") and not TOKEN_SHAPE.match(w[1]):
-        sub = os.path.basename(w[1].rstrip("/"))
-        if 0 < len(sub) <= 24:
-            return head + " " + sub
-    return head
+    return privacy.safe_command(cmd, SCRIPTS)
 
 
 def _mtime(p):
@@ -176,6 +167,34 @@ def _mtime(p):
 
 def newest_file(files):
     return max(files, key=_mtime) if files else None
+
+
+def _event(line):
+    """The events of one log line (tool name, time and a safe target), or []. Message text and tool arguments are never copied."""
+    d = json.loads(line)
+    if not isinstance(d, dict):
+        return []
+    ts, t = d.get("timestamp"), d.get("type")
+    msg = d.get("message") if isinstance(d.get("message"), dict) else {}
+    c = msg.get("content")
+    out = []
+    if not ts:
+        return out
+    if t == "assistant" and isinstance(c, list):
+        for x in c:
+            if isinstance(x, dict) and x.get("type") == "tool_use":
+                inp = x.get("input") if isinstance(x.get("input"), dict) else {}
+                target = ""
+                if inp.get("file_path"):
+                    target = privacy.file_target(inp["file_path"])
+                elif inp.get("command"):
+                    target = safe_command(str(inp["command"]))
+                elif inp.get("pattern"):
+                    target = "search"
+                out.append({"at": ts, "kind": "tool", "name": str(x.get("name", "?")).split("__")[-1], "target": target})
+    elif t == "user" and isinstance(c, str) and not c.startswith("<"):
+        out.append({"at": ts, "kind": "user", "name": "user message", "target": ""})
+    return out
 
 
 def session_events(limit=120):
@@ -198,40 +217,23 @@ def session_events(limit=120):
     events = []
     for line in raw:
         try:
-            d = json.loads(line)
-        except Exception:
+            ev = _event(line)
+        except Exception:  # one odd line must not make every poll fail
             continue
-        if not isinstance(d, dict):
-            continue
-        ts = d.get("timestamp")
-        if not ts:
-            continue
-        t = d.get("type")
-        c = (d.get("message") or {}).get("content")
-        if t == "assistant" and isinstance(c, list):
-            for x in c:
-                if isinstance(x, dict) and x.get("type") == "tool_use":
-                    inp = x.get("input") or {}
-                    target = ""
-                    if inp.get("file_path"):
-                        target = os.path.basename(str(inp["file_path"]))
-                    elif inp.get("command"):
-                        target = safe_command(str(inp["command"]))
-                    elif inp.get("pattern"):
-                        target = "search"
-                    events.append({"at": ts, "kind": "tool", "name": str(x.get("name", "?")).split("__")[-1], "target": target})
-        elif t == "user" and isinstance(c, str) and not c.startswith("<"):
-            events.append({"at": ts, "kind": "user", "name": "user message", "target": ""})
+        if ev:
+            events.extend(ev)
     return {"session": f.stem[:8], "mtime": datetime.fromtimestamp(mt, timezone.utc).isoformat(), "events": events[-limit:]}
 
 
-SECRET_KEY = re.compile(r"authorization|token|secret|password|apikey|accesskey|privatekey|credential", re.I)
-SECRET_VALUE = re.compile(r"Bearer\s+\S{16,}|sk-\S{16,}|gh[pousr]_\S+|github_pat_\S+|xox\S-\S+|AKIA[0-9A-Z]{12,}|AIza\S{20,}|eyJ[A-Za-z0-9_-]{20,}")
+SECRET_KEY = re.compile(r"authorization|token|secret|passw(or)?d|pwd|apikey|accesskey|privatekey|credential|cookie|signature", re.I)
+SECRET_VALUE = re.compile(r"Bearer\s+\S{16,}|sk-\S{16,}|gh[pousr]_\S+|github_pat_\S+|xox\S-\S+|AKIA[0-9A-Z]{12,}|AIza\S{20,}|eyJ[A-Za-z0-9_-]{20,}"
+                          r"|://[^/\s:@]+:[^/\s@]+@|[?&](?:api_?key|token|key|secret|password)=[^&\s]{8,}", re.I)
+REFERENCE = re.compile(r"\$\{?\w")  # ${VAR} or $VAR anywhere in the value: the secret lives outside the file
 
 
 def is_literal_secret(key, value):
-    """A header or env value written into a file instead of a ${VAR} reference, under a secret-looking name or shaped like a known token."""
-    if not isinstance(value, str) or "${" in value or value.startswith("$") or len(value) < 12 or value.isdigit():
+    """A header, env, url or argument value written into a file instead of a ${VAR} reference, under a secret-looking name or shaped like a known token."""
+    if not isinstance(value, str) or REFERENCE.search(value) or len(value) < 12 or value.isdigit():
         return False
     name = str(key)
     return bool(SECRET_KEY.search(re.sub(r"[-_\s]", "", name)) or re.search(r"(^|[-_])key$", name, re.I) or SECRET_VALUE.search(value))
@@ -240,8 +242,19 @@ def is_literal_secret(key, value):
 def literal_secret_count(servers):
     n = 0
     for srv in (servers.values() if isinstance(servers, dict) else []):
-        for part in ((srv.get("headers") if isinstance(srv, dict) else None) or {}), ((srv.get("env") if isinstance(srv, dict) else None) or {}):
+        if not isinstance(srv, dict):
+            continue
+        for part in (srv.get("headers") or {}), (srv.get("env") or {}):
             n += sum(1 for k, v in (part.items() if isinstance(part, dict) else []) if is_literal_secret(k, v))
+        if is_literal_secret("url", srv.get("url")):
+            n += 1
+        args = [a for a in (srv.get("args") if isinstance(srv.get("args"), list) else []) if isinstance(a, str)]
+        for i, a in enumerate(args):
+            flag, eq, val = a.lstrip("-").partition("=")
+            if a.startswith("-") and eq and is_literal_secret(flag, val):
+                n += 1
+            elif a.startswith("-") and not eq and i + 1 < len(args) and is_literal_secret(flag, args[i + 1]):
+                n += 1
     return n
 
 
