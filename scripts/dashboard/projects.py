@@ -239,9 +239,10 @@ def rule_verification(ctx):
             names += list((json.loads((d / fn).read_text(encoding="utf-8")).get("scripts") or {}).keys())
         except Exception:
             pass
-    for mk in ("Makefile", "makefile"):
+    for mk in ("Makefile", "makefile"):  # first hit only: on a case-insensitive disk (Windows, macOS) both spellings are the same file
         if (d / mk).is_file():
             names += re.findall(r"^([A-Za-z0-9_.-]+):", (d / mk).read_text(encoding="utf-8", errors="replace"), re.M)
+            break
     checks = [c for c in names if re.search(r"(test|lint|typecheck|check|phpunit|stylelint|phpcs)", c, re.I)]
     ci = (d / ".github" / "workflows").is_dir()
     tool = any((d / n).is_file() for n in ("pyproject.toml", "pytest.ini", "tox.ini", "go.mod", "Cargo.toml"))  # built-in test runners

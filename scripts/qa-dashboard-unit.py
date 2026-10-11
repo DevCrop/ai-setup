@@ -94,6 +94,16 @@ if "--update-golden" in sys.argv:
 want = json.loads(golden_path.read_text(encoding="utf-8")) if golden_path.is_file() else {}
 bad = [k for k in sorted(set(got) | set(want)) if got.get(k) != want.get(k)]
 check(not bad, f"project checks match the golden file on {len(fx)} fixture projects x 2 (rtk on / off)", ", ".join(bad[:5]) or "golden file missing: run with --update-golden")
+# Windows and default macOS disks ignore case: "makefile" then names the same file as "Makefile" and its targets must not be counted twice.
+_is_file, _read_text = Path.is_file, Path.read_text
+mf = fx["scripts_unmentioned"]
+Path.is_file = lambda self: True if self.name == "makefile" and (self.parent / "Makefile").exists() else _is_file(self)
+Path.read_text = lambda self, *a, **k: _read_text(self.parent / "Makefile" if self.name == "makefile" else self, *a, **k)
+try:
+    ci_disk = server.project_setup(mf)
+finally:
+    Path.is_file, Path.read_text = _is_file, _read_text
+check(ci_disk == server.project_setup(mf), "project checks do not change on a case-insensitive disk (Makefile counted once)")
 check(sum(len(v.get("checks", [])) for v in got.values()) > 100 and len({c["what"].split(" (")[0] for v in got.values() for c in v.get("checks", [])}) >= 20,
       "the fixtures reach at least 20 different findings (the golden file is not trivially empty)")
 
