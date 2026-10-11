@@ -44,8 +44,6 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    # Report-only until it has run green once on a real runner (not verifiable from the dev container); then remove this line.
-    continue-on-error: true
     defaults:
       run:
         shell: bash
