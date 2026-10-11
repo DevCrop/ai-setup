@@ -110,6 +110,17 @@ details.fold[open] summary { margin-bottom: var(--s2); }
 .logcard .btn { justify-self: start; } .fixtxt { color: var(--fg); } .fixlab { color: var(--accent-ink); font-weight: 600; }
 .logrow { grid-template-columns: 64px 160px minmax(0, 1fr); } @media (max-width: 760px) { .logrow { grid-template-columns: 64px minmax(0, 1fr); } .logrow .when { display: none; } }
 .fixbar { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
+.codebar { display: flex; align-items: center; gap: var(--s2); margin: var(--s2) 0; flex-wrap: wrap; } .codebar .muted { margin-left: auto; font-size: var(--t-xs); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; } .chip { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 2px 10px; font: 500 var(--t-xs)/1.6 var(--sans, inherit); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.code { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); max-height: 56vh; overflow: auto; font: 400 var(--t-xs)/1.7 var(--mono); }
+.code .ln { display: grid; grid-template-columns: 44px minmax(0, 1fr); } .code .ln:hover { background: var(--accent-soft); }
+.code .no { text-align: right; padding-right: 10px; color: var(--faint); user-select: none; border-right: 1px solid var(--line); background: var(--panel); position: sticky; left: 0; }
+.code .tx { padding: 0 var(--s3); white-space: pre-wrap; overflow-wrap: anywhere; }
+.code .lv { display: inline-block; min-width: 4.4em; margin-right: 8px; font-weight: 700; } .code .lv-FAIL, .code .t-bad { color: var(--bad); } .code .lv-WARN, .code .t-warn { color: var(--warn); } .code .lv-PASS, .code .t-ok { color: var(--ok); }
+.code .ln.is-FAIL { background: rgba(190, 70, 60, .08); } .code .ln.is-WARN { background: rgba(217, 160, 60, .08); }
+.code .t-h { color: var(--accent-ink); font-weight: 700; } .code .t-code { color: var(--accent-ink); background: var(--accent-soft); border-radius: 4px; padding: 0 4px; } .code .t-dim { color: var(--faint); } .code .t-cell { color: var(--muted); }
+.code .empty { padding: var(--s3); color: var(--muted); }
 .dia { overflow-x: auto; }
 .dia svg { display: block; width: 100%; height: auto; min-width: 760px; }
 .dia text { font-family: var(--sans); font-size: 12px; fill: var(--fg); }
@@ -367,7 +378,8 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
 <dialog id="dlg">
   <div class="dh"><h2>전체 로그</h2><button class="btn" id="dlgClose" type="button">닫기</button></div>
   <div class="tabs"><button class="btn" id="tabV" type="button" aria-pressed="true">verify --live</button><button class="btn" id="tabR" type="button" aria-pressed="false">루틴 보고서</button><button class="btn" id="tabA" type="button" aria-pressed="false">AO 세션</button></div>
-  <pre id="dlgPre" tabindex="0"></pre>
+  <div class="codebar"><div class="chips" id="dlgChips"></div><span class="muted" id="dlgMeta"></span><button class="btn" id="dlgCopy" type="button">복사</button></div>
+  <div class="code" id="dlgPre" tabindex="0" role="log" aria-label="로그"></div>
 </dialog>
 
 <script>
@@ -424,12 +436,33 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     rowsEl.replaceChildren(...(list.length ? [head, ...nodes] : []));
   }
   $("tabV").onclick = () => { tab = "v"; fillDlg(); }; $("tabR").onclick = () => { tab = "r"; fillDlg(); }; $("tabA").onclick = () => { tab = "a"; fillDlg(); };
+  // Code-style log viewer: line numbers, level colouring, `code` spans, filter chips and copy. Text only (no innerHTML).
+  let dlgFilter = "ALL";
+  const tokens = (text, parent) => { text.split(/(`[^`]+`|\b(?:OUTDATED|FAIL|WARN|PASS|BLOCKED|EXPOSED)\b)/).forEach((t) => {
+    if (!t) return; if (t[0] === "`" && t.length > 2) parent.append(el("span", "t-code", t.slice(1, -1)));
+    else if (t === "FAIL" || t === "BLOCKED" || t === "EXPOSED") parent.append(el("span", "t-bad", t)); else if (t === "WARN" || t === "OUTDATED") parent.append(el("span", "t-warn", t)); else if (t === "PASS") parent.append(el("span", "t-ok", t));
+    else parent.append(document.createTextNode(t)); }); };
+  function codeLine(n, raw, kind, lv) {
+    const row = el("div", "ln" + (lv === "FAIL" || lv === "WARN" ? " is-" + lv : "")), tx = el("div", "tx"); row.append(el("div", "no", String(n)), tx);
+    const m = /^(FAIL|WARN|PASS)\s+(.*)$/.exec(raw);
+    if (kind === "log" && m) { tx.append(el("span", "lv lv-" + m[1], m[1])); tokens(m[2], tx); }
+    else if (kind === "md") { if (/^#{1,6}\s/.test(raw)) tx.append(el("span", "t-h", raw)); else if (/^\s*\|/.test(raw)) tx.append(el("span", "t-cell", raw)); else if (/^\s*(---|===)/.test(raw)) tx.append(el("span", "t-dim", raw)); else tokens(raw, tx); }
+    else if (kind === "ao") { raw.split(" | ").forEach((c, i) => { if (i) tx.append(el("span", "t-dim", " │ ")); tokens(c, tx); }); }
+    else tokens(raw, tx);
+    return row;
+  }
   function fillDlg() {
     $("tabV").setAttribute("aria-pressed", tab === "v"); $("tabR").setAttribute("aria-pressed", tab === "r"); $("tabA").setAttribute("aria-pressed", tab === "a");
-    const pre = $("dlgPre"); if (!last) { pre.textContent = "데이터를 기다리는 중"; return; }
-    if (tab === "v") pre.replaceChildren(...last.verify.lines.flatMap((l) => [el("span", "l-" + l.split(" ")[0], l), document.createTextNode("\n")]));
-    else if (tab === "a") pre.textContent = aoText(last);
-    else pre.textContent = (last.reports[0] || {}).text || "보고서가 아직 없습니다.";
+    const box = $("dlgPre"), chips = $("dlgChips"); if (!last) { box.replaceChildren(el("div", "empty", "데이터를 기다리는 중")); return; }
+    const lines = tab === "v" ? last.verify.lines : tab === "a" ? aoText(last).split("\n") : (((last.reports[0] || {}).text) || "보고서가 아직 없습니다.").split("\n");
+    const kind = tab === "v" ? "log" : tab === "a" ? "ao" : "md", lvl = (l) => (/^(FAIL|WARN|PASS)\b/.exec(l) || [])[1] || (tab === "v" ? "" : /\b(FAIL|OUTDATED|BLOCKED|EXPOSED)\b/.test(l) ? "FAIL" : /\bWARN\b/.test(l) ? "WARN" : "");
+    const cnt = { ALL: lines.length, FAIL: 0, WARN: 0, PASS: 0 }; lines.forEach((l) => { const k = lvl(l); if (k === "FAIL") cnt.FAIL++; else if (k === "WARN") cnt.WARN++; else if (k === "PASS") cnt.PASS++; });
+    if (!cnt[dlgFilter]) dlgFilter = "ALL";
+    chips.replaceChildren(...["ALL", "FAIL", "WARN", "PASS"].filter((k) => k === "ALL" || cnt[k]).map((k) => { const b = el("button", "chip", k + " " + cnt[k]); b.type = "button"; b.setAttribute("aria-pressed", String(dlgFilter === k)); b.addEventListener("click", () => { dlgFilter = k; fillDlg(); }); return b; }));
+    const rows = []; lines.forEach((l, i) => { const k = lvl(l); if (dlgFilter === "ALL" || k === dlgFilter) rows.push(codeLine(i + 1, l, kind, k)); });
+    box.replaceChildren(...(rows.length ? rows : [el("div", "empty", "표시할 줄이 없습니다.")]));
+    $("dlgMeta").textContent = rows.length + " / " + lines.length + "줄";
+    $("dlgCopy").onclick = () => { const t = lines.join("\n"); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { $("dlgCopy").textContent = "복사됨"; setTimeout(() => { $("dlgCopy").textContent = "복사"; }, 1200); }, () => { $("dlgCopy").textContent = "복사 불가"; }); };
   }
 
   const ago = (iso, now) => { const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
