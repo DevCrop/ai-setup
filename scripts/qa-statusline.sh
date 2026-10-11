@@ -7,10 +7,11 @@ now="$(date +%s)"
 fail=0
 
 # $1 name, $2 prompt_cache JSON (or empty), $3 expected substring ("" means no second line)
+esc="$(printf '\033')"  # BSD sed (macOS) does not understand \x1b
 run() {
   local pc="" out
   [ -n "$2" ] && pc=", \"prompt_cache\": $2"
-  out="$(printf '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":12}%s}' "$pc" | bash "$sl" | sed 's/\x1b\[[0-9;]*m//g')"
+  out="$(printf '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":12}%s}' "$pc" | bash "$sl" | sed "s/$esc\[[0-9;]*m//g")"
   echo "[$1]"; echo "$out"
   case "$out" in "[Opus] 12% context"*) ;; *) echo "FAIL $1: first line changed"; fail=1 ;; esac
   if [ -z "$3" ]; then

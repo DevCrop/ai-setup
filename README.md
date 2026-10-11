@@ -1,13 +1,13 @@
 # claude-global
 
-Source of truth for the global Claude Code setup on this machine (`~/.claude`).
+Source of truth for the global Claude Code setup (`~/.claude` on each machine).
 
 ## Layout
 
 - `claude/CLAUDE.md` — global rules, copied to `~/.claude/CLAUDE.md`
 - `claude/settings.json` — global settings, copied to `~/.claude/settings.json`
 - `claude/RTK.md`, `claude/agents/`, `claude/skills/` — RTK note, subagents (`explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`) and skills (`orchestrate`, `project-setup`, `spec-writing`, `design-spec`, `ui-baseline`), copied to `~/.claude/`
-- `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push` of secret-looking files (`.credentials*`, `.env*`, `.claude.json`, `history.jsonl`, `*.pem`, `id_rsa*`)
+- `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push/update-index/mv/apply --index/am` of secret-looking files (the list is `is_secret` in the script); fails closed when it cannot judge
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
 - `docs/GUIDE.md` — start here: quick path for a new machine (15 min), claude-mem setup, project setup, per-task flow
 - `docs/NEXT-MACHINE.md` — full handoff: decisions, links, routine, remaining work, setup order for a new machine
@@ -25,7 +25,7 @@ Runtime data (credentials, session history, auto-memory, plugins, caches) is nev
 
 ## Applying
 
-Run `bash scripts/apply.sh` (macOS bash or Git Bash on Windows). On Windows, Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. It backs up the managed files, then copies `CLAUDE.md`, `RTK.md`, `settings.json`, `agents/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). Nothing else in that directory is touched. Update with `git pull && bash scripts/apply.sh`. The status line in `settings.json` needs `jq` on PATH.
+Run `bash scripts/apply.sh` (macOS bash or Git Bash on Windows). On Windows, Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. It backs up the managed files, then copies `CLAUDE.md`, `RTK.md`, `settings.json`, `statusline.sh`, `agents/`, `hooks/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). Nothing else in that directory is touched. Update with `git pull && bash scripts/apply.sh`. The status line in `settings.json` needs `jq` on PATH.
 
 Scope: local machines only. Cloud sessions read the project's own `.claude/`, not `~/.claude/`.
 

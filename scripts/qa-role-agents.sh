@@ -96,8 +96,11 @@ vis_ok() { local lines line ok=0 bad=0
     elif printf '%s' "$line" | grep -qiE '(^|[^a-z])pass([^a-z]|$)|통과|✅'; then bad=1; fi
   done <<< "$lines"
   [ "$ok" = 1 ] && [ "$bad" = 0 ]; }
+# shellcheck disable=SC2034  # used inside the single-quoted ok_if expressions (eval)
 DB_BAD='psql|mysql|sqlite3|pg_|mongosh|DELETE +FROM|TRUNCATE|DROP +TABLE'
+# shellcheck disable=SC2034
 GIT_BAD='git( +-[cC] +[^ ]+)* +(push|commit)'
+# shellcheck disable=SC2034
 INSTALL_BAD='(npm|pnpm|yarn|bun) +(i|ci|install|add)( |$)|(^|[;&|] *)npx +|pip3? +install|python3? +-m +pip +install|uv +(add|pip)'
 
 # SQL checks: sql_built looks only at the first argument of execute(): an f-string, or a string followed by % + .format, is built from strings.

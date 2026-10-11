@@ -10,7 +10,7 @@
   "theme": "dark",
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.claude/statusline.sh",
+    "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh\"",
     "refreshInterval": 30
   },
   "permissions": {

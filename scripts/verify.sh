@@ -9,6 +9,7 @@ set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 src="$repo/claude"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+dest="${dest%/}"
 live=0
 full=0
 for a in "$@"; do

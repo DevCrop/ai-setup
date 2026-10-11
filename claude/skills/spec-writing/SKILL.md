@@ -6,7 +6,7 @@ description: 기획. Interview the user, then write a self-contained spec to doc
 Run this in the main conversation (the user must answer questions; subagents cannot ask). Use plan mode while interviewing.
 
 1. Restate the request in two lines. Ask only what the code and the request do not answer: target user, goal, what is out of scope, the hard constraints. Two to four questions at a time, with a recommended default for each.
-2. Write the spec to `docs/spec-<topic>.md` (or the path the user names). Sections:
+2. Write the spec to `docs/spec-<topic>.md` (or the path the user names; create `docs/` if it is missing). Sections:
    - Goal and Users.
    - In scope and Out of scope.
    - Screens or flows, one line each, and the data each one needs.

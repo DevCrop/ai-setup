@@ -70,6 +70,7 @@ grade() { # name
   pass "$n: skill ran and produced a result"
   # G: read the global layer; did not restate global rules
   # Paths inside this fixture are dropped first: its own .claude/settings.json is not the global layer.
+  # shellcheck disable=SC1087  # the quote closes before [^"], this is not an array reference
   printf '%s' "$tools" | tr ',' '\n' | grep -Ev "[/\\\\]$n[/\\\\]" | grep -Eq '(~|HOME|CLAUDE_CONFIG_DIR|'"${HOME##*/}"'[^"]{0,6}).{0,8}\.claude.{1,4}(CLAUDE\.md|settings\.json)' \
     && pass "$n G: read the global CLAUDE.md or settings.json" || fail "$n G: did not read the global layer"
   grep -Eq 'Retry limit|Never read or commit|Archify|Ponytail is always' "$r" && fail "$n G: result restates global rules" || pass "$n G: no global rule text repeated"

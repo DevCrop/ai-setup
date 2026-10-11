@@ -27,6 +27,9 @@ ide/
 Thumbs.db
 .vscode/
 
+# QA scratch dirs left behind by an interrupted scripts/qa-dashboard.sh
+.qa-ad.*
+
 # Archify diagram output
 .archify/
 __pycache__/
