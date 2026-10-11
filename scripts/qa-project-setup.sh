@@ -11,7 +11,7 @@
 # Run `claude auth login` once first: a logged-out CLI makes every fixture fail with "skill did not run".
 # Not covered: whether a project layer works without ~/.claude (cloud), and a second session started after approval.
 set -u
-repo="$(cd "$(dirname "$0")/.." && pwd)"
+repo="$(cd "$(dirname "$0")/.." && pwd -W 2>/dev/null || pwd)"  # pwd -W: native Windows path for claude.exe (Git Bash)
 work="${1:?usage: bash scripts/qa-project-setup.sh <work-dir> [fixture...]}"; shift
 [ $# -gt 0 ] && names="$*" || names="next php react markup existing agents both"
 case "$names" in *[!a-z\ ]*) echo "fixture names are lower-case words only" >&2; exit 2 ;; esac
