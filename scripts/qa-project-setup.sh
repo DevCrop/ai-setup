@@ -105,7 +105,7 @@ grade() { # name
 
 for n in $names; do
   [ "${QA_MODE:-}" = grade ] && continue
-  (fixture "$n"; [ "${QA_MODE:-}" = build ] && exit 0; cd "$work/$n" && claude -p "/project-setup-qa" --model sonnet --output-format stream-json --verbose --max-turns 40 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err") &
+  (fixture "$n"; [ "${QA_MODE:-}" = build ] && exit 0; cd "$work/$n" && MSYS_NO_PATHCONV=1 claude -p "/project-setup-qa" --model sonnet --output-format stream-json --verbose --max-turns 40 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err") &
 done
 wait
 [ "${QA_MODE:-}" = build ] && { echo "fixtures built in $work (canary $canary)"; exit 0; }
