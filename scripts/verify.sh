@@ -69,17 +69,30 @@ else
 fi
 
 # 4. settings that must stay on
-# Default mode is bypassPermissions (decision 2026-10-10). Deny rules still apply in that mode (permission-modes doc), so they must exist;
-# a leftover bypass lock would stop the mode from starting.
+# Default mode is auto (decision 2026-10-11, official recommendation; bypassPermissions is documented for isolated containers and VMs only).
+# Deny and ask rules are the deterministic guard next to the classifier, so they must exist. autoMode arrays must keep "$defaults",
+# otherwise the built-in classifier rules are dropped. permissions.allow stays empty (broad allow rules are suspended in auto mode anyway).
 if command -v jq >/dev/null 2>&1; then
-  jq -e '(.permissions.defaultMode == "bypassPermissions") and (.permissions.disableBypassPermissionsMode == null)' "$src/settings.json" >/dev/null 2>&1 \
-    && pass "permissions.defaultMode is bypassPermissions and the bypass lock is absent" \
-    || fail "permissions.defaultMode must be bypassPermissions with no disableBypassPermissionsMode"
+  jq -e '.permissions.defaultMode == "auto"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "permissions.defaultMode is auto" \
+    || fail "permissions.defaultMode must be auto"
+  jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
+    || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
   jq -e '(.permissions.deny | type == "array") and (.permissions.deny | length > 0)' "$src/settings.json" >/dev/null 2>&1 \
-    && pass "permissions.deny is a non-empty list (deny rules still apply in bypass mode)" \
+    && pass "permissions.deny is a non-empty list (deny rules apply in every mode)" \
     || fail "permissions.deny is missing or empty"
+  jq -e '(.permissions.allow | type == "array") and (.permissions.allow | length == 0)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "permissions.allow is an empty list" \
+    || fail "permissions.allow must be an explicit empty list"
+  jq -e '(.autoMode | type == "object") and ([.autoMode | to_entries[] | select(.value | type == "array") | .value | index("$defaults") == null] | any | not)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "every autoMode array keeps \"\$defaults\"" \
+    || fail "autoMode is missing or an array lacks \"\$defaults\" (the built-in classifier rules would be dropped)"
+  jq -e '.skillOverrides["auto-mode-setup"] == "off"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "/auto-mode-setup is off (autoMode is owned by this repo)" \
+    || fail "skillOverrides.auto-mode-setup must be \"off\""
 else
-  warn "bypass default and deny list not validated (needs jq)"
+  warn "auto mode settings and deny list not validated (needs jq)"
 fi
 # Superpowers is not adopted at any scope (decision 2026-10-11, docs/GUIDE.md): the repo must not enable it.
 if command -v jq >/dev/null 2>&1; then
@@ -191,6 +204,36 @@ EOF
   command -v rtk >/dev/null 2>&1 && pass "rtk on PATH ($(rtk --version 2>/dev/null | head -n 1))" || warn "rtk not on PATH: the hook is a no-op and Bash output is not filtered"
   command -v node >/dev/null 2>&1 && pass "node on PATH" || warn "node not on PATH (Ponytail hooks run on Node.js)"
   command -v gh >/dev/null 2>&1 && pass "gh on PATH" || warn "gh not on PATH"
+
+  # 10b. auto mode: version floor, effective classifier config, no disableAutoMode in live or project settings
+  if command -v claude >/dev/null 2>&1; then
+    cv="$(claude --version 2>/dev/null | head -n 1 | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')"
+    if [ -z "$cv" ]; then
+      warn "could not read the claude version"
+    elif [ "$(printf '%s\n' "$cv" | awk -F. '{ printf "%d", $1*1000000 + $2*1000 + $3 }')" -ge 2001295 ]; then
+      pass "claude $cv (2.1.295 or newer: auto mode default, hook onFailure)"
+    else
+      fail "claude $cv is older than 2.1.295 (needed for auto mode as the default and for hook onFailure)"
+    fi
+    if command -v jq >/dev/null 2>&1; then
+      am="$(CLAUDE_CONFIG_DIR="$dest" claude auto-mode config 2>&1)"
+      miss=""
+      for needle in "Organization: personal (DevCrop)" "Installing, updating, or adding Claude Code plugins" "Printing, copying, or sending the contents of real secret files"; do
+        printf '%s' "$am" | grep -qF "$needle" || miss="$miss [$needle]"
+      done
+      [ -z "$miss" ] && pass "claude auto-mode config shows the repo's environment, soft_deny and hard_deny entries" \
+        || fail "claude auto-mode config lacks entries from claude/settings.json:$miss (run: bash scripts/apply.sh)"
+    fi
+    if command -v jq >/dev/null 2>&1; then
+      bad=""
+      for f in "$dest/settings.json" ./.claude/settings.json ./.claude/settings.local.json; do
+        [ -f "$f" ] && jq -e '(.permissions.disableAutoMode != null) or (.disableAutoMode != null)' "$f" >/dev/null 2>&1 && bad="$bad $f"
+      done
+      [ -z "$bad" ] && pass "no disableAutoMode in live or project settings" || fail "disableAutoMode is set in:$bad"
+    fi
+  else
+    skip "auto mode live checks (claude CLI not on PATH)"
+  fi
 
   # 11. Ponytail plugin
   if command -v claude >/dev/null 2>&1; then

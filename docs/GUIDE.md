@@ -40,7 +40,7 @@ claude-mem keeps a local memory database in `~/.claude-mem`. The plugin entry is
 
 | Layer | What | Where |
 |---|---|---|
-| Always on, every machine | RTK hook, Ponytail plugin, permissions (deny and ask rules, default mode bypassPermissions), `secret-guard` hook, short global `CLAUDE.md`, status line, agents `explorer` `reviewer` `worker` `publisher` `frontend` `backend` `qa`, daily routine | this repo, applied to `~/.claude` |
+| Always on, every machine | RTK hook, Ponytail plugin, permissions (deny and ask rules, default mode auto with an `autoMode` block), `secret-guard` hook, short global `CLAUDE.md`, status line, agents `explorer` `reviewer` `worker` `publisher` `frontend` `backend` `qa`, daily routine | this repo, applied to `~/.claude` |
 | On demand | skill `orchestrate` (description match, or `/orchestrate`), skills `spec-writing` and `design-spec` (planning and design in the main thread), skill `project-setup` (manual, `/project-setup`), AO as an external app | skills, plugin scope, the user |
 | Per project, once | project `CLAUDE.md`, path-scoped rules, verification command, project permissions | the project's `.claude/` |
 
@@ -82,13 +82,13 @@ Undo: copy files back from `~/.claude-backup-<timestamp>/`.
 
 ## 2. Bootstrap a project (once, before the first task)
 
-Run `/project-setup` in the project directory (manual-only skill). It reads manifests, CI workflows and lint configs, finds the verification command per area, and proposes `CLAUDE.md`, `.claude/rules/*.md` and `.claude/settings.json` as files for you to approve. It installs nothing and invents no commands; what it cannot confirm is listed under "Not verified". Under the bypass default there is no permission prompt for writes, so the skill's own step 10 (an explicit yes in chat) is the approval.
+Run `/project-setup` in the project directory (manual-only skill). It reads manifests, CI workflows and lint configs, finds the verification command per area, and proposes `CLAUDE.md`, `.claude/rules/*.md` and `.claude/settings.json` as files for you to approve. It installs nothing and invents no commands; what it cannot confirm is listed under "Not verified". In auto mode a write may not prompt at all (the classifier decides), so the skill's own step 10 (an explicit yes in chat) is the approval.
 
 What to check afterwards:
 1. `CLAUDE.md` is under 200 lines and every line would cause a mistake if removed (`/doctor` proposes cuts).
 2. The verification commands are the ones CI or the scripts really run. For markup and CSS with no automated check, decide on a screenshot comparison or a lint and write it down; without a check Claude can run, "done" is only its own opinion.
 3. Path-scoped rules use the documented frontmatter, a YAML `paths:` list (the only field Claude Code reads in a rule).
-4. Permissions: `deny` repeats the global `.env*` and credentials rules on purpose (cloud sessions and teammates do not read `~/.claude`); `allow` lists only read-only check commands and is inert locally under the global bypass default; each Bash rule has its `rtk ` twin where RTK is installed. No `defaultMode`.
+4. Permissions: `deny` repeats the global `.env*` and credentials rules on purpose (cloud sessions and teammates do not read `~/.claude`); `allow` lists only read-only check commands and, in auto mode, narrow allow rules still apply while broad ones are suspended; each Bash rule has its `rtk ` twin where RTK is installed. No `defaultMode`.
    Also pick how hard the check gates the work (prompt line, `/goal`, Stop hook, reviewer subagent; the skill asks) and add `CLAUDE.local.md` and `.claude/settings.local.json` to the project `.gitignore`.
    Projects that share `AGENTS.md` with Codex: `AGENTS.md` stays the source and the skill never edits it. With no `CLAUDE.md`, Claude Code reads `AGENTS.md` itself, so the skill adds only `.claude/` files; a `CLAUDE.md` it creates must start with `@AGENTS.md` (a `CLAUDE.md` without the import makes Claude stop reading `AGENTS.md`; use the import, not a symlink, on Windows).
 5. In a new session: `/context` shows the project `CLAUDE.md`, `/hooks` lists only intended hooks.
@@ -108,7 +108,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 ## 4. Daily routine and maintenance
 
-- The routine `daily-claude-update` runs `claude --version`, the changelog, `scripts/verify.sh --live`, and `scripts/docs-watch.sh` (twelve official docs pages this setup depends on), then writes `reports/YYYY-MM-DD.md` and proposes changes. It only reads and reports. Steps live in `claude/routines/daily-update.md` and are read from the clone, so `git pull` updates them.
+- The routine `daily-claude-update` runs `claude --version`, the changelog, `scripts/verify.sh --live`, and `scripts/docs-watch.sh` (thirteen official docs pages this setup depends on, plus two platform pages), then writes `reports/YYYY-MM-DD.md` and proposes changes. It only reads and reports. Steps live in `claude/routines/daily-update.md` and are read from the clone, so `git pull` updates them.
 - On each machine create the scheduled task in the app once, from the pointer body in `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with that machine's clone path). If the app still holds the older body with the full list of steps, replace it with the pointer body.
 - Monthly: `/doctor` on `CLAUDE.md`, skills and agents.
 - After any change to permissions or hooks: `bash scripts/verify.sh --full` on every machine where RTK is installed.
@@ -124,13 +124,22 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 - Checks: `bash scripts/qa-dashboard.sh` (API, security, static files), `bash scripts/qa-ui.sh` (headless Chrome: every tab, three widths, palette, dialogs, flow lines, live update, offline and recovery; needs node 22+).
 - Not measured: macOS and Linux runs, and sessions that run on another machine.
 
-## Permission mode: bypassPermissions by default
+## Permission mode: auto (decision 2026-10-11)
 
-The default mode is `bypassPermissions` (decision 2026-10-10). Per the permission-modes doc, deny rules apply in every mode including bypass, explicit ask rules and `rm`/`rmdir` on critical paths still prompt, and allow rules have no effect. So `permissions.deny` and `permissions.ask` in `claude/settings.json` are the guard. `verify.sh` fails when `defaultMode` is not `bypassPermissions`, when a bypass lock is present, or when `deny` or `ask` is missing or empty.
+The default mode is `auto`, the mode the permission-modes doc recommends for working without prompts; `bypassPermissions` is documented for isolated containers and VMs only, so it is not used here (it replaces the 2026-10-10 decision). In auto mode a classifier reviews actions that no rule already decided. It blocks force pushes, `reset --hard`, `clean -fd`, irreversible deletes, secrets in commits, credential output and prompt-injection-driven actions by default, and it reads `CLAUDE.md`.
 
-- `defaultMode: "bypassPermissions"` takes effect only from user settings (`~/.claude/settings.json`, written by `apply.sh`), not from a project `.claude/settings.json`. Claude Desktop also needs the "Allow bypass permissions mode" toggle.
-- An AO worker started with `--permission-mode bypassPermissions` falls under the same deny and ask rules. This is the documented behavior. In a bypass session on this machine, deny rules blocked a `.env` read and a force push (2026-10-10, see `docs/NEXT-MACHINE.md`); an AO worker with `ao project set-config <id> --permission bypass-permissions` showed `bypass permissions on`, was blocked on the same force push by the deny rule, and stopped at the ask rules for `git push *` and `rm *` (2026-10-10). Without that setting the worker ran in Auto mode. The `.env` block by a worker is not measured.
-- To go back to prompts, change `permissions.defaultMode` in `claude/settings.json` and the check in `scripts/verify.sh` in one PR, then run `bash scripts/apply.sh`.
+Two layers, on purpose:
+- **Deterministic:** `permissions.deny` blocks in every mode; `permissions.ask` always prompts, even in auto mode; the `secret-guard` hook blocks staging secret files. These do not depend on a model.
+- **Classifier:** the `autoMode` block in `claude/settings.json` adds this setup's context (`environment`), a plugin-install rule (`soft_deny`) and a secret-file rule (`hard_deny`). Every array starts with `"$defaults"`; without it the built-in rules for that array are dropped. `permissions.allow` stays empty (broad allow rules are suspended in auto mode anyway).
+
+Rules of use:
+- `defaultMode: "auto"` and `autoMode` take effect only from user settings (`~/.claude/settings.json`, written by `apply.sh`), not from a project `.claude/settings.json`. Needs Claude Code 2.1.295 or newer; `verify.sh --live` fails below that.
+- This repo owns the permission and `autoMode` settings. Do not change them with `/permissions` or `/auto-mode-setup` (the second is switched off by `skillOverrides`): edit `claude/settings.json`, then run `bash scripts/apply.sh`.
+- If the classifier blocks something it should allow: open `/permissions`, **Recently denied**, read the rule name in brackets, then add an `environment` or `allow` entry (keep `"$defaults"`) in `claude/settings.json` and apply. `claude auto-mode critique` reviews custom entries. After 3 blocks in a row or 20 in total, auto mode pauses and Claude Code goes back to prompting. In `-p` runs a blocked action is skipped and the run continues.
+- If auto mode is not available (turned off for the account or server side), sessions start in Manual mode; the deny, ask and hook layer still works. Classifier calls count toward token usage on some plans (permission-modes doc).
+- VS Code: `claudeCode.initialPermissionMode` does not accept `auto`; leave it unset.
+- AO workers: `ao project set-config <id> --permission auto` (it replaces the whole config; round-trip `ao project get --json` first). Deny and ask rules apply to workers in every mode.
+- Going back to bypass is a decision to record, not a setting to flip: change `permissions.defaultMode` and the check in `scripts/verify.sh` in one PR.
 
 ## Secret-guard hook
 
@@ -147,7 +156,7 @@ Use AO only for parallel work with disjoint file scopes. Set permissions with `a
 - Windows Git Bash and macOS behavior of `apply.sh`, `verify.sh`, the plugin hooks and `qa-deny.sh` with the real RTK hook (tested on Linux without RTK).
 - The `claude plugin list` output format that `verify.sh` parses for the Ponytail status; a changed format shows up as a WARN, not a false PASS.
 - How often `orchestrate` is loaded by description matching (`/orchestrate` is the fallback).
-- `secret-guard`: macOS bash 3.2 and BSD `sed`/`tr` behavior, hook latency, and running next to the real RTK hook (checked with RTK-less project settings in `bypassPermissions`: `git add -A` was blocked).
+- `secret-guard`: macOS bash 3.2 and BSD `sed`/`tr` behavior, hook latency, and running next to the real RTK hook (checked once with RTK-less project settings: `git add -A` was blocked).
 - `project-setup` was dry-run once on a scratch PHP + React project; the interactive approval flow and real projects are untested.
 
 ## Deliberately not adopted

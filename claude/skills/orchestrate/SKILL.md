@@ -27,6 +27,6 @@ Default to one agent. Delegate only when the part does not block the main thread
 
 ## AO (Orchestrator.inc) instead of subagents
 - Use it only for long parallel work with disjoint file scopes; otherwise use the subagents above.
-- Put the done criteria and "never push" in `--agent-rules`; permissions come from `--permission`, and deny/ask rules still apply to workers.
+- Put the done criteria and "never push" in `--agent-rules`; permissions come from the project config: `ao project set-config <id> --permission auto` (values: default, accept-edits, auto, bypass-permissions; `set-config` replaces the whole project config, so round-trip `ao project get --json` first). Deny/ask rules apply to workers in every mode.
 - Trigger `ao review` before ending a worker session (an ended session cannot be reviewed); a person pushes and merges.
 - Details and measurements: `docs/NEXT-MACHINE.md` section 13 in the claude-global repository (it is not copied to `~/.claude`).

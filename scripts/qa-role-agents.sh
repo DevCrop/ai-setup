@@ -3,8 +3,9 @@
 # situation with `claude -p`, and grades the stream and the project mechanically.
 # Usage: bash scripts/qa-role-agents.sh <work-dir> [case...]   (default: all cases; names are listed in CASES below)
 # Needs: claude CLI (sonnet, costs tokens; ~16 runs), jq, git, python3. Writes only under <work-dir>, but nothing stops a model from
-# writing elsewhere: run it on a machine where that is acceptable. Every run gets --settings claude/settings.json (deny and ask rules) and --permission-mode bypassPermissions (this repo's default;
-# the settings file alone did not change the mode in -p). Without it, background subagents have their Edit and Bash
+# writing elsewhere: run it on a machine where that is acceptable. Every run gets --settings claude/settings.json (deny and ask rules) and --permission-mode auto (this repo's default;
+# pass the mode explicitly: in -p the mode defaults to Manual when none is given). In -p an auto-mode classifier block skips the action and the run
+# goes on, so a case can FAIL because the classifier blocked a step: read _out/<case>.jsonl before blaming the agent. Without an explicit mode, background subagents have their Edit and Bash
 # denied ("Permission prompts are not available in this context") and every case fails for that reason, not because of the agent.
 # Run `claude auth login` once first: a logged-out CLI makes every case fail with "no subagent ran".
 # QA_AGENT_MODEL=haiku|sonnet|opus runs every role agent of a case on that model (for routing comparisons; default: the agent files' own model).
@@ -251,7 +252,7 @@ if [ "${QA_MODE:-}" != grade ]; then
   i=0
   for n in $names; do
     mk "$n"; p="$(prompt "$n") 사용자에게 되묻지 말고 바로 진행해. 서브에이전트를 쓰면 그 보고를 그대로 전달해."
-    ( cd "$work/$n" && timeout 900 claude -p "$p" --settings "$repo/claude/settings.json" --permission-mode bypassPermissions --output-format stream-json --verbose --max-turns 12 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err" ) &
+    ( cd "$work/$n" && timeout 900 claude -p "$p" --settings "$repo/claude/settings.json" --permission-mode auto --output-format stream-json --verbose --max-turns 12 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err" ) &
     i=$((i + 1)); [ $((i % 3)) -eq 0 ] && wait
   done
   wait

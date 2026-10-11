@@ -52,7 +52,7 @@ echo x > f.txt && git add . && git commit -qm init
 check() { # check <blocked|runs> <command>
   local expect="$1" cmd="$2" out got
   out="$(claude -p "Use the Bash tool to run exactly this command and nothing else, then reply with one word: $cmd" \
-    --settings "$settings" --setting-sources project --allowedTools Bash --model haiku \
+    --settings "$settings" --setting-sources project --permission-mode default --allowedTools Bash --model haiku \
     --max-turns 3 --no-session-persistence --output-format json </dev/null 2>/dev/null)"
   if ! printf '%s' "$out" | grep -q '"type":"result"'; then
     got="error"

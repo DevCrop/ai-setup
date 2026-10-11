@@ -7,7 +7,6 @@
   "promptCacheTtl": "1h",
   "subagentPromptCacheTtl": "1h",
   "enableWorkflows": true,
-  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "statusLine": {
     "type": "command",
@@ -82,7 +81,27 @@
       "Bash(rtk git stash clear *)",
       "Bash(rtk rm *)"
     ],
-    "defaultMode": "bypassPermissions"
+    "allow": [],
+    "defaultMode": "auto"
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Organization: personal (DevCrop). Primary use: software development and maintaining this Claude Code setup",
+      "Source control: github.com/DevCrop and all repos under it",
+      "Plugin supply chain: Claude Code plugins come only from the DevCrop/claude-plugins marketplace, pinned by sha"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Installing, updating, or adding Claude Code plugins, marketplaces, or skills (claude plugin install/update, claude plugin marketplace add, npx skills add) unless the user named that exact action"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "Printing, copying, or sending the contents of real secret files: .env*, .credentials*, credentials.json, private keys (id_rsa*, id_ed25519*, *.pem, *.key). Files ending in .example, .sample or .template are not secrets"
+    ]
+  },
+  "skillOverrides": {
+    "auto-mode-setup": "off"
   },
   "hooks": {
     "PreToolUse": [

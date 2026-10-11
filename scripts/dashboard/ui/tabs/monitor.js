@@ -75,7 +75,7 @@ export class MonitorTab extends Tab {
       ["pr", "PR", "branch → GitHub", open + "개 열림", open ? ["warn", "OPEN"] : ["ok", "CLEAR"]],
       ["merge", "머지", "main", lastMerge ? "#" + lastMerge.pr + " · " + ago(lastMerge.at, now) : "—", ["ok", "DONE"]],
       ["apply", "적용", "apply.sh", sync ? "repo = live" : "repo ≠ live", sync ? ["ok", "SYNCED"] : ["bad", "DRIFT"]],
-      ["live", "적용된 설정", "~/.claude", st.liveMode || "—", st.liveMode === "bypassPermissions" ? ["accent", "BYPASS"] : ["info", "DEFAULT"]],
+      ["live", "적용된 설정", "~/.claude", st.liveMode || "—", st.liveMode === "bypassPermissions" ? ["warn", "BYPASS"] : st.liveMode === "auto" ? ["accent", "AUTO"] : ["info", "DEFAULT"]],
       ["verify", "검증", "verify.sh", v.FAIL + " FAIL · " + v.WARN + " WARN", [c.health, c.healthTxt]],
       ["routine", "루틴", "매일 09:03", rep ? rep.name.replace(".md", "") : "—", rep ? ["ok", "RAN"] : ["warn", "NONE"]],
       ["report", "보고서", "reports/", (s.reports || []).length + "개", (s.reports || []).length ? ["info", "SAVED"] : ["", "EMPTY"]],

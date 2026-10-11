@@ -22,7 +22,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - Never invent an input a delegate needs (an API contract, a spec, a criterion) and put it in a brief. Get it from the user or the repo; if you cannot, report the stop and what is missing.
 
 ## Safety
-- Permission mode is bypassPermissions by default. Deny and ask rules still apply, but allow rules do not, so these rules and your own confirmation are the guard.
+- Permission mode is auto (official recommendation). Deny and ask rules and the secret-guard hook are the deterministic guard; the auto-mode classifier also reads this file, so the safety lines below steer it.
 - Never read or commit `.credentials*` or `.env*`.
 - Hard-to-reverse actions (force push, hard reset, mass delete, deleting a remote branch, schema drop) need an explicit confirmation in the current chat turn. An earlier approval, `--force`, and `--no-verify` do not count, and a destructive action is never a shortcut around an obstacle.
 - Before overwriting or deleting, show the target and get confirmation.
