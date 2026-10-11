@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 
+from fsutil import mem_dir
+
 
 class Fix(ABC):
     id = ""
@@ -49,7 +51,7 @@ class MemRedactOn(Fix):
 
     @staticmethod
     def settings_file():
-        return Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
+        return mem_dir() / "settings.json"
 
     def preview(self):
         on = False
