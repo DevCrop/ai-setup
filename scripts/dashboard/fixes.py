@@ -39,24 +39,6 @@ class FixRegistry:
         return self._fixes[fid].run(pv["targets"])
 
 
-class PruneBackups(Fix):
-    id = "prune-backups"
-    KEEP = 3
-
-    @staticmethod
-    def backups():
-        return sorted(d for d in Path.home().glob(".claude-backup-*") if d.is_dir() and not d.is_symlink() and re.fullmatch(r"\.claude-backup-\d{8}-\d{6}", d.name))
-
-    def preview(self):
-        old = self.backups()[:-self.KEEP]
-        return {"title": f"오래된 apply 백업 삭제 (최신 {self.KEEP}개 유지)", "targets": [d.name for d in old], "reversible": False}
-
-    def run(self, targets):
-        for name in targets:
-            shutil.rmtree(Path.home() / name)
-        return {"ok": True, "msg": f"{len(targets)}개 삭제"}
-
-
 class MemRedactOn(Fix):
     id = "mem-redact-on"
 

@@ -26,6 +26,7 @@ pass() { printf 'PASS  %s\n' "$*"; }
 fail() { printf 'FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 warn() { printf 'WARN  %s\n' "$*"; warns=$((warns + 1)); }
 skip() { printf 'SKIP  %s\n' "$*"; }
+info() { printf 'INFO  %s\n' "$*"; }
 
 # Frontmatter lines (between the first two --- lines) of a markdown file.
 # CR is stripped first: Git for Windows may check files out with CRLF line endings.
@@ -59,14 +60,26 @@ for f in "$repo"/scripts/*.sh; do bash -n "$f" 2>/dev/null || { fail "bash -n fa
 
 if out="$(bash "$repo/scripts/qa-deny.sh" --static 2>&1)"; then pass "$(printf '%s' "$out" | sed 's/^PASS  //')"; else fail "rtk twin check: $out"; fi
 
-# 3a. status line cache segment: sample prompt_cache JSON (warm, expiring, cold, absent)
-if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+# 3a, 3b: skipped when qa-apply.sh calls this script (they are slow and already ran in the outer run)
+if [ -z "${QA_APPLY_RUNNING:-}" ]; then
+  # 3a. status line cache segment: sample prompt_cache JSON (warm, expiring, cold, absent)
+  if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
 
-# 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
-if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then
-  if out="$(bash "$repo/scripts/qa-hooks.sh" 2>&1)"; then pass "secret-guard hook ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "secret-guard unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
-else
-  fail "secret-guard hook missing or not referenced in settings.json"
+  # 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
+  if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then
+    if out="$(bash "$repo/scripts/qa-hooks.sh" 2>&1)"; then pass "secret-guard hook ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "secret-guard unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  else
+    fail "secret-guard hook missing or not referenced in settings.json"
+  fi
+fi
+
+# 3c. apply.sh scenarios in scratch directories (fresh, rerun, stale files, machine-only keys, owned keys, removed keys, no jq, bad JSON)
+if [ -z "${QA_APPLY_RUNNING:-}" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    if out="$(bash "$repo/scripts/qa-apply.sh" 2>&1)"; then pass "apply.sh scenarios ($(printf '%s' "$out" | grep -c '^PASS') cases)"; else fail "apply.sh scenarios: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  else
+    skip "apply.sh scenarios (needs jq)"
+  fi
 fi
 
 # 4. settings that must stay on
@@ -175,9 +188,31 @@ if [ "$live" -eq 1 ]; then
     exit 1
   fi
 
-  # 9. applied files equal the repo (extra files in the config directory are ignored)
+  # 9. applied files equal the repo. settings.json is merged by apply.sh: only the keys this repo owns are compared (machine-only keys
+  #    such as env or a plugin enabled by "claude plugin install" are INFO); a difference in an owned key is a WARN, because the
+  #    live value (for example a rule added in /permissions) is not the repo's and the next apply.sh replaces it.
   for item in $items; do
     if [ ! -e "$dest/$item" ]; then fail "not applied: $item (run: bash scripts/apply.sh)"; continue; fi
+    if [ "$item" = "settings.json" ]; then
+      if ! command -v jq >/dev/null 2>&1; then skip "settings.json comparison (needs jq)"; continue; fi
+      if ! jq empty "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is not valid JSON"; continue; fi
+      owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '
+        def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
+        def own_perm: ["defaultMode","deny","ask","allow"];
+        $l[0] as $l | $r[0] as $r
+        | ([own_top[] as $k | select($l[$k] != $r[$k]) | $k]
+           + [own_perm[] as $k | select((($l.permissions // {})[$k]) != (($r.permissions // {})[$k])) | "permissions." + $k]
+           + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "env") | not) | select($l[$k] != $r[$k]) | $k]
+           + [($r.enabledPlugins // {} | to_entries[]) | select((($l.enabledPlugins // {})[.key]) != .value) | "enabledPlugins." + .key])
+        | join(", ")' 2>/dev/null)"
+      if [ -z "$owned_diff" ]; then pass "in sync: settings.json (keys owned by this repo)"
+      else warn "settings.json differs from claude/settings.json in: $owned_diff (apply.sh restores the repo values; to keep a change, edit claude/settings.json first)"; fi
+      stale_keys="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '$l[0] as $l | $x[0] | map(select(. as $p | ($l | getpath($p)) != null) | join(".")) | join(", ")' 2>/dev/null)"
+      [ -z "$stale_keys" ] || warn "settings.json still has keys that scripts/removed-keys.json deletes: $stale_keys (run: bash scripts/apply.sh)"
+      only_keys="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '$l[0] as $l | $r[0] as $r | (($l | keys) - ($r | keys)) | join(", ")' 2>/dev/null)"
+      [ -z "$only_keys" ] || info "machine-only settings.json keys (kept by apply.sh): $only_keys"
+      continue
+    fi
     drift=""
     if [ -d "$src/$item" ]; then
       while IFS= read -r f; do
@@ -187,18 +222,22 @@ if [ "$live" -eq 1 ]; then
 $(find "$src/$item" -type f)
 EOF
     else
-      if ! cmp -s "$src/$item" "$dest/$item"; then
-        # settings.json: key order alone is not drift, and "env" is machine-local (apply.sh keeps it)
-        if [ "$item" = "settings.json" ] && command -v jq >/dev/null 2>&1 \
-           && [ "$(jq -S 'del(.env)' "$src/$item" 2>/dev/null)" = "$(jq -S 'del(.env)' "$dest/$item" 2>/dev/null)" ]; then
-          :
-        else
-          drift=" $item"
-        fi
-      fi
+      cmp -s "$src/$item" "$dest/$item" || drift=" $item"
     fi
     [ -z "$drift" ] && pass "in sync: $item" || fail "differs from claude/:$drift (apply.sh would overwrite; if the live copy has a change you want, move it into claude/ first)"
   done
+  # Files in the managed folders that this repo never applied are kept by apply.sh: show them, they are not an error.
+  foreign=""
+  for item in $items; do
+    [ -d "$src/$item" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      [ -e "$src/$f" ] || foreign="$foreign $f"
+    done <<EOF
+$(cd "$dest" 2>/dev/null && find "$item" -type f 2>/dev/null)
+EOF
+  done
+  [ -z "$foreign" ] || info "files in managed folders that are not from this repo (kept by apply.sh):$foreign"
 
   # 10. tools
   command -v jq >/dev/null 2>&1 && pass "jq on PATH" || fail "jq not on PATH (the status line needs it)"

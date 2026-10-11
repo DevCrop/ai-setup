@@ -55,7 +55,7 @@ r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.in
 [ "$r" = "['app']" ] && pass "project auto-detect finds the session cwd" || bad "project auto-detect gave: $r"
 rm -rf "$ad"
 # fix endpoint: no token, wrong token, foreign Origin and foreign Host are all refused; the allow-list logic passes its unit checks
-tok="$(printf '%s' "$s" | jq -r .token)"; u="http://127.0.0.1:$port/api/fix"; j='{"id":"prune-backups","action":"preview"}'
+tok="$(printf '%s' "$s" | jq -r .token)"; u="http://127.0.0.1:$port/api/fix"; j='{"id":"mem-redact-on","action":"preview"}'
 c1="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$j" "$u")"
 c2="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-Dash-Token: nope' -d "$j" "$u")"
 c3="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Dash-Token: $tok" -H 'Origin: http://evil.example' -d "$j" "$u")"

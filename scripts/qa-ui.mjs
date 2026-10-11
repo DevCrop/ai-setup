@@ -113,7 +113,7 @@ const ex = await ev(`({ rows: document.querySelectorAll("#v-dbg .erow").length, 
 check(ex.rows > 0 && ex.probe && ex.exp && ex.text.includes("조치"), "error row expands to meaning and fix (injected probe error)", JSON.stringify(ex));
 await ev(`window.fetch = window.__fetchBeforeInv`);
 await clickTab("log");
-await ev(`window.__dash.fixDialog.open("prune-backups")`); await sleep(1500);
+await ev(`window.__dash.fixDialog.open("mem-redact-on")`); await sleep(1500);
 const fx = await ev(`({ open: document.getElementById("fixdlg").open, note: document.getElementById("fixNote").textContent, title: document.getElementById("fixTitle").textContent })`);
 check(fx.open && fx.note.length > 5 && !/불러오는 중|요청 실패/.test(fx.note), "fix dialog previews a fix through the token-protected API (preview only, nothing applied)", JSON.stringify(fx));
 await ev(`document.getElementById("fixClose").click()`);

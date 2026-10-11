@@ -1,0 +1,4 @@
+[
+  ["enabledPlugins", "superpowers@claude-plugins-official"],
+  ["skipDangerousModePermissionPrompt"]
+]

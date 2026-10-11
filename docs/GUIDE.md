@@ -9,7 +9,7 @@ Run in order; each line says what proves it worked. Prerequisites and details ar
 | # | Command | Done when |
 |---|---|---|
 | 1 | `git clone https://github.com/DevCrop/claude-global.git && cd claude-global` | `git log -1` prints a commit |
-| 2 | `bash scripts/apply.sh` | prints `applied: ...`; backup folder `~/.claude-backup-<time>` exists |
+| 2 | `bash scripts/apply.sh` | prints `applied: ...` and, when the machine differs, what it replaced, kept or removed |
 | 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
 | 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
 | 5 | `bash scripts/verify.sh --live` | `== 0 FAIL, 0 WARN` |
@@ -62,7 +62,7 @@ Done when every command prints a value. No path is hard-coded anywhere; only the
 
 ```
 git pull
-bash scripts/apply.sh            # backs up first, copies the items listed in apply.sh
+bash scripts/apply.sh            # needs jq; merges settings.json, copies the items listed in apply.sh
 claude plugin marketplace add DietrichGebert/ponytail
 claude plugin install ponytail@ponytail
 ```
@@ -76,9 +76,9 @@ bash scripts/verify.sh --full    # also runs qa-deny.sh (claude CLI + haiku); ru
 
 Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for example no `.ponytail-active` flag before the first new session). Then spot-check by hand: `rtk gain` total commands grows after a few Bash calls, the status line shows `[model] N% context`, `/context` lists the global `CLAUDE.md`, and `claude plugin details ponytail` shows its always-on token cost.
 
-A machine-local `env` block in the live `settings.json` (for example `CLAUDE_CODE_TMPDIR`) is kept by `apply.sh` and ignored by `verify.sh`; the repo copy has no `env`.
+`apply.sh` merges `settings.json` instead of replacing it. This repo owns `permissions.{defaultMode,deny,ask,allow}`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces` and `skillOverrides` (live values are replaced, a key the repo lacks is deleted) and every other key the repo sets (`model`, `effortLevel`, ...). Keys that exist only on the machine, such as `env` (for example `CLAUDE_CODE_TMPDIR`) or a plugin enabled by `claude plugin install`, are kept and reported. `scripts/removed-keys.json` lists keys that are deleted. Files that an earlier apply copied (tracked in `~/.claude/.claude-global-manifest`) and the repo no longer has are removed; files that never came from this repo are kept and reported. `verify.sh --live` compares only the owned keys (WARN on a difference, INFO for machine-only keys).
 
-Undo: copy files back from `~/.claude-backup-<timestamp>/`.
+Undo: there is no backup; git is the history. Check out the older commit and run `apply.sh` again. Owned settings keys and tracked files go back exactly; keys that were only merged (a plugin enabled since, machine-only keys) are not rolled back.
 
 ## 2. Bootstrap a project (once, before the first task)
 
@@ -117,7 +117,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 ## Live dashboard
 
-`python3 scripts/dashboard/server.py` serves http://127.0.0.1:8787 (local only, standard library, `--port N` to change). Nine tabs: monitoring, errors and debugging, orchestration (delegation flow), model routing, features, tool efficiency (RTK, claude-mem, AO, models; every number labelled measured, estimated or unavailable), practice checks (against the official docs), log and fixes, project setup. State refreshes every 3 seconds from the newest session log in `~/.claude/projects` (tool names, times and file basenames only, never message text), `verify.sh --live` (at most once a minute), PR history, and the AO CLI if found (`AO_BIN`, the default Windows path, or `ao` on PATH; read-only). Fixes (prune backups, turn on claude-mem redaction, update RTK) run only from a server allow-list after a confirm dialog.
+`python3 scripts/dashboard/server.py` serves http://127.0.0.1:8787 (local only, standard library, `--port N` to change). Nine tabs: monitoring, errors and debugging, orchestration (delegation flow), model routing, features, tool efficiency (RTK, claude-mem, AO, models; every number labelled measured, estimated or unavailable), practice checks (against the official docs), log and fixes, project setup. State refreshes every 3 seconds from the newest session log in `~/.claude/projects` (tool names, times and file basenames only, never message text), `verify.sh --live` (at most once a minute), PR history, and the AO CLI if found (`AO_BIN`, the default Windows path, or `ao` on PATH; read-only). Fixes (turn on claude-mem redaction, update RTK) run only from a server allow-list after a confirm dialog.
 
 - Code: Python modules in `scripts/dashboard/` (`procs.py` is the only place a process starts, hidden on Windows), UI as ES modules in `scripts/dashboard/ui/` (a screen is a `Tab` subclass in `ui/tabs/`, built from `ui/components.js`).
 - Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths.

@@ -12,7 +12,7 @@ Source of truth for the global Claude Code setup (`~/.claude` on each machine).
 - `docs/GUIDE.md` — start here: quick path for a new machine (15 min), claude-mem setup, project setup, per-task flow
 - `docs/NEXT-MACHINE.md` — full handoff: decisions, links, routine, remaining work, setup order for a new machine
 - `state/last-seen.json` — per-machine baseline for the daily routine (gitignored, created by the routine)
-- `scripts/apply.sh` — copies `claude/` into `~/.claude/` with a backup
+- `scripts/apply.sh` — merges `claude/` into `~/.claude/` (settings.json key by key, no backup: git is the history)
 - `scripts/verify.sh` — read-only checks: repo, `--live` for this machine's applied state, `--full` adds the deny/ask QA
 - `scripts/docs-watch.sh` — diffs the official docs pages this setup depends on (used by the daily routine)
 - `scripts/qa-hooks.sh` — unit tests for the hook with no model calls (pass a mutated copy to prove the checks discriminate)
@@ -25,7 +25,7 @@ Runtime data (credentials, session history, auto-memory, plugins, caches) is nev
 
 ## Applying
 
-Run `bash scripts/apply.sh` (macOS bash or Git Bash on Windows). On Windows, Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. It backs up the managed files, then copies `CLAUDE.md`, `RTK.md`, `settings.json`, `statusline.sh`, `agents/`, `hooks/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). Nothing else in that directory is touched. Update with `git pull && bash scripts/apply.sh`. The status line in `settings.json` needs `jq` on PATH.
+Run `bash scripts/apply.sh` (macOS bash or Git Bash on Windows). On Windows, Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. It needs `jq`. It copies `CLAUDE.md`, `RTK.md`, `settings.json`, `statusline.sh`, `agents/`, `hooks/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). `settings.json` is merged key by key: the keys this repo owns (permissions, `autoMode`, hooks, status line, marketplaces) take the repo value, keys that only exist on the machine are kept and reported, and files that an earlier apply copied but the repo no longer has are removed. Nothing else in that directory is touched. To go back, check out the older commit and run `apply.sh` again. Update with `git pull && bash scripts/apply.sh`. The status line in `settings.json` needs `jq` on PATH.
 
 Scope: local machines only. Cloud sessions read the project's own `.claude/`, not `~/.claude/`.
 

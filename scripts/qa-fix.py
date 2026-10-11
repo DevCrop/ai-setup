@@ -5,16 +5,20 @@ os.environ["USERPROFILE"] = os.environ["HOME"] = t
 os.environ["CLAUDE_MEM_DIR"] = t + "/mem"
 sys.path.insert(0, sys.argv[1] + "/scripts/dashboard")
 import server
-from fixes import PruneBackups
+from fixes import Fix, FixRegistry
 h = pathlib.Path(t)
-for i in range(6): (h / f".claude-backup-20261011-00000{i}").mkdir()
-(h / ".claude-backup-notes").mkdir()           # wrong name: must never be a target
 (h / "mem").mkdir(); (h / "mem/settings.json").write_text('{"CLAUDE_MEM_REDACT_ENABLED":"false","X":"1"}')
-pv = server.FIXES.preview("prune-backups"); assert len(pv["targets"]) == 3 and ".claude-backup-notes" not in pv["targets"], pv
-assert not server.FIXES.apply("prune-backups", ["x"])["ok"]                       # stale/foreign list refused
-assert not server.FIXES.apply("rm-rf", [])["ok"] and server.FIXES.preview("rm-rf") is None  # unknown id refused
-assert server.FIXES.apply("prune-backups", pv["targets"])["ok"] and len(PruneBackups.backups()) == 3
-assert (h / ".claude-backup-notes").exists()
+# registry rules on a dummy fix: a confirmed list must equal the current preview, unknown ids never run, run() gets the preview's targets
+class Dummy(Fix):
+    id = "dummy"
+    calls = []
+    def preview(self): return {"title": "d", "targets": ["a", "b"], "reversible": True}
+    def run(self, targets): self.calls.append(targets); return {"ok": True, "msg": "ok"}
+reg = FixRegistry(); dummy = reg.register(Dummy())
+assert not reg.apply("dummy", ["x"])["ok"] and dummy.calls == []                  # stale/foreign list refused
+assert not reg.apply("rm-rf", [])["ok"] and reg.preview("rm-rf") is None          # unknown id refused
+assert reg.apply("dummy", ["b", "a"])["ok"] and dummy.calls == [["a", "b"]], dummy.calls
+assert sorted(server.FIXES._fixes) == ["mem-redact-on", "rtk-update"], sorted(server.FIXES._fixes)  # nothing else can ever run
 r = server.FIXES.apply("mem-redact-on", ["~/.claude-mem/settings.json"]); assert r["ok"], r
 d = json.loads((h / "mem/settings.json").read_text()); assert d == {"CLAUDE_MEM_REDACT_ENABLED": "true", "X": "1"}, d
 assert len(list((h / "mem").glob("settings.json.bak-*"))) == 1

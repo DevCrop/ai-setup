@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import inventory
 from efficiency import AoEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency
 from cache import TtlCache
-from fixes import FixRegistry, MemRedactOn, PruneBackups, RtkUpdate
+from fixes import FixRegistry, MemRedactOn, RtkUpdate
 from procs import BASH, ProcessRunner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -464,7 +464,7 @@ def mem_health(now=None):
 
 
 def history_health(now=None):
-    """Sizes and ages of the prompt history, session logs and apply backups. Never reads their content."""
+    """Sizes and ages of the prompt history and session logs. Never reads their content."""
     out = []
     try:
         h = CONFIG / "history.jsonl"
@@ -478,11 +478,6 @@ def history_health(now=None):
         total = sum(f.stat().st_size for f in logs)
         mb = total / 1048576
         out.append(("기록", "세션 로그", "warn" if mb > 500 else "ok", f"{len(logs)}개 · {round(mb, 1)}MB" + (" · 500MB 초과, 정리 검토" if mb > 500 else ""), "Claude Code의 cleanupPeriodDays 설정으로 보관 기간을 줄인다 [출처: 공식 settings 문서, 이번에 재확인 안 함]" if mb > 500 else ""))
-    except Exception:
-        pass
-    try:
-        bk = sorted(Path.home().glob(".claude-backup-*"))
-        out.append(("기록", "apply 백업", "warn" if len(bk) > 15 else "ok", f"{len(bk)}개" + (f" · 가장 오래된 {bk[0].name[-15:]}" if bk else "") + (" · 15개 초과, 정리 검토" if len(bk) > 15 else ""), "오래된 ~/.claude-backup-* 폴더를 목록 확인 후 사용자 승인으로 삭제 [출처: 이 저장소 규칙]" if len(bk) > 15 else "", "prune-backups" if len(bk) > 15 else ""))
     except Exception:
         pass
     return out
@@ -537,7 +532,6 @@ def tools_health():
 TOKEN = secrets.token_urlsafe(24)  # per start; a foreign page cannot read it (no CORS headers), so it cannot call /api/fix
 FIXLOG = ROOT / "state" / "fix-log.jsonl"
 FIXES = FixRegistry()  # only fixes registered here can ever run
-FIXES.register(PruneBackups())
 FIXES.register(MemRedactOn())
 RTK = FIXES.register(RtkUpdate(RUNNER, CACHE))
 
