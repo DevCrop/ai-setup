@@ -7,7 +7,9 @@ import { join } from "node:path";
 
 const [base, chrome] = [process.argv[2], process.argv[3]];
 const port = 9300 + Math.floor(Math.random() * 500), dir = mkdtempSync(join(tmpdir(), "qa-ui-"));
-const proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-first-run", `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
+// Chrome refuses to start as root (containers, some CI images) without --no-sandbox; every other user keeps the sandbox.
+const root = typeof process.getuid === "function" && process.getuid() === 0;
+const proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-first-run", ...(root ? ["--no-sandbox"] : []), `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let fails = 0;
 const check = (ok, name, detail = "") => { console.log((ok ? "PASS  " : "FAIL  ") + name + (ok ? "" : detail ? " — " + detail : "")); if (!ok) fails++; };
@@ -31,7 +33,9 @@ ws.onmessage = (m) => {
 };
 const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 const ev = async (expr) => { const r = await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true }); if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || "eval failed"); return r.result.result.value; };
-const go = async (url, w = 1280, h = 900) => { await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 }); await send("Page.navigate", { url }); await sleep(2500); };
+// Poll a page expression until it is truthy (or give up after ms): waits for the thing a check needs instead of a fixed sleep.
+const waitFor = async (expr, ms = 8000, step = 100) => { const t0 = Date.now(); for (;;) { try { if (await ev(expr)) return true; } catch {} if (Date.now() - t0 > ms) return false; await sleep(step); } };
+const go = async (url, w = 1280, h = 900) => { await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 }); await send("Page.navigate", { url }); await sleep(300); await waitFor(`document.body.classList.contains("loaded")`, 20000); };
 for (const d of ["Page", "Runtime", "Network"]) await send(d + ".enable");
 
 const TABS = ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup"];
@@ -95,25 +99,25 @@ const mismatch = await ev(`(() => { const bad = []; document.querySelectorAll("#
 check(mismatch.n > 0 && mismatch.bad.length === 0, "monitoring flow lines take the state of the node they leave", JSON.stringify(mismatch));
 
 console.log("== interactions");
-await ev(`document.getElementById("logsBtn").click()`); await sleep(500);
+await ev(`document.getElementById("logsBtn").click()`); await waitFor(`document.getElementById("dlg").open && document.querySelectorAll("#dlgPre .ln").length > 0`);
 check(await ev(`document.getElementById("dlg").open && document.querySelectorAll("#dlgPre .ln").length > 0`), "log dialog opens with lines");
-await ev(`document.getElementById("tabA").click()`); await sleep(300);
+await ev(`document.getElementById("tabA").click()`); await waitFor(`document.getElementById("tabA").getAttribute("aria-pressed") === "true"`);
 check(await ev(`document.getElementById("tabA").getAttribute("aria-pressed") === "true"`), "log dialog tab switch");
 await ev(`document.getElementById("dlgClose").click()`);
-await ev(`document.getElementById("projBtn").click()`); await sleep(500);
+await ev(`document.getElementById("projBtn").click()`); await waitFor(`document.getElementById("pdlg").open`);
 check(await ev(`document.getElementById("pdlg").open`), "project dialog opens");
-await ev(`document.querySelector("#projRows .row.proj:not(.head)")?.click()`); await sleep(300);
+await ev(`document.querySelector("#projRows .row.proj:not(.head)")?.click()`); await waitFor(`!!document.querySelector("#projRows .adv")`, 3000);
 check(await ev(`!!document.querySelector("#projRows .adv")`) , "project row expands its advice");
 check(await ev(`[...document.querySelectorAll("#projRows .adv a")].every((a) => a.target === "_blank" && /noreferrer/.test(a.rel))`), "advice doc links are external + noreferrer");
 await ev(`document.getElementById("pdlgClose").click()`);
 await ev(`(() => { const real = window.fetch; window.__fetchBeforeInv = real; const at = new Date().toISOString(); window.fetch = async (u, o) => { const r = await real(u, o); if (String(u).includes("/api/inventory")) { const d = await r.json(); d.debug.errors = [...d.debug.errors, { at, kind: "hook-block", tool: "QaProbe", detail: "probe.env" }]; d.debug.counts["hook-block"] = (d.debug.counts["hook-block"] || 0) + 1; return new Response(JSON.stringify(d), { headers: { "Content-Type": "application/json" } }); } return r; }; })()`);
-await ev(`window.__dash.loadInventory()`); await clickTab("dbg"); await sleep(600);
-await ev(`document.querySelector("#v-dbg .erow")?.click()`); await sleep(300);
+await ev(`window.__dash.loadInventory()`); await clickTab("dbg"); await waitFor(`document.querySelectorAll("#v-dbg .erow").length > 0`);
+await ev(`document.querySelector("#v-dbg .erow")?.click()`); await waitFor(`!!document.querySelector("#v-dbg .exp")`, 3000);
 const ex = await ev(`({ rows: document.querySelectorAll("#v-dbg .erow").length, exp: !!document.querySelector("#v-dbg .exp"), text: document.querySelector("#v-dbg .exp")?.innerText || "", cur: window.__dash.curTab, probe: window.__dash.inv.debug.errors.some((e) => e.tool === "QaProbe") })`);
 check(ex.rows > 0 && ex.probe && ex.exp && ex.text.includes("조치"), "error row expands to meaning and fix (injected probe error)", JSON.stringify(ex));
 await ev(`window.fetch = window.__fetchBeforeInv`);
 await clickTab("log");
-await ev(`window.__dash.fixDialog.open("mem-redact-on")`); await sleep(1500);
+await ev(`window.__dash.fixDialog.open("mem-redact-on")`); await waitFor(`!/불러오는 중/.test(document.getElementById("fixNote").textContent)`);
 const fx = await ev(`({ open: document.getElementById("fixdlg").open, note: document.getElementById("fixNote").textContent, title: document.getElementById("fixTitle").textContent })`);
 check(fx.open && fx.note.length > 5 && !/불러오는 중|요청 실패/.test(fx.note), "fix dialog previews a fix through the token-protected API (preview only, nothing applied)", JSON.stringify(fx));
 await ev(`document.getElementById("fixClose").click()`);
@@ -129,17 +133,23 @@ check(n1 - n0 >= 2, "polls /api/state every ~3s", `${n1 - n0} polls in 7.5s`);
 check(await ev(`document.getElementById("liveText").textContent.startsWith("LIVE")`), "live badge says LIVE while polling works");
 // feed a changed state through the page's own fetch and check the DOM follows
 await ev(`(() => { window.__realFetch = window.fetch; window.fetch = async (u, o) => { const r = await window.__realFetch(u, o); if (String(u).includes("/api/state")) { const s = await r.json(); s.verify.counts.FAIL = 7; s.git.branch = "qa-realtime-branch"; s.activity.events = [...s.activity.events, { at: new Date().toISOString(), kind: "tool", name: "QaProbe", target: "realtime-probe" }]; return new Response(JSON.stringify(s), { headers: { "Content-Type": "application/json" } }); } return r; }; })()`);
-await sleep(4500);
+await waitFor(`document.getElementById("branch").textContent === "qa-realtime-branch"`, 12000);
 check(await ev(`document.getElementById("branch").textContent === "qa-realtime-branch"`), "changed state reaches the header within one poll");
 check(await ev(`document.getElementById("kpis").innerText.includes("7 FAIL")`), "changed FAIL count reaches the KPI");
 check(await ev(`document.getElementById("stream").innerText.includes("realtime-probe")`), "a new event appears in the live stream");
+// no settings applied on this machine: the monitor must say so instead of showing SYNCED (a missing live file used to look in sync)
+await ev(`(() => { const prev = window.fetch; window.__prevFetch = prev; window.fetch = async (u, o) => { const r = await prev(u, o); if (String(u).includes("/api/state")) { const s = await r.json(); s.settings = { ...s.settings, liveMissing: true }; return new Response(JSON.stringify(s), { headers: { "Content-Type": "application/json" } }); } return r; }; })()`);
+await waitFor(`document.getElementById("kpis").innerText.includes("NOT APPLIED")`, 12000);
+check(await ev(`document.getElementById("kpis").innerText.includes("NOT APPLIED") && !document.getElementById("kpis").innerText.includes("SYNCED")`), "a machine with no applied settings shows NOT APPLIED, not SYNCED");
+check(await ev(`document.getElementById("mode").textContent.includes("적용본 없음")`), "the mode badge says there are no applied settings");
+await ev(`window.fetch = window.__prevFetch`);
 // server gone: the badge must say OFFLINE and keep the last frame
 await ev(`window.fetch = async () => { throw new Error("offline"); }`);
-await sleep(11500);
+await waitFor(`document.getElementById("liveText").textContent === "OFFLINE"`, 25000);
 check(await ev(`document.getElementById("liveText").textContent === "OFFLINE" && document.getElementById("live").classList.contains("bad")`), "badge shows OFFLINE when polling fails");
 check(await ev(`document.getElementById("kpis").children.length > 0`), "last frame stays on screen when offline");
 await ev(`window.fetch = window.__realFetch`);
-await sleep(4500);
+await waitFor(`document.getElementById("liveText").textContent.startsWith("LIVE")`, 12000);
 check(await ev(`document.getElementById("liveText").textContent.startsWith("LIVE")`), "badge recovers to LIVE when polling returns");
 
 check(problems.length === 0, "no console errors, exceptions or failed requests during the whole run", problems.slice(0, 3).join(" | "));

@@ -8,7 +8,7 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import json, os, re, secrets, shutil, sys, time, urllib.request
+import hmac, json, os, re, secrets, shutil, sys, time, urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable
 from datetime import datetime, timezone
@@ -61,21 +61,31 @@ def verify():
     return {"at": datetime.now(timezone.utc).isoformat(), "counts": counts, "lines": lines[-80:]}
 
 
-def settings():
+def _read_json(path):
+    """A JSON object from a file, or None when the file is missing, unreadable or not an object."""
     try:
-        s = json.loads((ROOT / "claude" / "settings.json").read_text(encoding="utf-8"))
-        p = s.get("permissions", {})
-        ls = json.loads((CONFIG / "settings.json").read_text(encoding="utf-8"))
-        live = ls.get("permissions", {})
-        keys = ("autoCompactWindow", "promptCacheTtl", "subagentPromptCacheTtl")
-        plugins = lambda d: sorted(k for k, v in (d.get("enabledPlugins") or {}).items() if v)
-        return {"mode": p.get("defaultMode"), "deny": len(p.get("deny", [])), "ask": len(p.get("ask", [])),
-                "liveMode": live.get("defaultMode"), "liveDeny": len(live.get("deny", [])), "liveAsk": len(live.get("ask", [])),
-                "model": s.get("model"), "advisor": s.get("advisorModel"),
-                "tune": {k: s.get(k) for k in keys}, "liveTune": {k: ls.get(k) for k in keys},
-                "plugins": plugins(s), "livePlugins": plugins(ls)}
-    except Exception:
+        d = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def settings():
+    s = _read_json(ROOT / "claude" / "settings.json")
+    if s is None:
         return {}
+    ls = _read_json(CONFIG / "settings.json")  # None: nothing applied on this machine yet (the UI says so instead of showing SYNCED)
+    perm = lambda d: d.get("permissions") if isinstance(d.get("permissions"), dict) else {}
+    p, live = perm(s), perm(ls or {})
+    keys = ("autoCompactWindow", "promptCacheTtl", "subagentPromptCacheTtl")
+    plugins = lambda d: sorted(k for k, v in (d.get("enabledPlugins") or {}).items() if v) if isinstance(d.get("enabledPlugins"), dict) else []
+    n = lambda d, k: len(d.get(k) or [])
+    ls = ls or {}
+    return {"mode": p.get("defaultMode"), "deny": n(p, "deny"), "ask": n(p, "ask"),
+            "liveMissing": not ls, "liveMode": live.get("defaultMode"), "liveDeny": n(live, "deny"), "liveAsk": n(live, "ask"),
+            "model": s.get("model"), "advisor": s.get("advisorModel"),
+            "tune": {k: s.get(k) for k in keys}, "liveTune": {k: ls.get(k) for k in keys},
+            "plugins": plugins(s), "livePlugins": plugins(ls)}
 
 
 def reports():
@@ -83,8 +93,11 @@ def reports():
     items = []
     if d.is_dir():
         for f in sorted(d.glob("20*.md"), reverse=True)[:7]:
-            items.append({"name": f.name, "mtime": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(),
-                          "text": f.read_text(encoding="utf-8", errors="replace")[:4000]})
+            try:
+                items.append({"name": f.name, "mtime": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(),
+                              "text": f.read_text(encoding="utf-8", errors="replace")[:4000]})
+            except OSError:
+                continue
     return items
 
 
@@ -102,6 +115,9 @@ def ao_json(binary, args):
         return None
 
 
+PR_KEYS = ("number", "url", "ci", "state")
+
+
 def ao_state():
     """AO daemon and worker sessions. Read-only calls only (status, session ls, review ls); prompts and review bodies are never emitted."""
     binary = ao_bin()
@@ -113,7 +129,9 @@ def ao_state():
     raw = (ao_json(binary, ["session", "ls", "--all", "--include-terminated", "--json"]) or {}).get("data") or []
     sessions = []
     for s in raw:
-        sessions.append({k: s.get(k) for k in ("id", "projectId", "role", "displayName", "status", "activity", "branch", "prs", "isTerminated", "lastActivityAt", "createdAt")})
+        row = {k: s.get(k) for k in ("id", "projectId", "role", "displayName", "status", "activity", "branch", "isTerminated", "lastActivityAt", "createdAt")}
+        row["prs"] = [{k: p.get(k) for k in PR_KEYS} for p in (s.get("prs") or []) if isinstance(p, dict)]  # nothing else AO puts on a PR leaves the machine
+        sessions.append(row)
     sessions.sort(key=lambda s: s.get("lastActivityAt") or "", reverse=True)
     for s in [s for s in sessions if s["prs"]][:10]:
         rv = ao_json(binary, ["review", "ls", s["id"], "--json"]) or {}
@@ -127,15 +145,37 @@ def ao_state():
             "projects": [p.get("id") for p in (ao_json(binary, ["project", "ls", "--json"]) or {}).get("projects", [])]}
 
 
+SUBCOMMAND_HEADS = ("git", "gh", "bash", "python3", "python", "npm", "npx", "rtk", "winget")
+TOKEN_SHAPE = re.compile(r"^(gh[pousr]_|github_pat_|sk-|xox[a-z]-|AKIA|AIza|eyJ)", re.I)
+
+
 def safe_command(cmd):
-    """First word, plus the second only when it is a plain subcommand or script path (no '=', no leading '-')."""
+    """First word, plus the second only when it is a short plain subcommand or a script's base name: never a path, a flag, a value with '='
+    or anything shaped like a token."""
     w = cmd.split()
+    while w and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", w[0]):  # leading NAME=value assignments never leave the machine
+        w = w[1:]
     if not w:
         return ""
     head = os.path.basename(w[0])[:20]
-    if len(w) > 1 and re.fullmatch(r"[A-Za-z0-9_./-]{1,40}", w[1]) and not w[1].startswith("-") and head in ("git", "gh", "bash", "python3", "python", "npm", "npx", "rtk", "winget"):
-        return head + " " + w[1]
+    if not re.fullmatch(r"[A-Za-z0-9_.+-]+", head):  # a quote, a redirect or an expansion in the first word: say nothing about it
+        return ""
+    if len(w) > 1 and head in SUBCOMMAND_HEADS and re.fullmatch(r"[A-Za-z0-9_./-]{1,40}", w[1]) and not w[1].startswith("-") and not TOKEN_SHAPE.match(w[1]):
+        sub = os.path.basename(w[1].rstrip("/"))
+        if 0 < len(sub) <= 24:
+            return head + " " + sub
     return head
+
+
+def _mtime(p):
+    try:
+        return p.stat().st_mtime
+    except OSError:  # Claude Code rotated or deleted the file between the glob and now
+        return -1.0
+
+
+def newest_file(files):
+    return max(files, key=_mtime) if files else None
 
 
 def session_events(limit=120):
@@ -143,7 +183,10 @@ def session_events(limit=120):
     files = list(PROJECTS.glob("*/*.jsonl")) if PROJECTS.is_dir() else []
     if not files:
         return {"session": None, "events": []}
-    f = max(files, key=lambda p: p.stat().st_mtime)
+    f = newest_file(files)
+    mt = _mtime(f)
+    if mt < 0:
+        return {"session": None, "events": []}
     try:
         with open(f, "rb") as fh:
             fh.seek(0, 2)
@@ -158,6 +201,8 @@ def session_events(limit=120):
             d = json.loads(line)
         except Exception:
             continue
+        if not isinstance(d, dict):
+            continue
         ts = d.get("timestamp")
         if not ts:
             continue
@@ -165,7 +210,7 @@ def session_events(limit=120):
         c = (d.get("message") or {}).get("content")
         if t == "assistant" and isinstance(c, list):
             for x in c:
-                if x.get("type") == "tool_use":
+                if isinstance(x, dict) and x.get("type") == "tool_use":
                     inp = x.get("input") or {}
                     target = ""
                     if inp.get("file_path"):
@@ -177,7 +222,27 @@ def session_events(limit=120):
                     events.append({"at": ts, "kind": "tool", "name": str(x.get("name", "?")).split("__")[-1], "target": target})
         elif t == "user" and isinstance(c, str) and not c.startswith("<"):
             events.append({"at": ts, "kind": "user", "name": "user message", "target": ""})
-    return {"session": f.stem[:8], "mtime": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(), "events": events[-limit:]}
+    return {"session": f.stem[:8], "mtime": datetime.fromtimestamp(mt, timezone.utc).isoformat(), "events": events[-limit:]}
+
+
+SECRET_KEY = re.compile(r"authorization|token|secret|password|apikey|accesskey|privatekey|credential", re.I)
+SECRET_VALUE = re.compile(r"Bearer\s+\S{16,}|sk-\S{16,}|gh[pousr]_\S+|github_pat_\S+|xox\S-\S+|AKIA[0-9A-Z]{12,}|AIza\S{20,}|eyJ[A-Za-z0-9_-]{20,}")
+
+
+def is_literal_secret(key, value):
+    """A header or env value written into a file instead of a ${VAR} reference, under a secret-looking name or shaped like a known token."""
+    if not isinstance(value, str) or "${" in value or value.startswith("$") or len(value) < 12 or value.isdigit():
+        return False
+    name = str(key)
+    return bool(SECRET_KEY.search(re.sub(r"[-_\s]", "", name)) or re.search(r"(^|[-_])key$", name, re.I) or SECRET_VALUE.search(value))
+
+
+def literal_secret_count(servers):
+    n = 0
+    for srv in (servers.values() if isinstance(servers, dict) else []):
+        for part in ((srv.get("headers") if isinstance(srv, dict) else None) or {}), ((srv.get("env") if isinstance(srv, dict) else None) or {}):
+            n += sum(1 for k, v in (part.items() if isinstance(part, dict) else []) if is_literal_secret(k, v))
+    return n
 
 
 def project_dirs():
@@ -200,7 +265,9 @@ def discover_projects(limit=30):
         logdirs = []
     for d in logdirs:
         try:
-            log = max(d.glob("*.jsonl"), key=lambda f: f.stat().st_mtime)
+            log = newest_file(list(d.glob("*.jsonl")))
+            if log is None:
+                continue
             with open(log, encoding="utf-8", errors="replace") as fh:
                 m = re.search(r'"cwd":"((?:[^"\\]|\\.)*)"', fh.read(65536))
             c = json.loads('"' + m.group(1) + '"') if m else ""
@@ -357,12 +424,7 @@ def practice_checks(d, f, al, cl, perm, rules, text, cfg=None):
         if servers is None:
             add("fix", "warn", ".mcp.json을 읽을 수 없음(JSON 오류)", "형식이 틀리면 팀 전체가 MCP 서버를 못 씁니다.", "JSON 문법을 고칩니다.", "mcp")
         else:
-            lit = 0
-            for s in (servers.values() if isinstance(servers, dict) else []):
-                for part in ((s.get("headers") if isinstance(s, dict) else None) or {}), ((s.get("env") if isinstance(s, dict) else None) or {}):
-                    for k, v in (part.items() if isinstance(part, dict) else []):
-                        if isinstance(v, str) and "${" not in v and not v.startswith("$") and len(v) >= 12 and (re.search(r"authorization|token$|(^|_)key$|secret|password", str(k), re.I) or re.search(r"(Bearer\s+\S{16,}|sk-\S{16,}|ghp_\S+|xox\S-\S+)", v)):
-                            lit += 1
+            lit = literal_secret_count(servers)
             if lit and git_tracked(d, ".mcp.json"):
                 add("fix", "bad", ".mcp.json(git 추적)에 토큰이 값으로 적혀 있음 (%d개)" % lit, "문서는 ${VAR} 환경변수 확장으로 비밀을 파일 밖에 두도록 안내합니다. 커밋된 토큰은 히스토리에 남습니다.", "값을 ${API_KEY} 형태로 바꾸고 노출된 토큰은 폐기합니다.", "mcp")
     sk = []
@@ -589,7 +651,7 @@ def state():
 
 def newest_session():
     files = list(PROJECTS.glob("*/*.jsonl")) if PROJECTS.is_dir() else []
-    return max(files, key=lambda p: p.stat().st_mtime) if files else None
+    return newest_file(files)
 
 
 MEM_DIR = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem"))
@@ -652,6 +714,11 @@ def ui_asset(path):
     return target.read_bytes(), UI_TYPES[target.suffix]
 
 
+def token_ok(value):
+    """Constant-time compare on bytes: a non-ASCII header value is a wrong token, not a TypeError."""
+    return hmac.compare_digest(value.encode("utf-8", "replace"), TOKEN.encode())
+
+
 def local_host(value):
     return value.split(":")[0] in ("127.0.0.1", "localhost")
 
@@ -664,7 +731,27 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _guarded(self, handler):
+        try:
+            handler()
+        except Exception as e:  # a bug in one source must answer 500, not drop the socket with a traceback
+            try:
+                body = json.dumps({"ok": False, "msg": type(e).__name__}).encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception:
+                pass
+
     def do_GET(self):
+        self._guarded(self._get)
+
+    def do_POST(self):
+        self._guarded(self._post)
+
+    def _get(self):
         # Refuse foreign Host headers (DNS rebinding against a local server).
         if not local_host(self.headers.get("Host", "")):
             self.send_error(403)
@@ -679,10 +766,10 @@ class H(BaseHTTPRequestHandler):
                 return
         self.send_error(404)
 
-    def do_POST(self):
+    def _post(self):
         origin = self.headers.get("Origin", "")
         if not (local_host(self.headers.get("Host", "")) and (origin == "" or local_host(origin.split("://", 1)[-1])) and self.path == "/api/fix"
-                and self.headers.get("Content-Type", "").startswith("application/json") and secrets.compare_digest(self.headers.get("X-Dash-Token", ""), TOKEN)):
+                and self.headers.get("Content-Type", "").startswith("application/json") and token_ok(self.headers.get("X-Dash-Token", ""))):
             self.send_error(403)
             return
         try:

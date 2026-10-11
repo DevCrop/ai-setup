@@ -4,6 +4,8 @@
 set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 py="$(command -v python3 || command -v python)"
+# Logic checks first (settings with a missing live file, what may leave the machine, cache, token): a shape check below must not hide them.
+"$py" "$repo/scripts/qa-dashboard-unit.py" || { echo "FAIL  scripts/qa-dashboard-unit.py"; exit 1; }
 port=$((20000 + RANDOM % 20000))
 "$py" "$repo/scripts/dashboard/server.py" --port "$port" >/dev/null 2>&1 &
 pid=$!; trap 'kill $pid 2>/dev/null' EXIT

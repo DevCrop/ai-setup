@@ -1,6 +1,6 @@
 """One-click fixes. A fix is a class with a preview and a run; only classes registered in a FixRegistry can ever run.
 To add a fix: subclass Fix, give it an id, register an instance in server.py. Nothing else changes."""
-import json, os, re, shutil, subprocess, urllib.request
+import json, os, re, shutil, subprocess, threading, urllib.request
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +21,7 @@ class Fix(ABC):
 class FixRegistry:
     def __init__(self):
         self._fixes = {}
+        self._lock = threading.Lock()  # two simultaneous applies must not both pass the target check
 
     def register(self, fix):
         self._fixes[fix.id] = fix
@@ -31,6 +32,10 @@ class FixRegistry:
         return fix.preview() if fix else None
 
     def apply(self, fid, targets):
+        with self._lock:
+            return self._apply(fid, targets)
+
+    def _apply(self, fid, targets):
         pv = self.preview(fid)
         if not pv or not pv["targets"]:
             return {"ok": False, "msg": "할 일이 없거나 알 수 없는 조치입니다."}
@@ -100,8 +105,11 @@ class RtkUpdate(Fix):
         return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
 
     def run(self, targets):
+        cmd = self.installer()
+        if not cmd:
+            return {"ok": False, "msg": "설치 관리자(winget 또는 brew)를 찾을 수 없습니다."}
         try:
-            p = self.runner.spawn(self.installer(), timeout=300)
+            p = self.runner.spawn(cmd, timeout=300)
         except (OSError, subprocess.TimeoutExpired) as e:
             return {"ok": False, "msg": "실행 실패: " + type(e).__name__}
         self.cache.drop("rtk_latest")

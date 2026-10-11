@@ -13,7 +13,7 @@ function activeNode(events, now) {
   for (const e of events.filter((e) => now - new Date(e.at).getTime() < 90000).slice(-6).reverse()) {
     const t = (e.target || "").toLowerCase();
     if (/verify\.sh|qa-deny/.test(t)) return "verify"; if (/apply\.sh/.test(t)) return "apply";
-    if (/gh pr merge|git merge/.test(t)) return "merge"; if (/gh pr|git push/.test(t)) return "pr";
+    if (/git merge/.test(t)) return "merge"; if (/gh pr|git push/.test(t)) return "pr";
     if (WRITE.has(e.name) || /git (add|commit|checkout|switch)/.test(t)) return "edit";
   }
   return null;
@@ -30,7 +30,7 @@ export class MonitorTab extends Tab {
   render(s) {
     const now = new Date(s.now).getTime(), ctx = this.context(s, now);
     $("branch").textContent = s.git.branch || "—";
-    $("mode").textContent = "mode " + (s.settings.liveMode || "default"); $("mode").className = "badge " + (s.settings.liveMode === "bypassPermissions" ? "warn" : "accent");
+    $("mode").textContent = s.settings.liveMissing ? "적용본 없음" : "mode " + (s.settings.liveMode || "default"); $("mode").className = "badge " + (s.settings.liveMissing || s.settings.liveMode === "bypassPermissions" ? "warn" : "accent");
     this.kpis(s, ctx, now); this.pipeline(s, ctx, now); this.activity(s, ctx, now); this.events(s, ctx);
     this.aoWorkers(s, ctx, now); this.toolChecks(s); this.history(s, ctx, now); this.alerts(s, ctx);
   }
@@ -51,7 +51,7 @@ export class MonitorTab extends Tab {
 
   kpis(s, c, now) {
     const { v, st, prs, ao, aoS, aoLive, aoBlocked, aoDown } = c;
-    const recent = c.tools.filter((e) => now - new Date(e.at).getTime() < 600000).length, rulesOk = st.deny === st.liveDeny && st.ask === st.liveAsk;
+    const recent = c.tools.filter((e) => now - new Date(e.at).getTime() < 600000).length, rulesOk = !st.liveMissing && st.deny === st.liveDeny && st.ask === st.liveAsk;
     const aoPrs = aoS.flatMap((x) => x.prs || []), aoOk = aoPrs.filter((p) => p.verdict === "approved").length, aoActive = aoLive.some((x) => x.activity === "active");
     const k = (...a) => mk(Kpi, ...a);
     const aoKpi = !ao.available ? k("", "AO", "N/A", "—", "", "ao CLI를 찾지 못함")
@@ -59,7 +59,7 @@ export class MonitorTab extends Tab {
       : k(aoBlocked.length ? "bad" : aoActive ? "info" : aoLive.length ? "ok" : "", "AO", aoBlocked.length ? "BLOCKED" : aoActive ? "ACTIVE" : aoLive.length ? "IDLE" : "NO SESSION", String(aoLive.length), "실행 세션", "전체 " + aoS.length + " · PR 승인 " + aoOk + "/" + aoPrs.length);
     $("kpis").replaceChildren(
       k(c.health, "설정 상태", c.healthTxt, v.FAIL + " FAIL", v.WARN + " WARN", "PASS " + v.PASS + " · " + ago(s.verify.at, now)),
-      k(rulesOk ? "ok" : "warn", "권한 규칙", rulesOk ? "SYNCED" : "DRIFT", st.liveDeny + " / " + st.liveAsk, "deny / ask", "repo " + st.deny + " / " + st.ask),
+      k(st.liveMissing ? "bad" : rulesOk ? "ok" : "warn", "권한 규칙", st.liveMissing ? "NOT APPLIED" : rulesOk ? "SYNCED" : "DRIFT", st.liveDeny + " / " + st.liveAsk, "deny / ask", "repo " + st.deny + " / " + st.ask),
       k(c.open ? "warn" : "ok", "PR", c.open ? c.open + " OPEN" : "CLEAR", String(c.merged), "머지됨", "최근 " + prs.length + "개 기준"),
       k(recent ? "info" : "", "최근 10분", recent ? "ACTIVE" : "IDLE", String(recent), "도구 호출", s.activity.session ? "세션 " + s.activity.session : "세션 로그 없음"),
       aoKpi);
@@ -67,15 +67,15 @@ export class MonitorTab extends Tab {
 
   pipeline(s, c, now) {
     const { v, st, g, ev, rep, open } = c, act = activeNode(ev, now), lastMerge = g.commits.find((x) => x.pr);
-    const rulesOk = st.deny === st.liveDeny && st.ask === st.liveAsk;
+    const rulesOk = !st.liveMissing && st.deny === st.liveDeny && st.ask === st.liveAsk;
     const tuneOk = JSON.stringify(st.tune) === JSON.stringify(st.liveTune) && JSON.stringify(st.plugins) === JSON.stringify(st.livePlugins);
     const sync = st.mode === st.liveMode && rulesOk && tuneOk;
     const steps = [
       ["edit", "수정", "claude/", g.dirty ? "변경 " + g.dirty + "건" : "깨끗함", g.dirty ? ["warn", "DIRTY"] : ["ok", "CLEAN"]],
       ["pr", "PR", "branch → GitHub", open + "개 열림", open ? ["warn", "OPEN"] : ["ok", "CLEAR"]],
       ["merge", "머지", "main", lastMerge ? "#" + lastMerge.pr + " · " + ago(lastMerge.at, now) : "—", ["ok", "DONE"]],
-      ["apply", "적용", "apply.sh", sync ? "repo = live" : "repo ≠ live", sync ? ["ok", "SYNCED"] : ["bad", "DRIFT"]],
-      ["live", "적용된 설정", "~/.claude", st.liveMode || "—", st.liveMode === "bypassPermissions" ? ["warn", "BYPASS"] : st.liveMode === "auto" ? ["accent", "AUTO"] : ["info", "DEFAULT"]],
+      ["apply", "적용", "apply.sh", st.liveMissing ? "적용본 없음" : sync ? "repo = live" : "repo ≠ live", st.liveMissing ? ["bad", "NOT APPLIED"] : sync ? ["ok", "SYNCED"] : ["bad", "DRIFT"]],
+      ["live", "적용된 설정", "~/.claude", st.liveMissing ? "—" : st.liveMode || "—", st.liveMissing ? ["", "NONE"] : st.liveMode === "bypassPermissions" ? ["warn", "BYPASS"] : st.liveMode === "auto" ? ["accent", "AUTO"] : ["info", "DEFAULT"]],
       ["verify", "검증", "verify.sh", v.FAIL + " FAIL · " + v.WARN + " WARN", [c.health, c.healthTxt]],
       ["routine", "루틴", "매일 09:03", rep ? rep.name.replace(".md", "") : "—", rep ? ["ok", "RAN"] : ["warn", "NONE"]],
       ["report", "보고서", "reports/", (s.reports || []).length + "개", (s.reports || []).length ? ["info", "SAVED"] : ["", "EMPTY"]],
