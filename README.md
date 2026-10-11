@@ -10,7 +10,8 @@ Source of truth for the global Claude Code setup (`~/.claude` on each machine).
 - `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push/update-index/mv/apply --index/am` of secret-looking files (the list is `is_secret` in the script); fails closed when it cannot judge
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
 - `docs/GUIDE.md` — start here: quick path for a new machine (15 min), claude-mem setup, project setup, per-task flow
-- `docs/NEXT-MACHINE.md` — full handoff: decisions, links, routine, remaining work, setup order for a new machine
+- `docs/DECISIONS.md` — why the setup is the way it is, and how to undo each decision
+- `docs/evidence.md` — measurements and the original wording of older decisions (Korean, verbatim)
 - `state/last-seen.json` — per-machine baseline for the daily routine (gitignored, created by the routine)
 - `scripts/apply.sh` — merges `claude/` into `~/.claude/` (settings.json key by key, no backup: git is the history)
 - `scripts/verify.sh` — read-only checks: repo, `--live` for this machine's applied state, `--full` adds the deny/ask QA

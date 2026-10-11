@@ -179,6 +179,25 @@ missing=""
 for item in $items; do [ -e "$src/$item" ] || missing="$missing $item"; done
 [ -z "$missing" ] && pass "apply.sh items exist in claude/" || fail "apply.sh copies items that are not in claude/:$missing"
 
+# 8b. docs: every docs/*.md path that the docs, skills, agents and scripts mention exists (evidence.md and DECISIONS.md quote retired paths
+#     on purpose and are skipped), and every plugin that settings.json enables is described in GUIDE.md
+missing_refs=""
+for f in README.md CLAUDE.md docs/GUIDE.md claude/CLAUDE.md claude/routines/*.md claude/skills/*/SKILL.md claude/agents/*.md scripts/*.sh scripts/*.py scripts/dashboard/*.py; do
+  [ -f "$repo/$f" ] || continue
+  case "$f" in scripts/qa-*) continue ;; esac  # QA scripts build fixture projects with their own docs/ files
+  for ref in $(grep -o 'docs/[A-Za-z0-9._/-]*\.md' "$repo/$f" | sort -u); do
+    [ -e "$repo/$ref" ] || missing_refs="$missing_refs $f->$ref"
+  done
+done
+[ -z "$missing_refs" ] && pass "docs paths mentioned in the repo exist" || fail "mentioned docs files do not exist:$missing_refs"
+if command -v jq >/dev/null 2>&1; then
+  undoc=""
+  for k in $(jq -r '.enabledPlugins // {} | keys[]' "$src/settings.json" 2>/dev/null | tr -d '\r'); do
+    grep -qF "$k" "$repo/docs/GUIDE.md" || undoc="$undoc $k"
+  done
+  [ -z "$undoc" ] && pass "every enabled plugin is described in docs/GUIDE.md" || fail "plugins enabled in settings.json but not in docs/GUIDE.md:$undoc"
+fi
+
 if [ "$live" -eq 1 ]; then
   echo "== machine ($dest)"
   if [ ! -d "$dest" ]; then

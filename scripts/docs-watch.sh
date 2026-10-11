@@ -9,7 +9,7 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 cache="$repo/reports/docs-cache"
 # Pages this setup depends on: CLAUDE.md and rules, skills, subagents, permissions, plugins, settings, hooks, best practices, permission modes, auto mode config, agent teams, monitoring, worktrees.
 pages="best-practices memory skills sub-agents permissions plugins settings hooks-guide permission-modes auto-mode-config agent-teams monitoring-usage worktrees"
-# Model lineup and prices (platform docs): a new model, a price change or a retirement date changes the routing in claude/agents and docs/NEXT-MACHINE.md.
+# Model lineup and prices (platform docs): a new model, a price change or a retirement date changes the routing in claude/agents and docs/DECISIONS.md.
 platform_pages="about-claude/models/overview about-claude/pricing"
 update=0
 [ "${1:-}" = "--update" ] && update=1

@@ -1,10 +1,10 @@
 # Setup guide
 
-End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). Decisions and history: `docs/NEXT-MACHINE.md`.
+End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). This is the only runbook. Why things are the way they are: `docs/DECISIONS.md`; measurements and the original wording of old decisions: `docs/evidence.md`.
 
 ## Quick path (new machine, about 15 minutes)
 
-Run in order; each line says what proves it worked. Prerequisites and details are in sections 0 and 1.
+Run in order; each line says what proves it worked. Prerequisites are in section 0, details in section 1, the steps only you can do in the app in section 1b.
 
 | # | Command | Done when |
 |---|---|---|
@@ -12,7 +12,7 @@ Run in order; each line says what proves it worked. Prerequisites and details ar
 | 2 | `bash scripts/apply.sh` | prints `applied: ...` and, when the machine differs, what it replaced, kept or removed |
 | 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
 | 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
-| 5 | `bash scripts/verify.sh --live` | `== 0 FAIL, 0 WARN` |
+| 5 | `bash scripts/verify.sh --live` | `0 FAIL`. On a first run these WARN lines are expected: no `.ponytail-active` yet (written by the first new session), no scheduled task yet (manual steps), `rtk` missing if you skipped it |
 | 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
 | 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
 
@@ -48,15 +48,21 @@ Superpowers is not adopted (decision 2026-10-11): not at user scope, and no proj
 
 ## 0. Machine prerequisites (once per machine)
 
-Needed: `git`, `jq` (status line), `node` (Ponytail hooks), `gh`, `rtk`, current Claude Code. On Windows use Git Bash.
+Needed before the quick path:
+- **Claude Code 2.1.295 or newer**, installed and logged in. Credentials are not in this repo, so every machine logs in itself. Install by the official instructions; `claude --version` must print 2.1.295 or newer (`verify.sh --live` fails below that: auto mode is the default from 2.1.283 and the hook `onFailure` field needs 2.1.295).
+- `git` and GitHub access for the clone (the repo is private: `gh auth login` or a credential manager).
+- `jq` (required by `apply.sh` and the status line), `python3` (dashboard, QA scripts), `bash` (macOS or Git Bash on Windows).
+- `rtk` (recommended): `winget install rtk-ai.rtk` on Windows, `brew install rtk` on macOS. It must be on PATH of the shell that Claude Code uses; after a fresh install open a new terminal or restart the app. Without it Bash still works, only the output filtering is off; `bash scripts/qa-deny.sh` should be run once where it is installed.
+- `node` (Ponytail hooks; the UI QA needs node 22+), `gh` (daily routine, optional).
+- Windows: Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. `.gitattributes` keeps shell scripts on LF.
 
 ```
 echo ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 claude --version
-command -v rtk jq node gh
+command -v rtk jq node gh python3
 ```
 
-Done when every command prints a value. No path is hard-coded anywhere; only the clone location of this repo differs per machine.
+Done when every command prints a value (`rtk`, `node`, `gh` may be missing; the rest may not). No path is hard-coded anywhere; only the clone location of this repo differs per machine. Cloud sessions (claude.ai/code) do not read `~/.claude`: their settings live in each project's `.claude/`.
 
 ## 1. Apply the global setup (each machine)
 
@@ -80,6 +86,18 @@ Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for 
 
 Undo: there is no backup; git is the history. Check out the older commit and run `apply.sh` again. Owned settings keys and tracked files go back exactly; keys that were only merged (a plugin enabled since, machine-only keys) are not rolled back.
 
+## 1b. Steps only you can do (once per machine)
+
+`apply.sh` and the scripts cannot do these. Tick them off after the quick path; each says how to check it.
+
+1. **Remove what the repo no longer wants.** Superpowers, if it was ever installed: `claude plugin uninstall superpowers@claude-plugins-official` (check: `verify.sh --live` prints `Superpowers is not installed`). `apply.sh` already removed its `enabledPlugins` entry.
+2. **Create the scheduled task** `daily-claude-update` in the Claude app once, from the pointer body in `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with this machine's clone path). Pick Sonnet in the app's Scheduled settings and the auto permission mode. Check: run it once by hand; `reports/YYYY-MM-DD.md` appears and `verify.sh --live` no longer warns about the task.
+3. **Project settings for AO** (only if you use AO): `ao project set-config <id> --permission auto` (it replaces the whole project config; round-trip `ao project get --json` first).
+4. **VS Code**: leave `claudeCode.initialPermissionMode` unset (it does not accept `auto`).
+5. **Dashboard autostart** (optional, per machine, not in the repo). Windows: one `.vbs` in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` that starts `pythonw scripts/dashboard/server.py` hidden; remove the file to undo. macOS and Linux: any login-time launcher.
+6. **`desktop-commander@synced` stays `false`** in `enabledPlugins`: that synced plugin starts an MCP server (`npx -y @wonderwhy-er/desktop-commander@latest`) in every session; on Windows each start opened console windows and failed connects retried in bursts, and `claude -p` QA runs loaded it too (PR #66). Re-enable with `claude plugin enable desktop-commander@synced` if you want it.
+7. **Secrets that may sit in old places**: if an earlier `~/.claude` snapshot ever reached a repository, remove the files from it and rotate the tokens (log out and in again). Deleting a repository is irreversible: confirm first.
+
 ## 2. Bootstrap a project (once, before the first task)
 
 Run `/project-setup` in the project directory (manual-only skill). It reads manifests, CI workflows and lint configs, finds the verification command per area, and proposes `CLAUDE.md`, `.claude/rules/*.md` and `.claude/settings.json` as files for you to approve. It installs nothing and invents no commands; what it cannot confirm is listed under "Not verified". In auto mode a write may not prompt at all (the classifier decides), so the skill's own step 10 (an explicit yes in chat) is the approval.
@@ -102,7 +120,7 @@ What to check afterwards:
 | Feature, medium | Plan mode (Shift+Tab), approve the plan, implement, verify |
 | Feature, large | Let Claude interview you (`AskUserQuestion`), write `SPEC.md`, implement in a fresh session |
 | Review | Fresh-context `reviewer` or `/code-review`; only findings that affect correctness or the stated requirements |
-| Parallel | Git worktrees; AO is optional. Workers per non-overlapping file area with tests as the done criterion, then an AO review per PR; measured once on a disposable repo (`docs/NEXT-MACHINE.md`, "AO QA 실측") |
+| Parallel | Git worktrees; AO is optional. Workers per non-overlapping file area with tests as the done criterion, then an AO review per PR; measured once on a disposable repo (`docs/evidence.md`, "AO QA 실측") |
 
 Habits: `/clear` between unrelated tasks; after two failed corrections on one issue, `/clear` and restate the task; `/rewind` to undo; changes go through a branch and a PR and a person merges.
 
@@ -121,7 +139,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 - Code: Python modules in `scripts/dashboard/` (`procs.py` is the only place a process starts, hidden on Windows), UI as ES modules in `scripts/dashboard/ui/` (a screen is a `Tab` subclass in `ui/tabs/`, built from `ui/components.js`).
 - Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths.
-- Autostart is a per-machine choice, not in the repo. Windows: a `.vbs` in the Startup folder that runs `pythonw scripts/dashboard/server.py` hidden (see the last section of `docs/NEXT-MACHINE.md`). macOS and Linux: not tried; any login-time launcher works.
+- Autostart is a per-machine choice, not in the repo. Windows: a `.vbs` in the Startup folder that runs `pythonw scripts/dashboard/server.py` hidden (step 5 of section 1b). macOS and Linux: not tried; any login-time launcher works.
 - Checks: `bash scripts/qa-dashboard.sh` (API, security, static files), `bash scripts/qa-ui.sh` (headless Chrome: every tab, three widths, palette, dialogs, flow lines, live update, offline and recovery; needs node 22+).
 - Not measured: macOS and Linux runs, and sessions that run on another machine.
 
@@ -152,7 +170,40 @@ Limit: it reads the command text. Aliases, scripts that call git, variables, a q
 
 ## AO (Orchestrator.inc) use
 
-Use AO only for parallel work with disjoint file scopes. Set permissions with `ao project set-config <id> --permission ...` (it replaces the whole config: round-trip `ao project get --json` first), put the done criteria and "never push" in `--agent-rules`, and push and merge by hand. Killing a worker session empties its worktree and blocks review, so trigger `ao review trigger` before ending it, or re-register the repository and use `--claim-pr`. Measured behavior and traps: `docs/NEXT-MACHINE.md` section 13.
+Use AO only for parallel work with disjoint file scopes. Set permissions with `ao project set-config <id> --permission ...` (it replaces the whole config: round-trip `ao project get --json` first), put the done criteria and "never push" in `--agent-rules`, and push and merge by hand. Killing a worker session empties its worktree and blocks review, so trigger `ao review trigger` before ending it, or re-register the repository and use `--claim-pr`. Measured behavior and traps: `docs/evidence.md` ("Orchestrator.inc(AO) 도입 검토").
+
+## Troubleshooting and traps
+
+- **A hook or deny rule blocks something harmless**: read the message (the secret-guard hook prints the file names); `git clean -n`, editing `.env.example` and reading a project `.npmrc` are known, accepted over-blocks (`docs/DECISIONS.md`). Do not widen the rule from a chat message: edit `claude/settings.json` in a PR.
+- **The classifier blocks a routine action**: see "Permission mode: auto". Repeated blocks for the same destination usually mean it lacks context; add it to `autoMode.environment`.
+- **Permission rules see the command after RTK rewrote it** (`git ...` becomes `rtk git ...`), so every Bash rule needs its `rtk ` twin. Deny and ask rules are not a security boundary: `/bin/rm -rf`, `bash -c '...'` are other spellings. Real enforcement needs the Bash sandbox, which is off by default and does not exist on native Windows.
+- **Windows Git Bash QA scripts**: do not set `MSYS_NO_PATHCONV=1` for the whole shell (native `jq.exe` cannot open `/d/...`); pass work folders as `D:/...`. Windows Python does not read `/c/...` paths; use `cygpath -w` for Node and Python.
+- **AO**: ending a worker session empties its worktree and blocks the review; run `ao review trigger` first, or `ao spawn --claim-pr <PR URL>` later.
+- **Push is refused in a session**: the `git push *` ask rule prompts even in auto mode, and the classifier may refuse a push you did not ask for. Say so in chat; use plain `git push origin <branch>`, never force.
+- **x.com returns HTTP 402 to automated fetches**: use the app browser; official links decide.
+- **Processes named `--chrome-native-host`** belong to Chrome; leave them.
+- **`~/.claude` must never be committed**: `.credentials*`, `.claude.json`, `history.jsonl` are gitignored and blocked by `secret-guard`.
+
+## Local test checklist (not run yet: needs Windows and Mac)
+
+The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, a real `claude` 2.1.296, headless Chromium). These need your machines; write the result next to each line (`machine, date, result`).
+
+| ID | Where | Do | Expect | Last run |
+|---|---|---|---|---|
+| L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed | — |
+| L-2 | Mac | this guide's quick path from the start | 0 FAIL, only the expected WARN lines; `qa-statusline.sh` passes (BSD sed) | — |
+| L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
+| L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
+| L-5 | both | `bash scripts/qa-deny.sh` | all PASS (26 cases; with RTK installed it exercises the rewrite) | — |
+| L-6 | both | `qa-role-agents.sh <dir>` real mode, `qa-project-setup.sh <dir>`, one AO worker | still pass in auto mode; note any action the classifier skipped | — |
+| L-7 | both | `bash scripts/qa-ui.sh` | 80 checks pass; no backup tile; AUTO badge | — |
+| L-8 | both | in a session: stage a secret file; remove jq from PATH and stage again; remove jq and run `ls`; ask for `cat .env` | blocked; blocked; allowed; refused | — |
+| L-9 | both | `git push`, `git -C . push`, `rm x` in a session | each asks for confirmation, also in auto mode | — |
+| L-10 | Windows | run the scheduled task once | report written, runs in auto mode | — |
+| L-11 | both | change a rule in `/permissions` → Auto mode, then `verify.sh --live`, then `apply.sh` | WARN naming the key; apply restores it | — |
+| L-12 | both | VS Code settings | `claudeCode.initialPermissionMode` is empty | — |
+
+Container run, 2026-10-11 (Linux, claude 2.1.296, no RTK): `verify.sh` 0 FAIL, `qa-hooks` 94, `qa-apply` 20, `qa-dashboard-unit` 48, `qa-dashboard` 0 failures (applied and empty config), `qa-fix`, `qa-spawn-guard`, `qa-role-agents` self-test 30, `qa-deny` 26 (haiku, throwaway repo), `qa-ui` 80 (headless Chromium), `shellcheck -S warning` clean.
 
 ## Not verified
 
