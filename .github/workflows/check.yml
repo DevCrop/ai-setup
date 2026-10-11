@@ -1,0 +1,66 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Headless checks only. Not run here (need the claude CLI, a model, or Chrome): scripts/qa-deny.sh, scripts/qa-ui.sh,
+# scripts/qa-role-agents.sh in real mode, scripts/qa-project-setup.sh. Run those by hand after apply.sh on each machine.
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax
+        run: |
+          for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
+          python3 -c "import json;json.load(open('claude/settings.json'))"
+      - name: Repo checks
+        run: bash scripts/verify.sh
+      - name: Dashboard fix and spawn tests
+        run: |
+          python3 scripts/qa-fix.py "$PWD"
+          python3 scripts/qa-spawn-guard.py scripts/dashboard
+      - name: Role-agent graders (self-test, no model calls)
+        run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
+      - name: Apply into a scratch home, then check the dashboard server
+        run: |
+          h="$(mktemp -d)"
+          env -u CLAUDE_CONFIG_DIR HOME="$h" bash scripts/apply.sh
+          HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" bash scripts/qa-dashboard.sh
+
+  windows:
+    runs-on: windows-latest
+    # Report-only until apply.sh v2 lands; then remove this line.
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax
+        run: |
+          for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
+          python -c "import json;json.load(open('claude/settings.json'))"
+      - name: Repo checks
+        run: bash scripts/verify.sh
+      - name: Dashboard fix and spawn tests
+        run: |
+          python scripts/qa-fix.py "$PWD"
+          python scripts/qa-spawn-guard.py scripts/dashboard
+      - name: Role-agent graders (self-test, no model calls)
+        run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
+      - name: Apply into a scratch home, then check the dashboard server
+        run: |
+          h="$(mktemp -d)"
+          env -u CLAUDE_CONFIG_DIR HOME="$h" bash scripts/apply.sh
+          HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" bash scripts/qa-dashboard.sh
