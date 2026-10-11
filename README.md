@@ -1,23 +1,24 @@
-# TRACE Setup v1.2.4
+# TRACE Setup v1.3.0
 
 Portable Codex personal instructions, optional profiles, pinned Archify/Ponytail,
 and ownership-based deployment. Python 3.11+ and Git are required; Node.js is needed
 to render Archify. Use ChatGPT subscription login on each host. No API key and no
 50/200-run model benchmark are required.
 
-For the current reviewed development branch, start with the Korean
+For the release contents, start with the Korean
 [2026-10-08 setup handoff](docs/setup-handoff-20261008.md): what changed, why,
 host-specific authority, incident recovery, actual checks and another-PC acceptance.
 Portable report UI sources are in [templates/reports](templates/reports/README.md).
 Follow the [detailed Windows installation guide](docs/install-another-windows-pc.md)
 for missing dependencies/folders, project packages, login and host-local scheduling.
-The v1.2.4 tag remains the preceding published release; branch publication is separate.
+This payload includes the reviewed handoff and stable skill updates. See
+[v1.3.0 verification and upgrade](docs/release-1.3.0.md).
 
 For the final two-lane task/maintenance flow, per-diagnostic RTK routing and
 confirmed-history review, see the Korean [shareable routine](docs/codex-routine-share.md).
-The current branch carries these added policies; installing v1.2.4 does not.
+These policies are included in v1.3.0; v1.2.4 is the preceding payload.
 
-The 2026-10-08 branch also includes an opt-in [RTK live viewer](docs/rtk-live-dashboard.md):
+This release also includes an opt-in [RTK live viewer](docs/rtk-live-dashboard.md):
 local read-only aggregate polling, visible-tab refresh, pause/error states and a
 Windows launcher. The existing daily maintenance and stored probe timestamps
 remain independent. No startup task, hook or public web service is installed.
@@ -150,7 +151,7 @@ cache is copied.
 
 ## Migrating v1.0.1 and other computers
 
-Use tag `v1.2.4` for a reproducible release checkout. On an existing TRACE host,
+Use tag `v1.3.0` for a reproducible release checkout. On an existing TRACE host,
 review `plan` before `apply`. Do not copy an entire Codex home between computers;
 authenticate independently and preserve local model, MCP, permissions and app state.
 
@@ -190,8 +191,8 @@ acceptance checklist, see [the portable setup guide](docs/portable-routine.md) a
 per-invocation local RTK checks and responses to observed failures are separate;
 this repository does not install an event daemon or perform model training.
 
-The published v1.2.4 retains the preceding agreement. This development branch
-adds active-root/tool/acceptance routing and verified RTK for every supported
+The preceding v1.2.4 retains its historical agreement. v1.3.0 includes
+active-root/tool/acceptance routing and verified RTK for every supported
 diagnostic, including nested orchestration, while retaining native evidence and
 final acceptance. Confirmed feedback, minimal changes and retirement live in
 conditional guidance and the existing private routine state. Efficiency means correct completion with less
