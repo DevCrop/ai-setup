@@ -37,6 +37,13 @@ for f in "$repo"/claude/agents/*.md; do
   got="$(printf '%s' "$iv" | jq -r --arg a "$a" '.agents[] | select(.name==$a) | .skills')"
   case "$got" in *"$want"*) pass "inventory shows the preloaded skill of $a ($want)";; *) bad "inventory skills cell of $a is [$got], expected to contain [$want]";; esac
 done
+# auto-detect: a session log with a real cwd is found, a log-less folder next to it does not hide it
+ad="$(mktemp -d "$repo/.qa-ad.XXXXXX")"; ad="$(cd "$ad" && pwd -W 2>/dev/null || pwd)"; mkdir -p "$ad/cfg/projects/empty" "$ad/cfg/projects/p1" "$ad/work/app"; : > "$ad/work/app/CLAUDE.md"
+printf '{"cwd":"%s"}
+' "$ad/work/app" > "$ad/cfg/projects/p1/s.jsonl"
+r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.insert(0,sys.argv[1]);import server;print([p.name for p in server.discover_projects()])" "$repo/scripts/dashboard")"
+[ "$r" = "['app']" ] && pass "project auto-detect finds the session cwd" || bad "project auto-detect gave: $r"
+rm -rf "$ad"
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
