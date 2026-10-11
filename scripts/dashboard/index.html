@@ -42,13 +42,13 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 400 var(--t-md)
 .side button[aria-current="page"] { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
 @media (max-width: 860px) { .app { grid-template-columns: minmax(0, 1fr); } .side { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: var(--s2); } .side .grp { display: none; } .side button { white-space: nowrap; } }
 .view[hidden] { display: none !important; }
-.kv > span { min-width: 0; overflow-wrap: anywhere; } .kv > span:nth-child(2) { text-align: right; }
+.kv > span { min-width: 0; overflow-wrap: anywhere; } .kv > span:only-child { grid-column: 1 / -1; } .kv > span:nth-child(2) { text-align: right; }
 .flow .ph { flex-wrap: wrap; } .flow .ph h2 { white-space: nowrap; } .flow .ph .hint { white-space: normal; }
 .flow > .panel, .flow > details { flex: none; min-height: auto; overflow: visible; }
 #v-monitor { display: grid; gap: var(--s3); grid-template-rows: auto auto 1fr; min-height: 0; }
 .flow { display: grid; gap: var(--s3); align-content: start; min-height: 0; overflow: auto; }
 .grid2 { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
+.kv { display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); gap: var(--s2); align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
 .kv .sub { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-xs); }
 .note { color: var(--muted); font-size: var(--t-xs); margin: 0; }
 .cmd { font-size: var(--t-xs); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 4px 8px; overflow-x: auto; white-space: pre; }
@@ -869,6 +869,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
   document.querySelectorAll(".side button").forEach((b) => { b.onclick = () => show(b.dataset.tab); });
   setInterval(() => { if (curTab !== "monitor" && curTab !== "setup") loadInv(); }, 15000);
   show((location.hash || "").slice(1));
+  addEventListener("hashchange", () => show((location.hash || "").slice(1)));
 
   async function tick() {
     try { const r = await fetch("/api/state", { cache: "no-store" }); render(await r.json()); lastOk = Date.now(); if (curTab === "setup") show(curTab); } catch (e) { /* keep the last frame */ }
