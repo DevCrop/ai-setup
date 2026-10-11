@@ -12,7 +12,7 @@ Run in order; each line says what proves it worked. Prerequisites are in section
 | 2 | `bash scripts/apply.sh` | prints `applied: ...` and, when the machine differs, what it replaced, kept or removed |
 | 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
 | 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
-| 5 | `bash scripts/verify.sh --live` | `0 FAIL`. On a first run these WARN lines are expected: no `.ponytail-active` yet (written by the first new session), no scheduled task yet (manual steps), `rtk` missing if you skipped it |
+| 5 | `bash scripts/verify.sh --live` | `0 FAIL` (a FAIL on `ponytail` means step 3 was skipped or went to another `CLAUDE_CONFIG_DIR`). On a first run these WARN lines are expected: no `.ponytail-active` yet (written by the first new session), no scheduled task yet (manual steps), `rtk` missing if you skipped it |
 | 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
 | 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
 
@@ -49,7 +49,7 @@ Superpowers is not adopted (decision 2026-10-11): not at user scope, and no proj
 ## 0. Machine prerequisites (once per machine)
 
 Needed before the quick path:
-- **Claude Code 2.1.295 or newer**, installed and logged in. Credentials are not in this repo, so every machine logs in itself. Install by the official instructions; `claude --version` must print 2.1.295 or newer (`verify.sh --live` fails below that: auto mode is the default from 2.1.283 and the hook `onFailure` field needs 2.1.295).
+- **Claude Code 2.1.295 or newer**, installed and logged in. Credentials are not in this repo, so every machine logs in itself. Install by the official instructions; `claude --version` must print 2.1.295 or newer (`verify.sh --live` fails below that: auto mode is the built-in starting mode from 2.1.283 per the permission-modes doc, and the hook `onFailure` field needs 2.1.295 per the hooks doc).
 - `git` and GitHub access for the clone (the repo is private: `gh auth login` or a credential manager).
 - `jq` (required by `apply.sh` and the status line), `python3` (dashboard, QA scripts), `bash` (macOS or Git Bash on Windows).
 - `rtk` (recommended): `winget install rtk-ai.rtk` on Windows, `brew install rtk` on macOS. It must be on PATH of the shell that Claude Code uses; after a fresh install open a new terminal or restart the app. Without it Bash still works, only the output filtering is off; `bash scripts/qa-deny.sh` should be run once where it is installed.
@@ -80,11 +80,11 @@ bash scripts/verify.sh --live    # repo checks + applied files equal claude/ + t
 bash scripts/verify.sh --full    # also runs qa-deny.sh (claude CLI + haiku); run it where RTK is installed
 ```
 
-Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for example no `.ponytail-active` flag before the first new session). Then spot-check by hand: `rtk gain` total commands grows after a few Bash calls, the status line shows `[model] N% context`, `/context` lists the global `CLAUDE.md`, and `claude plugin details ponytail` shows its always-on token cost.
+Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for example no `.ponytail-active` flag before the first new session). Then spot-check by hand: `rtk gain` total commands grows after a few Bash calls, the status line shows `[model] N% context`, `/context` lists the Memory files `CLAUDE.md` and `RTK.md`, the seven custom agents (`explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`) and the skills (`orchestrate`, `spec-writing`, `design-spec`, ...), and `claude plugin details ponytail` shows its always-on token cost.
 
 `apply.sh` merges `settings.json` instead of replacing it. This repo owns `permissions.{defaultMode,deny,ask,allow}`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces` and `skillOverrides` (live values are replaced, a key the repo lacks is deleted) and every other key the repo sets (`model`, `effortLevel`, ...). Keys that exist only on the machine, such as `env` (for example `CLAUDE_CODE_TMPDIR`) or a plugin enabled by `claude plugin install`, are kept and reported. `scripts/removed-keys.json` lists keys that are deleted. Files that an earlier apply copied (tracked in `~/.claude/.claude-global-manifest`) and the repo no longer has are removed; files that never came from this repo are kept and reported. `verify.sh --live` compares only the owned keys (WARN on a difference, INFO for machine-only keys).
 
-Undo: there is no backup; git is the history. Check out the older commit and run `apply.sh` again. Owned settings keys and tracked files go back exactly; keys that were only merged (a plugin enabled since, machine-only keys) are not rolled back.
+Undo: there is no backup; git is the history. Check out the older commit and run `apply.sh` again. Owned settings keys (`permissions.*`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides`) and tracked files go back exactly. Other keys do not: one the repo set (`model`, `theme`, cache TTLs) keeps its live value when the older commit lacks it, unless `scripts/removed-keys.json` lists it; plugins enabled since and machine-only keys stay.
 
 ## 1b. Steps only you can do (once per machine)
 
@@ -129,7 +129,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 - The routine `daily-claude-update` runs `claude --version`, the changelog, `scripts/verify.sh --live`, and `scripts/docs-watch.sh` (thirteen official docs pages this setup depends on, plus two platform pages), then writes `reports/YYYY-MM-DD.md` and proposes changes. It only reads and reports. Steps live in `claude/routines/daily-update.md` and are read from the clone, so `git pull` updates them.
 - On each machine create the scheduled task in the app once, from the pointer body in `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with that machine's clone path). If the app still holds the older body with the full list of steps, replace it with the pointer body.
 - Model of the scheduled task: the app task has no model field, so it runs on the app default. The first manual run (2026-10-09) ran on Haiku by decision; the first automatic run showed `claude-sonnet-5-5`, but whether that came from a setting or the default is unknown. Set Sonnet explicitly in the app's Scheduled settings and check the model shown in the run session. Set the task's permission mode to auto too.
-- Monthly: `/doctor` on `CLAUDE.md`, skills and agents.
+- Monthly: `/doctor` on `CLAUDE.md`, skills and agents; `/context` for the share of system and MCP tool definitions (switch off connectors you do not use, for example the Chrome and Browser tools).
 - After any change to permissions or hooks: `bash scripts/verify.sh --full` on every machine where RTK is installed.
 - Edit `claude/` in this repo, never `~/.claude` directly.
 
@@ -166,7 +166,7 @@ Rules of use:
 
 Fail-closed: when jq or git is missing, or the hook input is not JSON, a command that mentions a staging verb is blocked (exit 2); other commands pass. `settings.json` gives the hook `timeout: 30` and `onFailure: "block"` (Claude Code 2.1.295 or newer), so a crash or a timeout blocks the call too. In a very large repository the 30 s limit can block a git command: raise `timeout` for that project instead of removing the hook.
 
-Limit: it reads the command text. Aliases, scripts that call git, variables, a quoted path with a space given as one argument, brace expansion, `eval` and pushes of another branch (`git push origin feat`, `--all`; only HEAD and its upstream are judged) are not seen. It also blocks some harmless text: a command whose quoted text or heredoc line contains `git add -A` while a secret-named file is untracked (a reviewer found these on 2026-10-10), so it is a guard rail, not a boundary. `git stash -u` is not checked: a stash stays on the machine. The daily routine's repository exposure check (step 7b) covers what reaches a public repository anyway. Tests: `bash scripts/qa-hooks.sh` (also run by `verify.sh`).
+Limit: it reads the command text. Aliases, scripts that call git, git itself held in a variable, a quoted path with a space given as one argument, brace expansion, `eval` and pushes of another branch (`git push origin feat`, `--all`; only HEAD and its upstream are judged) are not seen. A variable, `$()` or `xargs`/`find -exec` as an argument of `add`, `stage`, `update-index`, `apply`, `am` or `mv` is read as "everything pending" and judged like `git add -A`. It also blocks some harmless text: a command whose quoted text or heredoc line contains `git add -A` while a secret-named file is untracked (a reviewer found these on 2026-10-10), so it is a guard rail, not a boundary. `git stash -u` is not checked: a stash stays on the machine. The daily routine's repository exposure check (step 7b) covers what reaches a public repository anyway. Tests: `bash scripts/qa-hooks.sh` (also run by `verify.sh`).
 
 ## AO (Orchestrator.inc) use
 

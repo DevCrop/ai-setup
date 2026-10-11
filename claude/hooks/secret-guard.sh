@@ -4,8 +4,9 @@
 # Fail-closed: when a command that could stage files cannot be judged (jq or git missing, unreadable hook input) it is blocked with exit 2.
 # Commands without a git word are never touched. settings.json gives this hook "onFailure": "block" and a 30 s timeout, so a crash or a
 # timeout blocks the call too (a huge repo can make `git status`-like calls slow).
-# Limit: it reads the command string. Not seen: aliases, scripts that call git, variables, paths with spaces given as one quoted argument,
-# brace expansion, eval, an apply/am patch that adds a secret name when the work tree has none.
+# Limit: it reads the command string. Not seen: aliases, scripts that call git, git itself held in a variable, brace expansion, eval, a path
+# with a space given as one quoted argument, an apply/am patch that adds a secret name when the work tree has none. A variable, $() or
+# xargs/find -exec as an argument of add/stage/update-index/apply/am/mv is read as "everything pending" (judged like git add -A).
 input="$(cat)"
 # Cheap gate on the raw input: JSON escapes for newline, return and tab become spaces first (else "\ngit" reads as "ngit"), then quotes and
 # backslashes are removed (g''it and g\it are git). No git word, nothing to check.

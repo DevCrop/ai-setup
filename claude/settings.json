@@ -138,7 +138,7 @@
       "$defaults",
       "Organization: personal (DevCrop). Primary use: software development and maintaining this Claude Code setup",
       "Source control: github.com/DevCrop and all repos under it",
-      "Plugin supply chain: Claude Code plugins come only from the DevCrop/claude-plugins marketplace, pinned by sha"
+      "Plugin supply chain: Claude Code plugins come from the marketplaces already listed in extraKnownMarketplaces; adding another marketplace or plugin needs the user to name it"
     ],
     "soft_deny": [
       "$defaults",

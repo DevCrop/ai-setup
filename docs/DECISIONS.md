@@ -17,12 +17,12 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 
 ### Third-party plugins are pinned through an own marketplace (pending)
 - Why: Ponytail, claude-mem and Archify are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
-- Status: waits for the forks; until then `settings.json` still names the upstream marketplaces. The `soft_deny` rule already blocks plugin installs unless the user names them.
+- Status: waits for the forks; until then `settings.json` still names the upstream marketplaces, and the `autoMode.environment` line says so ("plugins come from the marketplaces already listed"). When the pinned marketplace exists, change that line, `extraKnownMarketplaces` and `enabledPlugins` in the same PR. The `soft_deny` rule already blocks plugin installs unless the user names them.
 
 ### `apply.sh` merges `settings.json` and keeps no backup
-- Why: whole-file replacement fought the app (theme, `enableWorkflows`, `agentPushNotifEnabled`, plugin entries): five "stop deleting key X" commits in two days. Now this repo owns `permissions.{defaultMode,deny,ask,allow}`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides` and every other key it sets; machine-only keys are kept and reported; `scripts/removed-keys.json` deletes listed keys; a manifest removes files the repo dropped and never deletes through a symlink or outside the config directory.
-- No backup: git is the history. Rollback is "check out the older commit, apply again"; owned keys and tracked files return exactly, merged keys (a plugin enabled since, machine-only keys) do not.
-- `scripts/setup-claude-mem.sh` still keeps its own single-file `.bak`: it edits one file outside this repo's control.
+- Why: whole-file replacement fought the app (theme, `enableWorkflows`, `agentPushNotifEnabled`, plugin entries): repeated "keep key X from being deleted" commits within two days (0eae5f6, 106c52e, 21f4cea, 04218ce). Now this repo owns `permissions.{defaultMode,deny,ask,allow}`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides` and every other key it sets; machine-only keys are kept and reported; `scripts/removed-keys.json` deletes listed keys (today: the Superpowers plugin entry and `skipDangerousModePermissionPrompt`, which `verify.sh` also asserts absent); a manifest removes files the repo dropped and never deletes through a symlink or outside the config directory.
+- No backup: git is the history. Rollback is "check out the older commit, apply again". Owned keys (`permissions.*`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides`) and tracked files return exactly. Other keys do not go back: a key the repo set (`model`, `theme`, the cache TTLs, ...) keeps its live value when the older commit lacks it, unless `scripts/removed-keys.json` lists it; so do plugins enabled since and machine-only keys.
+- `scripts/setup-claude-mem.sh` still writes a timestamped `.bak-<time>` next to the file it edits: that file lives outside this repo and has no other history.
 - Undo: restore the backup logic from git history (`apply.sh` before commit `9da161c`).
 
 ### `secret-guard` fails closed and knows more names
@@ -68,7 +68,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### One global hook beyond RTK: `secret-guard`
 - Reason: a public repository once held `~/.claude` snapshots; sentences and `Read` deny did not stop `git add -A`. The daily routine also checks public repositories for secret file names.
 
-### Orchestrator.inc (AO) is a candidate, not adopted
+### Orchestrator.inc (AO) is a candidate, not adopted (candidate 2026-10-09, measured 2026-10-10)
 - Measured on a disposable repository (parallel workers with disjoint files, ask/deny rules held, push attempts stopped at ask rules). Permission is a project setting: `ao project set-config <id> --permission auto` (replaces the whole config). Not compared with Claude Code worktrees.
 
 ## 2026-10-09
@@ -87,3 +87,12 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 
 ### Changes go through a branch and a PR, a person merges
 - No automatic merge unless asked; push only after approval; no force push.
+
+## Settings notes (facts that explain the values in `claude/settings.json`)
+
+- `effortLevel: high`: the official default is medium and xhigh costs more tokens; change it mid-session with `/effort`.
+- `autoCompactWindow: 400000`: compaction at 400K tokens instead of about 967K on a 1M-token model. The reason is the best-practices advice that a full context degrades quality; the value is not measured. Raise it toward 600000 if compaction is too frequent. Precedence: env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` > `--autocompact` > `/autocompact` (stored per model in `modelSettings`, a machine-only key that `apply.sh` keeps) > this key.
+- `promptCacheTtl` and `subagentPromptCacheTtl` need Claude Code 2.1.242 or newer. Precedence: `FORCE_PROMPT_CACHING_5M` > env `CLAUDE_CODE_PROMPT_CACHE_TTL` / `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL` > the keys > `ENABLE_PROMPT_CACHING_1H` (not used: it also raises compaction and subagent requests and only adds write cost).
+- `explorer` uses `omitClaudeMd` (2.1.271 or newer); the status line needs 2.1.251 or newer and `jq`.
+- `autoUpdatesChannel: latest` and `enableAllProjectMcpServers: false` were removed (2026-10-09) because they equal the defaults; an explicit `false` would not protect anything, since a project setting overrides the user setting.
+- `rtk init -g` is not required (the hook is already in `settings.json`) and may rewrite it; compare `settings.json` before and after if you run it.
