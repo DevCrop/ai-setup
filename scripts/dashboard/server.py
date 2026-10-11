@@ -105,10 +105,15 @@ def settings():
     try:
         s = json.loads((ROOT / "claude" / "settings.json").read_text(encoding="utf-8"))
         p = s.get("permissions", {})
-        live = json.loads((CONFIG / "settings.json").read_text(encoding="utf-8")).get("permissions", {})
+        ls = json.loads((CONFIG / "settings.json").read_text(encoding="utf-8"))
+        live = ls.get("permissions", {})
+        keys = ("autoCompactWindow", "promptCacheTtl", "subagentPromptCacheTtl")
+        plugins = lambda d: sorted(k for k, v in (d.get("enabledPlugins") or {}).items() if v)
         return {"mode": p.get("defaultMode"), "deny": len(p.get("deny", [])), "ask": len(p.get("ask", [])),
                 "liveMode": live.get("defaultMode"), "liveDeny": len(live.get("deny", [])), "liveAsk": len(live.get("ask", [])),
-                "model": s.get("model"), "advisor": s.get("advisorModel")}
+                "model": s.get("model"), "advisor": s.get("advisorModel"),
+                "tune": {k: s.get(k) for k in keys}, "liveTune": {k: ls.get(k) for k in keys},
+                "plugins": plugins(s), "livePlugins": plugins(ls)}
     except Exception:
         return {}
 

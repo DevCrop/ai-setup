@@ -82,6 +82,8 @@ def routing(root, ao_projects):
     s = _settings(root)
     routine = next((l.strip() for l in _read(root / "claude" / "routines" / "daily-update.md").split("\n") if l.startswith("Model:")), "")
     return {"main": s.get("model"), "effort": s.get("effortLevel"), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
+            "cacheTtl": s.get("promptCacheTtl"), "subagentCacheTtl": s.get("subagentPromptCacheTtl"),
+            "plugins": sorted(k for k, v in (s.get("enabledPlugins") or {}).items() if v),
             "agents": [{"name": a["name"], "model": a["model"], "effort": a["effort"]} for a in agents(root)],
             "routine": routine[:200], "ao": ao_projects,
             "notes": ["서브에이전트는 설정된 advisor를 상속한다(공식 advisor 문서): 위임이 많으면 Opus 입력 토큰이 늘어난다",

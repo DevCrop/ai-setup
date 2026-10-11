@@ -28,6 +28,8 @@ lg="$(mktemp)"; printf '%s
 ' '{"timestamp":"t1","message":{"content":[{"type":"tool_use","id":"a","name":"Bash"}]}}' '{"timestamp":"t2","message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true,"content":"secret-guard: blocked. Secret-looking files would be included: .env.production"}]}}' '{"timestamp":"t3","message":{"content":[{"type":"tool_use","id":"b","name":"Read"},{"type":"tool_result","tool_use_id":"b","is_error":true,"content":"boom"}]}}' > "$lg"
 r="$("$py" -c "import sys,json;sys.path.insert(0,sys.argv[1]);import inventory;d=inventory.debug(sys.argv[2]);print(json.dumps([e['kind']+':'+e['detail'] for e in d['errors']]))" "$repo/scripts/dashboard" "$lg" 2>&1)"; rm -f "$lg"
 [ "$r" = '["hook-block:.env.production", "tool-error:"]' ] && pass "debug() survives a hook block followed by more tool calls" || bad "debug() regression: $r"
+for k in tune liveTune plugins livePlugins; do printf '%s' "$s" | jq -e ".settings | has(\"$k\")" >/dev/null && pass "settings has $k" || bad "settings lacks $k"; done
+printf '%s' "$iv" | jq -e '.routing | has("cacheTtl") and has("subagentCacheTtl") and has("plugins")' >/dev/null && pass "routing has cacheTtl/subagentCacheTtl/plugins" || bad "routing lacks TTL or plugin fields"
 # regression: an agent that preloads skills as a YAML list ("skills:" then "  - name") must show them, not an empty cell
 for f in "$repo"/claude/agents/*.md; do
   grep -q '^skills:[[:space:]]*$' "$f" || continue
