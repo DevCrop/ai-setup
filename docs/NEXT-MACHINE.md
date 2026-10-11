@@ -5,6 +5,8 @@
 
 이 문서는 첫 컴퓨터(Windows 10, 사용자명 `edn_y`)에서 한 작업을 기준으로 쓰였다. 첫 컴퓨터에만 있는 것(백업, 로그인, 대화 기록)은 저장소에 없다. 그 부분은 섹션 3에 따로 적었다.
 
+**새 컴퓨터는 `docs/GUIDE.md`의 "Quick path"(표 7줄)와 "claude-mem (per machine)"을 먼저 따른다.** 이 문서는 근거와 이력을 담은 참고서다.
+
 ## 목차
 1. 한눈에 보기
 2. 새 컴퓨터 세팅 순서
@@ -74,8 +76,9 @@
    - `jq`를 설치한다. 상태줄(`statusLine`)이 `jq`로 세션 정보를 읽으므로 없으면 상태줄이 비거나 깨진다. 설치는 jq 공식 릴리스(https://github.com/jqlang/jq/releases) 또는 각 OS 패키지 관리자로 한다(패키지 ID는 확인하지 않았다). 확인: `command -v jq`, 새 세션 하단에 `[모델] N% context`가 보인다.
 5. Ponytail을 설치한다 (상시 사용, 섹션 5의 명령). `apply.sh`가 `enabledPlugins`를 넣어 주지만 플러그인 파일은 설치해야 받아진다(자동 설치 여부는 확인하지 못했다).
    - 확인: `claude plugin list`에서 `ponytail@ponytail`이 enabled, 새 세션에서 `~/.claude/.ponytail-active`가 `full`.
-6. 예약 루틴을 만든다 (섹션 6, 경로 수정 필요).
-7. 섹션 7의 남은 작업을 순서대로 진행한다.
+6. claude-mem을 설치하고 `bash scripts/setup-claude-mem.sh`로 관찰자 모델(`claude-haiku-5-5`)과 비밀 마스킹을 켠다(`docs/GUIDE.md` "claude-mem (per machine)"). `~/.claude-mem`은 저장소 밖이라 `apply.sh`가 옮기지 않는다.
+7. 예약 루틴을 만든다 (섹션 6, 경로 수정 필요).
+8. 섹션 7의 남은 작업을 순서대로 진행한다.
 
 ## 3. 첫 컴퓨터에만 있는 것
 

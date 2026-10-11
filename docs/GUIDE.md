@@ -2,6 +2,40 @@
 
 End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). Decisions and history: `docs/NEXT-MACHINE.md`.
 
+## Quick path (new machine, about 15 minutes)
+
+Run in order; each line says what proves it worked. Prerequisites and details are in sections 0 and 1.
+
+| # | Command | Done when |
+|---|---|---|
+| 1 | `git clone https://github.com/DevCrop/claude-global.git && cd claude-global` | `git log -1` prints a commit |
+| 2 | `bash scripts/apply.sh` | prints `applied: ...`; backup folder `~/.claude-backup-<time>` exists |
+| 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
+| 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
+| 5 | `bash scripts/verify.sh --live` | `== 0 FAIL, 0 WARN` |
+| 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
+| 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
+
+Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`.
+
+## claude-mem (per machine)
+
+claude-mem keeps a local memory database in `~/.claude-mem`. The plugin entry is in `claude/settings.json` (so `apply.sh` enables it), but the plugin files and its own settings are per machine and are not in this repo.
+
+1. Install the plugin (the official marketplace does not carry it; `thedotmack` is the author's marketplace, a third party):
+   ```
+   claude plugin marketplace add thedotmack/claude-mem
+   claude plugin install claude-mem@thedotmack
+   ```
+   Do not use `npx claude-mem install` on Windows: `bun install` failed there with `spawn EINVAL` and left a half install.
+2. Open one Claude Code session so the worker starts and writes `~/.claude-mem/settings.json`. Check: `curl -s http://127.0.0.1:37777/api/stats` returns JSON.
+3. Set the two machine-local values with `bash scripts/setup-claude-mem.sh` (`--check` only reports):
+   - `CLAUDE_MEM_MODEL=claude-haiku-5-5`: the observer runs on every session, so it should be the cheap current model (Haiku 5.5 is about 20x cheaper per token than Sonnet 5.5 at list price; the default model on a new install may be an older one).
+   - `CLAUDE_MEM_REDACT_ENABLED=true`: off by default; it masks secret-looking text before storage.
+   The script backs up the file, changes only these two keys, and is safe to re-run.
+4. Leave Cloud Sync, Telegram and server keys empty unless you decide otherwise. The default provider uses your Claude subscription, so the observer spends plan limit; a past `quota_exhausted` entry in `~/.claude-mem/observer-health.json` is how that shows up.
+5. Check: `curl -s http://127.0.0.1:37777/api/settings` shows both values, and the dashboard "도구 점검" panel lists claude-mem items as OK. Review notes and risks: `docs/review-claude-mem.md`.
+
 ## Layers
 
 | Layer | What | Where |
@@ -83,7 +117,13 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 ## Live dashboard
 
-`python3 scripts/dashboard/server.py` serves http://127.0.0.1:8787 (local only, read-only, standard library). It refreshes every 3 seconds and shows the workflow state (edit, PR, merge, apply, verify, routine, report), tool calls per minute and a tool log from the newest session log in `~/.claude/projects` (tool names, times and file basenames only, never message text), commit and PR history, the `verify.sh --live` output and the latest routine report. `verify.sh --live` runs at most once a minute. If the AO CLI is found (`AO_BIN`, the default Windows install path, or `ao` on PATH), it also shows the AO daemon and worker sessions (activity, PR, CI, review verdict) from read-only `ao status`, `ao session ls` and `ao review ls`, and raises an alert when a worker is `blocked` waiting for input; prompts and review text are never read. Measured 2026-10-10: a worker stopped at an ask rule (`rm`) showed as BLOCKED within one refresh. Visual direction: Claude Code's terminal look (one monospace face, warm near-black canvas, one Claude-orange accent, state shown as badges). The face is whatever monospace the machine has; Claude Code's own font is the terminal's. Not measured: other operating systems (on Windows the server picks Git Bash for `verify.sh`) and logs of sessions that run on another machine.
+`python3 scripts/dashboard/server.py` serves http://127.0.0.1:8787 (local only, standard library, `--port N` to change). Nine tabs: monitoring, errors and debugging, orchestration (delegation flow), model routing, features, tool efficiency (RTK, claude-mem, AO, models; every number labelled measured, estimated or unavailable), practice checks (against the official docs), log and fixes, project setup. State refreshes every 3 seconds from the newest session log in `~/.claude/projects` (tool names, times and file basenames only, never message text), `verify.sh --live` (at most once a minute), PR history, and the AO CLI if found (`AO_BIN`, the default Windows path, or `ao` on PATH; read-only). Fixes (prune backups, turn on claude-mem redaction, update RTK) run only from a server allow-list after a confirm dialog.
+
+- Code: Python modules in `scripts/dashboard/` (`procs.py` is the only place a process starts, hidden on Windows), UI as ES modules in `scripts/dashboard/ui/` (a screen is a `Tab` subclass in `ui/tabs/`, built from `ui/components.js`).
+- Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths.
+- Autostart is a per-machine choice, not in the repo. Windows: a `.vbs` in the Startup folder that runs `pythonw scripts/dashboard/server.py` hidden (see the last section of `docs/NEXT-MACHINE.md`). macOS and Linux: not tried; any login-time launcher works.
+- Checks: `bash scripts/qa-dashboard.sh` (API, security, static files), `bash scripts/qa-ui.sh` (headless Chrome: every tab, three widths, palette, dialogs, flow lines, live update, offline and recovery; needs node 22+).
+- Not measured: macOS and Linux runs, and sessions that run on another machine.
 
 ## Permission mode: bypassPermissions by default
 
