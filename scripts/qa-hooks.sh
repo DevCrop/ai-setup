@@ -50,6 +50,14 @@ run 2 '\git add -A'
 run 2 "g''it add -A"
 run 2 $'git add \\\n-A'
 # secret names the first version missed
+run 2 'git add $(cat list2)'
+run 2 'git add $(git ls-files -o)'
+run 2 'f=.env; git add $f'
+run 2 'git add .aws/credentials'
+run 2 'git add .pgpass'
+run 2 'git add .htpasswd'
+run 2 'git add key.pem.bak'
+CWD="$t/clean" run 0 "$(printf 'git add c.txt && git commit -m "$(cat <<'"'"'MSG'"'"'\nmessage\nMSG\n)"')"
 run 2 'git add id_ed25519'
 run 2 'git add server.key'
 run 2 'git add credentials.json'

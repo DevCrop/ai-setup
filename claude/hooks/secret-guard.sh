@@ -31,11 +31,12 @@ flat="$(printf '%s' "$cmd" | tr -d "\"'\\\\")"
 printf '%s' "$flat" | grep -Eq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
 
 is_secret() {
+  case "$1" in .aws/credentials|*/.aws/credentials) return 0 ;; esac  # the file is just called "credentials": judge it by its directory
   b="$(basename "$1" | tr '[:upper:]' '[:lower:]')"
   case "$b" in
     *.example|*.sample|*.template|id_rsa*.pub|id_ed25519*.pub|id_ecdsa*.pub|id_dsa*.pub) return 1 ;;
-    .credentials*|.env|.env.*|.claude.json|history.jsonl|*.pem|id_rsa*|id_ed25519*|id_ecdsa*|id_dsa*) return 0 ;;
-    *.key|*.p12|*.pfx|*.jks|*.keystore|credentials.json|*credentials*.json|.npmrc|.netrc|.pypirc|.git-credentials|*.tfstate|secrets.yaml|secrets.yml) return 0 ;;
+    .credentials*|.env|.env.*|.claude.json|history.jsonl|*.pem|*.pem.*|id_rsa*|id_ed25519*|id_ecdsa*|id_dsa*) return 0 ;;
+    *.key|*.p12|*.pfx|*.jks|*.keystore|credentials.json|*credentials*.json|.npmrc|.netrc|.pypirc|.pgpass|.htpasswd|.git-credentials|*.tfstate|secrets.yaml|secrets.yml) return 0 ;;
   esac
   return 1
 }
@@ -47,9 +48,9 @@ absdir() { (cd "$1" 2>/dev/null && cd "$2" 2>/dev/null && pwd); }
 
 set -f
 cur="${cwd:-.}"
-# Backslash-newline joins lines; quotes and backslashes are deleted (g''it and g\it are git, "bash -c 'git add -A'" is seen); parens,
-# backticks and $ become spaces ($(git add -A) is seen); ; | & split segments.
-segs="$(printf '%s\n' "$cmd" | sed -e ':a' -e '/\\$/N;s/\\\n/ /;ta' | tr -d "\"'\\\\" | tr '()`$' '    ' | tr ';|&' '\n\n\n')"
+# Backslash-newline joins lines; quotes and backslashes are deleted (g''it and g\it are git, "bash -c 'git add -A'" is seen); $ and
+# backticks become the marker __EXP__ (an expansion we cannot evaluate), parens become spaces ($(git add -A) is seen); ; | & split segments.
+segs="$(printf '%s\n' "$cmd" | sed -e ':a' -e '/\\$/N;s/\\\n/ /;ta' | tr -d "\"'\\\\" | sed -e 's/[$`]/ __EXP__ /g' | tr '()' '  ' | tr ';|&' '\n\n\n')"
 while IFS= read -r seg; do
   # xargs and find -exec feed git paths we cannot see: treat an add through them as "everything pending".
   case " $seg " in *" xargs "*|*" -exec "*|*" -execdir "*) viaxargs=1 ;; *) viaxargs=0 ;; esac
@@ -84,6 +85,7 @@ while IFS= read -r seg; do
             apply) case "$t" in --index|--cached|-3|--3way) broad=1 ;; esac ;;
           esac ;;
       .|./|:/|:/*|*[\*\?\[]*) broad=1 ;;
+      __EXP__) case "$verb" in add|stage|update-index|apply|am|mv) broad=1 ;; esac ;;
       *) paths="$paths $t"; [ -d "$dir/$t" ] && broad=1 ;;
     esac
   done
