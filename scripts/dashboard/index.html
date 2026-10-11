@@ -502,7 +502,8 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
       aoKpi);
 
     const act = activeNode(ev, now), lastMerge = g.commits.find((c) => c.pr);
-    const sync = st.mode === st.liveMode && rulesOk;
+    const tuneOk = JSON.stringify(st.tune) === JSON.stringify(st.liveTune) && JSON.stringify(st.plugins) === JSON.stringify(st.livePlugins);
+    const sync = st.mode === st.liveMode && rulesOk && tuneOk;
     const steps = [
       ["edit", "수정", "claude/", g.dirty ? "변경 " + g.dirty + "건" : "깨끗함", g.dirty ? ["warn", "DIRTY"] : ["ok", "CLEAN"]],
       ["pr", "PR", "branch → GitHub", open + "개 열림", open ? ["warn", "OPEN"] : ["ok", "CLEAR"]],
@@ -746,7 +747,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
       panel("모델 라우팅 (UML 컴포넌트)", "점선은 advisor가 메인과 서브에이전트에 상속·적용됨", routeDiagram(), el("p", "note", "각 에이전트는 frontmatter의 model이 우선이고, 없으면 메인을 상속합니다.")),
       grid2(
         panel("AO 경로", (r.ao || []).length ? r.ao.length + "개 프로젝트" : "데몬 중지 또는 없음", row(node("n-side", "AO 워커", bd("info", "--model"), "프로젝트 설정의 모델"), arrow(), node("n-side", "AO 리뷰어", bd("info", "--reviewer"), "실제 사용 모델 필드는 AO 출력에 없어 확인 불가")), (r.ao || []).length ? el("div", "note", r.ao.join(", ")) : el("p", "note", "프로젝트 id는 AO 데몬이 켜져 있을 때만 읽습니다."), cmd("ao project set-config <id> --model <m> --reviewer <m> --permission <mode>")),
-        panel("메인 설정", "claude/settings.json", kv("effortLevel", r.effort || "?"), kv("autoCompactWindow", r.autoCompact || "기본"), kv("일일 루틴", r.routine || "모델 줄 없음"))),
+        panel("메인 설정", "claude/settings.json", kv("effortLevel", r.effort || "?"), kv("autoCompactWindow", r.autoCompact || "기본"), kv("promptCacheTtl", r.cacheTtl || "기본"), kv("subagentPromptCacheTtl", r.subagentCacheTtl || "기본"), kv("플러그인", (r.plugins || []).join(", ") || "없음"), kv("일일 루틴", r.routine || "모델 줄 없음"))),
       panel("비용 메모", "공식 문서·측정", ...r.notes.map((t) => kv(t))));
   }
   function drawFeat(v) {
