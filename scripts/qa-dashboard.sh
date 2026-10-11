@@ -28,6 +28,8 @@ lg="$(mktemp)"; printf '%s
 ' '{"timestamp":"t1","message":{"content":[{"type":"tool_use","id":"a","name":"Bash"}]}}' '{"timestamp":"t2","message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true,"content":"secret-guard: blocked. Secret-looking files would be included: .env.production"}]}}' '{"timestamp":"t3","message":{"content":[{"type":"tool_use","id":"b","name":"Read"},{"type":"tool_result","tool_use_id":"b","is_error":true,"content":"boom"}]}}' > "$lg"
 r="$("$py" -c "import sys,json;sys.path.insert(0,sys.argv[1]);import inventory;d=inventory.debug(sys.argv[2]);print(json.dumps([e['kind']+':'+e['detail'] for e in d['errors']]))" "$repo/scripts/dashboard" "$lg" 2>&1)"; rm -f "$lg"
 [ "$r" = '["hook-block:.env.production", "tool-error:"]' ] && pass "debug() survives a hook block followed by more tool calls" || bad "debug() regression: $r"
+for k in tune liveTune plugins livePlugins; do printf '%s' "$s" | jq -e ".settings | has(\"$k\")" >/dev/null && pass "settings has $k" || bad "settings lacks $k"; done
+printf '%s' "$iv" | jq -e '.routing | has("cacheTtl") and has("subagentCacheTtl") and has("plugins")' >/dev/null && pass "routing has cacheTtl/subagentCacheTtl/plugins" || bad "routing lacks TTL or plugin fields"
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
