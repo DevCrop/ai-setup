@@ -100,7 +100,7 @@ def features(root):
     return {"hooks": hooks, "deny": len(deny), "ask": len(p.get("ask", [])), "mode": p.get("defaultMode"), "denyKinds": cat,
             "agents": [a["name"] for a in agents(root)], "skills": skills, "scripts": scripts, "routine": routine,
             "plugins": [k for k, v in s.get("enabledPlugins", {}).items() if v], "statusLine": bool(s.get("statusLine")),
-            "dashboard": ["활동·실시간 이벤트", "AO 워커", "변경 이력(PR)", "점검과 알림", "프로젝트 셋업", "사이드 탭 6종"]}
+            "dashboard": ["활동·실시간 이벤트", "AO 워커", "변경 이력(PR)", "점검과 알림", "프로젝트 셋업", "사이드 탭 7종"]}
 
 
 def practices(root, config, verify_counts):
