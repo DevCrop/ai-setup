@@ -11,7 +11,8 @@
   "theme": "dark",
   "statusLine": {
     "type": "command",
-    "command": "jq -r '\"[\\(.model.display_name)] \\(.context_window.used_percentage // 0)% context\"'"
+    "command": "bash ~/.claude/statusline.sh",
+    "refreshInterval": 30
   },
   "permissions": {
     "deny": [
