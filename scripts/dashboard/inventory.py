@@ -19,12 +19,21 @@ def _fm(text):
     out, lines = {}, text.replace("\r", "").split("\n")
     if not lines or lines[0].strip() != "---":
         return out
+    key = None
+    listed = set()  # keys whose value came from a "- item" block list
     for l in lines[1:]:
         if l.strip() == "---":
             break
         m = re.match(r"^([A-Za-z][\w-]*):\s*(.*)$", l)
         if m:
-            out[m.group(1)] = m.group(2).strip()
+            key = m.group(1)
+            out[key] = m.group(2).strip()
+            continue
+        # "skills:" followed by "  - name" lines: join the scalar items. Nested items ("- matcher: x") are skipped.
+        li = re.match(r"^\s+-\s+([^:#]+?)\s*$", l)
+        if li and key and (out.get(key, "") == "" or key in listed):
+            out[key] = (out[key] + ", " if out[key] else "") + li.group(1).strip("\"'")
+            listed.add(key)
     return out
 
 

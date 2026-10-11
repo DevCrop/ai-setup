@@ -28,6 +28,13 @@ lg="$(mktemp)"; printf '%s
 ' '{"timestamp":"t1","message":{"content":[{"type":"tool_use","id":"a","name":"Bash"}]}}' '{"timestamp":"t2","message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true,"content":"secret-guard: blocked. Secret-looking files would be included: .env.production"}]}}' '{"timestamp":"t3","message":{"content":[{"type":"tool_use","id":"b","name":"Read"},{"type":"tool_result","tool_use_id":"b","is_error":true,"content":"boom"}]}}' > "$lg"
 r="$("$py" -c "import sys,json;sys.path.insert(0,sys.argv[1]);import inventory;d=inventory.debug(sys.argv[2]);print(json.dumps([e['kind']+':'+e['detail'] for e in d['errors']]))" "$repo/scripts/dashboard" "$lg" 2>&1)"; rm -f "$lg"
 [ "$r" = '["hook-block:.env.production", "tool-error:"]' ] && pass "debug() survives a hook block followed by more tool calls" || bad "debug() regression: $r"
+# regression: an agent that preloads skills as a YAML list ("skills:" then "  - name") must show them, not an empty cell
+for f in "$repo"/claude/agents/*.md; do
+  grep -q '^skills:[[:space:]]*$' "$f" || continue
+  a="$(basename "$f" .md)"; want="$(awk '/^skills:/{on=1;next} on&&/^[[:space:]]+-[[:space:]]/{sub(/^[[:space:]]+-[[:space:]]+/,"");print;next} on{exit}' "$f" | head -n1)"
+  got="$(printf '%s' "$iv" | jq -r --arg a "$a" '.agents[] | select(.name==$a) | .skills')"
+  case "$got" in *"$want"*) pass "inventory shows the preloaded skill of $a ($want)";; *) bad "inventory skills cell of $a is [$got], expected to contain [$want]";; esac
+done
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
