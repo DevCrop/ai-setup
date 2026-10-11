@@ -50,6 +50,14 @@
 - 재시작 후 워커 정상 (`127.0.0.1:37777`, status ok). 기본 provider는 `claude`이고 Claude Code OAuth 토큰을 자격증명 저장소에서 읽어 사용. Cloud Sync 토큰은 비어 있음(미로그인). 첫 요약 생성 성공, `mem_search`로 조회됨.
 - 이 저장소 반영: `claude/settings.json`에 마켓과 `enabledPlugins`를 추가함. 이 브랜치를 머지하고 apply.sh를 실행해야 유지된다. 그 전에 apply.sh가 돌면 항목이 제거되어 플러그인이 `disabled`가 됨 (실제로 발생).
 
-## 6. 아직 남은 검증
+## 6. 점검 결과 (2026-10-11, 13.35.0, Windows 10)
 
-토큰 사용량 비교(미측정), RTK 훅과의 공존, `qa-deny.sh` 통과, Cloud Sync 전송 범위, 삭제·프로젝트 분리 절차, 저장된 관찰에 비밀값이 섞이는지 점검.
+- `qa-deny.sh` (claude-mem 활성 상태): 첫 실행 8건 FAIL, 같은 상태에서 개별 재현은 정상 차단, 두 번째 전체 실행은 12건 전부 PASS. 첫 실행 FAIL의 원인은 확정 못 함(`permission_denials`가 비면 모델이 호출을 거부해도 `runs`로 찍히는 검사 방식 + 아래 관찰자 한도 소진이 겹쳤을 가능성, 추정). 판정: 훅 공존으로 deny가 풀리는 증거는 없음.
+- 저장된 관찰(`~/.claude-mem/claude-mem.db`, 215행) 정규식 점검, 개수만 셈(내용 미출력): Anthropic 키, GitHub 토큰, JWT, AWS 키, Bearer, 개인키, `key=값` 형태 모두 0건. `.credentials.json`/`.env` 파일명 언급 31행(이름만).
+- `CLAUDE_MEM_REDACT_ENABLED`가 기본 `false`였다. 코드에 내장 마스킹 패턴이 있고 이 키로만 켜진다. `~/.claude-mem/settings.json`에서 `true`로 바꿨다(이 값은 저장소 밖 머신 로컬 설정이며, 워커가 재시작 없이 읽는지는 미확인).
+- Cloud Sync 토큰, Telegram 봇 토큰, 서버 API 키는 모두 비어 있음(미로그인·미사용). Telegram 기능은 `enabled`지만 토큰이 없어 전송되지 않는다.
+- 관찰자는 `provider=claude`, `auth=subscription`으로 구독 한도를 쓴다. `observer-health.json`에 `Provider reported the inference allowance exhausted`(quota_exhausted) 기록이 있다. 토큰 "절약"이 아니라 한도 소모가 늘 수 있다는 뜻이며 순효과는 미측정.
+
+## 7. 아직 남은 검증
+
+토큰 사용량 비교(미측정), RTK 훅과의 공존(딥 검증 미실시), Cloud Sync 전송 범위(로그인 안 해서 해당 없음), 삭제·프로젝트 분리 절차, 마스킹 켠 뒤 실제 비밀 패턴이 가려지는지 시험.
