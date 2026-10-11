@@ -227,7 +227,33 @@ def project_dirs():
     f = ROOT / "state" / "projects.txt"
     if not paths and f.is_file():
         paths = [l.strip() for l in f.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip() and not l.startswith("#")]
-    return [Path(p).expanduser() for p in paths]
+    return [Path(p).expanduser() for p in paths] or discover_projects()
+
+
+def discover_projects(limit=30):
+    """No list given: take the working folders Claude Code recorded in its session logs, plus sibling folders that look like projects."""
+    skip = re.compile(r"appdata|[\\/]temp[\\/]|scratchpad|worktree|[\\/]\.claude|[\\/]ao[\\/]", re.I)
+    cwds = []
+    for d in PROJECTS.iterdir() if PROJECTS.is_dir() else []:
+        try:
+            log = max(d.glob("*.jsonl"), key=lambda f: f.stat().st_mtime)
+            with open(log, encoding="utf-8", errors="replace") as fh:
+                m = re.search(r'"cwd":"((?:[^"\\]|\\.)*)"', fh.read(65536))
+            c = json.loads('"' + m.group(1) + '"') if m else ""
+            if c and not skip.search(c) and Path(c).is_dir():
+                cwds.append(Path(c))
+        except (OSError, ValueError):  # a folder with no log or an odd line must not hide the others
+            pass
+    found = {str(c): c for c in cwds}
+    marks = (".git", "CLAUDE.md", "AGENTS.md", ".claude")
+    for parent in {c.parent for c in cwds if c.parent != c.parent.parent}:  # one level only, never a drive root
+        try:
+            for sub in parent.iterdir():
+                if sub.is_dir() and any((sub / m).exists() for m in marks):
+                    found.setdefault(str(sub), sub)
+        except OSError:
+            pass
+    return sorted(found.values(), key=lambda x: str(x).lower())[:limit]
 
 
 def project_setup(d):
