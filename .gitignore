@@ -5,6 +5,7 @@ mcp-needs-auth-cache.json
 .claude.json
 
 # Personal session state
+.claude/handoff.md
 settings.local.json
 history.jsonl
 active-projects.json

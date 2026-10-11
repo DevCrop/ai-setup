@@ -4,6 +4,13 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 
 ## 2026-10-11 — refactor round
 
+### Working rules added to `claude/CLAUDE.md` (the plan's deferred D6 items)
+- Commits: English Conventional Commits (`type: summary`, body gives the reason and the check). Code comments in English; text the user sees keeps the project's language. Why: it is what the repository already used, and it keeps tools and the log consistent.
+- Tests: a bug fix starts with a reproducing test; new logic with a branch, a parser or a security effect ships with a test. Not "every change": exploratory work, docs and settings do not need it.
+- Handoff note: `.claude/handoff.md` in the project, never committed (this repo's `.gitignore` lists it; the rule tells the model to say so when a project does not). It is per machine; to cross machines, summarise it in the PR or issue.
+- claude-mem retention: no automatic deletion, prune by hand. Revisit when size or search quality degrades. Not checked: whether claude-mem can delete by age and under which setting; read its docs before choosing an automatic policy.
+- Undo: remove the lines from `claude/CLAUDE.md` and this entry in one PR.
+
 ### Permission mode is `auto`, not `bypassPermissions`
 - Why: the permission-modes doc recommends auto for working without prompts and documents bypass for isolated containers and VMs only. Deny rules apply in every mode, ask rules always prompt, and a classifier (which also reads `CLAUDE.md`) reviews the rest. Replaces the 2026-10-10 bypass decision.
 - Layers: deterministic (`permissions.deny`, `permissions.ask`, the `secret-guard` hook) plus the `autoMode` block (environment, `soft_deny` for plugin installs, `hard_deny` for secret files; every array keeps `"$defaults"`). `permissions.allow` is empty.

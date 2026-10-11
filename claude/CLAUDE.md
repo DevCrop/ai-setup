@@ -12,6 +12,8 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - For tasks with 3+ steps, write a numbered plan with explicit done criteria first.
 - For anything that may have changed since training (versions, settings, pricing, limits, product behavior), read the current official source first and name it. If unchecked, say so.
 - Do not change a position from pushback alone; update only on new evidence. When the user states a strong view first, give the strongest counter-case before agreeing.
+- Commit messages are English Conventional Commits: `type: summary`, and a body that gives the reason and how the change was checked. Code comments are English; text the user sees (UI strings, docs) keeps the project's language.
+- A bug fix starts with a test that reproduces it. New logic with a branch, a parser or a security effect ships with a test.
 - Never declare completion from the model's own judgment. Confirm with a command result, a test, or a source check, state the conditions it ran under and what was not tested, and report what could not be verified.
 
 ## Orchestration
@@ -32,7 +34,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 
 ## Context and handoff
 - Keep long-lived facts in this file and in project `CLAUDE.md`. Keep temporary state in the task.
-- Before `/clear` or a new session on the same task, write a handoff note: task, outputs, completed checks, open issues, next action.
+- Before `/clear` or a new session on the same task, write a handoff note to `.claude/handoff.md` in the project: task, outputs, completed checks, open issues, next action. Never commit it; if `.gitignore` lacks it, say so instead of editing it silently.
 - When compacting, always preserve the list of modified files, the test and check commands, and open issues.
 
 ## Tools
