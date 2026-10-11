@@ -81,6 +81,12 @@ if command -v jq >/dev/null 2>&1; then
 else
   warn "bypass default and deny list not validated (needs jq)"
 fi
+# Superpowers is not adopted at any scope (decision 2026-10-11, docs/GUIDE.md): the repo must not enable it.
+if command -v jq >/dev/null 2>&1; then
+  jq -e '[.enabledPlugins // {} | keys[] | select(startswith("superpowers@"))] | length == 0' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "settings.json does not enable Superpowers" \
+    || fail "settings.json enables Superpowers (not adopted, decision 2026-10-11)"
+fi
 # permissions.ask must be a non-empty array (a bare grep for "ask" would also match a comment or another key)
 ask_ok=""
 if command -v jq >/dev/null 2>&1; then
@@ -201,6 +207,11 @@ EOF
     else
       warn "plugin ponytail@ponytail is listed but its status is unclear:"
       printf '%s\n' "$block" | sed 's/^/        /'
+    fi
+    if printf '%s\n' "$pl" | grep -q 'superpowers@'; then
+      warn "plugin superpowers is installed on this machine (not adopted): claude plugin uninstall superpowers@claude-plugins-official"
+    else
+      pass "Superpowers is not installed"
     fi
   else
     skip "plugin check (claude CLI not on PATH)"

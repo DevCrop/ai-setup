@@ -41,10 +41,10 @@ claude-mem keeps a local memory database in `~/.claude-mem`. The plugin entry is
 | Layer | What | Where |
 |---|---|---|
 | Always on, every machine | RTK hook, Ponytail plugin, permissions (deny and ask rules, default mode bypassPermissions), `secret-guard` hook, short global `CLAUDE.md`, status line, agents `explorer` `reviewer` `worker` `publisher` `frontend` `backend` `qa`, daily routine | this repo, applied to `~/.claude` |
-| On demand | skill `orchestrate` (description match, or `/orchestrate`), skills `spec-writing` and `design-spec` (planning and design in the main thread), skill `project-setup` (manual, `/project-setup`), Superpowers plugin in project or local scope only, AO as an external app | skills, plugin scope, the user |
+| On demand | skill `orchestrate` (description match, or `/orchestrate`), skills `spec-writing` and `design-spec` (planning and design in the main thread), skill `project-setup` (manual, `/project-setup`), AO as an external app | skills, plugin scope, the user |
 | Per project, once | project `CLAUDE.md`, path-scoped rules, verification command, project permissions | the project's `.claude/` |
 
-Never install Superpowers at user scope: an enabled plugin is part of every session, and its SessionStart hook injects the bootstrap each time (plugins doc).
+Superpowers is not adopted (decision 2026-10-11): not at user scope, and no project install is recommended. Remove it from a machine with `claude plugin uninstall superpowers@claude-plugins-official`; `verify.sh --live` warns while it is installed.
 
 ## 0. Machine prerequisites (once per machine)
 
@@ -91,8 +91,7 @@ What to check afterwards:
 4. Permissions: `deny` repeats the global `.env*` and credentials rules on purpose (cloud sessions and teammates do not read `~/.claude`); `allow` lists only read-only check commands and is inert locally under the global bypass default; each Bash rule has its `rtk ` twin where RTK is installed. No `defaultMode`.
    Also pick how hard the check gates the work (prompt line, `/goal`, Stop hook, reviewer subagent; the skill asks) and add `CLAUDE.local.md` and `.claude/settings.local.json` to the project `.gitignore`.
    Projects that share `AGENTS.md` with Codex: `AGENTS.md` stays the source and the skill never edits it. With no `CLAUDE.md`, Claude Code reads `AGENTS.md` itself, so the skill adds only `.claude/` files; a `CLAUDE.md` it creates must start with `@AGENTS.md` (a `CLAUDE.md` without the import makes Claude stop reading `AGENTS.md`; use the import, not a symlink, on Windows).
-5. Feature-development projects only: `claude plugin install superpowers@claude-plugins-official --scope local` (`--scope project` shares it; each collaborator installs it themselves). Skip it for markup-only or small-fix projects. Not user scope.
-6. In a new session: `/context` shows the project `CLAUDE.md`, `/hooks` lists only intended hooks.
+5. In a new session: `/context` shows the project `CLAUDE.md`, `/hooks` lists only intended hooks.
 
 ## 3. Per task
 
@@ -147,10 +146,10 @@ Use AO only for parallel work with disjoint file scopes. Set permissions with `a
 
 - Windows Git Bash and macOS behavior of `apply.sh`, `verify.sh`, the plugin hooks and `qa-deny.sh` with the real RTK hook (tested on Linux without RTK).
 - The `claude plugin list` output format that `verify.sh` parses for the Ponytail status; a changed format shows up as a WARN, not a false PASS.
-- Superpowers' hook on Windows Git Bash, and how often `orchestrate` is loaded by description matching (`/orchestrate` is the fallback).
+- How often `orchestrate` is loaded by description matching (`/orchestrate` is the fallback).
 - `secret-guard`: macOS bash 3.2 and BSD `sed`/`tr` behavior, hook latency, and running next to the real RTK hook (checked with RTK-less project settings in `bypassPermissions`: `git add -A` was blocked).
 - `project-setup` was dry-run once on a scratch PHP + React project; the interactive approval flow and real projects are untested.
 
 ## Deliberately not adopted
 
-User-scope Superpowers, agent teams (experimental), agent view (research preview), hook-based intent detection, a global Stop hook or `/goal` gate (enable per project once it has tests), a daily proposal loop that mines session logs.
+Superpowers (any scope), agent teams (experimental), agent view (research preview), hook-based intent detection, a global Stop hook or `/goal` gate (enable per project once it has tests), a daily proposal loop that mines session logs.
