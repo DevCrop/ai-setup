@@ -294,6 +294,11 @@ RTK 절감 (시점별로 값이 다르다):
   - 공식 근거: models/overview(Haiku 5.5는 "분류·추출·라우팅 같은 대량·저지연 작업", 입력/출력 $0.10/$0.50 대 Sonnet $2/$10, Opus 5.5 $4/$20), sub-agents(Explore 서브에이전트는 메인 모델을 따르고 `Explore`라는 이름의 사용자 에이전트에 `model: haiku`를 두면 덮어쓸 수 있음), advisor 문서(어려운 결정에만 강한 모델을 부르는 방식, opusplan과 서브에이전트가 대안). Anthropic 엔지니어링 글(multi-agent research system): 리드 Opus + 서브 Sonnet이 단일 Opus보다 90.2% 높았지만 토큰은 채팅의 약 15배, 코딩은 병렬화 여지가 적어 맞지 않는 영역이 많음.
   - 실측(1회씩, 이 PC, `QA_AGENT_MODEL`로 모든 역할 에이전트 모델 고정): `qa-failing`, `qa-unverifiable`, `qa-no-fix`, `qa-visual` 4건. haiku 0 FAIL, sonnet 1 FAIL(약한 문구 검사 `marks the subjective criterion unverified`, 실제 동작 차이 아님). 실행 1건당 총 비용 haiku 0.15~0.23 달러 대 sonnet 0.19~0.33 달러(메인 대화 비용 포함, 합계 0.75 대 1.03).
   - 판단: 4건·1회로는 qa/reviewer를 Haiku로 낮출 근거가 안 된다. 검증 역할은 거짓 통과가 가장 비싼 실패라 유지. 절감 폭도 합계 약 27%에 그쳤다. 반복 횟수를 늘린 비교나 `reviewer` 시나리오 없이는 바꾸지 않는다. 바꿀 수 있는 후보는 내장 Explore를 Haiku로 덮어쓰는 것(미적용, 미측정).
+- Fable 별도 한도 반영(2026-10-11, 사용자 보고): Fable(`claude-fable-5-1`)은 Sonnet·Opus와 별도 한도가 있다. 공식 한도 수치는 확인하지 못했다(미확인).
+  - 현재 상태: `claude/` 설정, 에이전트 정의(`model: sonnet` 6개, `haiku` 1개), 스킬 어디에도 Fable 지정이 없다. 이 항목으로 설정은 바꾸지 않는다.
+  - 결정: 메인은 Sonnet, advisor는 Opus, 역할 에이전트와 Explore는 Fable로 두지 않는다. 서브에이전트는 한 작업에서 여러 번 호출되어 한도를 빨리 쓴다. Fable은 사용자가 어려운 단일 작업을 직접 골라 쓸 때만 쓴다.
+  - 미확인: advisor(Opus)가 Sonnet 한도와 공유되는지, Fable과는 독립인지. 모델별 소모는 `/usage`에서 본다(대화형 명령이라 사용자가 직접 실행).
+  - 되돌리기: 이 항목 삭제. 설정 변경은 없다.
 
 ## 11. 함정과 주의사항
 
