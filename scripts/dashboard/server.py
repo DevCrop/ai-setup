@@ -8,7 +8,7 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import json, os, re, shutil, subprocess, sys, threading, time, urllib.request
+import json, os, re, secrets, shutil, subprocess, sys, threading, time, urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -488,7 +488,7 @@ def mem_health(now=None):
     try:
         st = json.loads((mem / "settings.json").read_text(encoding="utf-8"))
         on = str(st.get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
-        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else "~/.claude-mem/settings.json 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]"))
+        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else "~/.claude-mem/settings.json 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]", "" if on else "mem-redact-on"))
     except Exception:
         pass
     return out
@@ -513,7 +513,7 @@ def history_health(now=None):
         pass
     try:
         bk = sorted(Path.home().glob(".claude-backup-*"))
-        out.append(("기록", "apply 백업", "warn" if len(bk) > 15 else "ok", f"{len(bk)}개" + (f" · 가장 오래된 {bk[0].name[-15:]}" if bk else "") + (" · 15개 초과, 정리 검토" if len(bk) > 15 else ""), "오래된 ~/.claude-backup-* 폴더를 목록 확인 후 사용자 승인으로 삭제 [출처: 이 저장소 규칙, 자동 삭제 안 함]" if len(bk) > 15 else ""))
+        out.append(("기록", "apply 백업", "warn" if len(bk) > 15 else "ok", f"{len(bk)}개" + (f" · 가장 오래된 {bk[0].name[-15:]}" if bk else "") + (" · 15개 초과, 정리 검토" if len(bk) > 15 else ""), "오래된 ~/.claude-backup-* 폴더를 목록 확인 후 사용자 승인으로 삭제 [출처: 이 저장소 규칙]" if len(bk) > 15 else "", "prune-backups" if len(bk) > 15 else ""))
     except Exception:
         pass
     return out
@@ -542,7 +542,69 @@ def ao_health(ao, now=None):
 def tools_health():
     ao = cached("ao", 8, ao_state, slow=True, placeholder={"available": bool(ao_bin()), "daemon": {"state": "loading"}, "sessions": []})
     items = mem_health() + history_health() + ao_health(ao)
-    return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": i[4] if len(i) > 4 else ""} for i in items]
+    return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": i[4] if len(i) > 4 else "", "fixId": i[5] if len(i) > 5 else ""} for i in items]
+
+
+KEEP_BACKUPS = 3
+TOKEN = secrets.token_urlsafe(24)  # per start; a foreign page cannot read it (no CORS headers), so it cannot call /api/fix
+FIXLOG = ROOT / "state" / "fix-log.jsonl"
+
+
+def _backups():
+    return sorted(d for d in Path.home().glob(".claude-backup-*") if d.is_dir() and not d.is_symlink() and re.fullmatch(r"\.claude-backup-\d{8}-\d{6}", d.name))
+
+
+def fix_preview(fid):
+    """What a fix would touch, without touching it. Only ids in this table can ever run."""
+    if fid == "prune-backups":
+        old = _backups()[:-KEEP_BACKUPS]
+        return {"title": f"오래된 apply 백업 삭제 (최신 {KEEP_BACKUPS}개 유지)", "targets": [d.name for d in old], "reversible": False}
+    if fid == "mem-redact-on":
+        f = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
+        on = False
+        try:
+            on = str(json.loads(f.read_text(encoding="utf-8")).get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
+        except Exception:
+            pass
+        return {"title": "claude-mem 비밀 마스킹 켜기 (설정 파일을 백업한 뒤 CLAUDE_MEM_REDACT_ENABLED만 변경)", "targets": [] if on else ["~/.claude-mem/settings.json"], "reversible": True}
+    return None
+
+
+def fix_apply(fid, targets):
+    pv = fix_preview(fid)
+    if not pv or not pv["targets"]:
+        return {"ok": False, "msg": "할 일이 없거나 알 수 없는 조치입니다."}
+    if sorted(targets) != sorted(pv["targets"]):  # the user confirmed a list; it must still be the current one
+        return {"ok": False, "msg": "대상이 바뀌었습니다. 미리보기를 다시 확인하세요."}
+    if fid == "prune-backups":
+        for name in pv["targets"]:
+            shutil.rmtree(Path.home() / name)
+        return {"ok": True, "msg": f"{len(pv['targets'])}개 삭제"}
+    if fid == "mem-redact-on":
+        f = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
+        shutil.copy2(f, f.with_name(f.name + ".bak-" + datetime.now().strftime("%Y%m%d-%H%M%S")))
+        d = json.loads(f.read_text(encoding="utf-8"))
+        d["CLAUDE_MEM_REDACT_ENABLED"] = "true"
+        f.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"ok": True, "msg": "켰습니다. claude-mem 워커를 다시 시작해야 적용될 수 있습니다."}
+    return {"ok": False, "msg": "알 수 없는 조치"}
+
+
+def fix_log_write(fid, targets, res):
+    try:
+        FIXLOG.parent.mkdir(exist_ok=True)
+        with open(FIXLOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"at": datetime.now(timezone.utc).isoformat(), "id": fid, "targets": targets, "ok": res.get("ok"), "msg": res.get("msg")}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def fix_log(limit=100):
+    try:
+        lines = FIXLOG.read_text(encoding="utf-8").splitlines()[-limit:]
+        return [json.loads(l) for l in lines][::-1]
+    except (OSError, ValueError):
+        return []
 
 
 def state():
@@ -550,6 +612,8 @@ def state():
         "now": datetime.now(timezone.utc).isoformat(),
         "git": cached("git", 5, git_history),
         "tools": cached("tools", 10, tools_health),
+        "fixlog": fix_log(),
+        "token": TOKEN,
         "prs": cached("prs", 60, pull_requests, slow=True, placeholder=[]),
         "verify": cached("verify", 60, verify, slow=True, placeholder={"at": datetime.now(timezone.utc).isoformat(), "counts": {"PASS": 0, "FAIL": 0, "WARN": 0}, "lines": ["검증 실행 중..."]}),
         "settings": cached("settings", 5, settings),
@@ -590,6 +654,34 @@ class H(BaseHTTPRequestHandler):
             return
         self.send_response(200)
         self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        host_ok = self.headers.get("Host", "").split(":")[0] in ("127.0.0.1", "localhost")
+        origin = self.headers.get("Origin", "")
+        origin_ok = origin == "" or origin.split("://", 1)[-1].split(":")[0] in ("127.0.0.1", "localhost")
+        if not (host_ok and origin_ok and self.path == "/api/fix" and self.headers.get("Content-Type", "").startswith("application/json")
+                and secrets.compare_digest(self.headers.get("X-Dash-Token", ""), TOKEN)):
+            self.send_error(403)
+            return
+        try:
+            req = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 20000)) or b"{}")
+            fid = str(req.get("id", ""))
+            if req.get("action") == "apply":
+                targets = [str(t) for t in req.get("targets", [])]
+                res = fix_apply(fid, targets)
+                fix_log_write(fid, targets, res)
+                CACHE.pop("tools", None)
+            else:
+                pv = fix_preview(fid)
+                res = {"ok": bool(pv), **(pv or {"msg": "알 수 없는 조치"})}
+        except Exception as e:
+            res = {"ok": False, "msg": "요청 오류: " + type(e).__name__}
+        body = json.dumps(res, ensure_ascii=False).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
