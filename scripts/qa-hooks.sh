@@ -97,6 +97,21 @@ mkdir "$t/clean"; (cd "$t/clean" && git init -q . && echo y > c.txt)
 CWD="$t/clean" run 2 "cd $r && git add -A"
 CWD="$t/clean" run 0 'git add -A'
 TMPDIR=/nonexistent run 2 'git add -A'
+# expansion where the option or verb belongs, ANSI-C quoting, --git-dir/--work-tree and GIT_DIR from a directory that is not a repo
+run 2 'git${IFS}add${IFS}-A'
+run 2 'git$IFS add -A'
+run 2 'git -C "$PWD" add -A'
+run 2 'git -C"$PWD" add -A'
+run 2 "git -C \$(pwd) add -A"
+run 2 "\$'\\x67it' add -A"
+run 2 "git \$'\\x61dd' -A"
+run 2 "\$'\\147\\151\\164' add -A"
+CWD="$t" run 2 "git --git-dir=$r/.git --work-tree=$r add -A"
+CWD="$t" run 2 "git --git-dir $r/.git --work-tree $r add -A"
+CWD="$t" run 2 "GIT_DIR=$r/.git GIT_WORK_TREE=$r git add -A"
+CWD="$t" run 0 'git status'
+run 0 "echo \$'a\\tb'"
+run 0 'git${IFS}status'
 # allow (exit 0)
 run 0 'git commit -m "docs: never git add .env"'
 run 0 'git add id_rsa.pub'

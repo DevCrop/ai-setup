@@ -56,6 +56,12 @@ out="$(apply)"; rc=$?
 [ -e "$base/out/victim" ] && [ -e "$base/out/dir/inner" ] && [ -d "$cfg/agents/realdir" ] && [ ! -e "$cfg/agents/stale.md" ] && [ -f "$cfg/.claude-global-manifest" ] \
   && pass "3b symlinked dir not followed, directory line skipped, later stale file still removed" || bad "3b symlink/directory handling ($out)"
 
+# 3c. a manifest line naming settings.json (merged, not copied) never deletes the live settings
+newcfg; apply >/dev/null; echo settings.json >> "$cfg/.claude-global-manifest"
+out="$(apply)"
+[ -s "$cfg/settings.json" ] && ! printf '%s' "$out" | grep -q "removed.*settings.json" \
+  && pass "3c settings.json in the manifest is never removed" || bad "3c settings.json removed ($out)"
+
 # 4. machine-only keys survive and are reported
 newcfg; apply >/dev/null
 jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .someAppKey="v"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"

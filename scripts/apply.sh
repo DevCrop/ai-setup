@@ -107,6 +107,7 @@ if [ -f "$manifest" ]; then
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     case "$p" in /*) continue ;; esac
+    [ "$p" = settings.json ] && continue  # merged, never deleted
     managed "$p" || continue
     removable "$p" || continue
     rm -f "$dest/$p" || continue

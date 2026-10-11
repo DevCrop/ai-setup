@@ -2,7 +2,7 @@
 """Local live dashboard for the global Claude setup. Read-only, stdlib only, 127.0.0.1 only.
 
 Run: python3 scripts/dashboard/server.py [--port 8787]
-Optional: PROJECT_DIRS or state/projects.txt lists project roots; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
+Optional: PROJECT_DIRS or state/projects.txt lists projects; PROJECT_ROOTS or state/project-roots.txt lists parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
 Reads: git history, gh PR list, scripts/verify.sh --live, reports/*.md, claude/settings.json, the AO daemon (ao status, session ls, review ls; read-only),
 and the tool-call names and timestamps of the newest session log in ~/.claude/projects.
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand

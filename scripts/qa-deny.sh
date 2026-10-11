@@ -43,6 +43,14 @@ else
   echo "rtk not found: hook is a no-op, so this run does not exercise command rewriting"
 fi
 
+# The hooks in settings.json point into the applied config dir. A missing script makes every Bash call
+# fail closed, which would turn the "blocked" cases into false passes and the "runs" cases into failures.
+hook_script="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh"
+if [ -z "${CLAUDE_QA_SETTINGS:-}" ] && grep -q 'hooks/secret-guard.sh' "$settings" && [ ! -f "$hook_script" ]; then
+  echo "secret-guard hook not applied: $hook_script is missing. Run 'bash scripts/apply.sh' first." >&2
+  exit 2
+fi
+
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 cd "$work" || exit 2
