@@ -266,6 +266,7 @@ RTK 절감 (시점별로 값이 다르다):
 
 ## 10. 사용자 결정 기록
 
+- `agentPushNotifEnabled: true`를 공유 설정에 넣는다(2026-10-11). 데스크톱 앱이 `~/.claude/settings.json`에 직접 쓴 키로, 넣지 않으면 `apply.sh`가 지우고 `verify.sh --live`가 FAIL한다. 공식 settings·desktop 문서에서 이 키는 찾지 못했다(문서에 없는 키). 앱이 이 키를 바꾸거나 없애면 이 항목을 다시 본다.
 - 일반 `rm -rf *`를 deny에 추가하지 않는다. 전부 막으면 명시적으로 요청한 정리도 막힌다. 위험 경로(`/*`, `~*`, `$HOME*`, `%USERPROFILE%*`)만 deny다.
 - `HANDOFF.md`(첫 컴퓨터의 로컬 인계 메모)는 커밋하지 않는다. 내용은 이 문서에 흡수됐다. `.gitignore`에도 없으니 `git add .`로 실수로 올리지 않도록 주의한다.
 - `reports/`는 로컬 전용(`.gitignore`)으로 유지한다.

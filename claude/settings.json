@@ -2,6 +2,7 @@
   "model": "sonnet",
   "effortLevel": "high",
   "advisorModel": "opus",
+  "agentPushNotifEnabled": true,
   "autoCompactWindow": 400000,
   "enableWorkflows": true,
   "skipDangerousModePermissionPrompt": true,
