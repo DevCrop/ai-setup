@@ -84,7 +84,6 @@
       "Bash(git push * --delete *)",
       "Bash(git push -d *)",
       "Bash(git push * -d *)",
-      "Bash(git push * :*)",
       "Bash(rtk git clean *)",
       "Bash(rtk git checkout -f*)",
       "Bash(rtk git checkout --force*)",
@@ -101,7 +100,6 @@
       "Bash(rtk git push * --delete *)",
       "Bash(rtk git push -d *)",
       "Bash(rtk git push * -d *)",
-      "Bash(rtk git push * :*)",
       "Read(**/*.pem)",
       "Read(**/id_rsa*)",
       "Read(**/id_ed25519*)",
@@ -165,7 +163,9 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\""
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\"",
+            "timeout": 30,
+            "onFailure": "block"
           }
         ]
       }
