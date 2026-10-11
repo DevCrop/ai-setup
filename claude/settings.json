@@ -4,6 +4,8 @@
   "advisorModel": "opus",
   "agentPushNotifEnabled": true,
   "autoCompactWindow": 400000,
+  "promptCacheTtl": "1h",
+  "subagentPromptCacheTtl": "1h",
   "enableWorkflows": true,
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
