@@ -104,6 +104,12 @@ details.fold[open] summary { margin-bottom: var(--s2); }
 .ck .i-ok { background: rgba(120,140,93,.18); } .ck .i-bad { background: rgba(190,70,60,.15); } .ck .i-warn { background: rgba(217,160,60,.18); }
 .erow .ico, .side button .ic { display: inline-flex; align-items: center; justify-content: center; }
 .dia .fl { font-style: italic; }
+.logcard { border: 1px solid var(--line); border-left: 3px solid var(--faint); border-radius: var(--r); padding: var(--s3); display: grid; gap: 6px; background: var(--panel); }
+.logcard.warn { border-left-color: var(--warn); } .logcard.bad { border-left-color: var(--bad); }
+.logcard .lh { display: flex; align-items: center; gap: var(--s2); } .logcard p { margin: 0; font-size: var(--t-sm); overflow-wrap: anywhere; }
+.logcard .btn { justify-self: start; } .fixtxt { color: var(--fg); } .fixlab { color: var(--accent-ink); font-weight: 600; }
+.logrow { grid-template-columns: 64px 160px minmax(0, 1fr); } @media (max-width: 760px) { .logrow { grid-template-columns: 64px minmax(0, 1fr); } .logrow .when { display: none; } }
+.fixbar { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
 .dia { overflow-x: auto; }
 .dia svg { display: block; width: 100%; height: auto; min-width: 760px; }
 .dia text { font-family: var(--sans); font-size: 12px; fill: var(--fg); }
@@ -276,6 +282,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
   <button type="button" data-tab="feat"><span class="ic">▤</span>기능 목록</button>
   <div class="grp">품질</div>
   <button type="button" data-tab="prac"><span class="ic">✓</span>권장기준 점검</button>
+  <button type="button" data-tab="log"><span class="ic">≡</span>로그·조치</button>
   <button type="button" data-tab="setup"><span class="ic">⚙</span>프로젝트 셋업</button>
 </aside>
 <div class="shell">
@@ -338,10 +345,18 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
   <section class="view flow" id="v-feat" hidden></section>
   <section class="view flow" id="v-prac" hidden></section>
   <section class="view flow" id="v-dbg" hidden></section>
+  <section class="view flow" id="v-log" hidden></section>
   <section class="view flow" id="v-setup" hidden></section>
 </div>
 </div>
 <div id="tip" role="tooltip"></div>
+
+<dialog id="fixdlg">
+  <div class="dh"><h2 id="fixTitle">조치 확인</h2><button class="btn" id="fixClose" type="button">닫기</button></div>
+  <p class="muted" id="fixNote" style="font-size:var(--t-sm)"></p>
+  <div class="rows" id="fixTargets"></div>
+  <div class="fixbar"><button class="btn" id="fixGo" type="button">실행</button><span class="muted" id="fixRes"></span></div>
+</dialog>
 
 <dialog id="pdlg">
   <div class="dh"><h2>프로젝트 셋업</h2><button class="btn" id="pdlgClose" type="button">닫기</button></div>
@@ -593,7 +608,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
 
 
   /* Side tabs. Each tab except monitoring renders from /api/inventory (files in the repo and the newest session log). */
-  const TABS = ["monitor", "orch", "route", "feat", "prac", "dbg", "setup"];
+  const TABS = ["monitor", "orch", "route", "feat", "prac", "dbg", "log", "setup"];
   let inv = null, curTab = "monitor";
   const panel = (title, hint, ...kids) => { const p = el("div", "panel"); const h = el("div", "ph"); h.append(el("h2", null, title), el("span", "hint", hint || "")); p.append(h, ...kids); return p; };
   const kv = (a, b, sub) => { const d = el("div", "kv"); if (a instanceof Node) d.append(a); else d.append(el("span", null, a)); const r = el("span"); if (b instanceof Node) r.append(b); else r.textContent = b == null ? "" : String(b); d.append(r); if (sub) d.append(el("div", "sub", sub)); return d; };
@@ -620,7 +635,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     bulb: "M9 18h6 M10 22h4 M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"
   };
   const ico = (name, size, color) => { const e = sv("svg", { viewBox: "0 0 24 24", width: size || 16, height: size || 16, fill: "none", stroke: color || "currentColor", "stroke-width": 1.8, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", class: "svgi" }); e.append(sv("path", { d: IP[name] || IP.dot })); return e; };
-  (function navIcons() { const M = { monitor: "activity", dbg: "alert", orch: "flow", route: "route", feat: "list", prac: "checkc", setup: "folder" };
+  (function navIcons() { const M = { monitor: "activity", dbg: "alert", orch: "flow", route: "route", feat: "list", prac: "checkc", log: "list", setup: "folder" };
     document.querySelectorAll(".side button[data-tab]").forEach((b) => { const i = b.querySelector(".ic"); if (i) i.replaceChildren(ico(M[b.dataset.tab] || "dot", 17)); }); })();
   const SN = (tag, attrs, text) => { const e = sv(tag, attrs || {}); if (text != null) e.textContent = text; return e; };
   let DID = 0;
@@ -860,6 +875,49 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     v.replaceChildren(panel("프로젝트 셋업 점검", "", hint, rows));
     fillProj(rows, hint);
   }
+  // log and fixes tab: what needs action, the fix history, every check. Fixes run only from the allow-list on the server, after a confirm dialog.
+  const post = async (body) => { const r = await fetch("/api/fix", { method: "POST", headers: { "Content-Type": "application/json", "X-Dash-Token": (last || {}).token || "" }, body: JSON.stringify(body) }); if (!r.ok) throw new Error(r.status); return r.json(); };
+  function openFix(fixId) {
+    const dlg = $("fixdlg"), go = $("fixGo"); $("fixRes").textContent = ""; $("fixTargets").replaceChildren(); go.disabled = true; $("fixTitle").textContent = "조치 확인"; $("fixNote").textContent = "불러오는 중…";
+    if (!dlg.open) dlg.showModal();
+    post({ id: fixId, action: "preview" }).then((pv) => {
+      $("fixTitle").textContent = pv.title || "조치 확인";
+      if (!pv.ok || !(pv.targets || []).length) { $("fixNote").textContent = pv.msg || "할 일이 없습니다."; return; }
+      $("fixNote").textContent = (pv.reversible ? "되돌릴 수 있는 변경입니다(설정 파일 백업 생성)." : "되돌릴 수 없습니다. 아래 대상만 삭제됩니다.") + " 확인 후 실행을 누르세요.";
+      $("fixTargets").replaceChildren(...pv.targets.map((t) => { const r = el("div", "row chk"); r.append(badge(pv.reversible ? "info" : "warn", pv.reversible ? "변경" : "삭제"), el("span", "t nm", t)); return r; }));
+      go.disabled = false;
+      go.onclick = async () => {
+        go.disabled = true;
+        try { const res = await post({ id: fixId, action: "apply", targets: pv.targets }); $("fixRes").textContent = (res.ok ? "완료: " : "실패: ") + (res.msg || ""); $("fixRes").style.color = res.ok ? "var(--ok)" : "var(--bad)"; }
+        catch (e) { $("fixRes").textContent = "요청 실패 (" + e.message + ")"; }
+        tick();
+      };
+    }).catch((e) => { $("fixNote").textContent = "요청 실패 (" + e.message + "). 대시보드를 새로고침하세요."; });
+  }
+  $("fixClose").addEventListener("click", () => { $("fixdlg").close(); if (curTab === "log") show("log"); });
+  const LV = { ok: "정상", warn: "확인", bad: "오류" };
+  function drawLog(v) {
+    const s = last; if (!s) { wait(v); return; }
+    const tl = (s.tools || []).filter((x) => x.level !== "na"), need = tl.filter((x) => x.level === "warn" || x.level === "bad");
+    const head = el("div", "kpis"); const mk = (tone, lab, n) => { const k = el("div", "kpi " + tone); k.append(el("div", "l", lab), el("div", "v", String(n))); return k; };
+    head.append(mk(need.some((x) => x.level === "bad") ? "bad" : need.length ? "warn" : "ok", "조치 필요", need.length), mk("ok", "정상", tl.length - need.length), mk("", "조치 기록", (s.fixlog || []).length));
+    const todo = el("div", "rows");
+    if (!need.length) todo.append(el("div", "empty", "조치가 필요한 항목이 없습니다."));
+    need.forEach((x) => {
+      const c = el("div", "logcard " + x.level), h = el("div", "lh"); h.append(badge(x.level, LV[x.level]), el("b", null, x.group + " · " + x.name));
+      c.append(h, el("p", "muted", x.detail));
+      if (x.fix) { const f = el("p", "fixtxt"); f.append(el("span", "fixlab", "해결 방법 "), document.createTextNode(x.fix)); c.append(f); }
+      if (x.fixId) { const b = el("button", "btn", "해결…"); b.type = "button"; b.addEventListener("click", () => openFix(x.fixId)); c.append(b); }
+      else if (x.fix) c.append(el("span", "hint", "자동 실행 불가 — 직접 처리"));
+      todo.append(c);
+    });
+    const hist = el("div", "rows");
+    if (!(s.fixlog || []).length) hist.append(el("div", "empty", "아직 실행한 조치가 없습니다."));
+    (s.fixlog || []).slice(0, 30).forEach((e) => { const r = el("div", "row logrow"); r.append(badge(e.ok ? "ok" : "bad", e.ok ? "완료" : "실패"), el("span", "when muted", new Date(e.at).toLocaleString("ko-KR")), el("span", "t", e.id + " · " + (e.msg || "") + ((e.targets || []).length ? " (" + e.targets.length + "건)" : ""))); hist.append(r); });
+    const all = el("div", "rows");
+    tl.forEach((x) => { const r = el("div", "row chk"); const t = el("span", "t", x.group + " · " + x.name + " — " + x.detail); t.title = t.textContent; r.append(badge(x.level, LV[x.level]), t); all.append(r); });
+    v.replaceChildren(head, panel("조치 필요", "버튼은 허용 목록의 안전한 조치만 실행합니다", todo), panel("조치 기록", "state/fix-log.jsonl", hist), panel("전체 점검", tl.length + "개", all));
+  }
   const DRAW = { orch: drawOrch, route: drawRoute, feat: drawFeat, prac: drawPrac, dbg: drawDbg, setup: drawSetup };
   async function loadInv() {
     try { const r = await fetch("/api/inventory", { cache: "no-store" }); inv = await r.json(); } catch (e) { return; }
@@ -873,16 +931,17 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     try { history.replaceState(null, "", "#" + t); } catch (e) {}
     if (t === "monitor") return;
     if (t === "setup") return DRAW.setup($("v-setup"));
+    if (t === "log") return drawLog($("v-log"));
     if (!inv) { wait($("v-" + t)); loadInv(); return; }
     DRAW[t]($("v-" + t));
   }
   document.querySelectorAll(".side button").forEach((b) => { b.onclick = () => show(b.dataset.tab); });
-  setInterval(() => { if (curTab !== "monitor" && curTab !== "setup") loadInv(); }, 15000);
+  setInterval(() => { if (curTab !== "monitor" && curTab !== "setup" && curTab !== "log") loadInv(); }, 15000);
   show((location.hash || "").slice(1));
   addEventListener("hashchange", () => show((location.hash || "").slice(1)));
 
   async function tick() {
-    try { const r = await fetch("/api/state", { cache: "no-store" }); render(await r.json()); lastOk = Date.now(); if (curTab === "setup") show(curTab); } catch (e) { /* keep the last frame */ }
+    try { const r = await fetch("/api/state", { cache: "no-store" }); render(await r.json()); lastOk = Date.now(); if (curTab === "setup" || (curTab === "log" && !$("fixdlg").open)) show(curTab); } catch (e) { /* keep the last frame */ }
     const fresh = Date.now() - lastOk < 8000;
     $("live").className = "badge live " + (fresh ? "ok" : "bad"); $("liveText").textContent = fresh ? "LIVE · 3s" : "OFFLINE";
   }

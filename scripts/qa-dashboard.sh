@@ -38,7 +38,7 @@ for f in "$repo"/claude/agents/*.md; do
   case "$got" in *"$want"*) pass "inventory shows the preloaded skill of $a ($want)";; *) bad "inventory skills cell of $a is [$got], expected to contain [$want]";; esac
 done
 # tools health: fixed keys only, levels in the allowed set, claude-mem, history and AO groups present
-printf '%s' "$s" | jq -e '[.tools[] | select((keys|sort) != ["detail","fix","group","level","name"] or (.level|IN("ok","warn","bad","na")|not))] | length == 0' >/dev/null && pass "tools items have fixed keys and valid levels" || bad "tools items malformed"
+printf '%s' "$s" | jq -e '[.tools[] | select((keys|sort) != ["detail","fix","fixId","group","level","name"] or (.level|IN("ok","warn","bad","na")|not))] | length == 0' >/dev/null && pass "tools items have fixed keys and valid levels" || bad "tools items malformed"
 printf '%s' "$s" | jq -e '[.tools[].group] | (index("claude-mem") != null) and (index("기록") != null) and (index("AO") != null)' >/dev/null && pass "tools cover claude-mem, history and AO" || bad "tools groups missing"
 # auto-detect: a session log with a real cwd is found, a log-less folder next to it does not hide it
 ad="$(mktemp -d "$repo/.qa-ad.XXXXXX")"; ad="$(cd "$ad" && pwd -W 2>/dev/null || pwd)"; mkdir -p "$ad/cfg/projects/empty" "$ad/cfg/projects/p1" "$ad/work/app"; : > "$ad/work/app/CLAUDE.md"
@@ -47,6 +47,15 @@ printf '{"cwd":"%s"}
 r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.insert(0,sys.argv[1]);import server;print([p.name for p in server.discover_projects()])" "$repo/scripts/dashboard")"
 [ "$r" = "['app']" ] && pass "project auto-detect finds the session cwd" || bad "project auto-detect gave: $r"
 rm -rf "$ad"
+# fix endpoint: no token, wrong token, foreign Origin and foreign Host are all refused; the allow-list logic passes its unit checks
+tok="$(printf '%s' "$s" | jq -r .token)"; u="http://127.0.0.1:$port/api/fix"; j='{"id":"prune-backups","action":"preview"}'
+c1="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$j" "$u")"
+c2="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-Dash-Token: nope' -d "$j" "$u")"
+c3="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Dash-Token: $tok" -H 'Origin: http://evil.example' -d "$j" "$u")"
+c4="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: text/plain' -H "X-Dash-Token: $tok" -d "$j" "$u")"
+c5="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Dash-Token: $tok" -d "$j" "$u")"
+[ "$c1$c2$c3$c4$c5" = 403403403403200 ] && pass "fix endpoint refuses no/wrong token, foreign origin, wrong content type; accepts a valid preview" || bad "fix endpoint codes: $c1 $c2 $c3 $c4 $c5"
+"$py" "$repo/scripts/qa-fix.py" "$repo" >/dev/null 2>&1 && pass "fix allow-list unit checks" || bad "scripts/qa-fix.py failed"
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
