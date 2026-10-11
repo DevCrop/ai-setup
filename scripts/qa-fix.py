@@ -18,4 +18,15 @@ r = server.fix_apply("mem-redact-on", ["~/.claude-mem/settings.json"]); assert r
 d = json.loads((h / "mem/settings.json").read_text()); assert d == {"CLAUDE_MEM_REDACT_ENABLED": "true", "X": "1"}, d
 assert len(list((h / "mem").glob("settings.json.bak-*"))) == 1
 assert server.fix_preview("mem-redact-on")["targets"] == []                      # already on: nothing to do
+# rtk-update: runs only the fixed installer command, only for the confirmed target, and never the real one in this test
+import subprocess
+server._rtk_latest = lambda: "v99.0.0"; server.CACHE.pop("rtk_latest", None)
+server._rtk_installer = lambda: ["fake-installer", "--x"]
+server.run = lambda cmd, timeout=60: "rtk 1.0.0"
+seen = []
+class P:  returncode = 0
+subprocess.run = lambda cmd, **k: (seen.append(cmd), P())[1]
+pv = server.fix_preview("rtk-update"); assert len(pv["targets"]) == 1 and "fake-installer" in pv["targets"][0], pv
+assert not server.fix_apply("rtk-update", ["rtk 1.0.0 -> v9: other"])["ok"] and seen == []
+assert server.fix_apply("rtk-update", pv["targets"])["ok"] and seen == [["fake-installer", "--x"]], seen
 print("fix tests ok")

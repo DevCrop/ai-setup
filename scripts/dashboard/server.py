@@ -548,10 +548,48 @@ def ao_health(ao, now=None):
     return out
 
 
+def _ver(text):
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", text or "")
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def _rtk_latest():
+    try:
+        req = urllib.request.Request("https://api.github.com/repos/rtk-ai/rtk/releases/latest", headers={"User-Agent": "claude-global-dashboard"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.load(r).get("tag_name")
+    except Exception:
+        return None
+
+
+def _rtk_installer():
+    """Update command for this machine: winget on Windows, brew on macOS. None when neither exists."""
+    if shutil.which("winget"):
+        return ["winget", "upgrade", "--id", "rtk-ai.rtk", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+    if shutil.which("brew"):
+        return ["brew", "upgrade", "rtk"]
+    return None
+
+
+def tools_version_health():
+    """RTK installed vs latest GitHub release. Network failure means 'not checked', never an error."""
+    if not shutil.which("rtk"):
+        return []
+    cur = run(["rtk", "--version"], timeout=10).strip()
+    latest = cached("rtk_latest", 3600, _rtk_latest, slow=True)
+    a, b = _ver(cur), _ver(latest)
+    if not a or not b:
+        return [("도구", "RTK 버전", "ok", f"{cur or '?'} · 최신 버전 확인 못 함")]
+    if a >= b:
+        return [("도구", "RTK 버전", "ok", f"{cur} (최신)")]
+    fixable = _rtk_installer() is not None
+    return [("도구", "RTK 버전", "warn", f"{cur} → 최신 {latest}", "업데이트: " + " ".join(_rtk_installer() or ["수동 설치"]) + " [출처: 설치 방식(winget) 확인함, 릴리스 노트는 안 읽음]", "rtk-update" if fixable else "")]
+
+
 def tools_health():
     ao = cached("ao", 8, ao_state, slow=True, placeholder={"available": bool(ao_bin()), "daemon": {"state": "loading"}, "sessions": []})
     items = []
-    for name, fn in (("claude-mem", mem_health), ("기록", history_health), ("AO", lambda: ao_health(ao))):
+    for name, fn in (("claude-mem", mem_health), ("기록", history_health), ("AO", lambda: ao_health(ao)), ("도구", tools_version_health)):
         try:
             items += fn()
         except Exception:  # one failing source must not take /api/state down
@@ -581,6 +619,12 @@ def fix_preview(fid):
         except Exception:
             pass
         return {"title": "claude-mem 비밀 마스킹 켜기 (설정 파일을 백업한 뒤 CLAUDE_MEM_REDACT_ENABLED만 변경)", "targets": [] if on else ["~/.claude-mem/settings.json"], "reversible": True}
+    if fid == "rtk-update":
+        cmd = _rtk_installer()
+        cur, latest = run(["rtk", "--version"], timeout=10).strip(), cached("rtk_latest", 3600, _rtk_latest)
+        a, b = _ver(cur), _ver(latest)
+        due = bool(cmd and a and b and a < b)
+        return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
     return None
 
 
@@ -601,6 +645,13 @@ def fix_apply(fid, targets):
         d["CLAUDE_MEM_REDACT_ENABLED"] = "true"
         f.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
         return {"ok": True, "msg": "켰습니다. claude-mem 워커를 다시 시작해야 적용될 수 있습니다."}
+    if fid == "rtk-update":
+        try:
+            p = subprocess.run(_rtk_installer(), capture_output=True, text=True, timeout=300, encoding="utf-8", errors="replace")
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return {"ok": False, "msg": "실행 실패: " + type(e).__name__}
+        CACHE.pop("rtk_latest", None)
+        return {"ok": p.returncode == 0, "msg": f"설치 관리자 종료 코드 {p.returncode}. 새 버전은 `rtk --version`으로 확인하세요."}
     return {"ok": False, "msg": "알 수 없는 조치"}
 
 
