@@ -7,7 +7,7 @@ port="${QA_UI_PORT:-29300}"
 while curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$port/"; do port=$((port + 1)); done  # never test a stale server that is already listening
 py="$(command -v python3 || command -v python)"
 chrome="${CHROME_BIN:-}"
-for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" "$(command -v google-chrome)" "$(command -v chromium)"; do
+for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "$(command -v google-chrome)" "$(command -v google-chrome-stable)" "$(command -v chromium)" "$(command -v chromium-browser)"; do
   [ -z "$chrome" ] && [ -n "$c" ] && [ -x "$c" ] && chrome="$c"
 done
 [ -n "$chrome" ] || { echo "FAIL  no Chrome or Edge found (set CHROME_BIN)"; exit 1; }
