@@ -246,10 +246,13 @@ def discover_projects(limit=30):
             pass
     found = {str(c): c for c in cwds}
     marks = (".git", "CLAUDE.md", "AGENTS.md", ".claude")
-    for parent in {c.parent for c in cwds if c.parent != c.parent.parent}:  # one level only, never a drive root
+    rf = ROOT / "state" / "project-roots.txt"  # per-machine folders that hold projects, one path per line (or PROJECT_ROOTS)
+    lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8", errors="replace").splitlines() if rf.is_file() else []
+    roots = [Path(l.strip()) for l in lines if l.strip() and not l.startswith("#")]
+    for parent in {c.parent for c in cwds if c.parent != c.parent.parent} | {r for r in roots if r != r.parent}:  # one level only, never a drive root
         try:
             for sub in parent.iterdir():
-                if sub.is_dir() and any((sub / m).exists() for m in marks):
+                if sub.is_dir() and not sub.name.startswith(".") and (parent in roots or any((sub / m).exists() for m in marks)):  # a declared root lists every folder
                     found.setdefault(str(sub), sub)
         except OSError:
             pass
