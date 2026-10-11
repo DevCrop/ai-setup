@@ -91,6 +91,14 @@ def routing(root, ao_projects):
                       "AO 워커·리뷰어 모델은 AO 프로젝트 설정(--model, --reviewer)이며 AO 출력에는 실제 사용 모델 필드가 없다"]}
 
 
+def statusline(sl):
+    """One line for the dashboard: on/off, whether it shows the prompt-cache countdown, and the refresh interval."""
+    if not sl:
+        return ""
+    cache = "statusline.sh" in str(sl.get("command", ""))
+    return "켜짐" + (" · 캐시 카운트다운" if cache else "") + (f" · {sl['refreshInterval']}초마다 갱신" if sl.get("refreshInterval") else "")
+
+
 def features(root):
     s = _settings(root)
     p = s.get("permissions", {})
@@ -110,7 +118,7 @@ def features(root):
            "비밀 읽기(Read)": len([r for r in deny if r.startswith("Read(")])}
     return {"hooks": hooks, "deny": len(deny), "ask": len(p.get("ask", [])), "mode": p.get("defaultMode"), "denyKinds": cat,
             "agents": [a["name"] for a in agents(root)], "skills": skills, "scripts": scripts, "routine": routine,
-            "plugins": [k for k, v in s.get("enabledPlugins", {}).items() if v], "statusLine": bool(s.get("statusLine")),
+            "plugins": [k for k, v in s.get("enabledPlugins", {}).items() if v], "statusLine": statusline(s.get("statusLine")),
             "dashboard": ["활동·실시간 이벤트", "AO 워커", "변경 이력(PR)", "점검과 알림", "프로젝트 셋업", "사이드 탭 7종"]}
 
 

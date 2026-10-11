@@ -33,7 +33,7 @@
 | 일일 루틴 `daily-claude-update` | 완료, 수동 실행 1회 성공, 활성(enabled) |
 | 루틴 모델 | 첫 자동 실행은 sonnet-5-5로 확인. UI에서 명시 지정은 사용자가 할 일 |
 | Claude Code CLI | npm 최신 2.1.295 (2026-10-09 확인). 머신마다 `claude --version`으로 확인 |
-| 상태줄 `statusLine` | 모델과 컨텍스트 %를 표시. `jq`가 PATH에 있어야 한다 (섹션 2의 4단계) |
+| 상태줄 `statusLine` | 모델·컨텍스트 %와 프롬프트 캐시 카운트다운(남은 시간, 적중률, 콜드 시 재캐시 토큰)을 표시. `claude/statusline.sh`를 실행하고 30초마다 갱신한다. `jq`가 PATH에 있어야 한다 (섹션 2의 4단계) |
 | Archify | Mac 설치됨, 데스크탑은 미설치(2026-10-11 `~/.claude/skills`에 없음). 다이어그램 요청 시에만 쓴다 |
 | Ponytail | 설치됨, 상시 켜짐 (2026-10-09 결정). `settings.json`의 `enabledPlugins`로 활성 |
 | 프로젝트 셋업 | `/project-setup` 스킬 + `docs/GUIDE.md` 2단계. 실제 프로젝트에서 한 번 써 보는 것이 남음 |
@@ -100,7 +100,7 @@
 - `effortLevel`: `high` (공식 기본은 medium, xhigh는 토큰 소모 증가. 되돌리려면 `/effort`로 세션 중 변경하거나 이 값을 바꾼다. Sonnet 5.5는 세션 중 변경해도 캐시 유지)
 - `advisorModel`: `opus`
 - `autoCompactWindow`: `400000` (2026-10-09). 컨텍스트가 400K 토큰에 이르면 자동 압축한다. 기본(`auto`)은 네이티브 1M 모델(Sonnet 5.5)에서 약 967K. 근거는 best-practices의 "컨텍스트가 차면 성능이 떨어진다"이며 이 사용 패턴으로 측정한 값은 아니다. 압축이 너무 잦으면 600000 쪽으로 올린다. 이 값은 저장소에서만 관리한다: `/autocompact`는 `~/.claude/settings.json`의 모델별 `modelSettings`에 저장되어 `apply.sh`가 덮어쓰고 `verify.sh --live`에 drift로 잡힌다. 우선순위는 환경 변수 `CLAUDE_CODE_AUTO_COMPACT_WINDOW` > `--autocompact` > `/autocompact`(모델별 저장값) > 이 키.
-- `statusLine`: `jq`로 `[모델] N% context`를 출력하는 command. `jq` 필요.
+- `statusLine`: `bash ~/.claude/statusline.sh`(`apply.sh`가 복사). `[모델] N% context` 한 줄 뒤에 `prompt_cache` 기반 캐시 줄을 붙이고 `refreshInterval` 30초. Claude Code 2.1.251 이상, `jq` 필요.
 - 제거한 키(공식 settings-reference의 기본값과 같아서 vanilla 기준으로 삭제, 2026-10-09): `autoUpdatesChannel: latest`(미설정 시 latest), `enableAllProjectMcpServers: false`(미설정 시 서버마다 승인 요청). `theme: dark`는 2026-10-10에 다시 넣었다(PR #27, 이 머신의 라이브 값을 저장소로 옮김). 프로젝트 설정이 같은 키를 true로 두면 사용자 설정보다 우선하므로 false를 명시해도 보호가 되지 않는다.
 - `env.ENABLE_PROMPT_CACHING_1H`: 제거함. 공식 문서상 구독 플랜의 메인 대화는 기본이 1시간 TTL이라 중복이고, 이 변수는 서브에이전트·압축 요청까지 1시간으로 올려 쓰기 비용만 늘린다 (짧은 작업에는 손해). 2026-10-11에 `promptCacheTtl`/`subagentPromptCacheTtl`을 아래와 같이 넣었다. 서브에이전트 쪽은 이 항목의 우려를 되돌린 것이므로 섹션 10의 같은 날짜 항목을 본다.
 - `promptCacheTtl: "1h"`, `subagentPromptCacheTtl: "1h"` (2026-10-11, PR #46). 메인 대화와 그 밖의 요청(서브에이전트, workflow, 팀원, 압축, 세션 제목)의 캐시 TTL을 각각 정한다. 둘 다 Claude Code v2.1.242 이상. 우선순위는 `FORCE_PROMPT_CACHING_5M` > 환경변수(`CLAUDE_CODE_PROMPT_CACHE_TTL`, `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`) > 이 키 > `ENABLE_PROMPT_CACHING_1H`.

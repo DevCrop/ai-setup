@@ -822,7 +822,7 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
     v.replaceChildren(tiles,
       grid2(
         panel("권한 · 훅", "settings.json", kv("기본 모드", bd("accent", f.mode || "?")), ...Object.entries(f.denyKinds).map(([k, nn]) => kv("deny · " + k, nn + "개")), ...f.hooks.map((h) => kv("PreToolUse 훅", h))),
-        panel("플러그인 · 기타", "", ...f.plugins.map((p) => kv("플러그인", p)), kv("상태줄", f.statusLine ? "켜짐" : "없음"), kv("대시보드 화면", f.dashboard.join(" · ")))),
+        panel("플러그인 · 기타", "", ...f.plugins.map((p) => kv("플러그인", p)), kv("상태줄", f.statusLine || "없음"), kv("대시보드 화면", f.dashboard.join(" · ")))),
       panel("스킬 " + f.skills.length, "claude/skills/", cardList(f.skills, "star")),
       panel("에이전트 " + inv.agents.length, "claude/agents/", cardList(inv.agents.map((a) => ({ name: a.name + " · " + a.model, desc: a.desc })), "bot")),
       panel("스크립트 " + f.scripts.length, "scripts/", cardList(f.scripts, "term")),
