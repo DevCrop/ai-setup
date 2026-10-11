@@ -234,7 +234,11 @@ def discover_projects(limit=30):
     """No list given: take the working folders Claude Code recorded in its session logs, plus sibling folders that look like projects."""
     skip = re.compile(r"appdata|[\\/]temp[\\/]|scratchpad|worktree|[\\/]\.claude|[\\/]ao[\\/]", re.I)
     cwds = []
-    for d in PROJECTS.iterdir() if PROJECTS.is_dir() else []:
+    try:
+        logdirs = list(PROJECTS.iterdir()) if PROJECTS.is_dir() else []
+    except OSError:
+        logdirs = []
+    for d in logdirs:
         try:
             log = max(d.glob("*.jsonl"), key=lambda f: f.stat().st_mtime)
             with open(log, encoding="utf-8", errors="replace") as fh:
@@ -247,7 +251,10 @@ def discover_projects(limit=30):
     found = {str(c): c for c in cwds}
     marks = (".git", "CLAUDE.md", "AGENTS.md", ".claude")
     rf = ROOT / "state" / "project-roots.txt"  # per-machine folders that hold projects, one path per line (or PROJECT_ROOTS)
-    lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8", errors="replace").splitlines() if rf.is_file() else []
+    try:
+        lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8", errors="replace").splitlines() if rf.is_file() else []
+    except OSError:
+        lines = []
     roots = [Path(l.strip()) for l in lines if l.strip() and not l.startswith("#")]
     for parent in {c.parent for c in cwds if c.parent != c.parent.parent} | {r for r in roots if r != r.parent}:  # one level only, never a drive root
         try:
@@ -256,7 +263,8 @@ def discover_projects(limit=30):
                     found.setdefault(str(sub), sub)
         except OSError:
             pass
-    return sorted(found.values(), key=lambda x: str(x).lower())[:limit]
+    first = {str(c) for c in cwds}  # session-log folders survive the cap; sibling scans fill the rest
+    return sorted(found.values(), key=lambda x: (str(x) not in first, str(x).lower()))[:limit]
 
 
 def project_setup(d):
@@ -445,6 +453,7 @@ def _age(ms_or_ts, now=None):
 
 
 def _span(sec):
+    sec = sec if isinstance(sec, (int, float)) else None
     return "?" if sec is None else f"{int(sec // 86400)}일" if sec >= 86400 else f"{int(sec // 3600)}시간" if sec >= 3600 else f"{int(sec // 60)}분"
 
 
@@ -458,7 +467,7 @@ def mem_health(now=None):
             h = json.load(r)
         ai = (h.get("ai") or {}).get("lastInteraction") or {}
         out.append(("claude-mem", "워커", "ok" if h.get("status") == "ok" and h.get("initialized") else "bad",
-                    f"v{h.get('version')} · 가동 {_span(h.get('uptime'))} · MCP {'준비' if h.get('mcpReady') else '미준비'}"))
+                    f"v{str(h.get('version'))[:20]} · 가동 {_span(h.get('uptime'))} · MCP {'준비' if h.get('mcpReady') else '미준비'}"))
         age = _age(ai.get("timestamp"), now)
         out.append(("claude-mem", "마지막 AI 호출", "ok" if ai.get("success") else "warn", f"{_span(age)} 전 · {'성공' if ai.get('success') else '실패'}", "" if ai.get("success") else "`claude auth status` 로 로그인 확인, 필요하면 `claude auth login`"))
     except Exception:
@@ -478,10 +487,10 @@ def mem_health(now=None):
         lvl = "bad" if fails >= 3 or o.get("quotaCooldown") else "warn" if fails or (o.get("lastErrorAt") and not recovered) else "ok"
         detail = f"연속 실패 {fails} · 마지막 성공 {_span(ok_age)} 전"
         if o.get("lastErrorKind"):
-            detail += f" · 마지막 오류 {o.get('lastErrorKind')} ({_span(err_age)} 전{', 복구됨' if recovered else ''})"
+            detail += f" · 마지막 오류 {str(o.get('lastErrorKind'))[:40]} ({_span(err_age)} 전{', 복구됨' if recovered else ''})"
         if o.get("quotaCooldown"):
             detail += " · 쿼터 대기 중"
-        fix = o.get("lastErrorAction") if lvl != "ok" else ""  # claude-mem's own guidance, verbatim
+        fix = str(o.get("lastErrorAction"))[:300] if lvl != "ok" and o.get("lastErrorAction") else ""  # claude-mem's own guidance, verbatim
         out.append(("claude-mem", "관찰자(observer)", lvl, detail, fix or ""))
     except Exception:
         out.append(("claude-mem", "관찰자(observer)", "warn", "observer-health.json 없음"))
@@ -499,7 +508,7 @@ def history_health(now=None):
     out = []
     try:
         h = CONFIG / "history.jsonl"
-        n = sum(1 for _ in open(h, "rb")) if h.is_file() else 0
+        n = sum(1 for _ in open(h, "rb")) if h.is_file() else 0  # counted line by line, never decoded
         age = _age(h.stat().st_mtime * 1000, now) if h.is_file() else None
         out.append(("기록", "프롬프트 기록", "ok" if h.is_file() else "warn", f"{n}줄 · {round(h.stat().st_size / 1024, 1) if h.is_file() else 0}KB · 마지막 기록 {_span(age)} 전"))
     except Exception:
@@ -541,8 +550,13 @@ def ao_health(ao, now=None):
 
 def tools_health():
     ao = cached("ao", 8, ao_state, slow=True, placeholder={"available": bool(ao_bin()), "daemon": {"state": "loading"}, "sessions": []})
-    items = mem_health() + history_health() + ao_health(ao)
-    return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": i[4] if len(i) > 4 else "", "fixId": i[5] if len(i) > 5 else ""} for i in items]
+    items = []
+    for name, fn in (("claude-mem", mem_health), ("기록", history_health), ("AO", lambda: ao_health(ao))):
+        try:
+            items += fn()
+        except Exception:  # one failing source must not take /api/state down
+            items.append((name, "점검 실행", "warn", "이 항목을 읽는 중 오류가 났습니다"))
+    return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": str(i[4])[:300] if len(i) > 4 else "", "fixId": i[5] if len(i) > 5 else ""} for i in items]
 
 
 KEEP_BACKUPS = 3

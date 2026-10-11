@@ -29,4 +29,4 @@ Default to one agent. Delegate only when the part does not block the main thread
 - Use it only for long parallel work with disjoint file scopes; otherwise use the subagents above.
 - Put the done criteria and "never push" in `--agent-rules`; permissions come from `--permission`, and deny/ask rules still apply to workers.
 - Trigger `ao review` before ending a worker session (an ended session cannot be reviewed); a person pushes and merges.
-- Details and measurements: `docs/NEXT-MACHINE.md` section 13.
+- Details and measurements: `docs/NEXT-MACHINE.md` section 13 in the claude-global repository (it is not copied to `~/.claude`).
