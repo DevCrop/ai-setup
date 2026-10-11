@@ -133,7 +133,7 @@ export class MonitoringFlow extends Component {
     const rows = [
       ["기록 → 기억", [["프롬프트 기록", "프롬프트 기록"], ["세션 로그", "세션 로그"], ["claude-mem 워커", "워커"], ["observer", "관찰자(observer)"], ["DB", "DB"], ["마스킹", "비밀 마스킹(redact)"]]],
       ["병렬 작업(AO)", [["데몬", "데몬"], ["승인 대기", "승인 대기(blocked)"], ["멈춤", "멈춤(stuck)"], ["조용한 세션", "6시간 넘게 조용한 세션"], ["리뷰", "리뷰 없는 PR"], ["세션", "세션 합계"]]],
-      ["도구·백업", [["RTK", "RTK 버전"], ["apply 백업", "apply 백업"]]],
+      ["도구", [["RTK", "RTK 버전"]]],
     ];
     const W = 980, NW = 128, NH = 52, GX = 36, X0 = 12, svg = sv("svg", { viewBox: "0 0 " + W + " " + (rows.length * 96 + 12), role: "img", "aria-label": "모니터링 흐름" });
     addMarkers(svg);

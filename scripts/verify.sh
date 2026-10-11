@@ -9,6 +9,7 @@ set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 src="$repo/claude"
 dest="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+dest="${dest%/}"
 live=0
 full=0
 for a in "$@"; do
@@ -25,6 +26,7 @@ pass() { printf 'PASS  %s\n' "$*"; }
 fail() { printf 'FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 warn() { printf 'WARN  %s\n' "$*"; warns=$((warns + 1)); }
 skip() { printf 'SKIP  %s\n' "$*"; }
+info() { printf 'INFO  %s\n' "$*"; }
 
 # Frontmatter lines (between the first two --- lines) of a markdown file.
 # CR is stripped first: Git for Windows may check files out with CRLF line endings.
@@ -58,28 +60,59 @@ for f in "$repo"/scripts/*.sh; do bash -n "$f" 2>/dev/null || { fail "bash -n fa
 
 if out="$(bash "$repo/scripts/qa-deny.sh" --static 2>&1)"; then pass "$(printf '%s' "$out" | sed 's/^PASS  //')"; else fail "rtk twin check: $out"; fi
 
-# 3a. status line cache segment: sample prompt_cache JSON (warm, expiring, cold, absent)
-if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+# 3a, 3b: skipped when qa-apply.sh calls this script (they are slow and already ran in the outer run)
+if [ -z "${QA_APPLY_RUNNING:-}" ]; then
+  # 3a. status line cache segment: sample prompt_cache JSON (warm, expiring, cold, absent)
+  if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
 
-# 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
-if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then
-  if out="$(bash "$repo/scripts/qa-hooks.sh" 2>&1)"; then pass "secret-guard hook ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "secret-guard unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
-else
-  fail "secret-guard hook missing or not referenced in settings.json"
+  # 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
+  if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then
+    if out="$(bash "$repo/scripts/qa-hooks.sh" 2>&1)"; then pass "secret-guard hook ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "secret-guard unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  else
+    fail "secret-guard hook missing or not referenced in settings.json"
+  fi
+fi
+
+# 3c. apply.sh scenarios in scratch directories (fresh, rerun, stale files, machine-only keys, owned keys, removed keys, no jq, bad JSON)
+if [ -z "${QA_APPLY_RUNNING:-}" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    if out="$(bash "$repo/scripts/qa-apply.sh" 2>&1)"; then pass "apply.sh scenarios ($(printf '%s' "$out" | grep -c '^PASS') cases)"; else fail "apply.sh scenarios: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  else
+    skip "apply.sh scenarios (needs jq)"
+  fi
 fi
 
 # 4. settings that must stay on
-# Default mode is bypassPermissions (decision 2026-10-10). Deny rules still apply in that mode (permission-modes doc), so they must exist;
-# a leftover bypass lock would stop the mode from starting.
+# Default mode is auto (decision 2026-10-11, official recommendation; bypassPermissions is documented for isolated containers and VMs only).
+# Deny and ask rules are the deterministic guard next to the classifier, so they must exist. autoMode arrays must keep "$defaults",
+# otherwise the built-in classifier rules are dropped. permissions.allow stays empty (broad allow rules are suspended in auto mode anyway).
 if command -v jq >/dev/null 2>&1; then
-  jq -e '(.permissions.defaultMode == "bypassPermissions") and (.permissions.disableBypassPermissionsMode == null)' "$src/settings.json" >/dev/null 2>&1 \
-    && pass "permissions.defaultMode is bypassPermissions and the bypass lock is absent" \
-    || fail "permissions.defaultMode must be bypassPermissions with no disableBypassPermissionsMode"
+  jq -e '.permissions.defaultMode == "auto"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "permissions.defaultMode is auto" \
+    || fail "permissions.defaultMode must be auto"
+  jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
+    || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
   jq -e '(.permissions.deny | type == "array") and (.permissions.deny | length > 0)' "$src/settings.json" >/dev/null 2>&1 \
-    && pass "permissions.deny is a non-empty list (deny rules still apply in bypass mode)" \
+    && pass "permissions.deny is a non-empty list (deny rules apply in every mode)" \
     || fail "permissions.deny is missing or empty"
+  jq -e '(.permissions.allow | type == "array") and (.permissions.allow | length == 0)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "permissions.allow is an empty list" \
+    || fail "permissions.allow must be an explicit empty list"
+  jq -e '(.autoMode | type == "object") and ([.autoMode | to_entries[] | select(.value | type == "array") | .value | index("$defaults") == null] | any | not)' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "every autoMode array keeps \"\$defaults\"" \
+    || fail "autoMode is missing or an array lacks \"\$defaults\" (the built-in classifier rules would be dropped)"
+  jq -e '.skillOverrides["auto-mode-setup"] == "off"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "/auto-mode-setup is off (autoMode is owned by this repo)" \
+    || fail "skillOverrides.auto-mode-setup must be \"off\""
 else
-  warn "bypass default and deny list not validated (needs jq)"
+  warn "auto mode settings and deny list not validated (needs jq)"
+fi
+# Superpowers is not adopted at any scope (decision 2026-10-11, docs/GUIDE.md): the repo must not enable it.
+if command -v jq >/dev/null 2>&1; then
+  jq -e '[.enabledPlugins // {} | keys[] | select(startswith("superpowers@"))] | length == 0' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "settings.json does not enable Superpowers" \
+    || fail "settings.json enables Superpowers (not adopted, decision 2026-10-11)"
 fi
 # permissions.ask must be a non-empty array (a bare grep for "ask" would also match a comment or another key)
 ask_ok=""
@@ -146,6 +179,25 @@ missing=""
 for item in $items; do [ -e "$src/$item" ] || missing="$missing $item"; done
 [ -z "$missing" ] && pass "apply.sh items exist in claude/" || fail "apply.sh copies items that are not in claude/:$missing"
 
+# 8b. docs: every docs/*.md path that the docs, skills, agents and scripts mention exists (evidence.md and DECISIONS.md quote retired paths
+#     on purpose and are skipped), and every plugin that settings.json enables is described in GUIDE.md
+missing_refs=""
+for f in README.md CLAUDE.md docs/GUIDE.md claude/CLAUDE.md claude/routines/*.md claude/skills/*/SKILL.md claude/agents/*.md scripts/*.sh scripts/*.py scripts/dashboard/*.py; do
+  [ -f "$repo/$f" ] || continue
+  case "$f" in scripts/qa-*) continue ;; esac  # QA scripts build fixture projects with their own docs/ files
+  for ref in $(grep -o 'docs/[A-Za-z0-9._/-]*\.md' "$repo/$f" | sort -u); do
+    [ -e "$repo/$ref" ] || missing_refs="$missing_refs $f->$ref"
+  done
+done
+[ -z "$missing_refs" ] && pass "docs paths mentioned in the repo exist" || fail "mentioned docs files do not exist:$missing_refs"
+if command -v jq >/dev/null 2>&1; then
+  undoc=""
+  for k in $(jq -r '.enabledPlugins // {} | keys[]' "$src/settings.json" 2>/dev/null | tr -d '\r'); do
+    grep -qF "$k" "$repo/docs/GUIDE.md" || undoc="$undoc $k"
+  done
+  [ -z "$undoc" ] && pass "every enabled plugin is described in docs/GUIDE.md" || fail "plugins enabled in settings.json but not in docs/GUIDE.md:$undoc"
+fi
+
 if [ "$live" -eq 1 ]; then
   echo "== machine ($dest)"
   if [ ! -d "$dest" ]; then
@@ -155,9 +207,31 @@ if [ "$live" -eq 1 ]; then
     exit 1
   fi
 
-  # 9. applied files equal the repo (extra files in the config directory are ignored)
+  # 9. applied files equal the repo. settings.json is merged by apply.sh: only the keys this repo owns are compared (machine-only keys
+  #    such as env or a plugin enabled by "claude plugin install" are INFO); a difference in an owned key is a WARN, because the
+  #    live value (for example a rule added in /permissions) is not the repo's and the next apply.sh replaces it.
   for item in $items; do
     if [ ! -e "$dest/$item" ]; then fail "not applied: $item (run: bash scripts/apply.sh)"; continue; fi
+    if [ "$item" = "settings.json" ]; then
+      if ! command -v jq >/dev/null 2>&1; then skip "settings.json comparison (needs jq)"; continue; fi
+      if ! jq -e 'type == "object"' "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is empty or not a JSON object (run: bash scripts/apply.sh)"; continue; fi
+      owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '
+        def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
+        def own_perm: ["defaultMode","deny","ask","allow"];
+        $l[0] as $l | $r[0] as $r
+        | ([own_top[] as $k | select($l[$k] != $r[$k]) | $k]
+           + [own_perm[] as $k | select((($l.permissions // {})[$k]) != (($r.permissions // {})[$k])) | "permissions." + $k]
+           + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "env") | not) | select($l[$k] != $r[$k]) | $k]
+           + [($r.enabledPlugins // {} | to_entries[]) | select((($l.enabledPlugins // {})[.key]) != .value) | "enabledPlugins." + .key])
+        | join(", ")' 2>/dev/null)"
+      if [ -z "$owned_diff" ]; then pass "in sync: settings.json (keys owned by this repo)"
+      else warn "settings.json differs from claude/settings.json in: $owned_diff (apply.sh restores the repo values; to keep a change, edit claude/settings.json first)"; fi
+      stale_keys="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '$l[0] as $l | $x[0] | map(select(. as $p | ($l | getpath($p)) != null) | join(".")) | join(", ")' 2>/dev/null)"
+      [ -z "$stale_keys" ] || warn "settings.json still has keys that scripts/removed-keys.json deletes: $stale_keys (run: bash scripts/apply.sh)"
+      only_keys="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '$l[0] as $l | $r[0] as $r | (($l | keys) - ($r | keys)) | join(", ")' 2>/dev/null)"
+      [ -z "$only_keys" ] || info "machine-only settings.json keys (kept by apply.sh): $only_keys"
+      continue
+    fi
     drift=""
     if [ -d "$src/$item" ]; then
       while IFS= read -r f; do
@@ -167,24 +241,58 @@ if [ "$live" -eq 1 ]; then
 $(find "$src/$item" -type f)
 EOF
     else
-      if ! cmp -s "$src/$item" "$dest/$item"; then
-        # settings.json: key order alone is not drift, and "env" is machine-local (apply.sh keeps it)
-        if [ "$item" = "settings.json" ] && command -v jq >/dev/null 2>&1 \
-           && [ "$(jq -S 'del(.env)' "$src/$item" 2>/dev/null)" = "$(jq -S 'del(.env)' "$dest/$item" 2>/dev/null)" ]; then
-          :
-        else
-          drift=" $item"
-        fi
-      fi
+      cmp -s "$src/$item" "$dest/$item" || drift=" $item"
     fi
     [ -z "$drift" ] && pass "in sync: $item" || fail "differs from claude/:$drift (apply.sh would overwrite; if the live copy has a change you want, move it into claude/ first)"
   done
+  # Files in the managed folders that this repo never applied are kept by apply.sh: show them, they are not an error.
+  foreign=""
+  for item in $items; do
+    [ -d "$src/$item" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      [ -e "$src/$f" ] || foreign="$foreign $f"
+    done <<EOF
+$(cd "$dest" 2>/dev/null && find "$item" -type f 2>/dev/null)
+EOF
+  done
+  [ -z "$foreign" ] || info "files in managed folders that are not from this repo (kept by apply.sh):$foreign"
 
   # 10. tools
   command -v jq >/dev/null 2>&1 && pass "jq on PATH" || fail "jq not on PATH (the status line needs it)"
   command -v rtk >/dev/null 2>&1 && pass "rtk on PATH ($(rtk --version 2>/dev/null | head -n 1))" || warn "rtk not on PATH: the hook is a no-op and Bash output is not filtered"
   command -v node >/dev/null 2>&1 && pass "node on PATH" || warn "node not on PATH (Ponytail hooks run on Node.js)"
   command -v gh >/dev/null 2>&1 && pass "gh on PATH" || warn "gh not on PATH"
+
+  # 10b. auto mode: version floor, effective classifier config, no disableAutoMode in live or project settings
+  if command -v claude >/dev/null 2>&1; then
+    cv="$(claude --version 2>/dev/null | head -n 1 | sed -n 's/^\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')"
+    if [ -z "$cv" ]; then
+      warn "could not read the claude version"
+    elif [ "$(printf '%s\n' "$cv" | awk -F. '{ printf "%d", $1*1000000 + $2*1000 + $3 }')" -ge 2001295 ]; then
+      pass "claude $cv (2.1.295 or newer: auto mode default, hook onFailure)"
+    else
+      fail "claude $cv is older than 2.1.295 (needed for auto mode as the default and for hook onFailure)"
+    fi
+    if command -v jq >/dev/null 2>&1; then
+      am="$(CLAUDE_CONFIG_DIR="$dest" claude auto-mode config 2>&1)"
+      miss=""
+      for needle in "Organization: personal (DevCrop)" "Installing, updating, or adding Claude Code plugins" "Printing, copying, or sending the contents of real secret files"; do
+        printf '%s' "$am" | grep -qF "$needle" || miss="$miss [$needle]"
+      done
+      [ -z "$miss" ] && pass "claude auto-mode config shows the repo's environment, soft_deny and hard_deny entries" \
+        || fail "claude auto-mode config lacks entries from claude/settings.json:$miss (run: bash scripts/apply.sh)"
+    fi
+    if command -v jq >/dev/null 2>&1; then
+      bad=""
+      for f in "$dest/settings.json" ./.claude/settings.json ./.claude/settings.local.json; do
+        [ -f "$f" ] && jq -e '(.permissions.disableAutoMode != null) or (.disableAutoMode != null)' "$f" >/dev/null 2>&1 && bad="$bad $f"
+      done
+      [ -z "$bad" ] && pass "no disableAutoMode in live or project settings" || fail "disableAutoMode is set in:$bad"
+    fi
+  else
+    skip "auto mode live checks (claude CLI not on PATH)"
+  fi
 
   # 11. Ponytail plugin
   if command -v claude >/dev/null 2>&1; then
@@ -201,6 +309,11 @@ EOF
     else
       warn "plugin ponytail@ponytail is listed but its status is unclear:"
       printf '%s\n' "$block" | sed 's/^/        /'
+    fi
+    if printf '%s\n' "$pl" | grep -q 'superpowers@'; then
+      warn "plugin superpowers is installed on this machine (not adopted): claude plugin uninstall superpowers@claude-plugins-official"
+    else
+      pass "Superpowers is not installed"
     fi
   else
     skip "plugin check (claude CLI not on PATH)"

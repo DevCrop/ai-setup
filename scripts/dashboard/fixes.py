@@ -1,9 +1,11 @@
 """One-click fixes. A fix is a class with a preview and a run; only classes registered in a FixRegistry can ever run.
 To add a fix: subclass Fix, give it an id, register an instance in server.py. Nothing else changes."""
-import json, os, re, shutil, subprocess, urllib.request
+import json, os, re, shutil, subprocess, threading, urllib.request
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
+
+from fsutil import mem_dir
 
 
 class Fix(ABC):
@@ -21,6 +23,7 @@ class Fix(ABC):
 class FixRegistry:
     def __init__(self):
         self._fixes = {}
+        self._lock = threading.Lock()  # two simultaneous applies must not both pass the target check
 
     def register(self, fix):
         self._fixes[fix.id] = fix
@@ -31,6 +34,10 @@ class FixRegistry:
         return fix.preview() if fix else None
 
     def apply(self, fid, targets):
+        with self._lock:
+            return self._apply(fid, targets)
+
+    def _apply(self, fid, targets):
         pv = self.preview(fid)
         if not pv or not pv["targets"]:
             return {"ok": False, "msg": "할 일이 없거나 알 수 없는 조치입니다."}
@@ -39,30 +46,12 @@ class FixRegistry:
         return self._fixes[fid].run(pv["targets"])
 
 
-class PruneBackups(Fix):
-    id = "prune-backups"
-    KEEP = 3
-
-    @staticmethod
-    def backups():
-        return sorted(d for d in Path.home().glob(".claude-backup-*") if d.is_dir() and not d.is_symlink() and re.fullmatch(r"\.claude-backup-\d{8}-\d{6}", d.name))
-
-    def preview(self):
-        old = self.backups()[:-self.KEEP]
-        return {"title": f"오래된 apply 백업 삭제 (최신 {self.KEEP}개 유지)", "targets": [d.name for d in old], "reversible": False}
-
-    def run(self, targets):
-        for name in targets:
-            shutil.rmtree(Path.home() / name)
-        return {"ok": True, "msg": f"{len(targets)}개 삭제"}
-
-
 class MemRedactOn(Fix):
     id = "mem-redact-on"
 
     @staticmethod
     def settings_file():
-        return Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
+        return mem_dir() / "settings.json"
 
     def preview(self):
         on = False
@@ -118,8 +107,11 @@ class RtkUpdate(Fix):
         return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
 
     def run(self, targets):
+        cmd = self.installer()
+        if not cmd:
+            return {"ok": False, "msg": "설치 관리자(winget 또는 brew)를 찾을 수 없습니다."}
         try:
-            p = self.runner.spawn(self.installer(), timeout=300)
+            p = self.runner.spawn(cmd, timeout=300)
         except (OSError, subprocess.TimeoutExpired) as e:
             return {"ok": False, "msg": "실행 실패: " + type(e).__name__}
         self.cache.drop("rtk_latest")

@@ -2,7 +2,7 @@
 # QA for the project-setup skill. Builds throwaway projects, runs the skill with `claude -p`, grades the stream.
 # Usage: bash scripts/qa-project-setup.sh <work-dir> [fixture...]   (fixtures: next php react markup existing agents both; default all)
 # Needs: claude CLI (uses the sonnet model, costs tokens), jq, git. The script writes only under <work-dir>; the claude runs
-# use your global settings (bypass default) and are not persisted (--no-session-persistence), but nothing stops a model from writing elsewhere.
+# use your global settings (auto mode default) and are not persisted (--no-session-persistence), but nothing stops a model from writing elsewhere.
 # Axes: G = reads the global layer and does not restate it (4 English phrases only); I = follows the global instructions (no .env,
 # nothing written, Korean, "Not verified"); P = proposals in fenced blocks match the project: commands present, no writing command in allow,
 # .env deny, gitignore lines. P checks presence, except markup (no Bash allow, asks). With no stream (QA_MODE=grade) G and the .env read
@@ -70,6 +70,7 @@ grade() { # name
   pass "$n: skill ran and produced a result"
   # G: read the global layer; did not restate global rules
   # Paths inside this fixture are dropped first: its own .claude/settings.json is not the global layer.
+  # shellcheck disable=SC1087  # the quote closes before [^"], this is not an array reference
   printf '%s' "$tools" | tr ',' '\n' | grep -Ev "[/\\\\]$n[/\\\\]" | grep -Eq '(~|HOME|CLAUDE_CONFIG_DIR|'"${HOME##*/}"'[^"]{0,6}).{0,8}\.claude.{1,4}(CLAUDE\.md|settings\.json)' \
     && pass "$n G: read the global CLAUDE.md or settings.json" || fail "$n G: did not read the global layer"
   grep -Eq 'Retry limit|Never read or commit|Archify|Ponytail is always' "$r" && fail "$n G: result restates global rules" || pass "$n G: no global rule text repeated"

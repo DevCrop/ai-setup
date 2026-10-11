@@ -7,11 +7,10 @@
   "promptCacheTtl": "1h",
   "subagentPromptCacheTtl": "1h",
   "enableWorkflows": true,
-  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.claude/statusline.sh",
+    "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/statusline.sh\"",
     "refreshInterval": 30
   },
   "permissions": {
@@ -68,7 +67,46 @@
       "Bash(rtk git checkout -- *)",
       "Bash(rtk git checkout .)",
       "Bash(rtk git restore .)",
-      "Bash(rtk git restore --staged .)"
+      "Bash(rtk git restore --staged .)",
+      "Bash(git clean *)",
+      "Bash(git checkout -f*)",
+      "Bash(git checkout --force*)",
+      "Bash(git switch -f*)",
+      "Bash(git switch --force*)",
+      "Bash(git switch --discard-changes*)",
+      "Bash(git reset --merge*)",
+      "Bash(git reset --keep*)",
+      "Bash(git push --force-with-lease*)",
+      "Bash(git push * --force-with-lease*)",
+      "Bash(git push +*)",
+      "Bash(git push * +*)",
+      "Bash(git push --delete *)",
+      "Bash(git push * --delete *)",
+      "Bash(git push -d *)",
+      "Bash(git push * -d *)",
+      "Bash(rtk git clean *)",
+      "Bash(rtk git checkout -f*)",
+      "Bash(rtk git checkout --force*)",
+      "Bash(rtk git switch -f*)",
+      "Bash(rtk git switch --force*)",
+      "Bash(rtk git switch --discard-changes*)",
+      "Bash(rtk git reset --merge*)",
+      "Bash(rtk git reset --keep*)",
+      "Bash(rtk git push --force-with-lease*)",
+      "Bash(rtk git push * --force-with-lease*)",
+      "Bash(rtk git push +*)",
+      "Bash(rtk git push * +*)",
+      "Bash(rtk git push --delete *)",
+      "Bash(rtk git push * --delete *)",
+      "Bash(rtk git push -d *)",
+      "Bash(rtk git push * -d *)",
+      "Read(**/*.pem)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Edit(**/.env*)",
+      "Edit(**/.credentials*)"
     ],
     "ask": [
       "Bash(git push *)",
@@ -80,9 +118,39 @@
       "Bash(rtk git branch -D *)",
       "Bash(rtk git stash drop *)",
       "Bash(rtk git stash clear *)",
-      "Bash(rtk rm *)"
+      "Bash(rtk rm *)",
+      "Bash(git -C * push*)",
+      "Bash(git -c * push*)",
+      "Bash(git restore *)",
+      "Bash(find * -delete*)",
+      "Bash(shred *)",
+      "Bash(rtk git -C * push*)",
+      "Bash(rtk git -c * push*)",
+      "Bash(rtk git restore *)",
+      "Bash(rtk find * -delete*)",
+      "Bash(rtk shred *)"
     ],
-    "defaultMode": "bypassPermissions"
+    "allow": [],
+    "defaultMode": "auto"
+  },
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Organization: personal (DevCrop). Primary use: software development and maintaining this Claude Code setup",
+      "Source control: github.com/DevCrop and all repos under it",
+      "Plugin supply chain: Claude Code plugins come from the marketplaces already listed in extraKnownMarketplaces; adding another marketplace or plugin needs the user to name it"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Installing, updating, or adding Claude Code plugins, marketplaces, or skills (claude plugin install/update, claude plugin marketplace add, npx skills add) unless the user named that exact action"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "Printing, copying, or sending the contents of real secret files: .env*, .credentials*, credentials.json, private keys (id_rsa*, id_ed25519*, *.pem, *.key). Files ending in .example, .sample or .template are not secrets"
+    ]
+  },
+  "skillOverrides": {
+    "auto-mode-setup": "off"
   },
   "hooks": {
     "PreToolUse": [
@@ -95,7 +163,9 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\""
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\"",
+            "timeout": 30,
+            "onFailure": "block"
           }
         ]
       }
@@ -118,7 +188,6 @@
   "enabledPlugins": {
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
-    "superpowers@claude-plugins-official": true,
     "desktop-commander@synced": false
   }
 }

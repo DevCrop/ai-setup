@@ -1,5 +1,7 @@
 # Review: obra/superpowers v6.4.2
 
+> **Decision 2026-10-11: not adopted, at any scope.** The recommendation below to install it per project is superseded and kept as a record. `scripts/verify.sh` fails if `claude/settings.json` enables it.
+
 Source: https://github.com/obra/superpowers @ 8ca22db (2026-09-25).
 Read: README, `using-superpowers`, `brainstorming`, `test-driven-development`, `hooks/session-start`, `AGENTS.md`.
 Not read: remaining skills, `tests/` execution results. The external eval harness (`superpowers-evals`) was not inspected, so effectiveness claims are unverified.

@@ -6,10 +6,12 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 hook="${1:-$repo/claude/hooks/secret-guard.sh}"
 t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
 export TMPDIR="$t"
-r="$t/r"; mkdir "$r"; cd "$r"
+r="$t/r"; mkdir "$r"; cd "$r" || exit 1
 git init -q . && git config user.email a@b.c && git config user.name t
 echo x > ok.txt; git add ok.txt; git commit -qm init
 mkdir sub; echo s > sub/.env.local; echo s > .ENV.PROD; echo s > id_rsa.pub; echo s > .env.production.example; echo s > .credentials.json; echo s > .env.production; echo s > k.pem; echo s > .env.example; echo y > b.txt
+echo s > id_ed25519; echo s > server.key; echo s > credentials.json; echo s > .npmrc; echo s > .netrc; echo s > p.diff; echo s > p.mbox
+mkdir "$t/sp"; (cd "$t/sp" && git init -q . && git config user.email a@b.c && git config user.name t && mkdir "a b" && echo s > "a b/.env" && echo y > ok.txt)
 mkdir other; (cd other && git init -q . && git config user.email a@b.c && git config user.name t && echo s > .env && echo y > ok2.txt)
 fail=0
 run() { # expect cmd
@@ -47,6 +49,38 @@ run 2 'git add :/'
 run 2 '\git add -A'
 run 2 "g''it add -A"
 run 2 $'git add \\\n-A'
+# secret names the first version missed
+run 2 'git add $(cat list2)'
+run 2 'git add $(git ls-files -o)'
+run 2 'f=.env; git add $f'
+run 2 'git add .aws/credentials'
+run 2 'git add .pgpass'
+run 2 'git add .htpasswd'
+run 2 'git add key.pem.bak'
+CWD="$t/clean" run 0 "$(printf 'git add c.txt && git commit -m "$(cat <<'"'"'MSG'"'"'\nmessage\nMSG\n)"')"
+run 2 'git add id_ed25519'
+run 2 'git add server.key'
+run 2 'git add credentials.json'
+run 2 'git add .npmrc'
+run 2 'git add .netrc'
+# a directory name with a space: git quotes it in non-NUL output, so the listing must be read with -z
+CWD="$t/sp" run 2 'git add -A'
+CWD="$t/sp" run 2 'git add .'
+CWD="$t/sp" run 0 'git add ok.txt'
+# obfuscation and indirection
+run 2 $'g\\it add -A'
+run 2 'printf .env | xargs git add'
+run 2 'find . -name .env -exec git add {} \;'
+run 2 'rtk git add .env.production'
+# verbs that stage without "add"
+run 2 'git update-index --add .env.production'
+run 2 'git update-index --add --stdin'
+run 2 'git mv k.pem moved.txt'
+run 2 'git apply --index p.diff'
+run 2 'git am p.mbox'
+run 0 'git mv ok.txt ok-renamed.txt'
+run 0 'git apply p.diff'
+run 0 'git update-index --refresh'
 # CR from Windows jq: a fake jq in front of PATH appends CR to every output line; multi-line commands must still be judged.
 # Known gap: this case also passes with the CR strip removed (a reviewer proved the strip is needed with a separate fake jq), so it is a smoke test, not a proof.
 mkdir -p "$t/bin"; real="$(command -v jq)"
@@ -63,6 +97,28 @@ mkdir "$t/clean"; (cd "$t/clean" && git init -q . && echo y > c.txt)
 CWD="$t/clean" run 2 "cd $r && git add -A"
 CWD="$t/clean" run 0 'git add -A'
 TMPDIR=/nonexistent run 2 'git add -A'
+# expansion where the option or verb belongs, ANSI-C quoting, --git-dir/--work-tree and GIT_DIR from a directory that is not a repo
+run 2 'git${IFS}add${IFS}-A'
+run 2 'git$IFS add -A'
+run 2 'git -C "$PWD" add -A'
+run 2 'git -C"$PWD" add -A'
+run 2 "git -C \$(pwd) add -A"
+run 2 "\$'\\x67it' add -A"
+run 2 "git \$'\\x61dd' -A"
+run 2 "\$'\\147\\151\\164' add -A"
+CWD="$t" run 2 "git --git-dir=$r/.git --work-tree=$r add -A"
+CWD="$t" run 2 "git --git-dir $r/.git --work-tree $r add -A"
+CWD="$t" run 2 "GIT_DIR=$r/.git GIT_WORK_TREE=$r git add -A"
+run 2 'git --work-tree="$PWD" add -A'
+run 2 'git --git-dir="$PWD/.git" add -A'
+run 2 'git --git-dir=.git --work-tree="$PWD" add -A'
+run 2 'GIT_DIR="$PWD/.git" git add -A'
+run 2 'git ${x:-add} -A'
+run 0 'git -C "$PWD" status'
+run 0 'git -C "$PWD" log --oneline'
+CWD="$t" run 0 'git status'
+run 0 "echo \$'a\\tb'"
+run 0 'git${IFS}status'
 # allow (exit 0)
 run 0 'git commit -m "docs: never git add .env"'
 run 0 'git add id_rsa.pub'
@@ -94,4 +150,41 @@ run 2 'git commit -m x .env.production'
 run 2 'git commit -m "never add .env"'
 git rm -q --cached .env.production; git commit -qm rm
 run 0 'git commit -m x'
+# Fail-closed: when the hook cannot judge a command that could stage files, it blocks; other commands still pass.
+# The no-jq / no-git cases fake a PATH with links to single tools. Git Bash copies the .exe files without msys-2.0.dll, so grep/sed cannot
+# run there and the result says nothing about the hook: skip on MSYS/MINGW (checklist L-1 covers jq-less Windows by hand).
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) echo "SKIP  no-jq / no-git simulation (Git Bash cannot fake a reduced PATH)" ;;
+  *)
+nojq="$t/nojq"; mkdir "$nojq"
+for tool in bash cat tr sed grep basename git; do ln -s "$(command -v $tool)" "$nojq/$tool"; done
+realbash="$(command -v bash)"
+nojq_run() { # expect cmd
+  json="$(jq -n --arg c "$2" --arg d "$r" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}')"
+  out="$(printf '%s' "$json" | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  (no jq) $2"; else echo "FAIL want=$1 got=$rc  (no jq) $2  [$out]"; fail=$((fail+1)); fi
+}
+nojq_run 2 'git add .env'
+nojq_run 2 "git commit -m x"
+nojq_run 0 'git status'
+nojq_run 0 'ls -la'
+nogit="$t/nogit"; mkdir "$nogit"
+for tool in bash cat tr sed grep basename jq; do ln -s "$(command -v $tool)" "$nogit/$tool"; done
+nogit_run() { # expect cmd
+  json="$(jq -n --arg c "$2" --arg d "$r" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}')"
+  out="$(printf '%s' "$json" | PATH="$nogit" "$realbash" "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  (no git) $2"; else echo "FAIL want=$1 got=$rc  (no git) $2  [$out]"; fail=$((fail+1)); fi
+}
+nogit_run 2 'git add .env'
+nogit_run 0 'git status'
+nogit_run 0 'ls -la'
+    ;;
+esac
+raw_run() { # expect raw-stdin
+  out="$(printf '%s' "$2" | bash "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  (raw) $2"; else echo "FAIL want=$1 got=$rc  (raw) $2  [$out]"; fail=$((fail+1)); fi
+}
+raw_run 2 'git add -A'
+raw_run 0 'not json, just ls'
+raw_run 0 '{"tool_name":"Read","tool_input":{"file_path":"/x/git/notes.txt"}}'
 echo "failures: $fail"; [ "$fail" = 0 ]

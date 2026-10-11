@@ -4,13 +4,16 @@
 set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 py="$(command -v python3 || command -v python)"
+# Logic checks first (settings with a missing live file, what may leave the machine, cache, token): a shape check below must not hide them.
+"$py" "$repo/scripts/qa-dashboard-unit.py" || { echo "FAIL  scripts/qa-dashboard-unit.py"; exit 1; }
 port=$((20000 + RANDOM % 20000))
 "$py" "$repo/scripts/dashboard/server.py" --port "$port" >/dev/null 2>&1 &
 pid=$!; trap 'kill $pid 2>/dev/null' EXIT
 fail=0; pass() { echo "PASS  $*"; }; bad() { echo "FAIL  $*"; fail=$((fail+1)); }
-for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$port/api/state" && break; sleep 1; done
+for _ in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$port/api/state" && break; sleep 1; done
 s="$(curl -s -m 60 "http://127.0.0.1:$port/api/state")"
 [ -n "$s" ] && printf '%s' "$s" | jq empty 2>/dev/null && pass "/api/state is JSON" || { bad "/api/state is not JSON"; exit 1; }
+# shellcheck disable=SC2043  # one key today; the loop stays so a key is one word to add
 for k in ao; do printf '%s' "$s" | jq -e "has(\"$k\")" >/dev/null && pass "state has $k" || bad "state lacks $k"; done
 [ "$(printf '%s' "$s" | jq -r '.ao | has("available")')" = true ] && pass "ao.available present" || bad "ao.available missing"
 # Session objects may carry only these keys (never prompts or review bodies).
@@ -49,11 +52,12 @@ printf '%s' "$s" | jq -e '[.tools[].group] | (index("claude-mem") != null) and (
 ad="$(mktemp -d "$repo/.qa-ad.XXXXXX")"; ad="$(cd "$ad" && pwd -W 2>/dev/null || pwd)"; mkdir -p "$ad/cfg/projects/empty" "$ad/cfg/projects/p1" "$ad/work/app"; : > "$ad/work/app/CLAUDE.md"
 printf '{"cwd":"%s"}
 ' "$ad/work/app" > "$ad/cfg/projects/p1/s.jsonl"
+# shellcheck disable=SC1007  # PROJECT_ROOTS= is an intentional empty value
 r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.insert(0,sys.argv[1]);import server;print([p.name for p in server.discover_projects()])" "$repo/scripts/dashboard")"
 [ "$r" = "['app']" ] && pass "project auto-detect finds the session cwd" || bad "project auto-detect gave: $r"
 rm -rf "$ad"
 # fix endpoint: no token, wrong token, foreign Origin and foreign Host are all refused; the allow-list logic passes its unit checks
-tok="$(printf '%s' "$s" | jq -r .token)"; u="http://127.0.0.1:$port/api/fix"; j='{"id":"prune-backups","action":"preview"}'
+tok="$(printf '%s' "$s" | jq -r .token)"; u="http://127.0.0.1:$port/api/fix"; j='{"id":"mem-redact-on","action":"preview"}'
 c1="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$j" "$u")"
 c2="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-Dash-Token: nope' -d "$j" "$u")"
 c3="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Dash-Token: $tok" -H 'Origin: http://evil.example' -d "$j" "$u")"

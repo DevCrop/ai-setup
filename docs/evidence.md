@@ -1,144 +1,14 @@
-# 다른 컴퓨터에서 이어서 세팅하기
+# Evidence and decision records (verbatim, up to 2026-10-11)
 
-작성일: 2026-10-09. 검증 후 보강판 (별도 reviewer 에이전트가 누락·오류를 찾아 반영함).
-언어 규칙: 사용자에게는 한국어로 답한다. 코드·경로·명령은 원문 그대로 둔다.
+Measurements, provenance checks and long decision records that used to live in `docs/NEXT-MACHINE.md`, moved here unchanged on 2026-10-11 when that file was split up. The current decisions are summarised in `docs/DECISIONS.md`; the runbook is `docs/GUIDE.md`.
 
-이 문서는 첫 컴퓨터(Windows 10, 사용자명 `edn_y`)에서 한 작업을 기준으로 쓰였다. 첫 컴퓨터에만 있는 것(백업, 로그인, 대화 기록)은 저장소에 없다. 그 부분은 섹션 3에 따로 적었다.
+Read it as a dated record, not as the current state:
+- Text that calls `bypassPermissions` the default describes 2026-10-10; the default mode is `auto` since 2026-10-11 (`docs/DECISIONS.md`).
+- Section numbers inside the text ("섹션 4", "섹션 9", ...) point to the former `NEXT-MACHINE.md` (see its last version in git history before this commit).
+- Counts such as "deny 53개" were true on their date; `claude/settings.json` is the current source.
+- Language: Korean, as written.
 
-**새 컴퓨터는 `docs/GUIDE.md`의 "Quick path"(표 7줄)와 "claude-mem (per machine)"을 먼저 따른다.** 이 문서는 근거와 이력을 담은 참고서다.
-
-## 목차
-1. 한눈에 보기
-2. 새 컴퓨터 세팅 순서
-3. 첫 컴퓨터에만 있는 것 (백업, 리셋, 로그인)
-4. 설정 내용 (settings.json, 에이전트, 규칙)
-5. 도구 상태 (CLI, RTK, Archify, Ponytail)
-6. 예약 루틴 `daily-claude-update`
-7. 남은 작업
-8. 링크 모음
-9. 확인된 사실과 한계 (측정값 전부)
-10. 사용자 결정 기록
-11. 함정과 주의사항
-12. 저장소 이력
-13. Orchestrator.inc(AO) 도입 검토
-
-## 1. 한눈에 보기
-
-| 항목 | 상태 |
-|---|---|
-| 전역 규칙 `claude/CLAUDE.md`, `RTK.md` | 완료, 첫 컴퓨터에 적용됨 |
-| `claude/settings.json` | 완료, deny 동작 확인됨 |
-| 에이전트 `reviewer`, `explorer`, `worker` | `reviewer`·`explorer`는 `/context`에서 인식 확인. `worker`와 `maxTurns`는 머신에서 아직 확인 전 |
-| 스킬 `orchestrate`, `project-setup` | 추가됨(2026-10-09). `project-setup`은 스크래치 프로젝트 1건 드라이런만 했다. 머신 적용 후 `verify.sh --live`로 확인 |
-| 검증 `scripts/verify.sh` | 추가됨. `--live`가 적용 상태·도구·Ponytail을 한 번에 점검한다 |
-| RTK | 첫 컴퓨터 0.50.0에서 훅 동작 확인. 최신 0.51.0(2026-10-09 조회)로 업데이트 필요 |
-| 일일 루틴 `daily-claude-update` | 완료, 수동 실행 1회 성공, 활성(enabled) |
-| 루틴 모델 | 첫 자동 실행은 sonnet-5-5로 확인. UI에서 명시 지정은 사용자가 할 일 |
-| Claude Code CLI | npm 최신 2.1.295 (2026-10-09 확인). 머신마다 `claude --version`으로 확인 |
-| 상태줄 `statusLine` | 모델·컨텍스트 %와 프롬프트 캐시 카운트다운(남은 시간, 적중률, 콜드 시 재캐시 토큰)을 표시. `claude/statusline.sh`를 실행하고 30초마다 갱신한다. `jq`가 PATH에 있어야 한다 (섹션 2의 4단계) |
-| Archify | Mac 설치됨, 데스크탑은 미설치(2026-10-11 `~/.claude/skills`에 없음). 다이어그램 요청 시에만 쓴다 |
-| Ponytail | 설치됨, 상시 켜짐 (2026-10-09 결정). `settings.json`의 `enabledPlugins`로 활성 |
-| 프로젝트 셋업 | `/project-setup` 스킬 + `docs/GUIDE.md` 2단계. 실제 프로젝트에서 한 번 써 보는 것이 남음 |
-
-소스 오브 트루스는 이 저장소(`DevCrop/claude-global`, branch `main`)다. 라이브 설정은 `~/.claude`이며 `claude/` 폴더에서 복사해 만든다.
-
-## 2. 새 컴퓨터 세팅 순서
-
-범위: 이 저장소는 로컬 머신(Windows, Mac)의 `~/.claude`용이다. 클라우드 세션(claude.ai/code)은 `~/.claude/settings.json`을 읽지 않고 clone한 프로젝트의 `.claude/settings.json`만 읽는다(공식 settings 문서). 클라우드용 설정은 각 프로젝트 저장소에 커밋한다.
-
-각 단계 끝에 확인 방법이 있다. 확인되기 전에 다음 단계로 넘어가지 않는다.
-
-1. Claude Code를 설치하고 로그인한다. 자격 증명은 저장소에 없으므로 새로 로그인해야 한다.
-   - 확인: `claude --version`이 npm 최신(2026-10-09 기준 2.1.295) 이상.
-   - 설치 방법은 공식 문서를 따른다. 첫 컴퓨터(Windows)는 npm으로 설치했다: `npm install -g @anthropic-ai/claude-code@latest` (첫 컴퓨터는 `--prefix`로 `AppData/Roaming/npm`을 지정했다).
-2. 저장소를 받는다. HTTPS 주소이므로 새 컴퓨터에서 GitHub 인증(예: `gh auth login` 또는 자격 증명 관리자)이 먼저 필요하다. private이면 인증 없이는 clone이 안 된다.
-   ```bash
-   git clone https://github.com/DevCrop/claude-global.git
-   ```
-3. 설정을 적용한다. Mac bash 또는 Windows Git Bash에서 실행한다.
-   ```bash
-   cd claude-global && bash scripts/apply.sh
-   ```
-   - 스크립트가 `CLAUDE.md`, `RTK.md`, `settings.json`, `agents/`, `routines/`, 지정한 `skills/*`만 `~/.claude`(또는 `CLAUDE_CONFIG_DIR`)로 복사한다. 덮어쓰기 전에 대상 파일을 `~/.claude-backup-<시각>/`에 백업한다. 자격 증명, `projects/`, 플러그인은 건드리지 않는다.
-   - `CLAUDE.md` 마지막 줄 `@RTK.md`가 `RTK.md`를 import하므로 두 파일이 같은 폴더에 있어야 한다. 스크립트가 함께 복사한다.
-   - 이후 갱신은 `git pull && bash scripts/apply.sh`.
-   - Windows: Git Bash의 `$HOME`이 `%USERPROFILE%`과 같아야 한다. 다르면 `CLAUDE_CONFIG_DIR`을 `%USERPROFILE%\.claude`로 지정한다. 셸 스크립트의 줄바꿈이 CRLF가 되면 `bash\r` 오류가 나므로 `.gitattributes`가 `*.sh`를 LF로 고정한다(Windows 실제 시험은 미실시).
-   - 확인: Claude 세션에서 `/context`의 Memory files에 `CLAUDE.md`, `RTK.md`가 보이고 Custom agents에 `explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`가 보이고 Skills에 `orchestrate`, `spec-writing`, `design-spec`이 보인다.
-4. RTK를 설치한다 (RTK 공식 README 기준).
-   ```bash
-   winget install rtk-ai.rtk   # Windows
-   brew install rtk            # macOS
-   ```
-   - RTK가 없어도 Bash는 동작한다. 훅은 non-blocking이라 실패해도 도구 호출이 진행된다(Claude Code hooks 문서). 필터링만 꺼진다.
-   - `settings.json`에 RTK 훅(`rtk hook claude`)이 이미 들어 있다. `rtk init -g`를 실행하면 설정이 바뀔 수 있으니 실행 전후 `settings.json` 차이를 비교한다. (이미 훅이 들어 있는 현재 상태에서는 `rtk init -g`가 필수가 아니다.)
-   - `rtk`가 PATH에 있어야 훅이 동작한다. 첫 컴퓨터에서는 winget 설치 직후 Git Bash PATH에 없었고, 훅은 앱 재시작 뒤 활성화됐다. 이후 같은 컴퓨터의 세션에서 `command -v rtk`가 WinGet 경로를 찾는 것을 확인했다. 새 컴퓨터에서는 새 터미널·앱 재시작 후 `rtk --version`으로 직접 확인한다.
-   - 확인: Bash 명령 몇 개 실행 뒤 `rtk gain`의 Total commands가 늘어난다. 그리고 `bash scripts/qa-deny.sh`가 전부 PASS여야 한다(RTK가 명령을 다시 써도 deny가 막는지 확인하는 시험, 아래 함정 절).
-   - `jq`를 설치한다. 상태줄(`statusLine`)이 `jq`로 세션 정보를 읽으므로 없으면 상태줄이 비거나 깨진다. 설치는 jq 공식 릴리스(https://github.com/jqlang/jq/releases) 또는 각 OS 패키지 관리자로 한다(패키지 ID는 확인하지 않았다). 확인: `command -v jq`, 새 세션 하단에 `[모델] N% context`가 보인다.
-5. Ponytail을 설치한다 (상시 사용, 섹션 5의 명령). `apply.sh`가 `enabledPlugins`를 넣어 주지만 플러그인 파일은 설치해야 받아진다(자동 설치 여부는 확인하지 못했다).
-   - 확인: `claude plugin list`에서 `ponytail@ponytail`이 enabled, 새 세션에서 `~/.claude/.ponytail-active`가 `full`.
-6. claude-mem을 설치하고 `bash scripts/setup-claude-mem.sh`로 관찰자 모델(`claude-haiku-5-5`)과 비밀 마스킹을 켠다(`docs/GUIDE.md` "claude-mem (per machine)"). `~/.claude-mem`은 저장소 밖이라 `apply.sh`가 옮기지 않는다.
-7. 예약 루틴을 만든다 (섹션 6, 경로 수정 필요).
-8. 섹션 7의 남은 작업을 순서대로 진행한다.
-
-## 3. 첫 컴퓨터에만 있는 것
-
-저장소에 없고, 새 컴퓨터로 옮기지 않는 것들이다.
-
-백업: 2026-10-10에 `D:\backup` 전체와 `~/.claude-backup-*`를 삭제했다. 되돌릴 사본은 없다. `apply.sh`는 실행할 때마다 `~/.claude-backup-<시각>`를 새로 만든다.
-
-레거시 리셋 (첫 컴퓨터에서 한 번, 스크립트는 저장소에서 제거함):
-- 설정 계층만 지웠다. 원래 계획의 "전부 삭제"는 실행하지 않았다.
-- 유지한 것: `.credentials.json`(로그인), `projects/`(대화 기록·메모리), `sessions/`, `session-env/`, `plugins/`, `cache/`, `ide/`, `shell-snapshots/`, `history.jsonl`, `chrome/`(Chrome 연동).
-- 제거 이유: Windows 전용, 경로 하드코딩, 실행하면 `~/.claude.json`을 삭제한다. 필요하면 git 이력의 `558b4b4`에서 볼 수 있다.
-
-로그인과 설정 파일:
-- 로그인은 새 컴퓨터에서 새로 한다.
-- `~/.claude.json`은 `.gitignore`에 있고 저장소에 없다. 새 컴퓨터에서 따로 다루지 않는다.
-- 대화 기록(`projects/`)과 `history.jsonl`은 옮기지 않는다.
-
-## 4. 설정 내용
-
-`claude/settings.json` (전부):
-- `model`: `sonnet`
-- `effortLevel`: `high` (공식 기본은 medium, xhigh는 토큰 소모 증가. 되돌리려면 `/effort`로 세션 중 변경하거나 이 값을 바꾼다. Sonnet 5.5는 세션 중 변경해도 캐시 유지)
-- `advisorModel`: `opus`
-- `autoCompactWindow`: `400000` (2026-10-09). 컨텍스트가 400K 토큰에 이르면 자동 압축한다. 기본(`auto`)은 네이티브 1M 모델(Sonnet 5.5)에서 약 967K. 근거는 best-practices의 "컨텍스트가 차면 성능이 떨어진다"이며 이 사용 패턴으로 측정한 값은 아니다. 압축이 너무 잦으면 600000 쪽으로 올린다. 이 값은 저장소에서만 관리한다: `/autocompact`는 `~/.claude/settings.json`의 모델별 `modelSettings`에 저장되어 `apply.sh`가 덮어쓰고 `verify.sh --live`에 drift로 잡힌다. 우선순위는 환경 변수 `CLAUDE_CODE_AUTO_COMPACT_WINDOW` > `--autocompact` > `/autocompact`(모델별 저장값) > 이 키.
-- `statusLine`: `bash ~/.claude/statusline.sh`(`apply.sh`가 복사). `[모델] N% context` 한 줄 뒤에 `prompt_cache` 기반 캐시 줄을 붙이고 `refreshInterval` 30초. Claude Code 2.1.251 이상, `jq` 필요.
-- 제거한 키(공식 settings-reference의 기본값과 같아서 vanilla 기준으로 삭제, 2026-10-09): `autoUpdatesChannel: latest`(미설정 시 latest), `enableAllProjectMcpServers: false`(미설정 시 서버마다 승인 요청). `theme: dark`는 2026-10-10에 다시 넣었다(PR #27, 이 머신의 라이브 값을 저장소로 옮김). 프로젝트 설정이 같은 키를 true로 두면 사용자 설정보다 우선하므로 false를 명시해도 보호가 되지 않는다.
-- `env.ENABLE_PROMPT_CACHING_1H`: 제거함. 공식 문서상 구독 플랜의 메인 대화는 기본이 1시간 TTL이라 중복이고, 이 변수는 서브에이전트·압축 요청까지 1시간으로 올려 쓰기 비용만 늘린다 (짧은 작업에는 손해). 2026-10-11에 `promptCacheTtl`/`subagentPromptCacheTtl`을 아래와 같이 넣었다. 서브에이전트 쪽은 이 항목의 우려를 되돌린 것이므로 섹션 10의 같은 날짜 항목을 본다.
-- `promptCacheTtl: "1h"`, `subagentPromptCacheTtl: "1h"` (2026-10-11, PR #46). 메인 대화와 그 밖의 요청(서브에이전트, workflow, 팀원, 압축, 세션 제목)의 캐시 TTL을 각각 정한다. 둘 다 Claude Code v2.1.242 이상. 우선순위는 `FORCE_PROMPT_CACHING_5M` > 환경변수(`CLAUDE_CODE_PROMPT_CACHE_TTL`, `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`) > 이 키 > `ENABLE_PROMPT_CACHING_1H`.
-- `permissions.ask` 10개 (2026-10-09 추가, Bash 5패턴 `git push *`, `git branch -D *`, `git stash drop *`, `git stash clear *`, `rm *` × `rtk ` 짝). "승인 후에만 push, 삭제 전 확인" 규칙을 문장이 아니라 설정으로 강제한다. deny가 먼저 평가되므로 force push는 계속 거부된다. 끝의 ` *`은 인자 없는 명령에도 맞는다(공식 permissions 문서).
-- `permissions.defaultMode: "bypassPermissions"` (2026-10-10 결정, 같은 날 `disableBypassPermissionsMode: "disable"`을 대체): 기본 권한 모드를 bypass로 둔다. 공식 permission-modes 문서(2026-10-10 확인)는 deny 규칙이 bypass를 포함한 모든 모드에서 적용되고, 명시적 ask 규칙과 중요 경로의 `rm`/`rmdir`은 bypass에서도 확인을 묻고, allow 규칙은 bypass에서 효과가 없다고 한다. 따라서 deny 53개와 ask 10개는 계속 방어선이다. 2026-10-09에 이 문서가 "bypass는 deny를 무시한다"고 적은 것은 틀린 서술이었다. `defaultMode: "bypassPermissions"`는 사용자 설정(`~/.claude/settings.json`)에서만 적용되고 프로젝트 `.claude/settings.json`에서는 무시된다. Desktop에서는 "Allow bypass permissions mode" 토글이 필요하다. 2026-10-10 실측(bypass 세션, 이 머신): `Read` 존재하지 않는 `.env.probe`와 `git push --force --dry-run origin main`이 모두 deny로 차단됐다. ask 규칙(`git push *`)과 AO 워커 아래 동작은 측정하지 않았다.
-- `permissions.deny` 53개 (원래 20개 + 변형 우회 8개 + 같은 Bash 패턴 25개를 `rtk ` 접두어로 복제한 것. 아래 함정 절 참고):
-  - `Bash(rm -rf /*)`, `Bash(rm -rf ~*)`, `Bash(rm -rf $HOME*)`, `Bash(rm -rf %USERPROFILE%*)`
-  - `Bash(git push --force *)`, `Bash(git push --force)`, `Bash(git push -f *)`, `Bash(git push -f)`
-  - `Bash(git reset --hard *)`, `Bash(git reset --hard)`
-  - `Bash(git clean -f *)`, `Bash(git clean -fd *)`, `Bash(git clean -fdx *)`
-  - `Bash(git checkout -- *)`, `Bash(git checkout .)`, `Bash(git restore .)`, `Bash(git restore --staged .)`
-  - `Read(**/.credentials*)`, `Read(**/.env*)`, `Read(**/credentials.json)`
-- `enableWorkflows: true`, `skipDangerousModePermissionPrompt: true`, `theme: "dark"` (2026-10-10, PR #27: 라이브 설정에만 있던 키를 저장소로 옮김. 저장소가 원본이다).
-- `env`는 머신 전용이다(예: `CLAUDE_CODE_TMPDIR`). 저장소 `settings.json`에는 넣지 않는다. `apply.sh`는 라이브의 `env`를 보존하고 `verify.sh`는 비교에서 제외한다(PR #30).
-- `hooks.PreToolUse`: matcher `Bash`, command 두 개. `rtk hook claude`와 `bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh"`(PR #31). 두 훅은 병렬로 실행되므로 서로의 출력에 의존하지 않는다.
-
-에이전트 (`claude/agents/`):
-- `reviewer`: model sonnet, effort high, 도구 Read/Grep/Glob/Bash. 다른 에이전트의 작업을 기준에 맞춰 검증한다.
-- `explorer`: model haiku, 도구 Read/Grep/Glob (읽기 전용), `omitClaudeMd: true`(호출마다 CLAUDE.md 로딩 생략, Claude Code v2.1.271 이상). 질문 하나를 넓게 검색해 10줄 이내로 답한다.
-- `publisher`(퍼블): model sonnet, effort medium, 도구 Read/Grep/Glob/Edit/Write/Bash, `skills: [ui-baseline]`. 정적 HTML/CSS/템플릿. 상태·API·서버 코드는 금지.
-- `frontend`: model sonnet, effort high, 같은 도구, `skills: [ui-baseline]`. JS/TS 로직·상태·API 연동. 백엔드 계약이 없으면 추측하지 않고 중단·보고.
-- `backend`: model sonnet, effort high, 같은 도구. 서버·API·DB. 로컬 외 DB 접속과 파괴적 쿼리·마이그레이션 실행 금지(파일만 작성). 외부 입력 검증, 파라미터화 쿼리, 로그에 비밀·개인정보 금지, 라우트별 호출 권한 명시, API 계약을 `docs/api-<topic>.md`로 작성(frontend는 이 파일을 읽는다).
-- `qa`: model sonnet, effort high, 도구 Read/Grep/Glob/Bash(편집 불가). 실행으로 동작 검증. 모양에 관한 기준(레이아웃·반응형·브라우저 차이)은 스크린샷이나 실제 브라우저 증거가 없으면 `unverified`. 납품 검수를 요청받으면 제목·메타, alt, 폼 오류 문구, 404·빈 상태, 콘솔 오류, 링크를 추가 확인. `reviewer`는 diff를 서면 기준과 대조, `qa`는 실행해서 확인.
-- 기획·디자인은 에이전트가 아니라 메인 대화의 스킬 `spec-writing`, `design-spec`이다(서브에이전트는 사용자에게 질문할 수 없다). 공유 규칙은 스킬 `ui-baseline`을 `skills:`로 주입한다(에이전트 정의 간 상속 기능은 없다).
-
-규칙 요약 (`claude/CLAUDE.md`, 원문이 우선):
-- 한국어 응답. 요청을 먼저 되풀이하고, 모호하면 2~3개 해석을 제시.
-- 요청한 것만 바꾼다. 3단계 이상이면 번호 계획과 완료 기준을 먼저 쓴다.
-- 완료 선언은 명령 결과·테스트·출처 확인으로만 한다.
-- 단일 에이전트로 시작. 분리는 컨텍스트 경계(기능+테스트)로. 검증은 별도 `reviewer`가 한다. 같은 오류는 2회까지만 재시도.
-- 모델 역할: 메인은 Sonnet. Opus는 advisor로 접근 방식 확정 전, 반복 오류, 완료 선언 전에 자문(공식 advisor 문서: Sonnet 5.5 메인 + Opus 5 이상 advisor는 허용된 조합). 대량 소작업 서브에이전트는 Haiku.
-- 금지: `.credentials*`, `.env*` 읽기·커밋. 승인 없는 force push, `reset --hard`, `git clean`, `rm -rf`. 외부 공개·push는 승인 후.
-- 세션 전환 전 인계 노트: 작업, 산출물, 완료한 확인, 열린 이슈, 다음 행동.
-
-## 5. 도구 상태
+## 도구 상태와 출처 확인 (2026-10-09 ~ 10-11)
 
 Claude Code CLI:
 - 첫 컴퓨터는 2.1.233에서 2.1.293으로 올렸다. 설치 위치: `C:\Users\edn_y\AppData\Roaming\npm`.
@@ -170,7 +40,7 @@ Ponytail (설치됨, 상시 켜짐):
 - AO `OrchestratorInc/agent-orchestrator`: Apache-2.0, 조직 소유, 최신 v0.13.7(2026-10-10), 이 머신 설치본은 0.13.6.
 - 한계: 소스 전체를 읽은 것이 아니라 메타데이터, README, Ponytail 훅의 정규식 검색만 했다. 공식 마켓플레이스의 검수를 받지 않았으므로 업데이트 때마다 변경 내역을 본다.
 
-## 6. 예약 루틴 `daily-claude-update`
+## 예약 루틴 `daily-claude-update` (실행 이력)
 
 - 목적: Claude Code 변경 로그, Anthropic 뉴스, Claude Code와 RTK의 최신 버전을 매일 확인하고 도구 상태(설정 드리프트, rtk PATH, rtk 사용량)를 점검해 보고서만 쓴다. `~/.claude`는 바꾸지 않고 아무것도 설치하지 않는다. 업데이트 명령은 보고서에 적고 사용자가 실행한다.
 - 일정: cron `0 9 * * *` (로컬 09:00, 실제로는 약 09:03에 시작, 몇 분 지연 있음). 상태: 활성(enabled).
@@ -187,33 +57,7 @@ Ponytail (설치됨, 상시 켜짐):
 - 두 컴퓨터에서 같은 루틴을 켜도 된다(2026-10-09 결정). `reports/`는 컴퓨터마다 로컬이라 겹치지 않고 각자 설치 상태를 점검한다. `state/last-seen.json`도 머신별 로컬 파일(`.gitignore`)이라 `rtk_total_commands` 같은 값이 다른 컴퓨터 값과 섞이지 않고 `git pull`도 막히지 않는다. 새 컴퓨터는 파일이 없어 첫 실행에서 변경 로그 10개와 "RTK in use: unknown"으로 시작한다.
 - 루틴 절차(`claude/routines/daily-update.md`): `claude --version` → 공식 변경 로그와 Anthropic 뉴스 확인 → 항목 분류 → 도구 버전 → `scripts/verify.sh --live`(적용 상태·도구·Ponytail) → `scripts/docs-watch.sh`(공식 문서 12페이지 변경) → 보고서 작성 → `last-seen.json` 갱신. 설치·push·`~/.claude` 수정은 하지 않는다.
 
-## 7. 남은 작업 (순서대로)
-
-0. 각 컴퓨터(Mac, Windows Git Bash)에서 `docs/GUIDE.md` 1단계를 실행하고 결과를 기록한다. 핵심 확인은 한 줄이다.
-   ```bash
-   git pull && bash scripts/apply.sh
-   bash scripts/verify.sh --live    # 0 FAIL이어야 한다. WARN은 참고
-   bash scripts/verify.sh --full    # RTK가 설치된 머신에서. 실제 RTK 훅으로는 첫 검증
-   ```
-   - FAIL이 나오면 출력 전체를 남기고 원인(적용 누락, 도구 누락, deny 패턴)을 고친 뒤 다시 실행한다.
-   - RTK는 최신으로 올린다(루틴 보고서의 명령).
-   - 예약 작업 본문을 앱에서 `claude/scheduled-tasks/daily-claude-update/SKILL.md`의 포인터 본문으로 교체한다(`<repo>` 치환). 단계는 저장소의 `daily-update.md`를 읽으므로 이후에는 `git pull`만으로 갱신된다.
-   - 결정 대기: advisor(Opus) 전역 유지 여부(섹션 9의 비용 측정, 메인 호출의 약 3.6배).
-
-1. 루틴 모델을 Sonnet으로 고정 (앱 UI). 첫 자동 실행은 sonnet-5-5로 돌았지만 그것이 UI 설정 때문인지 기본값 때문인지 모른다. UI에서 명시적으로 지정한 뒤, 내일 이후 자동 실행 세션의 모델을 `get_session`으로 다시 확인한다.
-2. CLI 최신화: 일일 루틴 보고서에 업데이트 명령이 나오면 실행한다. 승인 필요. 확인: `claude --version`.
-   ```bash
-   npm install -g @anthropic-ai/claude-code@latest
-   ```
-   (첫 컴퓨터는 `--prefix "C:/Users/edn_y/AppData/Roaming/npm"`이 필요했다.)
-3. Archify: 다이어그램이 필요할 때만 (섹션 5).
-4. Ponytail: 상시 사용. 새 컴퓨터에서는 섹션 5의 설치 명령으로 설치하고 `/ponytail`로 모드를 확인한다.
-5. 프로젝트 셋업: 실제 프로젝트 하나에서 `/project-setup`(`docs/GUIDE.md` 2단계)을 써 보고 결과를 기록한다. 컨텍스트에서 큰 비중은 시스템 도구와 MCP 도구이며 Chrome 연동·Browser 도구가 많다. 쓰지 않는 커넥터를 끄는 것이 후보다.
-6. `reports/` 버전 관리: 현재 로컬 전용으로 결정함 (섹션 10).
-7. 보안 후속(사용자 조치): `CLUADE`(비공개 전환됨)와 `.claude` 저장소의 `.credentials.json`, `.claude.json`, `history.jsonl` 제거 또는 저장소 삭제, 로그아웃 후 재로그인으로 토큰 재발급, 다른 키 교체. 삭제는 되돌릴 수 없어 확인 후에만 한다.
-8. #28, #29, #30, #31, #32 머지 후: `git pull && bash scripts/apply.sh`, `bash scripts/verify.sh --live`(0 FAIL), 루틴 1회 수동 실행으로 7a/7b 출력 확인.
-
-## 8. 링크 모음
+## 링크 모음
 
 | 용도 | URL |
 |---|---|
@@ -229,7 +73,7 @@ Ponytail (설치됨, 상시 켜짐):
 - `/rewind`(Esc 두 번)가 `git reset --hard` 금지 규칙의 대안으로 쓸 만하다.
 - 글 속 수치(연 매출, 커밋 비중)는 글쓴이가 인용한 것이고 출처를 확인하지 못했다.
 
-## 9. 확인된 사실과 한계 (측정값 전부)
+## 확인된 사실과 한계 (측정값 전부)
 
 deny 규칙 시험:
 - 명령 `rm -rf ~/__deny_test_nonexistent__`가 `Bash(rm -rf ~*)`에 걸려 거부됨. 대상이 없는 경로라 실패해도 피해가 없는 시험이다.
@@ -268,7 +112,7 @@ RTK 절감 (시점별로 값이 다르다):
 - 새 컴퓨터에서의 모든 단계. 이 문서는 읽어서 검토했을 뿐 새 컴퓨터에서 실행해 보지 않았다.
 - 입문 가이드 글의 수치와 외부 URL 유효성.
 
-## 10. 사용자 결정 기록
+## 사용자 결정 기록 (원문)
 
 - 캐시 TTL 1시간(2026-10-11, PR #46). 사용자가 쿼터 절감 글 두 편(서브에이전트 캐시 TTL, auto-compact 임계값)을 검토한 뒤 `promptCacheTtl`과 `subagentPromptCacheTtl`을 둘 다 `1h`로 넣기로 했다. `autoCompactWindow: 400000`은 이미 있었다.
   - 근거: 공식 prompt-caching·settings-reference·costs 문서. 서브에이전트 요청의 기본은 구독에서도 5분이고, 이 버킷에는 압축 요청이 들어 있어 캐시가 식으면 큰 이력을 비캐시로 다시 읽는다. costs 문서는 긴 세션이 매 요청마다 전체 이력을 캐시 읽기 단가로 다시 읽어 사용량을 쓴다고 적는다.
@@ -315,7 +159,7 @@ RTK 절감 (시점별로 값이 다르다):
   - 모델 배치: sonnet 6개, haiku 1개(explorer). 모델별 토큰·비용은 집계하지 못한다.
 - 일일 루틴과 감시 확장(2026-10-11): `claude/routines/daily-update.md`에 7c(도구 효율 스냅샷, 근거 등급 그대로 기록, 추정을 측정으로 올리지 않기)와 상태 키 `rtk_total_saved`를 추가했다. `scripts/docs-watch.sh`는 platform 문서 `about-claude/models/overview`와 `about-claude/pricing`도 감시한다(모델 추가, 가격, 퇴역일 변경 감지). 기존 루틴 파일에 `7b`가 두 번 나오는 번호 중복이 있으나 이번 범위가 아니라 고치지 않았다.
 
-## 11. 함정과 주의사항
+## 함정과 주의사항
 
 - x.com은 자동 fetch에 HTTP 402를 돌려준다. 앱 내장 브라우저로는 열린다. 공식 정보의 기준은 섹션 8의 공식 링크다.
 - PowerShell 도구가 막힌 세션이 있었다. Bash와 Windows 경로를 쓴다. JSON 확인은 Node와 `cygpath -w`를 쓴다. Windows용 Python은 `/c/...` 형태의 경로를 읽지 못한다.
@@ -333,18 +177,7 @@ RTK 절감 (시점별로 값이 다르다):
 - Windows Git Bash에서 QA 스크립트를 돌릴 때(2026-10-11): `MSYS_NO_PATHCONV=1`을 셸 전체에 걸면 네이티브 `jq.exe`가 `/d/...` 경로를 열지 못해, 정상 스트림도 "the run did not finish"나 "skill did not run"으로 채점된다(에이전트 동작과 무관). `qa-project-setup.sh`는 `claude -p "/..."` 호출에만 이 변수를 붙이도록 고쳤다. 다른 스크립트는 변수 없이 돌린다(프롬프트가 `/`로 시작하지 않는다). 작업 폴더는 `D:/...` 형식으로 준다.
 - QA 수치 정정(2026-10-11): `qa-project-setup`의 "28 FAIL"은 스킬이 질문 후 멈춰서가 아니었다. 경로 문제를 피해 새로 돌린 전체 7개 픽스처는 93 PASS, 1 FAIL(`react` G: 에이전트가 `$D` 변수로 전역 `settings.json`을 읽었는데 채점 정규식이 변수 경로를 못 알아봤다. 표본 1회, 채점기는 고치지 않음)이다. 이전 28건의 정확한 원인은 재현하지 못했다. `qa-role-agents`의 `be-destructive`는 메인이 `.env` 금지와 삭제 확인 규칙을 들어 위임 없이 거절한다(3회 모두, 도구 호출 0건). 채점기가 이를 "no subagent ran"으로만 FAIL 처리하고 메인 스레드를 검사하지 못하던 구멍을 메웠다(메인 도구 호출에 `.env`·DB 명령이 없고 파일이 안 바뀌면 통과, 셀프테스트 4건과 검사를 망가뜨린 복사본에서 WRONG 확인). 이 경우 `backend`의 규칙 3(파괴적 쿼리 금지)은 시험되지 않는다. `be-contract`는 3회 중 2회 통과, 1회는 `backend`가 멈췄다. 메인의 브리프가 "필드, 상태 코드를 확인할 수 없으면 멈춰라"로 정지 조건을 넓힌 것이 주된 원인(reviewer 판정)이며 에이전트 규칙 위반은 아니다. 에이전트 정의는 바꾸지 않았다.
 
-## 12. 저장소 이력
-
-- `aac7c5c` feat: global Claude setup v1 (rules, settings, agents, daily routine)
-- `ff85572` chore: default model to sonnet; partial legacy reset script
-- `558b4b4` fix: reset script ignores Chrome bridge and keeps chrome/
-- `47a2263` chore: sync RTK hook into repo settings and add routine baseline
-- `0ff4efe` docs: routine model note (first run Haiku by decision, later Sonnet)
-- `0757a18` docs: add next-machine handoff and scheduled task reference
-- 2026-10-10: PR #26(AO 실측 문서), #27(settings 키 이관), #31(`secret-guard` 훅과 `qa-hooks.sh`), #32(루틴 AO 상태와 저장소 노출 점검, docs-watch 12페이지).
-- 그 이후: PR #1(`claude/add-apply-script`): apply/qa 스크립트, deny 수정, 상태줄, 문서 정리. 상세는 `git log`.
-
-## 13. Orchestrator.inc(AO) 도입 검토
+## Orchestrator.inc(AO) 도입 검토
 
 출처: `github.com/OrchestratorInc/agent-orchestrator` (2026-10-09 기준 최신 정식 릴리즈 v0.13.5, Apache-2.0). Go 백엔드 데몬 + Electron 데스크톱 앱. 여러 코딩 에이전트를 레포별 워크트리/브랜치로 병렬 실행하고 PR·CI·리뷰 상태를 칸반으로 추적한다.
 
@@ -386,5 +219,5 @@ RTK 절감 (시점별로 값이 다르다):
 - **세션 수명.** 워커 세션을 `ao session kill`하면 워크트리 폴더가 비워지고 그 세션에는 리뷰를 걸 수 없다(`worker session ... is terminated`). 다시 걸려면 `ao spawn --claim-pr <PR URL>`로 새 세션이 PR을 이어받는다. 이때 프로젝트에 등록된 origin이 PR 저장소와 같아야 한다(`INVALID_PR_REF`). 등록 후 origin을 바꾸면 AO가 옛 값을 쓰는 것으로 보이며(추론), 새 클론을 새 프로젝트로 등록해 해결했다. `ao project rm`은 원인 메시지 없이 실패했다.
 - **확인하지 못한 것.** 리뷰어가 설정한 모델(Opus)로 실제 실행됐는지: `ao review ls --json`에 모델 필드가 없다. `effort`는 CLI가 아니라 Project Settings나 데몬 API라고 문서에 있고 시험하지 않았다. 모델별 리뷰 품질 비교, 큰 프로젝트에서의 결과, 출처를 모르는 오케스트레이터 세션이 생긴 경위.
 
-## 대시보드 자동 시작 (이 머신)
+## 대시보드 자동 시작 (첫 컴퓨터, Windows)
 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\claude-dashboard.vbs` 하나로 로그인 때 `pythonw server.py`를 숨김 실행한다(127.0.0.1:8787). 해제는 이 파일 삭제. 저장소에는 올라가지 않는 머신 설정이다.

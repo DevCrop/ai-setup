@@ -140,7 +140,7 @@ def practices(root, config, verify_counts):
     bash = [r for r in rules if r.startswith("Bash(") and not r.startswith("Bash(rtk ")]
     twins = [r for r in bash if r.replace("Bash(", "Bash(rtk ", 1) not in rules]
     add("permissions", "모든 Bash 규칙에 rtk 짝이 있다(RTK가 명령을 다시 쓰므로)", not twins, f"짝 없는 규칙 {len(twins)}개")
-    add("permission-modes", "기본 모드 bypassPermissions + deny/ask 유지(2026-10-10 결정)", p.get("defaultMode") == "bypassPermissions", str(p.get("defaultMode")))
+    add("permission-modes", "기본 모드 auto + deny/ask 유지(2026-10-11 결정)", p.get("defaultMode") == "auto", str(p.get("defaultMode")))
     hooks = [h.get("command", "") for e in s.get("hooks", {}).get("PreToolUse", []) for h in e.get("hooks", [])]
     g = (root / "claude" / "hooks" / "secret-guard.sh").is_file() and any("secret-guard.sh" in h for h in hooks)
     add("hooks", "secret-guard 훅이 파일로 있고 설정에서 참조된다", g, f"PreToolUse 훅 {len(hooks)}개")

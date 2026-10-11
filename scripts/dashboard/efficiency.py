@@ -151,6 +151,6 @@ class ModelEfficiency(EfficiencySource):
         m.append(unavailable("모델별 사용량과 비용", "세션 로그에서 모델별 토큰을 집계하지 않습니다"))
         ro = [a["name"] for a in ag if not re.search(r"Edit|Write", a["tools"]) and a["model"] != "haiku"]
         ideas = []
-        if ro:  # the one measurement we have is written in docs/NEXT-MACHINE.md ("모델 배치 재검토"); quote it, do not redo it from memory
+        if ro:  # the one measurement we have is written in docs/evidence.md ("모델 배치 재검토"); quote it, do not redo it from memory
             ideas.append("읽기 전용 에이전트(" + ", ".join(ro) + ")를 haiku로 낮추는 비교는 문서에 있습니다(2026-10-11, qa 4건 x 1회: 합계 0.75달러 대 1.03달러, 약 27% 절감). 검증 역할은 거짓 통과가 가장 비싼 실패라 표본이 3회 이상, reviewer 시나리오가 있을 때까지 바꾸지 않기로 했습니다. 전체 역할 QA 1회(2026-10-11)의 모델별 비용은 Sonnet 76%, Opus(advisor) 22%, Haiku 3%라, 서브에이전트를 더 haiku로 옮겨도 줄일 수 있는 몫은 작습니다.")
         return {"metrics": m, "caveats": ["Fable은 Max에서 같은 주간 한도의 최대 50% 몫이고 가장 빨리 소모되어 기본 라우팅에서 뺍니다(공식 지원 문서, 2026-10-11). 이 표에는 정의 파일에 적힌 모델만 보입니다."], "ideas": ideas}
