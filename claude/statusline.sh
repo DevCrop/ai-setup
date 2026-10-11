@@ -4,11 +4,11 @@
 # The cache line is empty (and not printed) until prompt_cache exists or when caching is not observed.
 input="$(cat)"
 
-printf '%s' "$input" | jq -r '"[\(.model.display_name)] \(.context_window.used_percentage // 0)% context"'
+printf '%s' "$input" | jq -r '"[\(.model.display_name)] \(.context_window.used_percentage // 0)% context"' 2>/dev/null
 
 cache="$(printf '%s' "$input" | jq -r '
   def c(n; s): "\u001b[\(n)m\(s)\u001b[0m";
-  def k: "\((. / 1000) | round)k";
+  def k: if . < 1000 then "\(.)" else "\((. / 1000) | round)k" end;
   .prompt_cache as $p
   | select($p != null and $p.caching_observed != false)
   | ([ $p.last_miss_cause.causes? // empty | join(",") ] | first // "") as $cause
