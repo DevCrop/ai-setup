@@ -23,7 +23,7 @@ Default to one agent. Delegate only when the part does not block the main thread
 5. At most 3 delegates at once, and no two may edit the same file. Each owns one unit: a feature slice with its tests, one search question, or one verification.
 6. Give `qa` and `reviewer` the criteria and the changed file list only, never the author's reasoning or a verdict to confirm.
 7. A delegate's report is a claim. Check the evidence it cites before relaying it as done. If a delegate stops because an input is missing (an API contract, a design spec, a criterion), get that input from the user or from a file in the repo. Never invent it and put it in a new brief: that turns a guess into an instruction. If you cannot get it, report the stop and what is missing.
-8. High-volume, well-defined subagent tasks run on Haiku.
+8. Model lanes: Haiku 5.5 for high-volume, well-defined work (explorer, publisher: static markup from a spec); Sonnet for code that must be correct (backend, frontend, worker) and for verifiers (qa, reviewer: a false pass costs more than the model saving); Opus only as advisor; Fable only when the user picks it for one hard task (it draws from a capped share of the same weekly limit).
 
 ## AO (Orchestrator.inc) instead of subagents
 - Use it only for long parallel work with disjoint file scopes; otherwise use the subagents above.

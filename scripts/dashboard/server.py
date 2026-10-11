@@ -8,67 +8,27 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import json, os, re, secrets, shutil, subprocess, sys, threading, time, urllib.request
+import json, os, re, secrets, shutil, sys, time, urllib.request
+from dataclasses import dataclass
+from typing import Any, Callable
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import inventory
+from efficiency import AoEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency
+from cache import TtlCache
+from fixes import FixRegistry, MemRedactOn, PruneBackups, RtkUpdate
+from procs import BASH, ProcessRunner
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 CONFIG = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
 PROJECTS = CONFIG / "projects"
-CACHE = {}  # key -> (time, value)
-REFRESHING = set()
-LOCK = threading.Lock()
-
-
-def find_bash():
-    # On Windows, `bash` on PATH can be WSL's with another HOME; verify.sh needs Git Bash.
-    for c in (os.environ.get("BASH"), "C:/Program Files/Git/bin/bash.exe", "C:/Program Files (x86)/Git/bin/bash.exe"):
-        if c and Path(c).exists():
-            return c
-    return "bash"
-
-
-BASH = find_bash()
-ENV = {**os.environ, "HOME": os.environ.get("USERPROFILE", os.environ.get("HOME", ""))} if os.name == "nt" else None
-
-
-def run(cmd, timeout=60):
-    try:
-        p = subprocess.run(cmd, cwd=ROOT, env=ENV, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace")
-        return p.stdout
-    except Exception:
-        return ""
-
-
-def cached(key, ttl, fn, slow=False, placeholder=None):
-    """Return the cached value. A slow source (verify.sh, gh) refreshes in a thread, so a request never waits on it."""
-    now = time.time()
-    with LOCK:
-        hit = CACHE.get(key)
-        if hit and now - hit[0] < ttl:
-            return hit[1]
-        if slow:
-            if key not in REFRESHING:
-                REFRESHING.add(key)
-                threading.Thread(target=refresh, args=(key, fn), daemon=True).start()
-            return hit[1] if hit else placeholder
-    return refresh(key, fn)
-
-
-def refresh(key, fn):
-    try:
-        val = fn()
-        with LOCK:
-            CACHE[key] = (time.time(), val)
-        return val
-    finally:
-        with LOCK:
-            REFRESHING.discard(key)
+RUNNER = ProcessRunner(ROOT)
+CACHE = TtlCache()
+spawn, run, cached = RUNNER.spawn, RUNNER.run, CACHE.get  # call sites below keep their short names
 
 
 def git_history():
@@ -306,7 +266,7 @@ def project_setup(d):
 
 def git_tracked(d, *pats):
     try:
-        p = subprocess.run(["git", "ls-files", "--", *pats], cwd=d, env=ENV, capture_output=True, text=True, timeout=10)
+        p = spawn(["git", "ls-files", "--", *pats], timeout=10, cwd=d)
         return [l for l in p.stdout.splitlines() if l.strip()] if p.returncode == 0 else []
     except Exception:
         return []
@@ -548,42 +508,19 @@ def ao_health(ao, now=None):
     return out
 
 
-def _ver(text):
-    m = re.search(r"(\d+)\.(\d+)\.(\d+)", text or "")
-    return tuple(int(x) for x in m.groups()) if m else None
-
-
-def _rtk_latest():
-    try:
-        req = urllib.request.Request("https://api.github.com/repos/rtk-ai/rtk/releases/latest", headers={"User-Agent": "claude-global-dashboard"})
-        with urllib.request.urlopen(req, timeout=5) as r:
-            return json.load(r).get("tag_name")
-    except Exception:
-        return None
-
-
-def _rtk_installer():
-    """Update command for this machine: winget on Windows, brew on macOS. None when neither exists."""
-    if shutil.which("winget"):
-        return ["winget", "upgrade", "--id", "rtk-ai.rtk", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
-    if shutil.which("brew"):
-        return ["brew", "upgrade", "rtk"]
-    return None
-
-
 def tools_version_health():
     """RTK installed vs latest GitHub release. Network failure means 'not checked', never an error."""
     if not shutil.which("rtk"):
         return []
     cur = run(["rtk", "--version"], timeout=10).strip()
-    latest = cached("rtk_latest", 3600, _rtk_latest, slow=True)
-    a, b = _ver(cur), _ver(latest)
+    latest = cached("rtk_latest", 3600, RtkUpdate.latest, slow=True)
+    a, b = RtkUpdate.parse_version(cur), RtkUpdate.parse_version(latest)
     if not a or not b:
         return [("도구", "RTK 버전", "ok", f"{cur or '?'} · 최신 버전 확인 못 함")]
     if a >= b:
         return [("도구", "RTK 버전", "ok", f"{cur} (최신)")]
-    fixable = _rtk_installer() is not None
-    return [("도구", "RTK 버전", "warn", f"{cur} → 최신 {latest}", "업데이트: " + " ".join(_rtk_installer() or ["수동 설치"]) + " [출처: 설치 방식(winget) 확인함, 릴리스 노트는 안 읽음]", "rtk-update" if fixable else "")]
+    fixable = RtkUpdate.installer() is not None
+    return [("도구", "RTK 버전", "warn", f"{cur} → 최신 {latest}", "업데이트: " + " ".join(RtkUpdate.installer() or ["수동 설치"]) + " [출처: 설치 방식(winget) 확인함, 릴리스 노트는 안 읽음]", "rtk-update" if fixable else "")]
 
 
 def tools_health():
@@ -597,62 +534,12 @@ def tools_health():
     return [{"group": i[0], "name": i[1], "level": i[2], "detail": i[3], "fix": str(i[4])[:300] if len(i) > 4 else "", "fixId": i[5] if len(i) > 5 else ""} for i in items]
 
 
-KEEP_BACKUPS = 3
 TOKEN = secrets.token_urlsafe(24)  # per start; a foreign page cannot read it (no CORS headers), so it cannot call /api/fix
 FIXLOG = ROOT / "state" / "fix-log.jsonl"
-
-
-def _backups():
-    return sorted(d for d in Path.home().glob(".claude-backup-*") if d.is_dir() and not d.is_symlink() and re.fullmatch(r"\.claude-backup-\d{8}-\d{6}", d.name))
-
-
-def fix_preview(fid):
-    """What a fix would touch, without touching it. Only ids in this table can ever run."""
-    if fid == "prune-backups":
-        old = _backups()[:-KEEP_BACKUPS]
-        return {"title": f"오래된 apply 백업 삭제 (최신 {KEEP_BACKUPS}개 유지)", "targets": [d.name for d in old], "reversible": False}
-    if fid == "mem-redact-on":
-        f = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
-        on = False
-        try:
-            on = str(json.loads(f.read_text(encoding="utf-8")).get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
-        except Exception:
-            pass
-        return {"title": "claude-mem 비밀 마스킹 켜기 (설정 파일을 백업한 뒤 CLAUDE_MEM_REDACT_ENABLED만 변경)", "targets": [] if on else ["~/.claude-mem/settings.json"], "reversible": True}
-    if fid == "rtk-update":
-        cmd = _rtk_installer()
-        cur, latest = run(["rtk", "--version"], timeout=10).strip(), cached("rtk_latest", 3600, _rtk_latest)
-        a, b = _ver(cur), _ver(latest)
-        due = bool(cmd and a and b and a < b)
-        return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
-    return None
-
-
-def fix_apply(fid, targets):
-    pv = fix_preview(fid)
-    if not pv or not pv["targets"]:
-        return {"ok": False, "msg": "할 일이 없거나 알 수 없는 조치입니다."}
-    if sorted(targets) != sorted(pv["targets"]):  # the user confirmed a list; it must still be the current one
-        return {"ok": False, "msg": "대상이 바뀌었습니다. 미리보기를 다시 확인하세요."}
-    if fid == "prune-backups":
-        for name in pv["targets"]:
-            shutil.rmtree(Path.home() / name)
-        return {"ok": True, "msg": f"{len(pv['targets'])}개 삭제"}
-    if fid == "mem-redact-on":
-        f = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem")) / "settings.json"
-        shutil.copy2(f, f.with_name(f.name + ".bak-" + datetime.now().strftime("%Y%m%d-%H%M%S")))
-        d = json.loads(f.read_text(encoding="utf-8"))
-        d["CLAUDE_MEM_REDACT_ENABLED"] = "true"
-        f.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-        return {"ok": True, "msg": "켰습니다. claude-mem 워커를 다시 시작해야 적용될 수 있습니다."}
-    if fid == "rtk-update":
-        try:
-            p = subprocess.run(_rtk_installer(), capture_output=True, text=True, timeout=300, encoding="utf-8", errors="replace")
-        except (OSError, subprocess.TimeoutExpired) as e:
-            return {"ok": False, "msg": "실행 실패: " + type(e).__name__}
-        CACHE.pop("rtk_latest", None)
-        return {"ok": p.returncode == 0, "msg": f"설치 관리자 종료 코드 {p.returncode}. 새 버전은 `rtk --version`으로 확인하세요."}
-    return {"ok": False, "msg": "알 수 없는 조치"}
+FIXES = FixRegistry()  # only fixes registered here can ever run
+FIXES.register(PruneBackups())
+FIXES.register(MemRedactOn())
+RTK = FIXES.register(RtkUpdate(RUNNER, CACHE))
 
 
 def fix_log_write(fid, targets, res):
@@ -672,21 +559,38 @@ def fix_log(limit=100):
         return []
 
 
+@dataclass(frozen=True)
+class Source:
+    """One /api/state section. To add a section: write a function that returns it and append a Source below."""
+    key: str
+    ttl: float
+    fn: Callable
+    slow: bool = False
+    placeholder: Any = None  # a value, or a function returning one (read on every call)
+
+    def read(self):
+        ph = self.placeholder() if callable(self.placeholder) else self.placeholder
+        return CACHE.get(self.key, self.ttl, self.fn, self.slow, ph)
+
+
+def _now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+STATE_SOURCES = (
+    Source("git", 5, git_history),
+    Source("tools", 10, tools_health),
+    Source("prs", 60, pull_requests, slow=True, placeholder=[]),
+    Source("verify", 60, verify, slow=True, placeholder=lambda: {"at": _now(), "counts": {"PASS": 0, "FAIL": 0, "WARN": 0}, "lines": ["검증 실행 중..."]}),
+    Source("settings", 5, settings),
+    Source("reports", 30, reports),
+    Source("ao", 8, ao_state, slow=True, placeholder={"available": True, "daemon": {"state": "loading"}, "sessions": []}),
+    Source("projects", 10, projects),
+)
+
+
 def state():
-    return {
-        "now": datetime.now(timezone.utc).isoformat(),
-        "git": cached("git", 5, git_history),
-        "tools": cached("tools", 10, tools_health),
-        "fixlog": fix_log(),
-        "token": TOKEN,
-        "prs": cached("prs", 60, pull_requests, slow=True, placeholder=[]),
-        "verify": cached("verify", 60, verify, slow=True, placeholder={"at": datetime.now(timezone.utc).isoformat(), "counts": {"PASS": 0, "FAIL": 0, "WARN": 0}, "lines": ["검증 실행 중..."]}),
-        "settings": cached("settings", 5, settings),
-        "reports": cached("reports", 30, reports),
-        "ao": cached("ao", 8, ao_state, slow=True, placeholder={"available": True, "daemon": {"state": "loading"}, "sessions": []}),
-        "activity": session_events(),
-        "projects": cached("projects", 10, projects),
-    }
+    return {"now": _now(), "fixlog": fix_log(), "token": TOKEN, "activity": session_events(), **{s.key: s.read() for s in STATE_SOURCES}}
 
 
 def newest_session():
@@ -694,41 +598,97 @@ def newest_session():
     return max(files, key=lambda p: p.stat().st_mtime) if files else None
 
 
+MEM_DIR = Path(os.environ.get("CLAUDE_MEM_DIR", Path.home() / ".claude-mem"))
+EFFICIENCY = EfficiencyReport(  # add a tool by adding a source here
+    RtkEfficiency(RUNNER),
+    MemEfficiency(MEM_DIR),
+    AoEfficiency(lambda: cached("ao", 8, ao_state, slow=True, placeholder={})),
+    ModelEfficiency(lambda: inventory.agents(ROOT)),
+)
+
+
+# /api/inventory sections. Each takes the shared inputs {"verify", "ao"} and returns its part; add a section by adding a line.
+INVENTORY = {
+    "orchestration": lambda c: inventory.orchestration(ROOT),
+    "routing": lambda c: inventory.routing(ROOT, c["ao"].get("projects", [])),
+    "features": lambda c: inventory.features(ROOT),
+    "practices": lambda c: inventory.practices(ROOT, CONFIG, c["verify"].get("counts")),
+    "debug": lambda c: inventory.debug(newest_session()),
+    "agents": lambda c: inventory.agents(ROOT),
+    "efficiency": lambda c: cached("efficiency", 120, EFFICIENCY.collect),
+}
+
+
 def inv():
-    v = cached("verify", 60, verify, slow=True, placeholder={"counts": {}})
-    ao = cached("ao", 8, ao_state, slow=True, placeholder={"projects": []})
-    return {"orchestration": inventory.orchestration(ROOT), "routing": inventory.routing(ROOT, ao.get("projects", [])),
-            "features": inventory.features(ROOT), "practices": inventory.practices(ROOT, CONFIG, v.get("counts")),
-            "debug": inventory.debug(newest_session()), "agents": inventory.agents(ROOT)}
+    c = {"verify": cached("verify", 60, verify, slow=True, placeholder={"counts": {}}), "ao": cached("ao", 8, ao_state, slow=True, placeholder={"projects": []})}
+    return {name: build(c) for name, build in INVENTORY.items()}
+
+
+def _json(obj, **kw):
+    return json.dumps(obj, **kw).encode(), "application/json"
+
+
+# GET routes: (matches(path), body()) -> (bytes, content type). First match wins; no match is a 404.
+GET_ROUTES = (
+    (lambda p: p.startswith("/api/state"), lambda: _json(state())),
+    (lambda p: p.startswith("/api/inventory"), lambda: _json(cached("inv", 15, inv))),
+    (lambda p: p in ("/", "/index.html"), lambda: ((HERE / "index.html").read_bytes(), "text/html; charset=utf-8")),
+)
+
+
+UI_DIR = HERE / "ui"
+UI_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
+
+
+UI_PATH = re.compile(r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*(?:/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)*$")
+
+
+def ui_asset(path):
+    """(body, content-type) for /ui/<file>.js|.css, else None. The name must match a strict pattern (no leading slash, backslash, colon or '..' segment)
+    before any filesystem call, so a UNC-style path like /ui///host/share/x.js never reaches Path.resolve() and cannot trigger a network lookup."""
+    p = path.split("?", 1)[0]
+    if not p.startswith("/ui/"):
+        return None
+    rel = p[4:]
+    if not UI_PATH.match(rel) or ".." in rel.split("/"):
+        return None
+    target = (UI_DIR / rel).resolve()
+    if UI_DIR.resolve() not in target.parents or target.suffix not in UI_TYPES or not target.is_file():
+        return None
+    return target.read_bytes(), UI_TYPES[target.suffix]
+
+
+def local_host(value):
+    return value.split(":")[0] in ("127.0.0.1", "localhost")
 
 
 class H(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # Refuse foreign Host headers (DNS rebinding against a local server).
-        if self.headers.get("Host", "").split(":")[0] not in ("127.0.0.1", "localhost"):
-            self.send_error(403)
-            return
-        if self.path.startswith("/api/state"):
-            body, ctype = json.dumps(state()).encode(), "application/json"
-        elif self.path.startswith("/api/inventory"):
-            body, ctype = json.dumps(cached("inv", 15, inv)).encode(), "application/json"
-        elif self.path in ("/", "/index.html"):
-            body, ctype = (HERE / "index.html").read_bytes(), "text/html; charset=utf-8"
-        else:
-            self.send_error(404)
-            return
+    def _send(self, body, ctype):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
+    def do_GET(self):
+        # Refuse foreign Host headers (DNS rebinding against a local server).
+        if not local_host(self.headers.get("Host", "")):
+            self.send_error(403)
+            return
+        asset = ui_asset(self.path)
+        if asset:
+            self._send(*asset)
+            return
+        for matches, body in GET_ROUTES:
+            if matches(self.path):
+                self._send(*body())
+                return
+        self.send_error(404)
+
     def do_POST(self):
-        host_ok = self.headers.get("Host", "").split(":")[0] in ("127.0.0.1", "localhost")
         origin = self.headers.get("Origin", "")
-        origin_ok = origin == "" or origin.split("://", 1)[-1].split(":")[0] in ("127.0.0.1", "localhost")
-        if not (host_ok and origin_ok and self.path == "/api/fix" and self.headers.get("Content-Type", "").startswith("application/json")
-                and secrets.compare_digest(self.headers.get("X-Dash-Token", ""), TOKEN)):
+        if not (local_host(self.headers.get("Host", "")) and (origin == "" or local_host(origin.split("://", 1)[-1])) and self.path == "/api/fix"
+                and self.headers.get("Content-Type", "").startswith("application/json") and secrets.compare_digest(self.headers.get("X-Dash-Token", ""), TOKEN)):
             self.send_error(403)
             return
         try:
@@ -736,20 +696,15 @@ class H(BaseHTTPRequestHandler):
             fid = str(req.get("id", ""))
             if req.get("action") == "apply":
                 targets = [str(t) for t in req.get("targets", [])]
-                res = fix_apply(fid, targets)
+                res = FIXES.apply(fid, targets)
                 fix_log_write(fid, targets, res)
-                CACHE.pop("tools", None)
+                CACHE.drop("tools")
             else:
-                pv = fix_preview(fid)
+                pv = FIXES.preview(fid)
                 res = {"ok": bool(pv), **(pv or {"msg": "알 수 없는 조치"})}
         except Exception as e:
             res = {"ok": False, "msg": "요청 오류: " + type(e).__name__}
-        body = json.dumps(res, ensure_ascii=False).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        self._send(*_json(res, ensure_ascii=False))
 
     def log_message(self, *a):
         pass

@@ -5,6 +5,7 @@ Source of truth for the global Claude Code setup. `claude/` is copied into `~/.c
 ## Commands
 - Apply: `bash scripts/apply.sh` (backs up first, touches only CLAUDE.md, RTK.md, settings.json, agents/, routines/).
 - Check deny rules on this machine: `bash scripts/qa-deny.sh` (needs the claude CLI, uses haiku). Run it after any change to `permissions.deny` or hooks, and on every machine where RTK is installed.
+- Dashboard UI check: `bash scripts/qa-ui.sh` (headless Chrome through every tab, layout widths, palette, live updates; needs node 22+). The UI is ES modules in `scripts/dashboard/ui/`: a screen is a `Tab` subclass registered in `ui/tabs/index.js`, built from `ui/components.js`.
 - Syntax: `bash -n scripts/*.sh` and `python3 -c "import json;json.load(open('claude/settings.json'))"`.
 
 ## Rules

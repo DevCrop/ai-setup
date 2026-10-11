@@ -9,6 +9,8 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 cache="$repo/reports/docs-cache"
 # Pages this setup depends on: CLAUDE.md and rules, skills, subagents, permissions, plugins, settings, hooks, best practices, permission modes, agent teams, monitoring, worktrees.
 pages="best-practices memory skills sub-agents permissions plugins settings hooks-guide permission-modes agent-teams monitoring-usage worktrees"
+# Model lineup and prices (platform docs): a new model, a price change or a retirement date changes the routing in claude/agents and docs/NEXT-MACHINE.md.
+platform_pages="about-claude/models/overview about-claude/pricing"
 update=0
 [ "${1:-}" = "--update" ] && update=1
 
@@ -17,8 +19,11 @@ mkdir -p "$cache"
 tmp="$(mktemp "${TMPDIR:-/tmp}/docs-watch.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 
-for p in $pages; do
-  url="https://code.claude.com/docs/en/$p.md"
+for p in $pages $platform_pages; do
+  case " $platform_pages " in
+    *" $p "*) url="https://platform.claude.com/docs/en/$p.md"; p="platform-$(printf '%s' "$p" | tr '/' '-')" ;;
+    *) url="https://code.claude.com/docs/en/$p.md" ;;
+  esac
   if ! curl -fsSL -m 30 "$url" -o "$tmp" 2>/dev/null || [ ! -s "$tmp" ]; then
     echo "FETCH-FAIL $p ($url)"
     continue

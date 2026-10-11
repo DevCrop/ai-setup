@@ -19,7 +19,12 @@ n="$(printf '%s' "$s" | jq '.ao.sessions | length')"
 if [ "$n" = 0 ]; then echo "SKIP  ao.sessions allowlist (no AO sessions right now, so nothing to check)"
 elif [ -z "$extra" ]; then pass "ao.sessions keys are within the allowlist ($n sessions)"; else bad "ao.sessions has extra keys: $extra"; fi
 iv="$(curl -s -m 60 "http://127.0.0.1:$port/api/inventory")"
-for k in orchestration routing features practices debug agents; do printf '%s' "$iv" | jq -e "has(\"$k\")" >/dev/null 2>&1 && pass "inventory has $k" || bad "inventory lacks $k"; done
+for k in orchestration routing features practices debug agents efficiency; do printf '%s' "$iv" | jq -e "has(\"$k\")" >/dev/null 2>&1 && pass "inventory has $k" || bad "inventory lacks $k"; done
+# efficiency: every metric states where it came from, and an unreadable number is never a number
+bb="$(printf '%s' "$iv" | jq -r '[.efficiency.sources[]?.metrics[]? | select(.basis != "measured" and .basis != "estimated" and .basis != "unavailable")] | length')"
+ub="$(printf '%s' "$iv" | jq -r '[.efficiency.sources[]?.metrics[]? | select(.basis == "unavailable" and .value != "측정 불가")] | length')"
+ns="$(printf '%s' "$iv" | jq -r '[.efficiency.sources[]?.name] | length')"
+[ "$bb" = 0 ] && [ "$ub" = 0 ] && [ "$ns" -ge 4 ] && pass "efficiency: $ns tools, every metric has a basis, unavailable ones carry no number" || bad "efficiency: bad basis $bb, unavailable-with-number $ub, sources $ns"
 ek="$(printf '%s' "$iv" | jq -r '[.debug.errors[]? | keys[]] | unique - ["at","tool","kind","detail"] | join(",")')"
 [ -z "$ek" ] && pass "debug.errors carry only at/tool/kind/detail (no tool-result text)" || bad "debug.errors has extra keys: $ek"
 [ "$(printf '%s' "$iv" | jq '[.practices[] | select(.level != "ok" and .level != "bad" and .level != "warn")] | length')" = 0 ] && pass "practices levels are ok/bad/warn" || bad "practices has an unknown level"
@@ -56,8 +61,19 @@ c4="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: text/plai
 c5="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-Dash-Token: $tok" -d "$j" "$u")"
 [ "$c1$c2$c3$c4$c5" = 403403403403200 ] && pass "fix endpoint refuses no/wrong token, foreign origin, wrong content type; accepts a valid preview" || bad "fix endpoint codes: $c1 $c2 $c3 $c4 $c5"
 "$py" "$repo/scripts/qa-fix.py" "$repo" >/dev/null 2>&1 && pass "fix allow-list unit checks" || bad "scripts/qa-fix.py failed"
+# no console windows: a process may only start through spawn() (CREATE_NO_WINDOW); a bare subprocess call or os.system would flash a window under pythonw
+"$py" "$repo/scripts/qa-spawn-guard.py" "$repo/scripts/dashboard" >/dev/null 2>&1 && pass "the dashboard starts processes only through spawn() with CREATE_NO_WINDOW" || bad "a process is started outside spawn() or without creationflags (python3 scripts/qa-spawn-guard.py scripts/dashboard)"
 code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/api/state")"
 [ "$code" = 403 ] && pass "foreign Host refused (403)" || bad "foreign Host got $code"
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
 [ "$code" = 200 ] && pass "index served" || bad "index got $code"
+# static UI files: only ui/*.js and ui/*.css are served; traversal, other types and foreign Host are refused
+c1="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/ui/app.js")"
+c2="$(curl -s -o /dev/null -w '%{http_code}' --path-as-is "http://127.0.0.1:$port/ui/../server.py")"
+c3="$(curl -s -o /dev/null -w '%{http_code}' --path-as-is "http://127.0.0.1:$port/ui/%2e%2e/server.py")"
+c4="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/ui/nope.py")"
+c5="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' "http://127.0.0.1:$port/ui/app.js")"
+c6="$(curl -s -o /dev/null -w '%{http_code}' --path-as-is "http://127.0.0.1:$port/ui///nohost/share/x.js")"
+c7="$(curl -s -o /dev/null -w '%{http_code}' --path-as-is "http://127.0.0.1:$port/ui/a:b.js")"
+[ "$c1$c2$c3$c4$c5$c6$c7" = 200404404404403404404 ] && pass "ui files served; traversal, UNC-style, drive-letter, wrong type and foreign Host refused" || bad "ui static codes: $c1 $c2 $c3 $c4 $c5 $c6 $c7"
 echo "failures: $fail"; [ "$fail" = 0 ]

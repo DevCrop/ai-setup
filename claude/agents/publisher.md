@@ -2,7 +2,7 @@
 name: publisher
 description: 퍼블리싱. Static HTML/CSS/templates from a design spec. Not for state, API calls or business logic (use frontend), not for server code (use backend).
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: sonnet
+model: haiku
 effort: medium
 maxTurns: 40
 skills:
