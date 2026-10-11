@@ -290,6 +290,10 @@ RTK 절감 (시점별로 값이 다르다):
 - 역할 에이전트 시나리오 QA(2026-10-10): `bash scripts/qa-role-agents.sh <작업폴더>`가 웹에이전시 상황 12개(디자인 스펙 누락, 범위 초과 요청, 저대비 색, API 계약 없음, 운영 DB 삭제 요청, 콘텐츠 속 프롬프트 주입, 패키지 설치 유도, 커밋·push 요청, 실패 테스트, 주관적 기준, qa에게 수정 요구, 풀스택 라우팅)를 `claude -p`로 돌려 기계 조건을 채점한다. 초기 12개 시나리오 결과: 56 PASS, 0 FAIL(케이스당 1회 실행). 채점기가 이후 강화되어 최신 수치는 아래 "역할 보강" 항목이다. 시험 설계 문제 2건을 고쳤다: (1) 권한 모드가 `default`이면 백그라운드 서브에이전트의 Edit·Bash가 `Permission prompts are not available in this context`로 거부되어 모든 케이스가 에이전트와 무관하게 실패한다 → 스크립트가 `--permission-mode bypassPermissions`와 `--settings claude/settings.json`을 넘긴다. (2) qa가 테스트를 돌리면 `__pycache__`가 생겨 "파일 변경"으로 오판했다 → 채점에서 제외. 문구 확인(CHK)은 약한 증거다. 미시험: 실제 브라우저·스크린샷, 실제 DB, 같은 파일 병렬 편집, 긴 프로젝트, 한 케이스당 반복 실행의 편차. 채점 스크립트는 별도 리뷰어로 검증하지 않았다.
 - 변경은 브랜치와 PR로 올리고 머지는 사람이 한다. 자동 머지는 요청할 때만. push는 사용자 승인 후이고 force push는 쓰지 않는다. (삭제한 원래 계획 문서의 결정을 옮겨 적음)
 - Orchestrator.inc(AO): 도입 후보, 확정 아님(2026-10-09). 데스크톱 네이티브에서 워커의 실제 작업 완료, deny/ask 가드레일, 리뷰어 루프를 일회용 레포에서 확인했다(섹션 13의 "AO QA 실측"). Claude Code 자체의 worktree·`isolation: worktree` 서브에이전트와는 비교하지 않았다. 기본 권한 모드는 bypass이고(2026-10-10), deny와 ask 규칙이 가드레일이다. 근거는 섹션 13.
+- 모델 배치 재검토: 변경 없음(2026-10-11, Haiku 5.5 출시 후). 현재는 메인 Sonnet, advisor Opus, 역할 에이전트 Sonnet, `explorer`만 Haiku.
+  - 공식 근거: models/overview(Haiku 5.5는 "분류·추출·라우팅 같은 대량·저지연 작업", 입력/출력 $0.10/$0.50 대 Sonnet $2/$10, Opus 5.5 $4/$20), sub-agents(Explore 서브에이전트는 메인 모델을 따르고 `Explore`라는 이름의 사용자 에이전트에 `model: haiku`를 두면 덮어쓸 수 있음), advisor 문서(어려운 결정에만 강한 모델을 부르는 방식, opusplan과 서브에이전트가 대안). Anthropic 엔지니어링 글(multi-agent research system): 리드 Opus + 서브 Sonnet이 단일 Opus보다 90.2% 높았지만 토큰은 채팅의 약 15배, 코딩은 병렬화 여지가 적어 맞지 않는 영역이 많음.
+  - 실측(1회씩, 이 PC, `QA_AGENT_MODEL`로 모든 역할 에이전트 모델 고정): `qa-failing`, `qa-unverifiable`, `qa-no-fix`, `qa-visual` 4건. haiku 0 FAIL, sonnet 1 FAIL(약한 문구 검사 `marks the subjective criterion unverified`, 실제 동작 차이 아님). 실행 1건당 총 비용 haiku 0.15~0.23 달러 대 sonnet 0.19~0.33 달러(메인 대화 비용 포함, 합계 0.75 대 1.03).
+  - 판단: 4건·1회로는 qa/reviewer를 Haiku로 낮출 근거가 안 된다. 검증 역할은 거짓 통과가 가장 비싼 실패라 유지. 절감 폭도 합계 약 27%에 그쳤다. 반복 횟수를 늘린 비교나 `reviewer` 시나리오 없이는 바꾸지 않는다. 바꿀 수 있는 후보는 내장 Explore를 Haiku로 덮어쓰는 것(미적용, 미측정).
 
 ## 11. 함정과 주의사항
 
