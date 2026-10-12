@@ -2,7 +2,7 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
-## 2026-10-13 — choices after the AO round
+## 2026-10-13 — Codex reviewer posts through a gh login; model is spelled opus[1m]
 
 ### Codex reviewer posts through a gh login and runs at `--effort high`; model is spelled `opus[1m]`
 - What: three choices the user made on 2026-10-13:
