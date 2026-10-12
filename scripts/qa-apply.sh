@@ -160,9 +160,12 @@ for bad in '"x"' '[1,2]' '{"claude-opus-5-5":"high"}'; do
   newcfg; apply >/dev/null
   jq --argjson b "$bad" '.modelSettings=$b' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
   v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+  # verify --live runs "claude plugin list", which may rewrite settings.json (it drops a bad modelSettings): write the bad file again
+  cp "$base/x" "$cfg/settings.json"
+  case "$bad" in '{'*) name="modelSettings.claude-opus-5-5.effortLevel" ;; *) name="modelSettings (was not an object)" ;; esac
   out="$(apply 2>&1)"; rc=$?
   if [ "$rc" = 0 ] && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" \
-     && printf '%s' "$out" | grep -q "modelSettings" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
+     && printf '%s' "$out" | grep -qF "$name" &&[ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
     pass "10c modelSettings $bad: verify warns, apply repairs and names it"
   else bad "10c modelSettings $bad (rc=$rc; $out; $(printf '%s' "$v" | grep -i modelsettings))"; fi
 done
@@ -171,6 +174,7 @@ done
 newcfg; apply >/dev/null
 jq '.permissions=["x"] | .enabledPlugins=[]' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+cp "$base/x" "$cfg/settings.json"  # the claude CLI that verify --live runs may rewrite settings.json (see 10c)
 out="$(apply 2>&1)"; rc=$?
 if printf '%s' "$v" | grep -q "^FAIL  .*settings.json has a key of the wrong type" && ! printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" \
    && [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "permissions (was not an object)" && printf '%s' "$out" | grep -q "enabledPlugins (was not an object)" \
