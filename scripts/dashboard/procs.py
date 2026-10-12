@@ -5,8 +5,8 @@ from pathlib import Path
 
 
 def which(name, windows=None):
-    """shutil.which, except on Windows a hit in the current folder that is not on PATH: Windows searches the current folder first, so a
-    rtk.exe or codex.exe lying in the folder the dashboard was started from would be run on every refresh (same rule as toolreg.which)."""
+    """shutil.which, except on Windows a bare name found in the current folder (not on PATH) is skipped in favour of the next copy on
+    PATH, or None: Windows searches the current folder first, so a stray binary there would be run. Explicit paths pass unchanged."""
     w = shutil.which(name)
     if windows is None:
         windows = os.name == "nt"

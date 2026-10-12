@@ -40,8 +40,8 @@ def _mget(machine, key):
 
 
 def which(name, windows=None):
-    """shutil.which, except a hit in the current folder that is not on PATH: Windows searches the current folder first, so a git.exe
-    lying in some project folder would be started by a "read-only" check."""
+    """shutil.which, except on Windows a bare name found in the current folder (not on PATH) is skipped in favour of the next copy on
+    PATH, or None: Windows searches the current folder first, so a stray binary there would be run. Explicit paths pass unchanged."""
     w = shutil.which(name)
     if windows is None:
         windows = os.name == "nt"
