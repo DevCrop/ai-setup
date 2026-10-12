@@ -7,12 +7,12 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### SessionStart `compact` hook re-injects the handoff note; ConfigChange hook logs edits outside this repo
 - What: `claude/hooks/compact-context.sh` and `claude/hooks/config-audit.sh` (`docs/GUIDE.md`, Session hooks); `verify.sh --live` reads `config-changes.log`; `docs-watch.sh` and the routine now watch the hooks reference page.
 - Why: best-practices and hooks-guide ("Re-inject context after compaction") recommend a deterministic hook over an advisory line, and the security page recommends auditing settings changes with ConfigChange hooks. The audit hook only logs: its output is never shown (hooks reference, "ConfigChange decision control"), and blocking would also block the app's own writes (theme, plugins) and `apply.sh`.
-- Checked: `qa-hooks-session.sh` (note found from a subfolder, home folder skipped, 9 KB note cut under the 10,000-character cap, broken input, rotation), `qa-apply.sh` case 10b (a change within 2 minutes of apply is not reported, a later one is). Not checked here: a real `/compact` in a session (`docs/GUIDE.md` local checklist).
-- Undo: remove the two hook files, the `SessionStart` and `ConfigChange` entries in `claude/settings.json`, check 3d and 9b in `verify.sh`, case 10b in `qa-apply.sh` and `scripts/qa-hooks-session.sh`.
+- Checked: `qa-hooks-session.sh` (note found from a subfolder and from a worktree cwd, home folder skipped also through a symlink with a trailing slash, 9 KB note cut under the 10,000-character cap without splitting a Korean character, broken input, project skills not logged, a newline in `file_path` cannot forge a line, rotation; mutations of the cut, the home stop and the config-dir filter each fail it), `qa-apply.sh` case 10b (a change within 2 minutes of apply is not reported, a later one is). Not checked here: a real `/compact` in a session (`docs/GUIDE.md` local checklist).
+- Undo: remove the two hook files, the `SessionStart` and `ConfigChange` entries in `claude/settings.json`, check 3d and 9b in `verify.sh`, case 10b in `qa-apply.sh`, `scripts/qa-hooks-session.sh` and its README row, the GUIDE "Session hooks" section, the hooks in the GUIDE "Always on" row and check L-13, and the `hooks` page in `docs-watch.sh` and the routine. `apply.sh` then deletes the hook files from `~/.claude/hooks/` (manifest); delete `~/.claude/config-changes.log` by hand on each machine.
 
 ### `$schema` in `claude/settings.json`
 - What: `"$schema": "https://json.schemastore.org/claude-code-settings.json"` (settings page). Editors validate and complete the file. The settings page says the schema can lag behind new keys, so a warning on a recently documented key is not an error.
-- Undo: remove the line.
+- Undo: remove the line and add `["$schema"]` to `scripts/removed-keys.json`; otherwise `apply.sh` keeps the live copy as a machine-only key.
 
 ## 2026-10-12 — prompts only for push; bypass locked
 
