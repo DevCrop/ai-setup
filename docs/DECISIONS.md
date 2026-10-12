@@ -13,7 +13,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### The handoff note is also posted on the work's own open PR (standing approval)
 - What: besides `.claude/handoff.md` (entry 2026-10-11), the note goes in a comment on the work's open PR in a repository the user owns, without secrets or machine-local paths; without such a PR the model says the note is on this machine only. `claude/CLAUDE.md` names it as the one exception to "send anything outward only after approval".
 - Why: on 2026-10-12 a note stayed on one PC when the work continued on another machine. The user gave this standing approval the same day.
-- Undo: remove the sentence from the handoff line and the exception from the Safety line in `claude/CLAUDE.md`, and this entry.
+- Undo: remove the sentence from the handoff line and the exception from the Safety line in `claude/CLAUDE.md`, the "since 2026-10-12" sentence in the 2026-10-11 handoff entry, and this entry.
 
 ## 2026-10-12 — tool registry and bootstrap
 
