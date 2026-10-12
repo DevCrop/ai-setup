@@ -19,6 +19,11 @@ export class CodexTab extends Tab {
   draw(v) {
     const c = this.app.inv.codex;
     if (!c || c.loading) { v.replaceChildren(mk(Note, "Codex 셋업 점검을 실행하는 중입니다 (TRACE verify · plan). 잠시 후 다시 그립니다.")); return; }
+    if (c.failed) { // the check itself broke: TRACE and the CLI were not looked at, so say neither "없음" nor how to clone
+      v.replaceChildren(mk(Tiles, [["TRACE", "?", "warn"], ["Codex CLI", "?", "warn"]]),
+        mk(Panel, c.reason || "점검 중 오류", "TRACE와 Codex CLI는 확인하지 못했습니다", mk(Note, "대시보드의 점검 코드가 실패했습니다. 60초 뒤 다시 시도합니다. 계속되면 server.py를 터미널에서 실행해 오류를 확인합니다.")));
+      return;
+    }
     const cli = c.codex || {}, cliTile = ["Codex CLI", cli.found ? (cli.version || "버전 못 읽음") : "없음", cli.found ? "" : "warn"];
     if (!c.available) {
       v.replaceChildren(

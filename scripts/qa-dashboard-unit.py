@@ -326,7 +326,7 @@ os.environ.pop("CODEX_BIN", None)
 real_find = cx.find
 cx.find = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
 s = cx.state()
-check(s["available"] is False and "RuntimeError" in s["reason"], "codex: an unexpected error becomes a reason on screen, not an endless 'loading'", s)
+check(s["available"] is False and s.get("failed") is True and "RuntimeError" in s["reason"], "codex: an unexpected error becomes a reason on screen, not an endless 'loading'", s)
 cx.find = real_find
 
 # ---- token compare and HTTP guards ----

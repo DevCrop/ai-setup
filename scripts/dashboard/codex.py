@@ -106,7 +106,7 @@ class CodexSetup:
         try:
             return self._state()
         except Exception as e:
-            return {"available": False, "codex": {"found": False, "version": None}, "codexHome": "", "reason": "점검 중 오류: " + type(e).__name__, "tried": []}
+            return {"available": False, "failed": True, "codex": {}, "codexHome": "", "reason": "점검 중 오류: " + type(e).__name__, "tried": []}
 
     def _state(self):
         source, d = self.find()
