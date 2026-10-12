@@ -2,6 +2,26 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — tool registry and bootstrap
+
+### One hub, one registry: `tools.json` in this repo, per-machine values in `state/machine.json`
+- What: every dependency and tool (git, python, node, jq, gh, rtk, claude, codex, ao, cursor) is one entry in `tools.json`: how to detect it, its minimum version, its setup checkout candidates and its winget/brew/cask id or install URL. `scripts/toolreg.py` reads it; `scripts/bootstrap.py` is the one entry point (`check`, `install`, `clone`, `apply`, `verify`, `autostart`). A new tool is one entry.
+- Why: each machine has different paths (project folders at different depths, codex-setup under `Documents/ChatGPT/글로벌 셋업` on the Windows PC), and the setup steps were spread over three repos and hand edits (a hand-made autostart `.vbs` with a fixed Python path). Machine facts are in the PR #91 handoff comment. The hub stays here because this repo is already cloned first on every machine.
+- Rule: paths in `tools.json` use tokens (`${HOME}`, `${DOCUMENTS}`, `${LOCALAPPDATA}`, `${REPO}`, `${REPO_PARENT}`), never one user's path. Per-machine values go in gitignored `state/machine.json`; precedence for setup checkouts and project roots is environment variable > `machine.json` > legacy `state/*.txt` > registry candidates (project roots fall back to `~/Projects`; binaries: environment variable > `machine.json` > PATH > registry paths).
+- Undo: delete `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `scripts/qa-bootstrap.py` and the "Tool registry and bootstrap check" step in both jobs of `.github/workflows/check.yml`; remove GUIDE quick path 1b and step 5, the "Adding a tool" line and the bootstrap mentions in `CLAUDE.md`, `README.md` and GUIDE section 0; `apply.sh --dry-run` (qa-apply case 11) can stay. The dashboard does not import the registry yet.
+
+### Installs only what is missing, one y/N per item, never an upgrade
+- What: `install` runs `winget install --id <id> --exact --no-upgrade`, or `brew install` / `brew install --cask` with `HOMEBREW_NO_INSTALL_UPGRADE=1`, only for items not found. A tool that is too old is reported with its upgrade command, not upgraded. `install`, `clone`, `apply` and `autostart` show what they will do and ask y/N on the terminal; without one they refuse. A declined `clone`, `apply` or `autostart` exits 1; `install` exits 1 when a required item is declined. `check --write` asks nothing: it only adds missing values to `state/machine.json`. `bootstrap.ps1` has no terminal check yet (deferred finding 8 below).
+- Why: an upgrade can break what already uses the old version, and nothing should change a machine unattended.
+- Checked: `scripts/qa-bootstrap.py` (CI, linux and windows) and `scripts/qa-apply.sh` case 11, the dry run writes nothing (runs in CI through `verify.sh`). Not checked: a real winget or brew install, macOS. Sources for the flags are in commit `ded49bd`.
+- Undo: drop `--no-upgrade` and `HOMEBREW_NO_INSTALL_UPGRADE=1` in `toolreg.install_argv` and the `ask()` gate in `bootstrap.py`, with their qa-bootstrap cases.
+
+### Dashboard feature freeze kept until the Mac run
+- What: the tools tab and the project search to depth 3 (PR3 of the plan) wait for the macOS run.
+- Why: the 2026-10-11 "Dashboard structure" entry freezes features until that run, and it has not happened yet.
+- Also waiting for that run: deferred review findings 6–10 in the PR #91 handoff comment (LaunchAgent PATH, `bootstrap.sh` installing git when present, `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS/Linux).
+- Undo: lift the freeze after the run by editing both entries.
+
 ## 2026-10-12 — AO reviewer lane
 
 ### AO reviewer lane is Codex `gpt-6.1-sol`; Claude keeps the worker lanes
