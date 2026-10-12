@@ -296,5 +296,32 @@ st, body = req("GET", "/api/state")
 check(st == 200 and "settings" in json.loads(body), "GET /api/state is healthy again after the failure", st)
 httpd.shutdown()
 
+# ---- usage.py: tokens from the logs, de-duplicated by requestId, repriced on the session's main model ----
+import usage
+ud = tmp / "projects" / "p"
+(ud / "s1" / "subagents").mkdir(parents=True)
+def _ln(rid, model, **u):
+    return json.dumps({"requestId": rid, "message": {"model": model, "usage": u}})
+sonnet = dict(input_tokens=1000, output_tokens=2000, cache_read_input_tokens=100000, cache_creation_input_tokens=10000, cache_creation={"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 10000})
+(ud / "s1.jsonl").write_text("\n".join([_ln("a", "claude-sonnet-5-5", **sonnet)] * 3 + ["not json", '{"usage": 1}', _ln("z", "gpt-x", input_tokens=5, output_tokens=5)]) + "\n", encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-1.jsonl").write_text(_ln("b", "claude-haiku-5-5", input_tokens=2000, output_tokens=500, cache_creation_input_tokens=0) + "\n", encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-1.meta.json").write_text(json.dumps({"agentType": "explorer", "model": "haiku"}), encoding="utf-8")
+u = usage.collect(tmp / "projects")
+sm = u["models"]["claude-sonnet-5-5"]
+check(sm["output"] == 2000 and sm["read"] == 100000, "usage: a reply logged three times counts once", sm)
+check(abs(sm["costUSD"] - (1000 * 2 + 2000 * 10 + 100000 * 0.10 + 10000 * 4) / 1e6) < 1e-9, "usage: Sonnet cost = list prices x tokens (1h cache write)", sm["costUSD"])
+check("other" in u["models"] and u["models"]["other"]["costUSD"] is None, "usage: an unknown model is 'other' and carries no price", list(u["models"]))
+hk = usage.price("claude-haiku-5-5", {"input": 2000, "output": 500})
+alt = usage.price("claude-sonnet-5-5", {"input": 2000, "output": 500})
+check(abs(u["savedUSD"] - (alt - hk)) < 1e-9 and u["sessions"] == 1, "usage: saving = Haiku tokens repriced on the session's main model minus their real cost", u)
+check(set(usage.collect_agents(tmp / "projects")) == {"explorer"} and usage.collect_agents(tmp / "projects")["explorer"]["models"] == ["claude-haiku-5-5"], "usage: subagent rows carry the model that really answered")
+check(usage.collect(tmp / "nowhere")["sessions"] == 0 and usage.collect_agents(tmp / "nowhere") == {}, "usage: a missing projects folder is empty, not an error")
+
+import efficiency
+(ud / "s1" / "subagents" / "agent-2.meta.json").write_text(json.dumps({"agentType": "AcmeCorp-internal"}), encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-2.jsonl").write_text(_ln("c", "claude-haiku-5-5", input_tokens=1, output_tokens=1) + "\n", encoding="utf-8")
+ue = efficiency.UsageEfficiency(tmp / "projects", lambda: [{"name": "explorer", "model": "haiku"}]).collect()
+check("Acme" not in json.dumps(ue) and "other" in [a["name"] for a in ue["data"]["agents"]], "usage: a custom agent type name is shown as 'other', never by name", [a["name"] for a in ue["data"]["agents"]])
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

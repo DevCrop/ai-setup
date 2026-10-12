@@ -2,6 +2,16 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — model usage and saving view
+
+### The efficiency tab sums per-reply usage from the session logs; `modelUsage` is not used
+- What: `scripts/dashboard/usage.py` sums `message.usage` over every reply in the main logs and in `<session>/subagents/*.jsonl`, de-duplicated by `requestId`, and prices it with the official list prices. The tab shows actual cost, the same tokens repriced on each session's main model, the difference, per-model cost, and a table of defined versus actual model per agent.
+- Why: the logs' own `modelUsage` stopped updating at line 97 of 270 in the session checked and missed a subagent that ran later. A reply is logged once per content block with the same usage (35 requests in 60+ entries), so a plain sum counts it up to 4 times.
+- Basis labels: token counts are measured; every amount is an estimate (list-price arithmetic, not a bill); the saving is an estimate that assumes the same tokens on the main model and ignores quality. Calls that never reach a transcript (titles, hook classifiers) are not counted.
+- Privacy: model names leave only if they are on `usage.PRICES` (else "other"); agent type names only if this repo defines them or they are built-ins (else "other").
+- Read-only on purpose: the tab does not edit `claude/agents/*.md`. Changing a model stays a PR, and the earlier rule stands (no move of verifying roles to Haiku before 3+ samples and a reviewer scenario).
+- Undo: remove `usage.py`, `UsageEfficiency`, `ui/usage-panel.js` and its line in `ui/tabs/eff.js` in one PR.
+
 ## 2026-10-11 — refactor round
 
 ### Working rules added to `claude/CLAUDE.md` (the plan's deferred D6 items)
