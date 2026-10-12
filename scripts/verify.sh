@@ -253,6 +253,7 @@ done
 [ -z "$missing_refs" ] && pass "docs paths mentioned in the repo exist" || fail "mentioned docs files do not exist:$missing_refs"
 if command -v jq >/dev/null 2>&1; then
   undoc=""
+  jq -e '(.enabledPlugins // {}) | type == "object"' "$src/settings.json" >/dev/null 2>&1 || fail "enabledPlugins in claude/settings.json is not an object"
   for k in $(jq -r '.enabledPlugins // {} | keys[]' "$src/settings.json" 2>/dev/null | tr -d '\r'); do
     grep -qF "$k" "$repo/docs/GUIDE.md" || undoc="$undoc $k"
   done
@@ -287,7 +288,7 @@ if [ "$live" -eq 1 ]; then
            + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f
               | (if ($l.modelSettings | type) == "object" then $l.modelSettings[$e.key] else null end) as $le
               | select(($le | type) != "object" or $le[$f] != $e.value[$f]) | "modelSettings." + $e.key + "." + $f])
-        | join(", ")' 2>/dev/null)"
+        | join(", ")' 2>&1)" || { fail "$dest/settings.json has a key of the wrong type (apply.sh replaces it): $(printf '%s' "$owned_diff" | head -n 1)"; continue; }
       if [ -z "$owned_diff" ]; then pass "in sync: settings.json (keys owned by this repo)"
       else warn "settings.json differs from claude/settings.json in: $owned_diff (apply.sh restores the repo values; to keep a change, edit claude/settings.json first)"; fi
       stale_keys="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '$l[0] as $l | $x[0] | map(select(. as $p | ($l | getpath($p)) != null) | join(".")) | join(", ")' 2>/dev/null)"

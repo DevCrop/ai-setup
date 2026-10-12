@@ -221,8 +221,15 @@
       "Read(**/id_ed25519*)",
       "Read(**/.netrc)",
       "Read(**/.npmrc)",
+      "Read(~/.ssh/**)",
+      "Read(~/.claude/.credentials*)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.env*)",
       "Edit(**/.env*)",
-      "Edit(**/.credentials*)"
+      "Edit(**/.credentials*)",
+      "Edit(~/.claude/.credentials*)"
     ],
     "ask": [
       "Bash(git push *)",
