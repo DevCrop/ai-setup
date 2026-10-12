@@ -40,11 +40,7 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 
 ## 4. Tests and CI
 
-| # | Where | Problem | Done when |
-|---|---|---|---|
-| T1 | `.github/workflows/check.yml` bootstrap step | rc 1 is expected on the runner, so a regression that detects nothing also passes | `--json` asserts that git and python are found |
-| T2 | `scripts/qa-role-agents.sh:39`, `:272` | BSD `sed -i` and a missing `timeout` break it on macOS | portable `sed -i` form; `gtimeout` fallback as in `bench.sh:54` |
-| T3 | `scripts/qa-deny.sh` | a `runs` case also passes when the model never calls the tool | the tool call is asserted in the stream |
+None open (T1-T3 closed 2026-10-13).
 
 ## 5. Decisions waiting for you
 

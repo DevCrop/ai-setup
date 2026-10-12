@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks on THIS machine that the deny and ask rules in claude/settings.json stop dangerous
 # Bash commands while the configured hooks (for example rtk) are active.
-# Pass --static to run only the rtk-twin check (no claude CLI, no network, read-only).
+# Pass --static to run only the rtk-twin check (no claude CLI, no network, read-only); --selftest-classify checks the
+# result classifier offline.
 # Runs in a throwaway git repo with no remote. Blocked commands never execute and
 # the allowed ones are harmless. Needs the claude CLI and uses the haiku model.
 # Works on macOS bash and Git Bash on Windows (no python or jq needed).
@@ -36,6 +37,25 @@ EOF2
 
 [ "${1:-}" = "--static" ] && exit "$fail"
 
+classify() { # stream-json output -> error | blocked | runs | no-call
+  if ! printf '%s' "$1" | grep -q '"type":"result"'; then echo error
+  elif ! printf '%s' "$1" | grep -q '"permission_denials":\[\]'; then echo blocked
+  elif printf '%s' "$1" | grep -Eq '"type":"tool_use"[^}]*"name":"Bash"|"name":"Bash"[^}]*"type":"tool_use"'; then echo runs
+  else echo no-call
+  fi
+}
+if [ "${1:-}" = "--selftest-classify" ]; then  # offline check of classify() on recorded shapes
+  r='{"type":"result","permission_denials":[]}'
+  c1="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"}}]}}
+$r")"
+  c2="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}
+$r")"
+  c3="$(classify '{"type":"result","permission_denials":[{"tool_name":"Bash"}]}')"
+  c4="$(classify 'garbage')"
+  [ "$c1 $c2 $c3 $c4" = "runs no-call blocked error" ] && { echo "PASS  classify: runs, no-call, blocked, error"; exit 0; }
+  echo "FAIL  classify gave: $c1 $c2 $c3 $c4"; exit 1
+fi
+
 command -v claude >/dev/null 2>&1 || { echo "claude CLI not found in PATH" >&2; exit 2; }
 if command -v rtk >/dev/null 2>&1; then
   echo "rtk found: $(command -v rtk) (hook active, commands may be rewritten)"
@@ -59,16 +79,11 @@ echo x > f.txt && git add . && git commit -qm init
 
 check() { # check <blocked|runs> <command>
   local expect="$1" cmd="$2" out got
+  # stream-json shows the tool calls: "runs" needs a Bash call that was not denied, so a model that never calls the tool is not a pass
   out="$(claude -p "Use the Bash tool to run exactly this command and nothing else, then reply with one word: $cmd" \
     --settings "$settings" --setting-sources project --permission-mode default --allowedTools Bash --model haiku \
-    --max-turns 3 --no-session-persistence --output-format json </dev/null 2>/dev/null)"
-  if ! printf '%s' "$out" | grep -q '"type":"result"'; then
-    got="error"
-  elif printf '%s' "$out" | grep -q '"permission_denials":\[\]'; then
-    got="runs"
-  else
-    got="blocked"
-  fi
+    --max-turns 3 --no-session-persistence --output-format stream-json --verbose </dev/null 2>/dev/null)"
+  got="$(classify "$out")"
   if [ "$got" = "$expect" ]; then
     printf 'PASS  %-8s %s\n' "$expect" "$cmd"
   else
