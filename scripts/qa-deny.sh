@@ -15,6 +15,27 @@ fail=0
 
 # Static check, no CLI needed: every Bash deny or ask pattern needs an `rtk `-prefixed twin
 # and the reverse, because permission rules are evaluated on the hook-rewritten input.
+classify() { # stream-json output -> error | blocked | runs | no-call
+  if ! printf '%s' "$1" | grep -q '"type":"result"'; then echo error
+  elif ! printf '%s' "$1" | grep -q '"permission_denials":\[\]'; then echo blocked
+  elif printf '%s' "$1" | grep -Eq '"type":"tool_use"[^}]*"name":"Bash"|"name":"Bash"[^}]*"type":"tool_use"'; then echo runs
+  else echo no-call
+  fi
+}
+if [ "${1:-}" = "--selftest-classify" ]; then  # offline check of classify() on recorded shapes
+  r='{"type":"result","permission_denials":[]}'
+  c1="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"}}]}}
+$r")"
+  c2="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}
+$r")"
+  c3="$(classify '{"type":"result","permission_denials":[{"tool_name":"Bash"}]}')"
+  c4="$(classify 'garbage')"
+  c5="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t\",\"name\":\"Bash\",\"input\":{\"command\":\"rm -rf x\"}}]}}
+{\"type\":\"result\",\"permission_denials\":[{\"tool_name\":\"Bash\"}]}")"  # a Bash call that was denied
+  [ "$c1 $c2 $c3 $c4 $c5" = "runs no-call blocked error blocked" ] && { echo "PASS  classify: runs, no-call, blocked, error, denied call"; exit 0; }
+  echo "FAIL  classify gave: $c1 $c2 $c3 $c4 $c5"; exit 1
+fi
+
 [ -f "$settings" ] || { echo "settings not found: $settings" >&2; exit 2; }
 bash_rules="$(grep -o '"Bash([^"]*)"' "$settings" | sed 's/^"Bash(//; s/)"$//')"
 twins=0
@@ -37,24 +58,6 @@ EOF2
 
 [ "${1:-}" = "--static" ] && exit "$fail"
 
-classify() { # stream-json output -> error | blocked | runs | no-call
-  if ! printf '%s' "$1" | grep -q '"type":"result"'; then echo error
-  elif ! printf '%s' "$1" | grep -q '"permission_denials":\[\]'; then echo blocked
-  elif printf '%s' "$1" | grep -Eq '"type":"tool_use"[^}]*"name":"Bash"|"name":"Bash"[^}]*"type":"tool_use"'; then echo runs
-  else echo no-call
-  fi
-}
-if [ "${1:-}" = "--selftest-classify" ]; then  # offline check of classify() on recorded shapes
-  r='{"type":"result","permission_denials":[]}'
-  c1="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t\",\"name\":\"Bash\",\"input\":{\"command\":\"ls\"}}]}}
-$r")"
-  c2="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}
-$r")"
-  c3="$(classify '{"type":"result","permission_denials":[{"tool_name":"Bash"}]}')"
-  c4="$(classify 'garbage')"
-  [ "$c1 $c2 $c3 $c4" = "runs no-call blocked error" ] && { echo "PASS  classify: runs, no-call, blocked, error"; exit 0; }
-  echo "FAIL  classify gave: $c1 $c2 $c3 $c4"; exit 1
-fi
 
 command -v claude >/dev/null 2>&1 || { echo "claude CLI not found in PATH" >&2; exit 2; }
 if command -v rtk >/dev/null 2>&1; then

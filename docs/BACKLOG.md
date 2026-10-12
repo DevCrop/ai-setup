@@ -40,7 +40,7 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 
 ## 4. Tests and CI
 
-None open (T1-T3 closed 2026-10-13).
+None open (T1-T3 closed).
 
 ## 5. Decisions waiting for you
 
