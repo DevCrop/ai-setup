@@ -176,8 +176,8 @@ details.fold[open] summary { margin-bottom: var(--sp-3); }
 .row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .row.new { animation: enter .7s var(--ease); }
 @keyframes enter { from { background: var(--accent-soft); transform: translateY(-6px); opacity: 0; } to { background: transparent; transform: none; opacity: 1; } }
-.row .badge, .badge.self { justify-self: start; max-width: 100%; }
-.ev { grid-template-columns: 64px 124px minmax(0, 1fr); }
+.row .badge { justify-self: start; max-width: 100%; }
+.ev { grid-template-columns: 64px fit-content(124px) minmax(0, 1fr); }
 .ev time { font-size: var(--t-xs); color: var(--faint); }
 .ev .badge { overflow: hidden; text-overflow: ellipsis; }
 .pr { grid-template-columns: 40px 76px minmax(0, 1fr) auto; }
