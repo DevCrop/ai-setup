@@ -2,6 +2,14 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — handoff note: the project-mark stop also blocks the fallback; linked worktrees are not a stop
+
+### `compact-context.sh` stops for good at a project without a note, except a linked worktree
+- What: when the walk from the input `cwd` ends at a project mark without a note, the hook no longer starts again at `CLAUDE_PROJECT_DIR`. A folder whose `.git` file points into `.git/worktrees/` (a linked git worktree) is not a stop; a submodule (`.git/modules/`) is, so a worktree session still reaches its main checkout's note.
+- Why: with the fallback, a session launched in a parent project and working in a nested project got the parent's note, against the 2026-10-12 entry below (reproduced; `qa-hooks-session.sh` now covers it). Stopping at every `.git` would have cut a worktree off from its main checkout's note, which GUIDE documents ("follows Claude into a worktree").
+- Limit: a linked worktree of a different repository nested inside a project also walks on to that project's note; the printed header asks the model to check the note is about the current task.
+- Undo: in `find_note`, return plain instead of `2` and drop the worktree branch; drop `stop` in the caller; remove the four new cases in `qa-hooks-session.sh` and the GUIDE clause.
+
 ## 2026-10-13 — Archify removed
 
 ### Archify is not used; the Codex setup installs Ponytail and RTK only

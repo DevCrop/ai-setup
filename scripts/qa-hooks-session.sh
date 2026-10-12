@@ -36,6 +36,22 @@ mkdir -p "$t/home/w/proj/nested/.git"
 compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/nested\"}"
 [ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && printf '%s' "$out" | grep -q '^Context was compacted. Keep' \
   && ok "compact: a nested project (.git) without a note does not get its parent's note" || bad "compact: nested project [$out]"
+compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/nested\"}"
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && printf '%s' "$out" | grep -q '^Context was compacted. Keep' \
+  && ok "compact: a nested project stays without its parent's note when launched in the parent (no CLAUDE_PROJECT_DIR fallback)" \
+  || bad "compact: nested project, parent launch dir [$out]"
+mkdir -p "$t/home/w/proj/.claude/worktrees/wt1"; printf 'gitdir: /r/.git/worktrees/wt1
+' > "$t/home/w/proj/.claude/worktrees/wt1/.git"; : > "$t/home/w/proj/.claude/worktrees/wt1/CLAUDE.md"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/.claude/worktrees/wt1\"}"
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a linked worktree (.git file) without a note gets its main checkout's note"   || bad "compact: linked worktree [$out]"
+mkdir -p "$t/home/w/proj/libs/sub"; printf 'gitdir: ../../.git/modules/libs/sub
+' > "$t/home/w/proj/libs/sub/.git"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/libs/sub\"}"
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a submodule (.git file into .git/modules) does not get its parent's note"   || bad "compact: submodule [$out]"
+mkdir -p "$t/home/w/proj/.claude/worktrees/wt1/libs/s2"; printf 'gitdir: ../../../../../.git/worktrees/wt1/modules/libs/s2
+' > "$t/home/w/proj/.claude/worktrees/wt1/libs/s2/.git"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/.claude/worktrees/wt1/libs/s2\"}"
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a submodule inside a linked worktree does not get the main checkout's note"   || bad "compact: submodule in worktree [$out]"
 
 compact "$t/home/w/empty" '{"source":"compact"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && printf '%s' "$out" | grep -q '^Context was compacted. Keep the list of modified files' \
