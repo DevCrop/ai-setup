@@ -181,7 +181,7 @@ class UsageEfficiency(EfficiencySource):
              metric("같은 토큰을 메인 모델로 돌렸다면", f"${u['baselineUSD']:.2f}", "estimated", "각 세션에서 출력을 가장 많이 쓴 모델의 정가로 다시 계산. 같은 토큰이 들었다는 가정입니다"),
              metric("모델 배치로 줄인 몫", f"${u['savedUSD']:.2f} ({(u['savedUSD'] / u['baselineUSD'] * 100) if u['baselineUSD'] else 0:.1f}%)", "estimated", "위 두 값의 차이")]
         for k, t in sorted(by.items(), key=lambda kv: -(kv[1]["costUSD"] or 0)):
-            m.append(metric(f"{k} 사용", _usd(t["costUSD"] or 0), "estimated" if k != "other" else "unavailable", f"토큰 수는 로그 실측, 금액은 정가 곱셈. 토큰 {_k(tok(t))} · 출력 {_k(t['output'])} · 캐시 읽기 {_k(t['read'])}" if k != "other" else "단가표에 없는 모델이라 환산하지 않았습니다"))
+            m.append(metric(f"{k} 사용", _usd(t["costUSD"]), "estimated", f"토큰 수는 로그 실측, 금액은 정가 곱셈. 토큰 {_k(tok(t))} · 출력 {_k(t['output'])} · 캐시 읽기 {_k(t['read'])}") if k != "other" else unavailable("other 모델 사용", f"단가표에 없는 모델이라 환산하지 않았습니다(토큰 {_k(tok(t))})"))
         defined = {a["name"].lower(): a["model"] for a in self.agents()}
         shown = {}  # an agent type name leaves the machine only if this repo defines it or it is a built-in; any other (a custom name can be a customer's) becomes "other"
         for k, v in ran.items():
@@ -193,8 +193,8 @@ class UsageEfficiency(EfficiencySource):
         rows = []
         for name in sorted(set(defined) | set(shown)):
             r = shown.get(name)
-            rows.append({"name": name, "defined": defined.get(name, "(내장)"), "actual": r["models"] if r else [], "calls": r["calls"] if r else 0, "costUSD": r["costUSD"] if r else 0})
-        mism = [r["name"] for r in rows if r["actual"] and r["defined"] not in ("(상속)", "(내장)") and not all(r["defined"].lower() in a for a in r["actual"])]
+            rows.append({"name": name, "defined": defined.get(name, "(여러 종류)" if name == "other" else "(내장)"), "actual": r["models"] if r else [], "calls": r["calls"] if r else 0, "costUSD": r["costUSD"] if r else 0})
+        mism = [r["name"] for r in rows if r["actual"] and r["defined"] not in ("(상속)", "(내장)", "(여러 종류)") and not all(r["defined"].lower() in a for a in r["actual"])]
         ideas = []
         if mism:
             ideas.append("정의 파일의 모델과 실제 응답 모델이 다른 에이전트: " + ", ".join(mism) + ". 정의 파일이나 호출 때의 model 지정을 확인하세요.")

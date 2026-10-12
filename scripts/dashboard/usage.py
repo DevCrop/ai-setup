@@ -23,8 +23,11 @@ PRICES = {
 FIELDS = ("input", "write5m", "write1h", "read", "output")
 
 
+LIMIT = 1e12  # no single token count is near this; larger or non-finite values (a damaged log) count as 0 so one line cannot ruin a total
+
+
 def _n(v):
-    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else 0
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= LIMIT else 0  # NaN and inf fail the comparison too
 
 
 def _tokens(u):
@@ -64,9 +67,12 @@ def read_log(path):
                     d = json.loads(line)
                 except ValueError:
                     continue
+                if not isinstance(d, dict):
+                    continue
                 m = d.get("message") if isinstance(d.get("message"), dict) else {}
-                if isinstance(m.get("usage"), dict) and m.get("model"):
-                    seen[d.get("requestId") or d.get("uuid") or i] = (m["model"], _tokens(m["usage"]))
+                if isinstance(m.get("usage"), dict) and isinstance(m.get("model"), str) and m["model"]:
+                    rid = next((x for x in (d.get("requestId"), d.get("uuid")) if isinstance(x, str) and x), i)
+                    seen[rid] = (m["model"], _tokens(m["usage"]))
     except OSError:
         return {}
     out = {}
@@ -75,6 +81,8 @@ def read_log(path):
         row = out.setdefault(name, dict.fromkeys(FIELDS, 0))
         for f in FIELDS:
             row[f] += t[f]
+    if len(_memo) > 4000:  # logs that were deleted would otherwise stay in memory
+        _memo.clear()
     _memo[str(path)] = (key, out)
     return out
 
@@ -121,9 +129,10 @@ def collect_agents(projects_dir):
     rows, base = {}, Path(projects_dir)
     for meta in base.glob("*/*/subagents/*.meta.json") if base.is_dir() else []:
         try:
-            kind = json.loads(meta.read_text(encoding="utf-8")).get("agentType")
+            doc = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        kind = doc.get("agentType") if isinstance(doc, dict) else None
         per = read_log(meta.with_name(meta.name[: -len(".meta.json")] + ".jsonl"))
         if not isinstance(kind, str) or not per:
             continue

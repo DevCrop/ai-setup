@@ -23,7 +23,7 @@ export class UsagePanel {
     ["에이전트", "정의 파일의 모델", "실제 응답 모델", "호출", "금액(정가)"].forEach((h) => head.append(el("th", null, h)));
     tbl.append(head);
     d.agents.forEach((a) => {
-      const tr = el("tr", a.calls ? "" : "idle"), ok = !a.actual.length || ["(상속)", "(내장)"].includes(a.defined) || a.actual.every((m) => m.includes(a.defined.toLowerCase()));
+      const tr = el("tr", a.calls ? "" : "idle"), ok = !a.actual.length || ["(상속)", "(내장)", "(여러 종류)"].includes(a.defined) || a.actual.every((m) => m.includes(a.defined.toLowerCase()));
       const act = el("td"); a.actual.length ? (act.append(a.actual.map(SHORT).join(", ") + " "), act.append(mk(Badge, ok ? "ok" : "warn", ok ? "일치" : "불일치"))) : act.append("실행 기록 없음");
       tr.append(el("td", "nm", a.name), el("td", null, a.defined), act, el("td", null, String(a.calls)), el("td", null, a.calls ? usd(a.costUSD) : "-"));
       tbl.append(tr);

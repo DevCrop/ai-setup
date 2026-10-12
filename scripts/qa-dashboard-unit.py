@@ -323,5 +323,23 @@ import efficiency
 ue = efficiency.UsageEfficiency(tmp / "projects", lambda: [{"name": "explorer", "model": "haiku"}]).collect()
 check("Acme" not in json.dumps(ue) and "other" in [a["name"] for a in ue["data"]["agents"]], "usage: a custom agent type name is shown as 'other', never by name", [a["name"] for a in ue["data"]["agents"]])
 
+# hostile logs: nothing here may raise, and no non-finite or absurd number may reach the output
+hd = tmp / "hostile" / "p"
+(hd / "s1" / "subagents").mkdir(parents=True)
+(hd / "s1.jsonl").write_text("\n".join(['"usage"', "[1,2]", json.dumps({"requestId": ["x"], "message": {"model": "claude-sonnet-5-5", "usage": {"output_tokens": 5}}}),
+    json.dumps({"requestId": "r", "message": {"model": ["claude-sonnet-5-5"], "usage": {"output_tokens": 5}}}),
+    '{"requestId": "big", "message": {"model": "claude-sonnet-5-5", "usage": {"output_tokens": 1e999, "input_tokens": 1e30, "cache_read_input_tokens": -5}}}',
+    _ln("ok", "claude-sonnet-5-5", output_tokens=7)]) + "\n", encoding="utf-8")
+(hd / "s1" / "subagents" / "agent-1.meta.json").write_text("[1]", encoding="utf-8")
+(hd / "s1" / "subagents" / "agent-2.meta.json").write_text(json.dumps({"agentType": 5}), encoding="utf-8")
+try:
+    hu, ha = usage.collect(tmp / "hostile"), usage.collect_agents(tmp / "hostile")
+    dumped = json.dumps(hu, allow_nan=False) + json.dumps(ha, allow_nan=False)  # raises on NaN or Infinity
+    check(hu["models"]["claude-sonnet-5-5"]["output"] == 12 and ha == {}, "usage: damaged lines, odd types and absurd numbers are skipped, never raised or passed on", hu)
+except Exception as ex:
+    check(False, "usage: damaged logs must not raise", repr(ex))
+ue2 = efficiency.UsageEfficiency(tmp / "projects", lambda: []).collect()
+check(all(m["value"] == "측정 불가" for m in ue2["metrics"] if m["basis"] == "unavailable"), "usage: an unavailable metric carries no number")
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)
