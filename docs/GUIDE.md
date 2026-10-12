@@ -9,6 +9,7 @@ Run in order; each line says what proves it worked. Prerequisites are in section
 | # | Command | Done when |
 |---|---|---|
 | 1 | `git clone https://github.com/DevCrop/claude-global.git && cd claude-global` | `git log -1` prints a commit |
+| 1b | `python3 scripts/bootstrap.py check --write` | ends with `missing required: none`; each missing item prints its install command (winget on Windows, brew on macOS). `--write` records the found setup checkouts and project roots in `state/machine.json` |
 | 2 | `bash scripts/apply.sh` | prints `applied: ...` and, when the machine differs, what it replaced, kept or removed |
 | 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
 | 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
@@ -48,7 +49,7 @@ Superpowers is not adopted (decision 2026-10-11): not at user scope, and no proj
 
 ## 0. Machine prerequisites (once per machine)
 
-Needed before the quick path:
+Needed before the quick path (`python3 scripts/bootstrap.py check` lists all of them with versions and install commands; the list is `tools.json`):
 - **Claude Code 2.1.295 or newer**, installed and logged in. Credentials are not in this repo, so every machine logs in itself. Install by the official instructions; `claude --version` must print 2.1.295 or newer (`verify.sh --live` fails below that: auto mode is the built-in starting mode from 2.1.283 per the permission-modes doc, and the hook `onFailure` field needs 2.1.295 per the hooks doc).
 - `git` and GitHub access for the clone (the repo is private: `gh auth login` or a credential manager).
 - `jq` (required by `apply.sh` and the status line), `python3` (dashboard, QA scripts), `bash` (macOS or Git Bash on Windows).
