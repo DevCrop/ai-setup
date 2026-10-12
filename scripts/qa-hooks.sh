@@ -130,6 +130,22 @@ CWD="$r" run 2 "cd $r/missing && git add -A"
 CWD="$t/clean" run 0 "cd $r/missing && git add c.txt"
 CWD="$t/clean" run 2 'cd "$X" && git add -A'
 CWD="$t/clean" run 2 "cd $t/nope && git add -A"
+# cd with no argument goes home; cd -, pushd +N/-N, bare pushd and popd move somewhere the hook does not track
+HOME="$r" CWD="$t/clean" run 2 'cd && git add -A'
+CWD="$t/clean" run 2 'cd - && git add -A'
+CWD="$t/clean" run 2 "pushd $r; pushd $t/clean; pushd +1 && git add -A"
+CWD="$r" run 2 "pushd $t/clean; popd; git add -A"
+CWD="$t/clean" run 2 'cd "$X" && git commit -am x'
+# a broad add from a subdirectory stages the whole tree, so a secret at the root counts
+mkdir -p "$r/deep/er"
+CWD="$r/deep/er" run 2 'git add -A'
+CWD="$r" run 2 'cd deep && git add -A'
+CWD="$r" run 2 'git -C deep add -u'
+CWD="$t/clean" run 0 "cd $r/deep && git add ok-in-deep.txt"
+# speed: a broad add over many files stays well inside the 30 s hook timeout
+mkdir "$t/big"; (cd "$t/big" && for i in $(seq 1 60); do mkdir d$i; for j in $(seq 1 300); do : > d$i/f$j.txt; done; done; echo s > d60/.env)
+s0=$(date +%s); CWD="$t/big" run 2 'git init && git add -A'; el=$(( $(date +%s) - s0 ))
+if [ "$el" -le 10 ]; then echo "PASS 18000 files judged in ${el}s"; else echo "FAIL 18000 files took ${el}s (limit 10)"; fail=$((fail+1)); fi
 # expansion where the option or verb belongs, ANSI-C quoting, --git-dir/--work-tree and GIT_DIR from a directory that is not a repo
 run 2 'git${IFS}add${IFS}-A'
 run 2 'git$IFS add -A'
