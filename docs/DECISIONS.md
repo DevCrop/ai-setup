@@ -2,6 +2,22 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — skill and agent metadata against the official limits
+
+### `when_to_use`, agent colors, and the official limits checked by `verify.sh`
+- What: `orchestrate`, `spec-writing` and `design-spec` have `when_to_use` with example requests in Korean and English (skills doc: "trigger phrases or example requests"; it is appended to `description` and shares its 1,536-character cap). Each agent has a `color` (sub-agents doc; display only). `verify.sh` now checks: `description` + `when_to_use` within 1,536 characters (it checked `description` alone), `SKILL.md` within 500 lines ("Keep SKILL.md under 500 lines"), agent names unique, at most 256 characters, not starting with `-` and without `:` (sub-agents doc: such a file is skipped), a `when_to_use` written over several lines (the check reads one line), and the combined agent descriptions against the 15,000-token startup warning (WARN above 15,000 characters, an approximation). Characters are counted as UTF-8 characters in any locale.
+- Why: model-invoked skills load by description match, which is the known weak spot (entry 2026-10-11, "description matching is probabilistic"); the limits were enforced by nothing.
+- Not done: a check that an agent's `name` equals its file name, which the plan had; the sub-agents doc says "The filename doesn't have to match".
+- Undo: remove the `when_to_use` and `color` lines, the added checks in `verify.sh` sections 6 and 7 with their helpers (`chars`, `fm_value`, `fm_multiline`), and the `when_to_use` part of the skill check in `scripts/dashboard/inventory.py`.
+
+### Worktree isolation stays conditional
+- What: no agent sets `isolation: worktree` in its frontmatter; the `orchestrate` skill (step 5) uses it only when two delegates cannot be kept off the same files.
+- Why: the sub-agents doc suggests worktrees for file-changing agents, but a worktree branches from the default branch, so the delegate does not see uncommitted work in the main thread, which is the usual state when a part is delegated. Splitting by file gives the same safety without that.
+- Undo: add `isolation: worktree` to the file-changing agents and drop the condition in step 5.
+
+### `project-setup` still recommends no plugin (code intelligence plugins not proposed)
+- The best-practices and costs pages suggest code intelligence plugins for typed languages. `project-setup` step 9 says "do not install or recommend any plugin", and the plugin pinning decision (entry "Third-party plugins are pinned through an own marketplace") is pending. Proposing one is a decision for the user, not part of this change.
+
 ## 2026-10-12 — session hooks and the settings schema
 
 ### SessionStart `compact` hook re-injects the handoff note; ConfigChange hook logs edits outside this repo

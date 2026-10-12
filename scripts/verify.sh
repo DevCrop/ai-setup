@@ -34,6 +34,24 @@ frontmatter() { tr -d '\r' < "$1" | awk 'NR==1 && $0!="---" {exit} /^---$/ {c++;
 # Top-level keys of that frontmatter.
 fm_keys() { frontmatter "$1" | sed -n 's/^\([A-Za-z][A-Za-z_-]*\):.*/\1/p'; }
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+# Characters in UTF-8 text in any locale: bytes minus continuation bytes (wc -m counts bytes under LC_ALL=C).
+chars() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '; }
+# A one-line frontmatter scalar as YAML reads it: a quoted value loses its quotes and keeps any " #" inside them; an unquoted value
+# loses a trailing " # comment". Trailing spaces go in both cases.
+fm_value() {
+  frontmatter "$1" | sed -n "s/^$2:[[:space:]]*//p" | sed 's/[[:space:]]*$//' | awk '
+    /^"[^"]*"([[:space:]]+#.*)?$/ { sub(/^"/, ""); sub(/"([[:space:]]+#.*)?$/, ""); print; next }
+    /^'"'"'[^'"'"']*'"'"'([[:space:]]+#.*)?$/ { sub(/^'"'"'/, ""); sub(/'"'"'([[:space:]]+#.*)?$/, ""); print; next }
+    { sub(/[[:space:]]+#.*$/, ""); print }'
+}
+# fm_multiline <file> <key>: true when the key's value spans lines (a block marker such as | >- >2, or an indented continuation line).
+fm_multiline() {
+  # awk runs END after an exit in a rule, so the verdict is kept in m and END exits with it (m: 1 multi-line, 0 one line)
+  frontmatter "$1" | awk -v k="$2" '
+    found { m = ($0 ~ /^[[:space:]]+[^[:space:]]/); exit }
+    index($0, k ":") == 1 { v = substr($0, length(k) + 2); sub(/^[[:space:]]+/, "", v); if (v ~ /^[|>][0-9+-]*([[:space:]]+#.*)?$/) { m = 1; exit } found = 1; next }
+    END { exit !m }'
+}
 
 echo "== repo ($repo)"
 
@@ -144,6 +162,8 @@ lines="$(wc -l < "$src/CLAUDE.md" | tr -d ' ')"
 [ "$lines" -le 200 ] && pass "claude/CLAUDE.md has $lines lines (limit 200)" || fail "claude/CLAUDE.md has $lines lines (limit 200)"
 
 # 6. agents
+agent_names=""
+agent_desc_chars=0
 for f in "$src"/agents/*.md; do
   [ -f "$f" ] || continue
   n="${f#$src/}"
@@ -156,8 +176,22 @@ for f in "$src"/agents/*.md; do
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$agent_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
+  # sub-agents doc: a name that starts with "-", contains ":" or is longer than 256 characters makes Claude Code skip the file
+  aname="$(fm_value "$f" name)"
+  case "$aname" in -*) fail "$n: name '$aname' starts with '-' (Claude Code skips the file, sub-agents doc)" ;; esac
+  case "$aname" in *:*) fail "$n: name '$aname' contains ':' (reserved for plugin-scoped names, sub-agents doc)" ;; esac
+  [ "$(chars "$aname")" -le 256 ] || fail "$n: name is longer than 256 characters (sub-agents doc)"
+  agent_names="$agent_names$aname
+"
+  agent_desc_chars=$((agent_desc_chars + $(chars "$(fm_value "$f" description)")))
   [ -z "$dup" ] && [ -z "$bad" ] && pass "$n frontmatter"
 done
+dupnames="$(printf '%s' "$agent_names" | sed '/^$/d' | sort | uniq -d | tr '\n' ' ')"
+[ -z "$dupnames" ] || fail "agent name used twice: $dupnames(names must be unique, sub-agents doc)"
+# The doc warns at startup above 15,000 tokens of combined descriptions. A character is at most about one token for the text used here
+# (English and Korean), so 15,000 characters is a conservative stand-in, not a token count.
+if [ "$agent_desc_chars" -le 15000 ]; then pass "agent descriptions: $agent_desc_chars characters in total (startup warning at 15,000 tokens)"
+else warn "agent descriptions: $agent_desc_chars characters in total, may pass the 15,000-token startup warning; move detail into the agent bodies"; fi
 
 # 7. skills
 for d in "$src"/skills/*/; do
@@ -169,19 +203,28 @@ for d in "$src"/skills/*/; do
   keys="$(fm_keys "$f")"
   dup="$(printf '%s\n' "$keys" | sort | uniq -d | tr '\n' ' ')"
   [ -z "$dup" ] || fail "$n: duplicate frontmatter key(s): $dup"
-  name="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
+  name="$(fm_value "$f" name)"
   [ "$name" = "$dn" ] || fail "$n: name '$name' differs from directory '$dn'"
-  desc="$(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p')"
+  desc="$(fm_value "$f" description)"
+  fm_multiline "$f" description && desc=""
+  wtu="$(fm_value "$f" when_to_use)"
+  wtu_ok=1
+  if printf '%s\n' "$keys" | grep -qx when_to_use; then
+    if [ -z "$wtu" ] || fm_multiline "$f" when_to_use; then wtu_ok=0; wtu=""; fail "$n: when_to_use missing or not on one line (the length check reads one line)"; fi
+  fi
   if [ -z "$desc" ]; then
     fail "$n: description missing or not on one line"
   else
-    len="$(printf '%s' "$desc" | wc -c | tr -d ' ')"
-    [ "$len" -le 1536 ] || fail "$n: description is $len characters (listing cap 1536)"
+    # description and when_to_use share one 1,536-character cap in the skill listing (skills doc); one space joins them only when both exist
+    len="$(chars "$desc${wtu:+ $wtu}")"
+    [ "$len" -le 1536 ] || fail "$n: description + when_to_use is $len characters (listing cap 1536)"
   fi
+  lines="$(wc -l < "$f" | tr -d ' ')"
+  [ "$lines" -le 500 ] || fail "$n: $lines lines, over 500 (skills doc: keep SKILL.md under 500 lines; move reference material to separate files)"
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$skill_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
-  [ -z "$dup" ] && [ -z "$bad" ] && [ "$name" = "$dn" ] && [ -n "$desc" ] && pass "$n frontmatter"
+  [ -z "$dup" ] && [ -z "$bad" ] && [ "$name" = "$dn" ] && [ -n "$desc" ] && [ "$wtu_ok" = 1 ] && pass "$n frontmatter"
 done
 
 # 8. everything apply.sh copies exists

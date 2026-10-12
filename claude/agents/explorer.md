@@ -3,6 +3,7 @@ name: explorer
 description: Read-only search across many files or directories. Returns a short answer with file references.
 tools: Read, Grep, Glob
 model: haiku
+color: cyan
 maxTurns: 25
 omitClaudeMd: true
 ---
