@@ -150,9 +150,10 @@ def practices(root, config, verify_counts):
     long = []
     for d in (root / "claude" / "skills").glob("*/SKILL.md"):
         m = _fm(_read(d))
-        if len(m.get("description", "")) > 1536 or m.get("name") != d.parent.name:
+        listing = (m.get("description", "") + " " + m.get("when_to_use", "")).strip()  # one shared 1,536-character cap (skills doc)
+        if len(listing) > 1536 or m.get("name") != d.parent.name:
             long.append(d.parent.name)
-    add("skills", "스킬 name=디렉터리, description 1536자 이하", not long, ", ".join(long) or "전부 정상")
+    add("skills", "스킬 name=디렉터리, description+when_to_use 1536자 이하", not long, ", ".join(long) or "전부 정상")
     add("settings", "저장소 settings.json에 머신 전용 env가 없다", "env" not in s, "env 키 " + ("있음" if "env" in s else "없음"))
     try:
         live = json.loads(_read(config / "settings.json"))

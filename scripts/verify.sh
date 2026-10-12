@@ -34,6 +34,10 @@ frontmatter() { tr -d '\r' < "$1" | awk 'NR==1 && $0!="---" {exit} /^---$/ {c++;
 # Top-level keys of that frontmatter.
 fm_keys() { frontmatter "$1" | sed -n 's/^\([A-Za-z][A-Za-z_-]*\):.*/\1/p'; }
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+# Characters in UTF-8 text in any locale: bytes minus continuation bytes (wc -m counts bytes under LC_ALL=C).
+chars() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '; }
+# A frontmatter scalar as YAML reads it for the simple forms used here: a trailing " # comment" and surrounding quotes removed.
+fm_value() { frontmatter "$1" | sed -n "s/^$2:[[:space:]]*//p" | sed 's/[[:space:]]#.*$//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/'; }
 
 echo "== repo ($repo)"
 
@@ -162,14 +166,16 @@ for f in "$src"/agents/*.md; do
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$agent_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
-  amodel="$(frontmatter "$f" | sed -n 's/^model:[[:space:]]*//p')"
+  amodel="$(fm_value "$f" model)"
   case "$amodel" in haiku|opus|inherit|"") ;; *) fail "$n: model '$amodel' is outside the lanes (haiku executors, opus verifiers; decision 2026-10-12)" ;; esac
-  aname="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
+  # sub-agents doc: a name that starts with "-", contains ":" or is longer than 256 characters makes Claude Code skip the file
+  aname="$(fm_value "$f" name)"
+  case "$aname" in -*) fail "$n: name '$aname' starts with '-' (Claude Code skips the file, sub-agents doc)" ;; esac
   case "$aname" in *:*) fail "$n: name '$aname' contains ':' (reserved for plugin-scoped names, sub-agents doc)" ;; esac
-  [ "${#aname}" -le 256 ] || fail "$n: name is longer than 256 characters (sub-agents doc)"
+  [ "$(chars "$aname")" -le 256 ] || fail "$n: name is longer than 256 characters (sub-agents doc)"
   agent_names="$agent_names$aname
 "
-  agent_desc_chars=$((agent_desc_chars + $(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p' | wc -c | tr -d ' ')))
+  agent_desc_chars=$((agent_desc_chars + $(chars "$(fm_value "$f" description)")))
   [ -z "$dup" ] && [ -z "$bad" ] && pass "$n frontmatter"
 done
 dupnames="$(printf '%s' "$agent_names" | sed '/^$/d' | sort | uniq -d | tr '\n' ' ')"
@@ -193,19 +199,23 @@ for d in "$src"/skills/*/; do
   [ "$name" = "$dn" ] || fail "$n: name '$name' differs from directory '$dn'"
   desc="$(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p')"
   wtu="$(frontmatter "$f" | sed -n 's/^when_to_use:[[:space:]]*//p')"
+  wtu_ok=1
+  if printf '%s\n' "$keys" | grep -qx when_to_use; then
+    case "$wtu" in ""|"|"|">"|"|-"|">-"|"|+"|">+") wtu_ok=0; fail "$n: when_to_use missing or not on one line (the length check reads one line)" ;; esac
+  fi
   if [ -z "$desc" ]; then
     fail "$n: description missing or not on one line"
   else
-    # description and when_to_use share one 1,536-character cap in the skill listing (skills doc); wc -m counts characters (bytes under a C locale, which only overcounts)
-    len="$(printf '%s %s' "$desc" "$wtu" | wc -m | tr -d ' ')"
+    # description and when_to_use share one 1,536-character cap in the skill listing (skills doc); one space joins them only when both exist
+    len="$(chars "$desc${wtu:+ $wtu}")"
     [ "$len" -le 1536 ] || fail "$n: description + when_to_use is $len characters (listing cap 1536)"
   fi
   lines="$(wc -l < "$f" | tr -d ' ')"
-  [ "$lines" -le 500 ] || fail "$n: $lines lines (skills doc: keep SKILL.md under 500 lines; move reference material to separate files)"
+  [ "$lines" -le 500 ] || fail "$n: $lines lines, over 500 (skills doc: keep SKILL.md under 500 lines; move reference material to separate files)"
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$skill_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
-  [ -z "$dup" ] && [ -z "$bad" ] && [ "$name" = "$dn" ] && [ -n "$desc" ] && pass "$n frontmatter"
+  [ -z "$dup" ] && [ -z "$bad" ] && [ "$name" = "$dn" ] && [ -n "$desc" ] && [ "$wtu_ok" = 1 ] && pass "$n frontmatter"
 done
 
 # 8. everything apply.sh copies exists

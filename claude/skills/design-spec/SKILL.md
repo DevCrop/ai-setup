@@ -1,7 +1,7 @@
 ---
 name: design-spec
 description: 디자인. Turn a spec into a design spec at docs/design-<topic>.md with tokens, per-screen layout, component states and accessibility values. Use after the spec and before markup is written.
-when_to_use: Requests such as 디자인 스펙 만들어줘, 화면 설계 정리해줘, 컴포넌트 상태랑 토큰 정리, write the design spec before markup.
+when_to_use: Requests such as 디자인 스펙 문서 만들어줘, 화면 설계서 정리해줘, 디자인 토큰이랑 화면 레이아웃 정리, write the design spec before markup.
 ---
 
 Run this in the main conversation after the spec exists. Output is a document, not code.
