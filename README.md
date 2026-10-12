@@ -28,7 +28,7 @@ Then open http://127.0.0.1:8787 (it should answer 200). Open a new Claude Code s
 | # | What | How you check it |
 |---|---|---|
 | 1 | Claude Code 2.1.295 or newer, logged in (`claude auth login`). Credentials are never in this repo | `claude --version`; `bash scripts/qa-deny.sh` fails its CLI cases when logged out (seen 2026-10-12) |
-| 2 | `git`, `jq` (also needed by the status line), `node` 22+, `python` or `python3`, `gh`; `rtk` recommended (`winget install rtk-ai.rtk`, `brew install rtk`) | `command -v rtk jq node gh python3` |
+| 2 | `git`, `jq` (also needed by the status line), `node` 22+, `python` or `python3`, `gh`; `rtk` recommended (`winget install rtk-ai.rtk`, `brew install rtk`) | `python3 scripts/bootstrap.py check` ends with `missing required: none` |
 | 3 | Plugins: `ponytail@ponytail` (always on) and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh` | `claude plugin list`; the script prints `OK` |
 | 4 | Scheduled task `daily-claude-update`: create it in the Claude app from `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with this clone's path). In the app's Scheduled settings pick **Sonnet** and permission mode **auto**: no script or tool can set either | run it once; `reports/YYYY-MM-DD.md` appears; the run session shows the model |
 | 5 | Project folder for the dashboard: `state/project-roots.txt` (one folder per line, or env `PROJECT_ROOTS`; differs per machine and is gitignored) | the dashboard project list shows your projects |
