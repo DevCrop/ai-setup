@@ -25,7 +25,7 @@ dest="${dest%/}"
 [ -n "$dest" ] || { echo "apply: the config directory resolves to an empty path" >&2; exit 2; }
 
 # Files and directories copied. scheduled-tasks/ is excluded: it is created in the app.
-# Skills are listed one by one: other skills (for example archify) live in the same directory.
+# Skills are listed one by one: skills from other sources live in the same directory.
 items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks routines skills/orchestrate skills/project-setup skills/spec-writing skills/design-spec skills/ui-baseline"
 
 command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). macOS: brew install jq   Windows: winget install jqlang.jq" >&2; exit 2; }

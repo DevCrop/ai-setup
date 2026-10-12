@@ -39,7 +39,6 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - When compacting, always preserve the list of modified files, the test and check commands, and open issues.
 
 ## Tools
-- Diagrams: Archify is used only when the user asks for a diagram.
 - Ponytail is always on (plugin `ponytail@ponytail`, enabled in `settings.json`). `/ponytail off` turns it off for a session.
 
 ## Updates
