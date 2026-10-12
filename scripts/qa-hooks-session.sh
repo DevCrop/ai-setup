@@ -119,7 +119,7 @@ audit "$t/dirlog" '{"source":"user_settings"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && ok "audit: an unwritable log (a directory) still exits 0 with no stderr" || bad "audit: unwritable log ($rc) [$err]"
 compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/empty\"}"
 printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a cwd without a note falls back to CLAUDE_PROJECT_DIR" || bad "compact: no fallback from a note-less cwd [$out]"
-compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/gone/wt\"}"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/gone/wt\"}"  # no CLAUDE_PROJECT_DIR: only the cwd walk can find it
 printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a removed cwd is skipped and its parents are still searched" || bad "compact: removed cwd [$out]"
 mkdir -p "$t/realcfg"; ln -s "$t/realcfg" "$t/linkcfg"
 audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$t/realcfg/settings.json\"}"
