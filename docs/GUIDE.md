@@ -55,7 +55,7 @@ Needed before the quick path (`python3 scripts/bootstrap.py check` lists all of 
 - `jq` (required by `apply.sh` and the status line), `python3` (dashboard, QA scripts), `bash` (macOS or Git Bash on Windows).
 - `rtk` (recommended): `winget install rtk-ai.rtk` on Windows, `brew install rtk` on macOS. It must be on PATH of the shell that Claude Code uses; after a fresh install open a new terminal or restart the app. Without it Bash still works, only the output filtering is off; `bash scripts/qa-deny.sh` should be run once where it is installed.
 - `node` (Ponytail hooks; the UI QA needs node 22+), `gh` (daily routine, optional).
-- Adding a tool: one entry in `tools.json` (`id`, `label`, `kind`, `required`, `bin`, `env`, `version`, optional `min`, `paths`, `home`, `setup`, `install`, `note`); `bootstrap.py check` shows it at once. Per-machine paths go in `state/machine.json`, never in `tools.json`.
+- Adding a tool: one entry in `tools.json`: `id`, `label`, `kind` (`dep` or `tool`), `required`, `bin`; optional `env`, `version`, `min`, `why`, `paths`, `home`, `setup` (needs `repo`, `marker`, `verify`), `install` (`winget`, `brew`, `cask` or `url`), `note`. `bootstrap.py check` shows it at once. Per-machine paths go in `state/machine.json`, never in `tools.json`.
 - Windows: Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. `.gitattributes` keeps shell scripts on LF.
 
 ```
