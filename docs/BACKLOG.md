@@ -6,11 +6,11 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 | # | Do | Done when |
 |---|---|---|
-| M1 | GUIDE local checks L-1 / L-2, then L-5 (`verify.sh --live --full` runs the 30 live `qa-deny.sh` cases) | `0 FAIL`; it is the first run with the real RTK hook |
+| M1 | GUIDE local checks L-1 / L-2, then L-5 (`bash scripts/qa-deny.sh`, also run by `verify.sh --live --full`: 30 live cases) | `0 FAIL`; it is the first run with the real RTK hook |
 | M2 | Claude app, Scheduled settings of `daily-claude-update`: model **Opus** (decision 2026-10-12) and permission mode **auto** | GUIDE L-10; the run session shows `claude-opus-5-5` |
 | M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto | matches `claude/CLAUDE.md` (Safety) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
-| M5 | The macOS run (GUIDE L-2). It lifts the feature freeze and unblocks everything in section 6 | GUIDE L-2 passes |
+| M5 | The macOS run (GUIDE L-2). It lifts the feature freeze and unblocks the macOS items in section 6 | GUIDE L-2 passes |
 
 ## 2. Security (first)
 
@@ -58,11 +58,15 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | D2 | Keep the chat-confirmation lines in `claude/CLAUDE.md` (Safety: "Before overwriting or deleting, show the target and get confirmation")? | since 2026-10-12 they are the remaining guard for `rm`, `branch -D`, `stash drop`/`clear` (DECISIONS "Ask rules cover push only", "Left to the classifier and the chat-confirmation lines"); dropping them reopens that |
 | D3 | Bash sandbox on macOS and Linux only? | not adopted because native Windows lacks it (DECISIONS "Not adopted this round"); it is the OS-level backstop for what secret-guard and the deny rules cannot see |
 
-## 6. Waiting for the macOS run (M5)
+## 6. Waiting on something outside this repo
+
+On the macOS run (M5):
 
 - Frozen features (DECISIONS 2026-10-12 "Dashboard feature freeze kept until the Mac run"): the tools tab, and the project search to depth 3.
 - Deferred findings 6–10 of PR #91 (same entry): LaunchAgent PATH, `bootstrap.sh` installing git when present, the `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS and Linux.
-- The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet"), asked of the Codex side.
+
+On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
+- The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 
 ## 7. Measure
 
@@ -71,7 +75,7 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | R1 | Prompt cache TTL trial (DECISIONS 2026-10-11, PR #46) | due 2026-10-14 to 10-18: `/usage` Behavior flags and Attribution; drop `subagentPromptCacheTtl` if short subagents dominate |
 | R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls per session |
 | R3 | `autoCompactWindow` 400000, AO numbers, a real Codex reviewer run in AO | DECISIONS "Cache reads are shown as their own cost" (Open) and "AO reviewer lane" (Not verified) |
-| R4 | The dashboard efficiency hint still describes the Sonnet lanes (`scripts/dashboard/efficiency.py`) | rewrite after R2 |
+| R4 | The dashboard efficiency hint still describes the Sonnet lanes (`scripts/dashboard/efficiency.py`) | rewrite after R2 and after the freeze lifts (DECISIONS "Model lanes") |
 
 ## 8. Known limits (no action unless they bite)
 
