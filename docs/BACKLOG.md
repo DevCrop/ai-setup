@@ -26,7 +26,6 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | # | Where | Problem | Done when |
 |---|---|---|---|
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
-| C14 | `scripts/dashboard/codex.py:77`, `server.py:101`, `:337`, `projects.py:265` | these `shutil.which` hits (codex, ao, rtk) are run by name; on Windows a binary in the dashboard's current folder would be found first (same class as the closed C5 in `toolreg.which`) | the dashboard resolves them like `toolreg.which` or runs from the repo folder; test |
 
 ## 4. Tests and CI
 

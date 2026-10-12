@@ -9,6 +9,7 @@ import json, os, re, shutil
 from pathlib import Path, PureWindowsPath
 
 from fsutil import newest_file
+from procs import which
 
 SECRET_KEY = re.compile(r"authorization|token|secret|passw(or)?d|pwd|apikey|accesskey|privatekey|credential|cookie|signature", re.I)
 SECRET_VALUE = re.compile(r"Bearer\s+\S{16,}|sk-\S{16,}|gh[pousr]_\S+|github_pat_\S+|xox\S-\S+|AKIA[0-9A-Z]{12,}|AIza\S{20,}|eyJ[A-Za-z0-9_-]{20,}"
@@ -262,7 +263,7 @@ def rule_container(ctx):
 def rule_rtk_twins(ctx):
     d, f, al, cl, perm, text, cfg, local = ctx.d, ctx.f, ctx.al, ctx.cl, ctx.perm, ctx.text, ctx.cfg, ctx.local
     # rtk twins: this machine's global setup evaluates permission rules on the rtk-rewritten command (claude-global CLAUDE.md)
-    if shutil.which("rtk"):
+    if which("rtk"):
         miss = {}
         for kind in ("deny", "ask", "allow"):
             rs = [r for r in (perm.get(kind) if isinstance(perm.get(kind), list) else []) if isinstance(r, str) and r.startswith("Bash(")]

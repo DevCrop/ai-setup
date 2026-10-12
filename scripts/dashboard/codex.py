@@ -8,6 +8,7 @@ Where the TRACE checkout is: TRACE_DIR, else the first line of state/trace-dir.t
 import json, os, shutil, sys
 from collections import Counter
 from pathlib import Path
+from procs import which
 
 MIN_PY = (3, 11)  # TRACE needs tomllib
 MAX_ITEMS = 40
@@ -74,7 +75,7 @@ class CodexSetup:
             return None, short(p.stderr) or f"exit {p.returncode}, JSON 아님"
 
     def codex_cli(self):
-        exe = shutil.which(os.environ.get("CODEX_BIN") or "codex")  # a CODEX_BIN that names no file is "not found", like no codex on PATH
+        exe = which(os.environ.get("CODEX_BIN") or "codex")  # a CODEX_BIN that names no file is "not found", like no codex on PATH
         if not exe:
             return {"found": False, "version": None}
         try:

@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fsutil import mem_dir
+from procs import which
 
 
 class Fix(ABC):
@@ -105,9 +106,9 @@ class RtkUpdate(Fix):
     @staticmethod
     def installer():
         """Update command for this machine: winget on Windows, brew on macOS. None when neither exists."""
-        if shutil.which("winget"):
+        if which("winget"):
             return ["winget", "upgrade", "--id", "rtk-ai.rtk", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
-        if shutil.which("brew"):
+        if which("brew"):
             return ["brew", "upgrade", "rtk"]
         return None
 

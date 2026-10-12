@@ -539,5 +539,33 @@ finally:
 check(not any("host" in p or ":" in p.replace(str(tmp), "") for p in seen), "rule_hooks(): UNC, absolute and drive paths are not passed to exists()", seen)
 check(len(got) == 1 and "(2" in got[0]["what"] and any(p.endswith("pre+commit@v2.sh") for p in seen), "rule_hooks(): relative missing scripts count, also names with + and @", got)
 
+# ---- BACKLOG C14: on Windows a binary in the dashboard's current folder is never taken for a tool (codex, ao, rtk, winget, brew) ----
+import procs, shutil as _sh
+here = tmp / "cwdbin"; here.mkdir(exist_ok=True)
+fake = here / "rtk"
+fake.write_text("", encoding="utf-8")
+real_which, oldcwd, oldpath = _sh.which, os.getcwd(), os.environ.get("PATH", "")
+os.chdir(here)
+procs.shutil.which = lambda n, *a, **k: str(fake) if n == "rtk" else real_which(n, *a, **k)
+try:
+    check(procs.which("rtk", windows=True) is None, "procs.which: a hit in the current folder (not on PATH) is refused on Windows")
+    check(procs.which("rtk", windows=False) == str(fake), "procs.which: POSIX keeps shutil.which")
+    try:
+        procs.resolve(["rtk", "--version"], windows=True)
+        check(False, "procs.resolve: a bare name found only in the current folder is not started")
+    except FileNotFoundError:
+        check(True, "procs.resolve: a bare name found only in the current folder is not started")
+    os.environ["PATH"] = str(here) + os.pathsep + oldpath
+    check(procs.resolve(["rtk", "--version"], windows=True) == [str(fake), "--version"], "procs.resolve: the current folder counts when it is on PATH")
+    check(procs.resolve(["/x/y/tool", "a"], windows=True) == ["/x/y/tool", "a"], "procs.resolve: a command with a path is left alone")
+finally:
+    os.environ["PATH"] = oldpath
+    procs.shutil.which = real_which
+    os.chdir(oldcwd)
+import ast
+src = {f.name: (Path(__file__).resolve().parent / "dashboard" / f.name).read_text(encoding="utf-8") for f in (Path(__file__).resolve().parent / "dashboard").glob("*.py")}
+direct = [n for n, t in src.items() if n != "procs.py" and "shutil.which(" in t]
+check(direct == [], "dashboard modules look tools up through procs.which, not shutil.which", direct)
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)
