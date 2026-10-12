@@ -4,7 +4,8 @@
 # (https://code.claude.com/docs/en/hooks), so the note is cut at 8,000 bytes without splitting a UTF-8 character.
 # The search starts at the input's cwd, which follows Claude into a worktree; when that finds nothing (a cwd outside the project, or a
 # removed one), it starts again at ${CLAUDE_PROJECT_DIR}, which stays at the launch folder.
-# The search goes up to the first .claude/handoff.md and stops at the home folder (compared with -ef, so a symlinked or differently
+# The search goes up to the first .claude/handoff.md, stops at the nearest project mark (.git, CLAUDE.md, AGENTS.md, .claude) that has
+# no note, and stops at the home folder (compared with -ef, so a symlinked or differently
 # spelled home is still the home folder), which is never a project. Never blocks: always exit 0, nothing on stderr.
 max=8000
 {
@@ -20,6 +21,8 @@ find_note() {
   case "$d" in *\\*|?:*) command -v cygpath >/dev/null && d="$(cygpath -u "$d")" ;; esac
   while [ -n "$d" ] && [ "$d" != "." ] && ! [ "$d" -ef "$HOME" ]; do
     if [ -f "$d/.claude/handoff.md" ]; then printf '%s' "$d/.claude/handoff.md"; return; fi
+    # a project mark without a note ends the walk: a nested project never gets its parent's note (project rule, global CLAUDE.md)
+    if [ -e "$d/.git" ] || [ -f "$d/CLAUDE.md" ] || [ -f "$d/AGENTS.md" ] || [ -d "$d/.claude" ]; then return; fi
     p="$(dirname "$d")"
     [ "$p" = "$d" ] && return
     d="$p"

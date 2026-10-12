@@ -77,6 +77,7 @@ Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewr
 - `claude/agents/` — subagents `explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`
 - `claude/skills/` — `orchestrate`, `project-setup`, `spec-writing`, `design-spec`, `ui-baseline`
 - `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push/update-index/mv/apply --index/am` of secret-looking files (the list is `is_secret` in the script); fails closed when it cannot judge
+- `claude/hooks/compact-context.sh`, `claude/hooks/config-audit.sh` — SessionStart (compact) hook that re-injects the project's handoff note, and ConfigChange hook that logs edits to `~/.claude` for `verify.sh --live` (never block)
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
 - `docs/` — `GUIDE.md` (start here), `DECISIONS.md`, `evidence.md` (Korean originals kept verbatim), `codex-alignment.md`, `review-claude-mem.md`
 - `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py` (+ `bootstrap.sh`, `bootstrap.ps1` for a bare machine) — tool registry and the machine setup entry point

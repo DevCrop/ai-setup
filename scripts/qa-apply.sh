@@ -162,10 +162,21 @@ for bad in '"x"' '[1,2]' '{"claude-opus-5-5":"high"}'; do
   v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
   out="$(apply 2>&1)"; rc=$?
   if [ "$rc" = 0 ] && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" \
-     && printf '%s' "$out" | grep -q "modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
-    pass "10c modelSettings $bad: verify warns, apply repairs and names the field"
+     && printf '%s' "$out" | grep -q "modelSettings" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
+    pass "10c modelSettings $bad: verify warns, apply repairs and names it"
   else bad "10c modelSettings $bad (rc=$rc; $out; $(printf '%s' "$v" | grep -i modelsettings))"; fi
 done
+
+# 10d. a live permissions or enabledPlugins that is not an object: verify --live FAILs (never a false PASS), apply repairs and names it
+newcfg; apply >/dev/null
+jq '.permissions=["x"] | .enabledPlugins=[]' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+out="$(apply 2>&1)"; rc=$?
+if printf '%s' "$v" | grep -q "^FAIL  .*settings.json has a key of the wrong type" && ! printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" \
+   && [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "permissions (was not an object)" && printf '%s' "$out" | grep -q "enabledPlugins (was not an object)" \
+   && [ "$(live '.permissions.deny|length')" = "$(jq '.permissions.deny|length' "$repo/claude/settings.json")" ] && [ "$(live '.permissions.disableBypassPermissionsMode')" = disable ]; then
+  pass "10d a non-object permissions/enabledPlugins: verify FAILs, apply repairs and names both"
+else bad "10d wrong-type containers (rc=$rc; $out; $(printf '%s' "$v" | grep -i 'settings.json' | head -2))"; fi
 
 # 10b. verify --live names config changes recorded after the last apply (config-audit.sh log), and skips the ones within 2 minutes
 newcfg; apply >/dev/null

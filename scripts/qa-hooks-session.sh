@@ -32,6 +32,11 @@ compact "$t/home/w/proj" '{"source":"compact"}'
 compact "$t/home/w/proj/sub/deep" '{"source":"compact"}'
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: found from a subfolder of the project" || bad "compact: subfolder [$out]"
 
+mkdir -p "$t/home/w/proj/nested/.git"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/nested\"}"
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && printf '%s' "$out" | grep -q '^Context was compacted. Keep' \
+  && ok "compact: a nested project (.git) without a note does not get its parent's note" || bad "compact: nested project [$out]"
+
 compact "$t/home/w/empty" '{"source":"compact"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && printf '%s' "$out" | grep -q '^Context was compacted. Keep the list of modified files' \
   && ! printf '%s' "$out" | grep -q 'home note' && ok "compact: no note gives the one-line reminder and never reads the home folder's .claude" \

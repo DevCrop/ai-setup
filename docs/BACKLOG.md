@@ -19,7 +19,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | S1 | `claude/hooks/secret-guard.sh:15`, `:41`, `:74` | `GIT add -A` exits at the case-sensitive gates (15, 41); `git.exe add -A` (Git Bash) is skipped at 74 | `qa-hooks.sh` cases for both block |
 | S2 | `secret-guard.sh:72`, `:102` | only `cd` moves the hook's cwd, not `pushd`; outside a repo `rev-parse` fails first, so even a literal secret path is not checked | `pushd repo && git add .env` blocks in `qa-hooks.sh` |
 | S3 | `claude/settings.json` hooks | secret-guard watches Bash only; a commit through GitHub MCP (`push_files`, `create_or_update_file`) is not checked | an MCP matcher, or the limit written in GUIDE (Secret-guard hook) |
-| S4 | `settings.json` `Read(**/...)` deny | per the permissions doc a pattern without `/`, `~/` or `//` is relative to the cwd, so `~/.ssh/id_rsa` and `~/.netrc` may be readable (not verified) | checked against the current permissions doc and a `claude -p` probe; `~/` forms added if needed |
 | S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
 | S6 | `scripts/dashboard/projects.py:318` (Windows) | a project hook path `\\host\share\x` makes `.exists()` contact that SMB host on every 10 s refresh | absolute, UNC and drive paths rejected as in `server.py` `ui_asset`; unit test |
 | S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail, claude-mem and Archify install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
@@ -41,6 +40,7 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | C9 | `scripts/dashboard/server.py:558` | a negative `Content-Length` blocks a handler thread (needs the token) | values below 0 rejected |
 | C10 | `scripts/dashboard/fixes.py` `MemRedactOn` | offered when `settings.json` is missing or broken, then fails; the preview names `~/.claude-mem` even with `CLAUDE_MEM_DIR` set | preview and run agree; test |
 | C11 | `scripts/apply.sh` manifest | files of a skill dropped from the copy list stay in `~/.claude/skills`, unreported | reported or removed |
+| C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
 
 ## 4. Tests and CI
 
@@ -67,15 +67,15 @@ On the macOS run (M5):
 
 On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
+- The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
 
 ## 7. Measure
 
 | # | What | When and how |
 |---|---|---|
 | R1 | Prompt cache TTL trial (DECISIONS 2026-10-11, PR #46) | due 2026-10-14 to 10-18: `/usage` Behavior flags and Attribution; drop `subagentPromptCacheTtl` if short subagents dominate |
-| R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls per session |
+| R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls in the main thread and in Haiku executors, which inherit the advisor and read the "consult it before done" rule (advisor doc) |
 | R3 | `autoCompactWindow` 400000, AO numbers, a real Codex reviewer run in AO | DECISIONS "Cache reads are shown as their own cost" (Open) and "AO reviewer lane" (Not verified) |
-| R4 | The dashboard efficiency hint still describes the Sonnet lanes (`scripts/dashboard/efficiency.py`) | rewrite after R2 and after the freeze lifts (DECISIONS "Model lanes") |
 
 ## 8. Known limits (no action unless they bite)
 

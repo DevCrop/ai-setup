@@ -4,8 +4,10 @@
 # runtime data. There is no backup: git is the history. To go back, check out the older commit and run this script again.
 #
 # settings.json is merged key by key, not replaced:
-#   - this repo owns permissions.{defaultMode,deny,ask,allow}, autoMode, hooks, statusLine, extraKnownMarketplaces and skillOverrides:
-#     the live value is replaced by the repo value (a key the repo lacks is deleted), so a rule added by hand on a machine cannot stay;
+#   - this repo owns permissions.{defaultMode,disableBypassPermissionsMode,deny,ask,allow}, autoMode, hooks, statusLine,
+#     extraKnownMarketplaces and skillOverrides: the live value is replaced by the repo value (a key the repo lacks is deleted), so a
+#     rule added by hand on a machine cannot stay; of modelSettings only the fields the repo sets are owned (levels saved for other
+#     models and other fields of the same entry stay);
 #   - every other key present in the repo (model, effortLevel, ...) takes the repo value;
 #   - keys that only exist on the machine (env, a plugin enabled by "claude plugin install", app settings) are kept and reported;
 #   - scripts/removed-keys.json lists keys that are deleted from the live file.
@@ -48,6 +50,9 @@ jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpf
   def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
   def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
   $l[0] as $l | $r[0] as $r | $x[0] as $x
+  # a live value of the wrong type (permissions: ["x"]) would make the merge fail; it is replaced like a hand edit
+  | ($l | .permissions |= (if type == "object" then . else {} end) | .enabledPlugins |= (if type == "object" then . else {} end)
+        | .modelSettings |= (if type == "object" then . else {} end)) as $l
   | ($l * $r)
   | reduce own_top[] as $k (.; if ($r | has($k)) then .[$k] = $r[$k] else del(.[$k]) end)
   | .permissions = ((.permissions // {}) | reduce own_perm[] as $k (.; if (($r.permissions // {}) | has($k)) then .[$k] = $r.permissions[$k] else del(.[$k]) end))
@@ -58,7 +63,10 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
   def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
   def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
   $l[0] as $l | $r[0] as $r | $x[0] as $x
-  | ([own_top[] as $k | select(($l | has($k)) and ($l[$k] != $r[$k])) | $k]
+  | ([("permissions", "enabledPlugins", "modelSettings") as $k | select(($l | has($k)) and ($l[$k] | type) != "object") | $k + " (was not an object)"]) as $bad
+  | ($l | .permissions |= (if type == "object" then . else {} end) | .enabledPlugins |= (if type == "object" then . else {} end)
+        | .modelSettings |= (if type == "object" then . else {} end)) as $l
+  | ($bad + [own_top[] as $k | select(($l | has($k)) and ($l[$k] != $r[$k])) | $k]
      + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]
      + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "modelSettings" or $k == "env") | not) | select(($l | has($k)) and $l[$k] != $r[$k]) | $k]
      + [($r.enabledPlugins // {} | to_entries[]) as $e | select((($l.enabledPlugins // {}) | has($e.key)) and (($l.enabledPlugins // {})[$e.key] != $e.value)) | "enabledPlugins." + $e.key]
