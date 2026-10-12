@@ -306,8 +306,6 @@ def rule_skills(ctx):
         yield finding("fix", "warn", "skills 문제 (500줄 초과 %d, description 없음 %d)" % (sk.count("길이"), sk.count("description")), "SKILL.md는 500줄 이하를 권장하고, description이 있어야 Claude가 언제 쓸지 판단합니다.", "긴 참고 자료는 별도 파일로 옮기고 frontmatter에 description을 씁니다.", "skills")
 
 
-
-
 def rule_hooks(ctx):
     d, f, al, cl, perm, text, cfg, local = ctx.d, ctx.f, ctx.al, ctx.cl, ctx.perm, ctx.text, ctx.cfg, ctx.local
     hk = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
@@ -320,7 +318,7 @@ def rule_hooks(ctx):
                 rel = m.group(1) if m else ""
                 # an absolute, UNC (//host, \\host) or drive path (C:) never reaches the filesystem: exists() could contact a network host
                 # on every refresh. Other relative names (with +, @, spaces) are still checked.
-                far = rel[:1] in "/\\" or ":" in rel or PureWindowsPath(rel).anchor
+                far = rel[:1] in "/\\" or ":" in rel or "$" in rel or PureWindowsPath(rel).anchor  # $VAR: unknown name
                 if rel and not far and ".." not in re.split(r"[\\/]", rel) and not (d / rel).exists():
                     gone += 1
     if gone:
