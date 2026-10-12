@@ -1,6 +1,6 @@
 # Claude and Codex setups side by side
 
-This repo (`claude/`, applied to `~/.claude`) and [DevCrop/codex-setup](https://github.com/DevCrop/codex-setup) (TRACE v1.2.4, applied to `~/.codex`; it touches `~/.agents/skills` only to retire old files) are two global setups on the same machines. Each tool loads only its own files, so nothing is shared automatically.
+This repo (`claude/`, applied to `~/.claude`) and [DevCrop/codex-setup](https://github.com/DevCrop/codex-setup) (TRACE v1.3.2, applied to `~/.codex`; its bundled skills go to `~/.agents/skills`) are two global setups on the same machines. Each tool loads only its own files, so nothing is shared automatically.
 
 They are kept apart on purpose:
 - Each file follows its own vendor's official docs.
@@ -48,7 +48,8 @@ The reviewer reads the project `AGENTS.md` and `~/.codex/AGENTS.md`. It never re
 3. **Codex review quota.** The ChatGPT Codex GitHub review bot reported "usage limits for code reviews" on PR #74 (2026-10-12). Not checked: whether AO's Codex reviewer (the Codex CLI) draws on the same quota.
 
 ## Asks for the Codex side (codex-setup is maintained by Codex; this repo does not change it)
-The handoff note to paste into a Codex session, with evidence lines, a repro and done criteria, is `docs/codex-handoff.md` (Korean).
-- Skills are deployed to `$CODEX_HOME/skills`. Codex source marks that path deprecated ("Deprecated user skills location (`$CODEX_HOME/skills`), kept for backward compatibility.", `codex-rs/ext/skills/src/host_roots.rs` at `openai/codex` `9f3d255`); the current location is `~/.agents/skills`. No `files` entry in `manifest.json` sets `root`, so `setup.py` defaults it to `codex` (only `retired` entries use `personal_skills`), while the README describes `~/.agents/skills` as the personal skill root.
-- `setup.py verify` does not detect a legacy `[profiles.<name>]` table in `config.toml` with the same name as a `<name>.config.toml` profile file. The Codex loader refuses `--profile <name>` in that case (`codex-rs/config/src/loader/tests.rs`, `profile_v2_rejects_matching_legacy_profile_in_base_user_config`).
-- Both findings come from reading source only. Recheck them against the official docs, which this cloud container cannot reach.
+None open. The two asks from 2026-10-12 were fixed by Codex in [codex-setup v1.3.2](https://github.com/DevCrop/codex-setup/releases/tag/v1.3.2) (DevCrop/codex-setup#19):
+- Bundled `archify` and `ponytail` now install to `~/.agents/skills` (confirmed in the official [skills docs](https://learn.chatgpt.com/docs/build-skills)). Old TRACE-owned copies in `$CODEX_HOME/skills` are retired only when recorded and unmodified.
+- `setup.py verify` fails on a legacy `[profiles.<name>]` table that clashes with a `<name>.config.toml` profile. `doctor` does not run this check.
+
+The handoff note that carried them was removed; it is in git history (`git show 4148b3b:docs/codex-handoff.md`).

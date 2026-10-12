@@ -13,7 +13,6 @@ Source of truth for the global Claude Code setup (`~/.claude` on each machine).
 - `docs/DECISIONS.md` — why the setup is the way it is, and how to undo each decision
 - `docs/evidence.md` — measurements and the original wording of older decisions (Korean, verbatim)
 - `docs/codex-alignment.md` — how this setup and the Codex setup (codex-setup) line up; the AO Codex reviewer
-- `docs/codex-handoff.md` — handoff note for Codex: two checks requested on codex-setup (Korean)
 - `state/last-seen.json` — per-machine baseline for the daily routine (gitignored, created by the routine)
 - `scripts/apply.sh` — merges `claude/` into `~/.claude/` (settings.json key by key, no backup: git is the history)
 - `scripts/verify.sh` — read-only checks: repo, `--live` for this machine's applied state, `--full` adds the deny/ask QA
