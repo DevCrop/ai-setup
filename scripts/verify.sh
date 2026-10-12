@@ -77,6 +77,7 @@ for f in "$repo"/scripts/*.sh; do bash -n "$f" 2>/dev/null || { fail "bash -n fa
 # 3. every Bash deny/ask pattern has its rtk twin
 
 if out="$(bash "$repo/scripts/qa-deny.sh" --static 2>&1)"; then pass "$(printf '%s' "$out" | sed 's/^PASS  //')"; else fail "rtk twin check: $out"; fi
+if out="$(bash "$repo/scripts/qa-deny.sh" --selftest-classify 2>&1)"; then pass "qa-deny result $(printf '%s' "$out" | tail -1 | sed 's/^PASS  //')"; else fail "qa-deny classifier: $(printf '%s' "$out" | tail -1)"; fi  # no pipe in the test: its exit code decides
 
 # 3a, 3b: skipped when qa-apply.sh calls this script (they are slow and already ran in the outer run)
 if [ -z "${QA_APPLY_RUNNING:-}" ]; then
