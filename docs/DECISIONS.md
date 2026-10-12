@@ -2,6 +2,22 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — prompts only for push; bypass locked
+
+### Ask rules cover push only; `git -C`/`git -c` forms of the deny rules added; `shred` denied
+- What: `permissions.ask` keeps only `git push *`, `git -C * push*`, `git -c * push*` (with `rtk ` twins). Every git deny rule (reset, clean, checkout, switch, restore, push variants) also exists as `git -C * <rule>` and `git -c * <rule>`; for `clean` the twins are `clean` and `clean -*` (a bare `clean*` tail would also match ` cleanup` in a message), plus `git -c *equire*orce* clean*` and `git -C * -c *equire*orce* clean*`, because `git -c clean.requireForce=false clean .` deletes untracked files without a flag; the second rule covers `-C dir` before `-c` (a leading `git *` would also have matched a plain `git commit` whose message quotes the command, found in review), and `equire*orce` covers the usual spellings (`requireForce`, `RequireForce`, `requireforce`), since git config keys ignore case but rule matching does not. `shred *` moved from ask to deny.
+- Why: the user wants to work without permission prompts (2026-10-12); push stays because "send anything outward only after approval" is a standing rule. The `-C`/`-c` gap was found in review on 2026-10-12: `git -C . reset --hard` and `git -c x=y clean -fdx` matched no deny or ask rule. It was closed before the ask rules were removed, so the classifier was never the only guard for those forms. `shred` has no legitimate use here and cannot be undone, so it is denied rather than left to the classifier.
+- Left to the classifier and the chat-confirmation lines in `claude/CLAUDE.md` (Safety): `rm` (except the `rm -rf` home and root deny rules), `git branch -D` (recoverable from the reflog), `git stash drop`/`clear` (recoverable only with `git fsck --unreachable`, until gc), `git restore <file>` (`restore .` stays denied), `find -delete`.
+- Accepted over-block: the `*` in `git -C * <tail>` spans words, so a `git -C`/`git -c` command whose text later contains a denied tail is denied too, for example `git -C repo commit -m "explain reset --hard"` or `git -C repo log -S "push --force"` (found in review, reproduced with `claude -p`). Deny rules cannot express exceptions, and narrowing them would reopen the gap. Work around it with `cd <dir> && git commit ...` or `git commit -F <file>`.
+- Not covered: `git -C dir clean <path>` in a repository whose own config sets `clean.requireForce=false`, and spellings with other capitals such as `REQUIREFORCE`, and global options before `-c` such as `git --no-pager -c ...` (left to the classifier); `git --no-pager reset --hard` and `git reset HEAD --hard` were already unmatched before this change.
+- Checked: `qa-deny.sh --static` (every rule has its twin), new `qa-deny.sh` cases (`git -C . reset --hard HEAD`, `git -c x=y clean -fdx`, `git -c clean.requireForce=false clean .` and its `-C . -c` and `RequireForce` forms, `git -C . push --force`, `git -c x=y -C . checkout -- f.txt`, `shred` blocked; `git stash clear`, `rm <file>` run). Not checked in CI: the live `qa-deny.sh` run (needs the claude CLI); run `bash scripts/verify.sh --live --full` on each machine.
+- Undo: put back the ask rules `git branch -D *`, `git stash drop *`, `git stash clear *`, `rm *`, `git restore *`, `find * -delete*`, `shred *` with their `rtk ` twins, drop the `shred` deny rules, and restore the removed `qa-deny.sh` cases.
+
+### `permissions.disableBypassPermissionsMode: "disable"`
+- What: bypass mode cannot be selected in sessions that read `~/.claude/settings.json` from this repo. `apply.sh` and `verify.sh` own the key (`own_perm`), and `verify.sh` asserts it.
+- Why: the auto decision (2026-10-11) was a convention; the permissions doc says a user "can set it in their own settings to lock themselves out of bypass mode". Bypass stays for isolated containers and VMs that do not run `apply.sh` (`docs/GUIDE.md`, Permission mode).
+- Undo: remove the key, the `verify.sh` assertion and the key from both `own_perm` lists.
+
 ## 2026-10-12 — project path rule and handoff on the PR
 
 ### The project is found from the cwd by its marks, never from a fixed path
@@ -74,6 +90,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Why: the permission-modes doc recommends auto for working without prompts and documents bypass for isolated containers and VMs only. Deny rules apply in every mode, ask rules always prompt, and a classifier (which also reads `CLAUDE.md`) reviews the rest. Replaces the 2026-10-10 bypass decision.
 - Layers: deterministic (`permissions.deny`, `permissions.ask`, the `secret-guard` hook) plus the `autoMode` block (environment, `soft_deny` for plugin installs, `hard_deny` for secret files; every array keeps `"$defaults"`). `permissions.allow` is empty.
 - Needs Claude Code 2.1.295 or newer (`verify.sh --live` fails below). If auto is unavailable the session starts in Manual mode and the deterministic layer still holds.
+- Locked by setting since 2026-10-12: `permissions.disableBypassPermissionsMode: "disable"` (entry above).
 - Undo: change `permissions.defaultMode` and the assertion in `verify.sh` in one PR.
 
 ### Superpowers is not adopted at any scope
@@ -97,10 +114,10 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Accepted limit: it reads command text, so it is a guard rail, not a boundary.
 
 ### The deny/ask backstop is deliberately broad, with accepted over-blocks
-- Added deny: `git clean` (any flags), `checkout`/`switch -f`, `reset --merge/--keep`, `push --force-with-lease`, `+refspec`, `--delete`/`-d`; Read of keys, `.netrc`, `.npmrc`; Edit of `.env*`, `.credentials*`. Added ask: `git -C/-c ... push` (not matched by `git push *`), `git restore`, `find -delete`, `shred`.
+- Added deny: `git clean` (any flags), `checkout`/`switch -f`, `reset --merge/--keep`, `push --force-with-lease`, `+refspec`, `--delete`/`-d`; Read of keys, `.netrc`, `.npmrc`; Edit of `.env*`, `.credentials*`. Added ask: `git -C/-c ... push` (not matched by `git push *`), `git restore`, `find -delete`, `shred` (the last three, `rm`, `branch -D` and `stash drop/clear` were removed again on 2026-10-12, entry above).
 - Accepted over-blocks: `git clean -n` (even the dry run), editing `.env.example`, reading a project `.npmrc`, editing `.envrc`.
 - A deny with a trailing `:*` (`git push * :*`) never matched when tested with `claude -p`, so it was dropped; `git push origin :branch` is covered by the `git push *` ask rule and the classifier.
-- `rm *` stays an ask rule (the user's "confirm before deleting").
+- `rm *` was an ask rule (the user's "confirm before deleting") until 2026-10-12 (entry above).
 - Reading secrets through Bash (`cat .env`) is left to the `hard_deny` rule and the classifier; `Read` deny rules do not apply to Bash.
 
 ### Not adopted this round
@@ -148,7 +165,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Rules for orchestration live in the `orchestrate` skill, not in `CLAUDE.md`
 - Needed only sometimes (best-practices: occasional knowledge goes in a skill). Description matching is probabilistic; `/orchestrate` is the fallback.
 
-### Deny covers dangerous paths only; ask rules enforce "confirm before push or delete"
+### Deny covers dangerous paths only; ask rules enforce "confirm before push" (delete left to the classifier since 2026-10-12)
 - No blanket `rm -rf *` deny (it would block requested clean-ups). Every Bash rule has an `rtk ` twin because RTK rewrites commands before rules are evaluated (`bash scripts/qa-deny.sh --static` checks it, `qa-deny.sh` tests it).
 
 ### Changes go through a branch and a PR, Claude merges (changed 2026-10-12)
