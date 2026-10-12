@@ -131,13 +131,16 @@ def collect(projects_dir):
         if not any(reqs):
             continue
         sessions += 1  # a fork whose replies were all counted in another file is still a session
-        per = {}
+        per, full = {}, {}
         for r in reqs:
             _add(per, _sum(r, counted))
+            _add(full, _sum(r))
         if not per:
             continue
         _add(models, per)
-        main = max((m for m in per if m in PRICES), key=lambda m: per[m]["output"], default=None)  # the model that wrote the most output carries the session
+        # the model that wrote the most output carries the session, judged on its full logs: a fork sorted first must not take the
+        # original's main-model replies and leave it looking like a Haiku session
+        main = max((m for m in full if m in PRICES), key=lambda m: full[m]["output"], default=None)
         for name, t in per.items():
             own = price(name, t)
             alt = price(main, t) if main else None
@@ -160,13 +163,14 @@ def collect(projects_dir):
 def collect_agents(projects_dir):
     """One row per agent type that ran as a subagent: how often, which model really answered, tokens and list-price cost."""
     rows, base = {}, Path(projects_dir)
-    for meta in base.glob("*/*/subagents/*.meta.json") if base.is_dir() else []:
+    counted = set()  # a subagent log copied into a forked session counts once
+    for meta in sorted(base.glob("*/*/subagents/*.meta.json")) if base.is_dir() else []:
         try:
             doc = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
         kind = doc.get("agentType") if isinstance(doc, dict) else None
-        per = read_log(meta.with_name(meta.name[: -len(".meta.json")] + ".jsonl"))
+        per = _sum(read_requests(meta.with_name(meta.name[: -len(".meta.json")] + ".jsonl")), counted)
         if not isinstance(kind, str) or not per:
             continue
         r = rows.setdefault(kind[:40], {"calls": 0, "models": set(), "costUSD": 0.0, **dict.fromkeys(FIELDS, 0)})
