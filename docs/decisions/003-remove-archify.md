@@ -4,4 +4,4 @@ Approved by the user on 2026-10-13. TRACE sets up Ponytail and RTK only. Archify
 
 Removed: `vendor/archify`, its manifest, lock, registry and retirement entries, its invocation policy, the Archify-rendered `diagrams/global` flow and its receipt check in `validate_repo.py`, and Archify text in the global agreement, guides, templates and current docs. Release notes, verification records and handoffs stay as history.
 
-On a host that had Archify installed, `setup.py plan` removes the TRACE-owned unchanged copies; modified or unowned copies under the personal skill root are left for the user to delete.
+On a host that had Archify installed, `setup.py plan` removes the TRACE-owned copies that are unchanged. A modified owned copy is a conflict that blocks `apply` (existing plan behavior), and deleting it does not clear the conflict because the ownership record still holds its hash; such a host needs its record resolved before upgrading. Copies TRACE never owned (not in the record) are left alone and can be deleted by the user.
