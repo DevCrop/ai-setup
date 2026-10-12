@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook (Bash): block git add/stage/commit/push (and update-index, mv, apply --index, am) when a secret-looking file would be
+# PreToolUse hook (Bash, and GitHub MCP file writes): block git add/stage/commit/push (and update-index, mv, apply --index, am) when a secret-looking file would be
 # staged, committed or pushed. Blocks with exit 2 + stderr (https://code.claude.com/docs/en/hooks).
 # Fail-closed: when a command that could stage files cannot be judged (jq or git missing, unreadable hook input) it is blocked with exit 2.
 # Commands without a git word are never touched. settings.json gives this hook "onFailure": "block" and a 30 s timeout, so a crash or a
@@ -8,6 +8,34 @@
 # with a space given as one quoted argument, an apply/am patch that adds a secret name when the work tree has none. A variable, $() or
 # xargs/find -exec as an argument of add/stage/update-index/apply/am/mv is read as "everything pending" (judged like git add -A).
 input="$(cat)"
+is_secret() {
+  case "$1" in .aws/credentials|*/.aws/credentials) return 0 ;; esac  # the file is just called "credentials": judge it by its directory
+  # pure bash, no process per file: a broad add can list tens of thousands of paths inside the 30 s hook timeout
+  b="${1%/}"; b="${b##*/}"
+  shopt -s nocasematch
+  case "$b" in
+    *.example|*.sample|*.template|id_rsa*.pub|id_ed25519*.pub|id_ecdsa*.pub|id_dsa*.pub) shopt -u nocasematch; return 1 ;;
+    .credentials*|.env|.env.*|.claude.json|history.jsonl|*.pem|*.pem.*|id_rsa*|id_ed25519*|id_ecdsa*|id_dsa*) shopt -u nocasematch; return 0 ;;
+    *.key|*.p12|*.pfx|*.jks|*.keystore|credentials.json|*credentials*.json|.npmrc|.netrc|.pypirc|.pgpass|.htpasswd|.git-credentials|*.tfstate|secrets.yaml|secrets.yml) shopt -u nocasematch; return 0 ;;
+  esac
+  shopt -u nocasematch
+  return 1
+}
+# GitHub MCP file writes (push_files, create_or_update_file; matcher in settings.json): judge the paths they carry. A commit made this way
+# never passes through git on this machine, so the Bash checks below cannot see it.
+if printf '%s' "$input" | grep -Eq '"tool_name"[[:space:]]*:[[:space:]]*"mcp__[^"]*github[^"]*__(push_files|create_or_update_file)"'; then
+  command -v jq >/dev/null 2>&1 || { echo "secret-guard: blocked, jq not found, so this GitHub file write cannot be checked for secret files." >&2; exit 2; }
+  mpaths="$(printf '%s' "$input" | jq -r '[.tool_input.files[]?.path?, .tool_input.path?] | .[] | select(type == "string")' 2>/dev/null)" \
+    || { echo "secret-guard: blocked, unreadable hook input for a GitHub file write." >&2; exit 2; }
+  mhits=""
+  while IFS= read -r f; do [ -n "$f" ] && is_secret "$f" && mhits="$mhits $f"; done <<< "$(printf '%s' "$mpaths" | tr -d '\r')"
+  if [ -n "$mhits" ]; then
+    echo "secret-guard: blocked. This GitHub write would commit secret-looking files:$mhits" >&2
+    echo "Leave them out of the write. *.example, *.sample, *.template are allowed." >&2
+    exit 2
+  fi
+  exit 0
+fi
 # Cheap gate on the raw input: JSON escapes for newline, return and tab become spaces first (else "\ngit" reads as "ngit"), then quotes and
 # backslashes are removed (g''it and g\it are git). No git word, nothing to check. The word is matched in any case: a case-insensitive file
 # system (macOS, Windows) runs GIT or Git.exe as git.
@@ -44,19 +72,6 @@ flat="$(printf '%s' "$cmd" | tr -d "\"'\\\\")"
 { printf '%s' "$flat" | grep -Eiq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' || printf '%s' "$cmd" | tr '\\' ' ' | grep -Eiq "$gitword"; } \
   && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
 
-is_secret() {
-  case "$1" in .aws/credentials|*/.aws/credentials) return 0 ;; esac  # the file is just called "credentials": judge it by its directory
-  # pure bash, no process per file: a broad add can list tens of thousands of paths inside the 30 s hook timeout
-  b="${1%/}"; b="${b##*/}"
-  shopt -s nocasematch
-  case "$b" in
-    *.example|*.sample|*.template|id_rsa*.pub|id_ed25519*.pub|id_ecdsa*.pub|id_dsa*.pub) shopt -u nocasematch; return 1 ;;
-    .credentials*|.env|.env.*|.claude.json|history.jsonl|*.pem|*.pem.*|id_rsa*|id_ed25519*|id_ecdsa*|id_dsa*) shopt -u nocasematch; return 0 ;;
-    *.key|*.p12|*.pfx|*.jks|*.keystore|credentials.json|*credentials*.json|.npmrc|.netrc|.pypirc|.pgpass|.htpasswd|.git-credentials|*.tfstate|secrets.yaml|secrets.yml) shopt -u nocasematch; return 0 ;;
-  esac
-  shopt -u nocasematch
-  return 1
-}
 hits=""
 # Reads NUL-separated paths from stdin (git ... -z), so spaces, quotes and non-ASCII names are not mangled.
 judge() { while IFS= read -r -d '' f; do [ -n "$f" ] && is_secret "$f" && hits="$hits $f"; done; }

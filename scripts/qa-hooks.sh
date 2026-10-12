@@ -237,4 +237,19 @@ raw_run() { # expect raw-stdin
 raw_run 2 'git add -A'
 raw_run 0 'not json, just ls'
 raw_run 0 '{"tool_name":"Read","tool_input":{"file_path":"/x/git/notes.txt"}}'
+# GitHub MCP writes (push_files, create_or_update_file) are judged by the file paths they carry, with or without a plugin prefix
+runmcp() { # expect tool_name tool_input_json
+  out="$(jq -n --arg t "$2" --argjson i "$3" '{tool_name:$t,cwd:"/",tool_input:$i}' | bash "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  $2 $3"; else echo "FAIL want=$1 got=$rc  $2 $3  [$out]"; fail=$((fail+1)); fi
+}
+runmcp 2 mcp__github__push_files '{"owner":"o","repo":"r","branch":"b","message":"m","files":[{"path":"src/a.js","content":"x"},{"path":"config/.env","content":"S=1"}]}'
+runmcp 2 mcp__github__create_or_update_file '{"owner":"o","repo":"r","branch":"b","message":"m","path":"keys/server.KEY","content":"x"}'
+runmcp 2 mcp__plugin_engineering_github__push_files '{"files":[{"path":"id_rsa","content":"x"}]}'
+runmcp 0 mcp__github__push_files '{"files":[{"path":"src/a.js","content":"x"},{"path":".env.example","content":"S="}]}'
+runmcp 0 mcp__github__create_or_update_file '{"path":"README.md","content":"git add .env"}'
+runmcp 0 mcp__github__search_code '{"query":".env"}'
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *)  # without jq a GitHub file write cannot be judged: blocked
+  out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":"a.txt"}]}}' | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = 2 ]; then echo "PASS rc=2  (no jq) mcp push_files"; else echo "FAIL want=2 got=$rc  (no jq) mcp push_files [$out]"; fail=$((fail+1)); fi ;;
+esac
 echo "failures: $fail"; [ "$fail" = 0 ]
