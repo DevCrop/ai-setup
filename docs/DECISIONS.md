@@ -2,6 +2,22 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — tool registry and bootstrap
+
+### One hub, one registry: `tools.json` in this repo, per-machine values in `state/machine.json`
+- What: every dependency and tool (git, python, node, jq, gh, rtk, claude, codex, ao, cursor) is one entry in `tools.json`: how to detect it, its minimum version, its setup checkout candidates and its winget/brew id. `scripts/toolreg.py` reads it; `scripts/bootstrap.py` is the one entry point (`check`, `install`, `clone`, `apply`, `verify`, `autostart`). A new tool is one entry.
+- Why: each machine has different paths (`Projects/<client>/<stage>/<date>`, codex-setup under `Documents/ChatGPT/글로벌 셋업`), and the setup steps were spread over three repos and hand edits (a hard-coded Python313 autostart). The hub stays here because this repo is already cloned first on every machine.
+- Rule: paths in `tools.json` use tokens (`${HOME}`, `${DOCUMENTS}`, `${LOCALAPPDATA}`, `${REPO}`, `${REPO_PARENT}`), never one user's path. Per-machine values go in gitignored `state/machine.json`; precedence is environment variable > `machine.json` > legacy `state/*.txt` > registry candidates.
+- Undo: delete `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.*` and these lines; the dashboard does not import the registry yet.
+
+### Installs only what is missing, one y/N per item, never an upgrade
+- What: `install` runs `winget install --exact --no-upgrade` or `brew install` with `HOMEBREW_NO_INSTALL_UPGRADE=1` only for items not found. A tool that is too old is reported with its upgrade command, not upgraded. Every step that writes shows what it will do, asks y/N on the terminal, refuses without one, and a declined step exits 1.
+- Why: an upgrade can break what already uses the old version, and nothing should change a machine unattended.
+- Checked: `scripts/qa-bootstrap.py` (CI, linux and windows) and `scripts/qa-apply.sh` (the dry run writes nothing). Not checked: a real winget or brew install, macOS. Sources for the flags are in commit `ded49bd`.
+
+### Dashboard feature freeze kept until the Mac run
+- The tools tab and the project search to depth 3 (PR3 of the plan) wait for the macOS run, as the 2026-10-11 "Dashboard structure" entry says. Review findings on the macOS paths of bootstrap (LaunchAgent PATH, `bootstrap.sh`, `bootstrap.ps1` terminal check) are listed in PR #91 and go in with that run.
+
 ## 2026-10-12 — AO reviewer lane
 
 ### AO reviewer lane is Codex `gpt-6.1-sol`; Claude keeps the worker lanes
