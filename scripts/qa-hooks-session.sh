@@ -74,9 +74,16 @@ compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/wt\"}
 printf '%s' "$out" | grep -q 'WORKTREE NOTE' && ok "compact: the input cwd (a worktree) wins over CLAUDE_PROJECT_DIR" || bad "compact: worktree cwd [$out]"
 printf '%s' "$out" | grep -q 'last written [0-9]' && ok "compact: the note's modification time is printed" || bad "compact: no time [$out]"
 
-ln -s "$t/home" "$t/homelink"
-out="$(printf '{}' | HOME="$t/homelink/" CLAUDE_PROJECT_DIR="$t/home/w/empty/" bash "$hooks/compact-context.sh" 2>/dev/null)"
-! printf '%s' "$out" | grep -q 'home note' && ok "compact: a symlinked home with a trailing slash still stops the search" || bad "compact: home note read via symlink [$out]"
+# Git Bash makes a copy for ln -s unless MSYS=winsymlinks:native is set, so these cases run only where a real symlink was made.
+ln -s "$t/home" "$t/homelink" 2>/dev/null
+if [ -L "$t/homelink" ]; then
+  out="$(printf '{}' | HOME="$t/homelink/" CLAUDE_PROJECT_DIR="$t/home/w/empty/" bash "$hooks/compact-context.sh" 2>/dev/null)"
+  ! printf '%s' "$out" | grep -q 'home note' && ok "compact: a symlinked home with a trailing slash still stops the search" || bad "compact: home note read via symlink [$out]"
+else
+  echo "SKIP  compact: symlinked home (ln -s made no symlink here, as on Git Bash by default)"
+fi
+out="$(printf '{}' | HOME="$t/home/" CLAUDE_PROJECT_DIR="$t/home/w/empty/" bash "$hooks/compact-context.sh" 2>/dev/null)"
+! printf '%s' "$out" | grep -q 'home note' && ok "compact: a trailing slash on HOME and the project dir still stops the search" || bad "compact: home note read with trailing slashes [$out]"
 
 if command -v cygpath >/dev/null 2>&1; then
   wp="$(cygpath -w "$t/home/w/proj")"
@@ -121,9 +128,13 @@ compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/empty\"}"
 printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a cwd without a note falls back to CLAUDE_PROJECT_DIR" || bad "compact: no fallback from a note-less cwd [$out]"
 compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/gone/wt\"}"  # no CLAUDE_PROJECT_DIR: only the cwd walk can find it
 printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a removed cwd is skipped and its parents are still searched" || bad "compact: removed cwd [$out]"
-mkdir -p "$t/realcfg"; ln -s "$t/realcfg" "$t/linkcfg"
-audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$t/realcfg/settings.json\"}"
-[ "$(wc -l < "$t/realcfg/config-changes.log" 2>/dev/null | tr -d ' ')" = 1 ] && ok "audit: a symlinked config dir reported by its real path is still logged" || bad "audit: symlinked config dir"
+mkdir -p "$t/realcfg"; ln -s "$t/realcfg" "$t/linkcfg" 2>/dev/null
+if [ -L "$t/linkcfg" ]; then
+  audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$t/realcfg/settings.json\"}"
+  [ "$(wc -l < "$t/realcfg/config-changes.log" 2>/dev/null | tr -d ' ')" = 1 ] && ok "audit: a symlinked config dir reported by its real path is still logged" || bad "audit: symlinked config dir"
+else
+  echo "SKIP  audit: symlinked config dir (ln -s made no symlink here)"
+fi
 audit "$t/missing-dir" '{"source":"user_settings"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && [ ! -e "$t/missing-dir" ] && ok "audit: a missing config dir is not created, exit 0" || bad "audit: missing dir ($rc) [$err]"
 
