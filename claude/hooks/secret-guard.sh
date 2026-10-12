@@ -28,7 +28,9 @@ mcpre='^mcp__.*github.*__(push_files|create_or_update_file)$'
 # input only decides when jq is missing or the input is not JSON, and that case blocks below.
 # tn is the name only for one JSON object with a string tool_name; any other shape is a non-empty marker that matches nothing
 tn=""; jqok=0
-if command -v jq >/dev/null 2>&1 && tn="$(printf '%s' "$input" | jq -r 'if type == "object" and (.tool_name | type) == "string" then .tool_name else "(bad-shape)" end' 2>/dev/null | tr -d '\r')"; then jqok=1; fi
+# no pipe after jq: the assignment's status must be jq's, so a failed parse leaves jqok=0
+if command -v jq >/dev/null 2>&1 && tn="$(printf '%s' "$input" | jq -r 'if type == "object" and (.tool_name | type) == "string" then .tool_name else "(bad-shape)" end' 2>/dev/null)"; then jqok=1; fi
+tn="${tn//$'\r'/}"
 # an odd shape (no jq, not JSON, a non-string name, several objects) that still names a GitHub write is judged as one
 odd=0; { [ "$jqok" = 0 ] || [ "$tn" = "(bad-shape)" ] || [[ "$tn" == *$'\n'* ]]; } && odd=1
 if [[ "$tn" =~ $mcpre ]] || { [ "$odd" = 1 ] && printf '%s' "$input" | grep -Eq 'mcp__[^"]*github[^"]*__(push_files|create_or_update_file)'; }; then

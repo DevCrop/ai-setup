@@ -234,6 +234,8 @@ raw_run() { # expect raw-stdin
   out="$(printf '%s' "$2" | bash "$hook" 2>&1)"; rc=$?
   if [ "$rc" = "$1" ]; then echo "PASS rc=$rc  (raw) $2"; else echo "FAIL want=$1 got=$rc  (raw) $2  [$out]"; fail=$((fail+1)); fi
 }
+raw_run 2 'xx mcp__github__push_files {"path":".env"'
+raw_run 2 'xx mcp__github__create_or_update_file README'
 raw_run 2 'git add -A'
 raw_run 0 'not json, just ls'
 raw_run 0 '{"tool_name":"Read","tool_input":{"file_path":"/x/git/notes.txt"}}'
