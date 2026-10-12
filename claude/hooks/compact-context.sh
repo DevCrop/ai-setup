@@ -24,7 +24,8 @@ find_note() {
     # a project mark without a note ends the walk: a nested project never gets its parent's note (project rule, global CLAUDE.md).
     # A linked git worktree (.git file whose gitdir is .../worktrees/...) is the same project as its main checkout, so the walk goes
     # on to it; a submodule (.git file with .../modules/...) is a project of its own.
-    if [ -f "$d/.git" ] && grep -q '^gitdir: .*/worktrees/' "$d/.git"; then :
+    # (anchored at the end: a submodule inside a linked worktree has .../worktrees/<name>/modules/...)
+    if [ -f "$d/.git" ] && tr -d '' < "$d/.git" | grep -qE '^gitdir: .*/worktrees/[^/]+/?$'; then :
     elif [ -e "$d/.git" ] || [ -f "$d/CLAUDE.md" ] || [ -f "$d/AGENTS.md" ] || [ -d "$d/.claude" ]; then return 2; fi
     p="$(dirname "$d")"
     [ "$p" = "$d" ] && return

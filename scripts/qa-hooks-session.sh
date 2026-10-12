@@ -48,6 +48,10 @@ mkdir -p "$t/home/w/proj/libs/sub"; printf 'gitdir: ../../.git/modules/libs/sub
 ' > "$t/home/w/proj/libs/sub/.git"
 compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/libs/sub\"}"
 [ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a submodule (.git file into .git/modules) does not get its parent's note"   || bad "compact: submodule [$out]"
+mkdir -p "$t/home/w/proj/.claude/worktrees/wt1/libs/s2"; printf 'gitdir: ../../../../../.git/worktrees/wt1/modules/libs/s2
+' > "$t/home/w/proj/.claude/worktrees/wt1/libs/s2/.git"
+compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/.claude/worktrees/wt1/libs/s2\"}"
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a submodule inside a linked worktree does not get the main checkout's note"   || bad "compact: submodule in worktree [$out]"
 
 compact "$t/home/w/empty" '{"source":"compact"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && printf '%s' "$out" | grep -q '^Context was compacted. Keep the list of modified files' \
