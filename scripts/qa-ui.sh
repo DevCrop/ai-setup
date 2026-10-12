@@ -5,7 +5,8 @@ set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 port="${QA_UI_PORT:-29300}"
 while curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$port/"; do port=$((port + 1)); done  # never test a stale server that is already listening
-py="$(command -v python3 || command -v python)"
+py=""; for c in python3 python; do "$c" -c "" >/dev/null 2>&1 && { py="$(command -v "$c")"; break; }; done  # a Windows Store stub fails to run, so skip it
+[ -n "$py" ] || { echo "needs a working python (python3 or python)" >&2; exit 2; }
 export PROJECT_DIRS="${PROJECT_DIRS:-$repo}"  # the project-dialog checks need one project even on a machine with no session logs
 chrome="${CHROME_BIN:-}"
 for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "$(command -v google-chrome)" "$(command -v google-chrome-stable)" "$(command -v chromium)" "$(command -v chromium-browser)"; do

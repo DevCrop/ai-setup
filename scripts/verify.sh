@@ -45,7 +45,7 @@ skill_keys="name description when_to_use argument-hint arguments disable-model-i
 # 1. settings.json is valid JSON
 if command -v jq >/dev/null 2>&1; then
   if jq empty "$src/settings.json" 2>/dev/null; then pass "settings.json is valid JSON"; else fail "settings.json is not valid JSON"; fi
-elif command -v python3 >/dev/null 2>&1; then
+elif command -v python3 >/dev/null 2>&1 && python3 -c "" >/dev/null 2>&1; then
   if python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$src/settings.json" 2>/dev/null; then pass "settings.json is valid JSON"; else fail "settings.json is not valid JSON"; fi
 else
   skip "settings.json JSON check (needs jq or python3)"

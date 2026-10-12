@@ -3,7 +3,8 @@
 # No model calls. Needs python3, curl, jq. Usage: bash scripts/qa-dashboard.sh
 set -u
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-py="$(command -v python3 || command -v python)"
+py=""; for c in python3 python; do "$c" -c "" >/dev/null 2>&1 && { py="$(command -v "$c")"; break; }; done  # a Windows Store stub fails to run, so skip it
+[ -n "$py" ] || { echo "needs a working python (python3 or python)" >&2; exit 2; }
 # Logic checks first (settings with a missing live file, what may leave the machine, cache, token): a shape check below must not hide them.
 "$py" "$repo/scripts/qa-dashboard-unit.py" || { echo "FAIL  scripts/qa-dashboard-unit.py"; exit 1; }
 port=$((20000 + RANDOM % 20000))
