@@ -15,7 +15,7 @@ export class RouteTab extends Tab {
         mk(Panel, "AO 경로", ao.length ? ao.length + "개 프로젝트" : "데몬 중지 또는 없음",
           mk(FlowRow, mk(FlowNode, "n-side", "AO 워커", mk(Badge, "info", "--model"), "프로젝트 설정의 모델"), arrow(), mk(FlowNode, "n-side", "AO 리뷰어", mk(Badge, "info", "reviewers[]"), "하네스(codex)와 agentConfig.model(gpt-6.1-sol). 실제 사용 모델 필드는 AO 출력에 없어 확인 불가")),
           ao.length ? el("div", "note", ao.join(", ")) : mk(Note, "프로젝트 id는 AO 데몬이 켜져 있을 때만 읽습니다."),
-          mk(Command, "ao project set-config <id> --config-json '<ao project get --json의 config + reviewers>'")),
+          mk(Command, "ao project set-config <id> --config-json \"$(ao project get <id> --json | jq -c '(.project.config // {}) + {reviewers: [{harness: \"codex\", agentConfig: {model: \"gpt-6.1-sol\"}}]}')\""), mk(Note, "get 출력 전체가 아니라 .project.config만 보냅니다. 전체를 넣으면 오류 없이 설정이 비워집니다.")),
         mk(Panel, "메인 설정", "claude/settings.json", mk(KeyValue, "effortLevel", r.effort || "?"), mk(KeyValue, "autoCompactWindow", r.autoCompact || "기본"), mk(KeyValue, "promptCacheTtl", r.cacheTtl || "기본"), mk(KeyValue, "subagentPromptCacheTtl", r.subagentCacheTtl || "기본"), mk(KeyValue, "플러그인", (r.plugins || []).join(", ") || "없음"), mk(KeyValue, "일일 루틴", r.routine || "모델 줄 없음"))),
       mk(Panel, "비용 메모", "공식 문서·측정", ...r.notes.map((t) => mk(KeyValue, t))));
   }
