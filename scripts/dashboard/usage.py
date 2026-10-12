@@ -56,7 +56,7 @@ def price(model, t):
     return None if not p else sum(t.get(f, 0) * r for f, r in zip(FIELDS, p)) / 1e6
 
 
-_memo = {}  # path -> ((mtime_ns, size), {request key: (model, tokens)}); a log that did not change is not read again
+_memo = {}  # path -> ((mtime_ns, size), {request key: (model, tokens)}, {model: tokens}); a log that did not change is not read again
 
 
 def read_requests(path):
@@ -90,7 +90,7 @@ def read_requests(path):
         return {}
     if len(_memo) > 4000:  # logs that were deleted would otherwise stay in memory
         _memo.clear()
-    _memo[str(path)] = (key, seen)
+    _memo[str(path)] = (key, seen, _sum(seen))
     return seen
 
 
@@ -110,8 +110,10 @@ def _sum(requests, skip=None):
 
 
 def read_log(path):
-    """{model: tokens} for one log, de-duplicated by requestId within the file."""
-    return _sum(read_requests(path))
+    """{model: tokens} for one log, de-duplicated by requestId within the file (cached with the requests)."""
+    reqs = read_requests(path)
+    hit = _memo.get(str(path))
+    return {k: dict(v) for k, v in hit[2].items()} if hit and hit[1] is reqs else _sum(reqs)
 
 
 def _add(into, per_model):
@@ -127,14 +129,15 @@ def collect(projects_dir):
     models, sessions, baseline, notrepriced = {}, 0, 0.0, 0
     counted = set()  # request keys already summed: a reply copied into a forked session's file counts once
     for f in sorted(base.glob("*/*.jsonl")) if base.is_dir() else []:
-        reqs = [read_requests(f)] + [read_requests(sub) for sub in sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl"))]
+        logs = [f] + sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl"))
+        reqs = [read_requests(p) for p in logs]
         if not any(reqs):
             continue
         sessions += 1  # a fork whose replies were all counted in another file is still a session
         per, full = {}, {}
-        for r in reqs:
+        for p, r in zip(logs, reqs):
             _add(per, _sum(r, counted))
-            _add(full, _sum(r))
+            _add(full, read_log(p))  # cached per file: the full totals cost nothing on an unchanged log
         if not per:
             continue
         _add(models, per)
@@ -170,8 +173,10 @@ def collect_agents(projects_dir):
         except (OSError, ValueError):
             continue
         kind = doc.get("agentType") if isinstance(doc, dict) else None
+        if not isinstance(kind, str):  # checked first: a damaged meta file must not mark a valid copy's requests as counted
+            continue
         per = _sum(read_requests(meta.with_name(meta.name[: -len(".meta.json")] + ".jsonl")), counted)
-        if not isinstance(kind, str) or not per:
+        if not per:
             continue
         r = rows.setdefault(kind[:40], {"calls": 0, "models": set(), "costUSD": 0.0, **dict.fromkeys(FIELDS, 0)})
         r["calls"] += 1

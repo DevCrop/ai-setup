@@ -396,6 +396,9 @@ check(abs(mu["savedUSD"] - want) < 1e-9 and mu["models"]["claude-haiku-5-5"]["ou
 (sd / "a-fork" / "subagents" / "agent-x.meta.json").write_text(json.dumps({"agentType": "explorer"}), encoding="utf-8")
 ag = usage.collect_agents(tmp / "forkmain")
 check(ag["explorer"]["calls"] == 1 and ag["explorer"]["output"] == 500, "usage: a subagent log copied into a fork counts once per agent row", ag)
+(sd / "a-fork" / "subagents" / "agent-x.meta.json").write_text(json.dumps({"agentType": 5}), encoding="utf-8")  # damaged, sorts first
+ag = usage.collect_agents(tmp / "forkmain")
+check(ag.get("explorer", {}).get("calls") == 1, "usage: a damaged meta file does not hide the valid copy of the same agent", ag)
 nd = tmp / "noridproj" / "p"
 nd.mkdir(parents=True)
 line = json.dumps({"message": {"model": "claude-sonnet-5-5", "usage": {"input_tokens": 1, "output_tokens": 7}}})
