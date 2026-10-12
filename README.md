@@ -1,4 +1,4 @@
-# TRACE Setup v1.3.2
+# TRACE Setup v1.3.3
 
 Portable Codex personal instructions, optional profiles, pinned Archify/Ponytail,
 and ownership-based deployment. Python 3.11+ and Git are required; Node.js is needed
@@ -27,6 +27,8 @@ remain independent. No startup task, hook or public web service is installed.
 
 The [v1.3.2 skills/profile fix](docs/release-1.3.2.md) moves bundled skills to
 `~/.agents/skills` and reports conflicting legacy profiles without editing them.
+The [v1.3.3 subagent defaults](docs/release-1.3.3.md) set spawned agents to GPT-6.1 Sol
+medium and add a read-only `explorer` agent on GPT-6 Luna high.
 
 ## Install
 
@@ -156,7 +158,7 @@ cache is copied.
 
 ## Migrating v1.0.1 and other computers
 
-Use tag `v1.3.2` for a reproducible release checkout. On an existing TRACE host,
+Use tag `v1.3.3` for a reproducible release checkout. On an existing TRACE host,
 review `plan` before `apply`. Do not copy an entire Codex home between computers;
 authenticate independently and preserve local model, MCP, permissions and app state.
 
