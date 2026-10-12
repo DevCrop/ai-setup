@@ -9,7 +9,7 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import hmac, json, os, re, secrets, shutil, sys, time, urllib.request
+import hmac, json, os, re, secrets, sys, time, urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable
 from datetime import datetime, timezone

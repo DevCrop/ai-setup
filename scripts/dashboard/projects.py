@@ -5,7 +5,7 @@ A finding is {act: add|fix|remove, level, what, why, fix, src}. The rules come f
 and permissions (read 2026-10-10). To add a rule: write `rule_<name>(ctx)` (a generator of findings) and put it in RULES, in the order the
 findings should appear. `spawn` (a process starter from procs.py) is passed in; nothing here starts a process on its own.
 """
-import json, os, re, shutil
+import json, os, re
 from pathlib import Path, PureWindowsPath
 
 from fsutil import newest_file

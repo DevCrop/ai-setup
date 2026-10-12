@@ -543,7 +543,7 @@ check(len(got) == 1 and "(2" in got[0]["what"] and any(p.endswith("pre+commit@v2
 import procs, shutil as _sh
 here = tmp / "cwdbin"; here.mkdir(exist_ok=True)
 fake = here / "rtk"
-fake.write_text("", encoding="utf-8")
+fake.write_text("", encoding="utf-8"); fake.chmod(0o755)
 real_which, oldcwd, oldpath = _sh.which, os.getcwd(), os.environ.get("PATH", "")
 os.chdir(here)
 procs.shutil.which = lambda n, *a, **k: str(fake) if n == "rtk" else real_which(n, *a, **k)
@@ -558,6 +558,12 @@ try:
     os.environ["PATH"] = str(here) + os.pathsep + oldpath
     check(procs.resolve(["rtk", "--version"], windows=True) == [str(fake), "--version"], "procs.resolve: the current folder counts when it is on PATH")
     check(procs.resolve(["/x/y/tool", "a"], windows=True) == ["/x/y/tool", "a"], "procs.resolve: a command with a path is left alone")
+    os.environ["PATH"] = oldpath
+    check(procs.which(str(fake), windows=True) == str(fake), "procs.which: an explicit path in the current folder is honoured")
+    other = tmp / "pathbin"; other.mkdir(exist_ok=True); good = other / "rtk"; good.write_text("", encoding="utf-8"); good.chmod(0o755)
+    os.environ["PATH"] = str(other) + os.pathsep + oldpath
+    procs.shutil.which = lambda n, *a, path=None, **k: (str(good) if path == str(other) else None) if path is not None else (str(fake) if n == "rtk" else real_which(n, *a, **k))
+    check(procs.which("rtk", windows=True) == str(good), "procs.which: a copy further down PATH is used when the current-folder hit is refused")
 finally:
     os.environ["PATH"] = oldpath
     procs.shutil.which = real_which
