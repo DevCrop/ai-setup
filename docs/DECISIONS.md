@@ -92,8 +92,9 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Deny covers dangerous paths only; ask rules enforce "confirm before push or delete"
 - No blanket `rm -rf *` deny (it would block requested clean-ups). Every Bash rule has an `rtk ` twin because RTK rewrites commands before rules are evaluated (`bash scripts/qa-deny.sh --static` checks it, `qa-deny.sh` tests it).
 
-### Changes go through a branch and a PR, a person merges
-- No automatic merge unless asked; push only after approval; no force push.
+### Changes go through a branch and a PR, Claude merges (changed 2026-10-12)
+- The user lets Claude merge a PR itself, after CI is green on the head, the PR is mergeable and the reviewer subagent has no open findings. Push stays after approval; no force push; no merge of a PR with red CI or a conflict.
+- Replaces "a person merges" (2026-10-09). Undo: restore that wording in root `CLAUDE.md`, `docs/GUIDE.md` and this entry.
 
 ## Settings notes (facts that explain the values in `claude/settings.json`)
 
