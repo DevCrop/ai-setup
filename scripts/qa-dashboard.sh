@@ -22,7 +22,7 @@ n="$(printf '%s' "$s" | jq '.ao.sessions | length')"
 if [ "$n" = 0 ]; then echo "SKIP  ao.sessions allowlist (no AO sessions right now, so nothing to check)"
 elif [ -z "$extra" ]; then pass "ao.sessions keys are within the allowlist ($n sessions)"; else bad "ao.sessions has extra keys: $extra"; fi
 iv="$(curl -s -m 60 "http://127.0.0.1:$port/api/inventory")"
-for k in orchestration routing features practices debug agents efficiency; do printf '%s' "$iv" | jq -e "has(\"$k\")" >/dev/null 2>&1 && pass "inventory has $k" || bad "inventory lacks $k"; done
+for k in orchestration routing features practices debug agents efficiency codex; do printf '%s' "$iv" | jq -e "has(\"$k\")" >/dev/null 2>&1 && pass "inventory has $k" || bad "inventory lacks $k"; done
 # efficiency: every metric states where it came from, and an unreadable number is never a number
 bb="$(printf '%s' "$iv" | jq -r '[.efficiency.sources[]?.metrics[]? | select(.basis != "measured" and .basis != "estimated" and .basis != "unavailable")] | length')"
 ub="$(printf '%s' "$iv" | jq -r '[.efficiency.sources[]?.metrics[]? | select(.basis == "unavailable" and .value != "측정 불가")] | length')"

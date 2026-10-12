@@ -38,7 +38,7 @@ const waitFor = async (expr, ms = 8000, step = 100) => { const t0 = Date.now(); 
 const go = async (url, w = 1280, h = 900) => { await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 }); await send("Page.navigate", { url }); await sleep(300); await waitFor(`document.body.classList.contains("loaded")`, 20000); };
 for (const d of ["Page", "Runtime", "Network"]) await send(d + ".enable");
 
-const TABS = ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup"];
+const TABS = ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup", "codex"];
 const clickTab = async (t) => { await ev(`document.querySelector('.side button[data-tab="${t}"]').click()`); await sleep(1200); };
 
 // colors: Claude palette has no blue/purple; scan every visible element's text, fill and border colors
@@ -77,7 +77,7 @@ console.log("== colors and links");
 await go(base + "/#prac");
 for (const scheme of ["dark", "light"]) {
   await ev(`document.documentElement.dataset.theme = "${scheme}"`); await sleep(400);
-  for (const t of ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup"]) {
+  for (const t of TABS) {
     await clickTab(t);
     const bad = await ev(HUE_SCAN);
     check(bad.length === 0, `${scheme} ${t}: no blue/purple`, bad.join("; "));

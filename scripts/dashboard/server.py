@@ -4,6 +4,7 @@
 Run: python3 scripts/dashboard/server.py [--port 8787]
 Optional: PROJECT_DIRS or state/projects.txt lists projects; PROJECT_ROOTS or state/project-roots.txt lists parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
 Reads: git history, gh PR list, scripts/verify.sh --live, reports/*.md, claude/settings.json, the AO daemon (ao status, session ls, review ls; read-only),
+the Codex setup checks (TRACE setup.py verify and plan, codex --version; read-only, see codex.py),
 and the tool-call names and timestamps of the newest session log in ~/.claude/projects.
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
@@ -16,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import codex
 import inventory
 import privacy
 import projects as projects_mod
@@ -436,6 +438,10 @@ EFFICIENCY = EfficiencyReport(  # add a tool by adding a source here
 )
 
 
+CODEX = codex.CodexSetup(RUNNER, ROOT)
+CODEX_LOADING = {"available": None, "loading": True}
+
+
 # /api/inventory sections. Each takes the shared inputs {"verify", "ao"} and returns its part; add a section by adding a line.
 INVENTORY = {
     "orchestration": lambda c: inventory.orchestration(ROOT),
@@ -445,6 +451,7 @@ INVENTORY = {
     "debug": lambda c: inventory.debug(newest_session()),
     "agents": lambda c: inventory.agents(ROOT),
     "efficiency": lambda c: cached("efficiency", 120, EFFICIENCY.collect),
+    "codex": lambda c: cached("codex", 60, CODEX.state, slow=True, placeholder=CODEX_LOADING),
 }
 
 

@@ -8,5 +8,6 @@ import { PracTab } from "./prac.js";
 import { DbgTab } from "./dbg.js";
 import { LogTab } from "./log.js";
 import { SetupTab } from "./setup.js";
+import { CodexTab } from "./codex.js";
 
-export const TAB_CLASSES = [MonitorTab, OrchTab, RouteTab, FeatTab, EffTab, PracTab, DbgTab, LogTab, SetupTab];
+export const TAB_CLASSES = [MonitorTab, OrchTab, RouteTab, FeatTab, EffTab, PracTab, DbgTab, LogTab, SetupTab, CodexTab];
