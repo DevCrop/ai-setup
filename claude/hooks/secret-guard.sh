@@ -13,7 +13,9 @@ input="$(cat)"
 # system (macOS, Windows) runs GIT or Git.exe as git.
 gate="$(printf '%s' "$input" | sed 's/\\[nrt]/ /g' | tr -d "\"'\\\\")"
 # $'...' (ANSI-C quoting, $'\x67it') can hide the word, so it also passes the gate and is decoded below.
-printf '%s' "$gate" | grep -Eiq '(^|[^[:alnum:]_])git([^[:alnum:]_-]|$)' || printf '%s' "$input" | grep -Fq "\$'" || exit 0
+gitword='(^|[^[:alnum:]_])git([^[:alnum:]_-]|$)'
+# A Windows backslash path (C:\Git\cmd\git.exe) is also read with backslashes as separators, since deleting them glues the words.
+printf '%s' "$gate" | grep -Eiq "$gitword" || printf '%s' "$input" | tr '\\' ' ' | grep -Eiq "$gitword" || printf '%s' "$input" | grep -Fq "\$'" || exit 0
 verbs='add|stage|commit|push|update-index|mv|apply|am'
 block_unjudgeable() { # reason: block only when the input mentions a staging verb, otherwise let it through
   if printf '%s' "$gate" | grep -Eq "(^|[^[:alnum:]_])($verbs)([^[:alnum:]_-]|\$)" || printf '%s' "$input" | grep -Fq "\$'"; then
@@ -39,7 +41,8 @@ cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')"
 
 # Fast path: no git word next to a staging verb means nothing to check.
 flat="$(printf '%s' "$cmd" | tr -d "\"'\\\\")"
-printf '%s' "$flat" | grep -Eiq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
+{ printf '%s' "$flat" | grep -Eiq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' || printf '%s' "$cmd" | tr '\\' ' ' | grep -Eiq "$gitword"; } \
+  && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
 
 is_secret() {
   case "$1" in .aws/credentials|*/.aws/credentials) return 0 ;; esac  # the file is just called "credentials": judge it by its directory
@@ -58,19 +61,39 @@ judge() { while IFS= read -r -d '' f; do [ -n "$f" ] && is_secret "$f" && hits="
 g() { env "${genv[@]}" git -C "$dir" "${gitopts[@]}" "$@"; }
 pending() { g ls-files -z --modified --others --exclude-standard 2>/dev/null; }
 absdir() { (cd "$1" 2>/dev/null && cd "$2" 2>/dev/null && pwd); }
+# Untracked files of a directory that is not a repo yet (git init in the same command), with its .gitignore applied: a throwaway bare
+# git dir lends git's own listing. If even that fails, the add cannot be judged and is blocked.
+untracked_norepo() { # prints one path per line; fails when the listing cannot be made
+  tg="$(mktemp -d 2>/dev/null)" && git init -q --bare "$tg" 2>/dev/null \
+    && out="$(git --git-dir="$tg" --work-tree="$1" ls-files -z -o --exclude-standard 2>/dev/null | tr '\0' '\n'; exit "${PIPESTATUS[0]}")"
+  rc=$?
+  [ -n "$tg" ] && [ -d "$tg" ] && rm -rf "$tg"
+  [ "$rc" = 0 ] && printf '%s\n' "$out"
+  return "$rc"
+}
 
 set -f
-cur="${cwd:-.}"
+cur="${cwd:-.}"; lost=0
 # Backslash-newline joins lines; quotes and backslashes are deleted (g''it and g\it are git, "bash -c 'git add -A'" is seen); $ and
 # backticks become the marker __EXP__ (an expansion we cannot evaluate), parens become spaces ($(git add -A) is seen); ; | & split segments.
-segs="$(printf '%s\n' "$cmd" | sed -e ':a' -e '/\\$/N;s/\\\n/ /;ta' | tr -d "\"'\\\\" | sed -e 's/[$`]{[^}]*}/ __EXP__ /g' -e 's/[$`]/ __EXP__ /g' | tr '()' '  ' | tr ';|&' '\n\n\n')"
+# A backslash right before git becomes a slash first, so C:\Git\cmd\git.exe keeps git.exe as its last path part.
+segs="$(printf '%s\n' "$cmd" | sed -e ':a' -e '/\\$/N;s/\\\n/ /;ta' | sed 's/\\\([Gg][Ii][Tt]\)/\/\1/g' | tr -d "\"'\\\\" | sed -e 's/[$`]{[^}]*}/ __EXP__ /g' -e 's/[$`]/ __EXP__ /g' | tr '()' '  ' | tr ';|&' '\n\n\n')"
 while IFS= read -r seg; do
   # xargs and find -exec feed git paths we cannot see: treat an add through them as "everything pending".
   case " $seg " in *" xargs "*|*" -exec "*|*" -execdir "*) viaxargs=1 ;; *) viaxargs=0 ;; esac
   # shellcheck disable=SC2086
   set -- $seg
   [ "$#" -gt 0 ] || continue
-  if { [ "$1" = cd ] || [ "$1" = pushd ]; } && [ -n "${2:-}" ]; then d="${2/#\~/$HOME}"; n="$(absdir "$cur" "$d")"; [ -n "$n" ] && cur="$n"; continue; fi
+  [ "$1" = builtin ] && shift && [ "$#" -gt 0 ] || [ "$#" -gt 0 ] || continue
+  if [ "$1" = cd ] || [ "$1" = pushd ]; then
+    nochange=0; shift
+    while [ "$#" -gt 0 ]; do case "$1" in --) shift; break ;; -n) nochange=1; shift ;; -[LPe@]*) shift ;; *) break ;; esac; done
+    # a target the hook cannot follow (an expansion, a missing directory) leaves the directory unknown: broad staging is then blocked
+    if [ "$nochange" = 0 ] && [ -n "${1:-}" ] && case "$1" in +[0-9]*|-[0-9]*) false ;; *) true ;; esac; then
+      d="${1/#\~/$HOME}"; n="$(absdir "$cur" "$d")"; if [ -n "$n" ]; then cur="$n"; else lost=1; fi
+    fi
+    continue
+  fi
   genv=()
   # git in any case, with or without .exe (Git Bash); the case pattern keeps bash 3.2 (stock macOS) working
   while [ "$#" -gt 0 ]; do
@@ -102,7 +125,8 @@ while IFS= read -r seg; do
   done
   verb="${1:-}"; [ "$#" -gt 0 ] && shift
   case "$verb" in add|stage|commit|push|update-index|mv|apply|am) ;; *) continue ;; esac
-  # Outside a repo (or a directory the hook could not follow) git would judge nothing, but a literal secret path is still checked below.
+  # rev-parse fails outside a repo: git cannot list what is staged, so literal paths are judged below and a broad add is judged from the
+  # files on disk (untracked_norepo).
   inrepo=1; g rev-parse --git-dir >/dev/null 2>&1 || inrepo=0
   broad=0; paths=""; dd=0; [ "$expverb" = 1 ] && broad=1
   for t in "$@"; do
@@ -124,6 +148,15 @@ while IFS= read -r seg; do
   [ "$verb" = am ] && broad=1
   case "$verb" in add|stage|update-index|apply|am) [ "$viaxargs" = 1 ] && broad=1 ;; esac
   for t in $paths; do is_secret "$t" && hits="$hits $t"; done
+  case "$verb" in
+    add|stage|update-index|apply|am)
+      if [ "$broad" = 1 ] && [ "$lost" = 1 ]; then hits="$hits (a-cd-target-the-hook-cannot-follow)"; continue; fi
+      if [ "$broad" = 1 ] && [ "$inrepo" = 0 ]; then
+        if lst="$(untracked_norepo "$dir")"; then
+          while IFS= read -r f; do [ -n "$f" ] && is_secret "$f" && hits="$hits $f"; done <<< "$lst"
+        else hits="$hits (untracked-files-not-listable)"; fi
+      fi ;;
+  esac
   [ "$inrepo" = 1 ] || continue
   case "$verb" in
     add|stage|update-index|apply|am) [ "$broad" = 1 ] && judge < <(pending "$dir") ;;

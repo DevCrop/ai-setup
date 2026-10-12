@@ -97,21 +97,39 @@ mkdir "$t/clean"; (cd "$t/clean" && git init -q . && echo y > c.txt)
 CWD="$t/clean" run 2 "cd $r && git add -A"
 CWD="$t/clean" run 0 'git add -A'
 TMPDIR=/nonexistent run 2 'git add -A'
-# BACKLOG S1: an upper-case GIT (case-insensitive file systems run it) and git.exe (Git Bash) are git too
+# an upper-case GIT (case-insensitive file systems run it) and git.exe (Git Bash) are git too, also behind a Windows backslash path
 run 2 'GIT add -A'
 run 2 'Git add .env.production'
 run 2 'git.exe add -A'
 run 2 'GIT.EXE add k.pem'
 run 2 "/c/Program\ Files/Git/cmd/git.exe add -A"
+run 2 '"C:\Program Files\Git\cmd\git.exe" add -A'
+run 2 "'C:\Git\cmd\git.exe' add k.pem"
+run 2 'C:\\Git\\cmd\\git.exe add -A'
 run 0 'GIT status'
 run 0 'git.exe add ok.txt'
-# BACKLOG S2: pushd moves the directory like cd; a literal secret path is judged even when the directory is not a repo
+# pushd moves the directory like cd (options, -- and builtin skipped); a literal secret path is judged even when the directory is not a repo
 CWD="$t" run 2 "pushd $r && git add .env.production"
 CWD="$t" run 2 "pushd $r >/dev/null; git add -A"
 CWD="$t" run 2 'git add .env'
 CWD="$t" run 2 'cd "$SOMEWHERE" && git add k.pem'
 CWD="$t" run 0 "pushd $t/clean && git add -A"
 CWD="$t" run 0 'git add ok.txt'
+CWD="$t" run 2 "cd -P $r && git add -A"
+CWD="$t" run 2 "builtin cd $r && git add -A"
+CWD="$t" run 2 "pushd -- $r && git add -A"
+CWD="$t" run 0 "pushd -n $r && git add -A"
+# a broad add where the hook cannot ask git (git init in the same command, a directory it cannot follow) is judged from the files on disk
+mkdir "$t/nr" "$t/nrclean"; echo s > "$t/nr/.env"; echo y > "$t/nr/a.txt"; echo y > "$t/nrclean/a.txt"; printf '.env\n' > "$t/nrclean/.gitignore"; echo s > "$t/nrclean/.env"
+CWD="$t/nr" run 2 'git init && git add -A && git commit -m init'
+CWD="$t" run 2 "mkdir -p $t/nr && cd $t/nr && git init && git add ."
+CWD="$t/nrclean" run 0 'git init && git add -A'
+CWD="$t/nr" TMPDIR=/nonexistent run 2 'git init && git add -A'
+CWD="$r" run 2 'cd "$X" && git add -A'
+CWD="$r" run 2 "cd $r/missing && git add -A"
+CWD="$t/clean" run 0 "cd $r/missing && git add c.txt"
+CWD="$t/clean" run 2 'cd "$X" && git add -A'
+CWD="$t/clean" run 2 "cd $t/nope && git add -A"
 # expansion where the option or verb belongs, ANSI-C quoting, --git-dir/--work-tree and GIT_DIR from a directory that is not a repo
 run 2 'git${IFS}add${IFS}-A'
 run 2 'git$IFS add -A'
