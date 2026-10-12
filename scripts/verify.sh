@@ -144,6 +144,8 @@ lines="$(wc -l < "$src/CLAUDE.md" | tr -d ' ')"
 [ "$lines" -le 200 ] && pass "claude/CLAUDE.md has $lines lines (limit 200)" || fail "claude/CLAUDE.md has $lines lines (limit 200)"
 
 # 6. agents
+agent_names=""
+agent_desc_chars=0
 for f in "$src"/agents/*.md; do
   [ -f "$f" ] || continue
   n="${f#$src/}"
@@ -156,8 +158,20 @@ for f in "$src"/agents/*.md; do
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$agent_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
+  aname="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
+  case "$aname" in *:*) fail "$n: name '$aname' contains ':' (reserved for plugin-scoped names, sub-agents doc)" ;; esac
+  [ "${#aname}" -le 256 ] || fail "$n: name is longer than 256 characters (sub-agents doc)"
+  agent_names="$agent_names$aname
+"
+  agent_desc_chars=$((agent_desc_chars + $(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p' | wc -c | tr -d ' ')))
   [ -z "$dup" ] && [ -z "$bad" ] && pass "$n frontmatter"
 done
+dupnames="$(printf '%s' "$agent_names" | sed '/^$/d' | sort | uniq -d | tr '\n' ' ')"
+[ -z "$dupnames" ] || fail "agent name used twice: $dupnames(names must be unique, sub-agents doc)"
+# The doc warns at startup above 15,000 tokens of combined descriptions. A character is at most about one token for the text used here
+# (English and Korean), so 15,000 characters is a conservative stand-in, not a token count.
+if [ "$agent_desc_chars" -le 15000 ]; then pass "agent descriptions: $agent_desc_chars characters in total (startup warning at 15,000 tokens)"
+else warn "agent descriptions: $agent_desc_chars characters in total, may pass the 15,000-token startup warning; move detail into the agent bodies"; fi
 
 # 7. skills
 for d in "$src"/skills/*/; do
@@ -172,12 +186,16 @@ for d in "$src"/skills/*/; do
   name="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
   [ "$name" = "$dn" ] || fail "$n: name '$name' differs from directory '$dn'"
   desc="$(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p')"
+  wtu="$(frontmatter "$f" | sed -n 's/^when_to_use:[[:space:]]*//p')"
   if [ -z "$desc" ]; then
     fail "$n: description missing or not on one line"
   else
-    len="$(printf '%s' "$desc" | wc -c | tr -d ' ')"
-    [ "$len" -le 1536 ] || fail "$n: description is $len characters (listing cap 1536)"
+    # description and when_to_use share one 1,536-character cap in the skill listing (skills doc); wc -m counts characters (bytes under a C locale, which only overcounts)
+    len="$(printf '%s %s' "$desc" "$wtu" | wc -m | tr -d ' ')"
+    [ "$len" -le 1536 ] || fail "$n: description + when_to_use is $len characters (listing cap 1536)"
   fi
+  lines="$(wc -l < "$f" | tr -d ' ')"
+  [ "$lines" -le 500 ] || fail "$n: $lines lines (skills doc: keep SKILL.md under 500 lines; move reference material to separate files)"
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$skill_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"

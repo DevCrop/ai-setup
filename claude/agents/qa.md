@@ -3,6 +3,7 @@ name: qa
 description: QA. Verify behavior by running tests, build, lint and the app against stated criteria. Reads and runs only. Not for reviewing a diff against written criteria (use reviewer).
 tools: Read, Grep, Glob, Bash
 model: sonnet
+color: yellow
 effort: high
 maxTurns: 40
 ---

@@ -3,6 +3,7 @@ name: reviewer
 description: Verify a finished change against explicit criteria. Use proactively after implementation, before reporting completion.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+color: red
 effort: high
 maxTurns: 30
 ---

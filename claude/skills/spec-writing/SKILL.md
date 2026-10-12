@@ -1,6 +1,7 @@
 ---
 name: spec-writing
 description: 기획. Interview the user, then write a self-contained spec to docs/spec-<topic>.md with goal, scope, screens and checkable acceptance criteria. Use before design or implementation of a new feature.
+when_to_use: Requests such as 기획서 써줘, 스펙 정리해줘, 요구사항부터 정리하자, 새 기능 만들기 전에 기획, write a spec for this feature.
 ---
 
 Run this in the main conversation (the user must answer questions; subagents cannot ask). Use plan mode while interviewing.
