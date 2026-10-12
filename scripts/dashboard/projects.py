@@ -49,7 +49,7 @@ def project_dirs(root, projects_dir):
     paths = [p for p in raw.split(os.pathsep) if p.strip()]
     f = root / "state" / "projects.txt"
     if not paths and f.is_file():
-        paths = [l.strip() for l in f.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip() and not l.startswith("#")]
+        paths = [l.strip() for l in f.read_text(encoding="utf-8-sig", errors="replace").splitlines() if l.strip() and not l.startswith("#")]
     return [Path(p).expanduser() for p in paths] or discover_projects(root, projects_dir)
 
 
@@ -77,7 +77,7 @@ def discover_projects(root, projects_dir, limit=30):
     marks = (".git", "CLAUDE.md", "AGENTS.md", ".claude")
     rf = root / "state" / "project-roots.txt"  # per-machine folders that hold projects, one path per line (or PROJECT_ROOTS)
     try:
-        lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8", errors="replace").splitlines() if rf.is_file() else []
+        lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8-sig", errors="replace").splitlines() if rf.is_file() else []
     except OSError:
         lines = []
     roots = [Path(l.strip()) for l in lines if l.strip() and not l.startswith("#")]

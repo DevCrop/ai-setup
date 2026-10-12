@@ -27,14 +27,8 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | # | Where | Problem | Done when |
 |---|---|---|---|
 | C2 | `scripts/dashboard/usage.py:70` | duplicate requests are removed per file only; a resumed or forked session may count twice (not confirmed on real logs) | checked on real logs; dedupe across files if confirmed |
-| C3 | `scripts/bootstrap.py:68-69` `found_values` | with no `~/Projects`, `check --write` stores `"projectRoots": []` from the `"default"` source, which then hides `~/Projects` for good | the default source is not written; test |
-| C4 | `scripts/toolreg.py:182`, `scripts/dashboard/projects.py:52`, `:80` | `project-roots.txt` and `projects.txt` read as `utf-8`; a BOM (Notepad, PowerShell 5.1) breaks the first path | `utf-8-sig`; test |
-| C5 | `scripts/toolreg.py` `shutil.which` | on Windows the "read-only" check runs a `git.exe` found in the current folder with `--version` | `os.chdir(REPO)` first, or cwd hits rejected |
-| C6 | `scripts/toolreg.py:45` | `machine.json` is written in place; an interrupted write leaves a truncated file that reads as `{}` | temp file and `os.replace` |
-| C7 | `scripts/toolreg.py` | wrong types in `machine.json`, such as `"bin": "x"` or `"disabled": 5`, crash `check` with exit 3 | types checked, the bad value reported |
-| C8 | `scripts/setup-claude-mem.sh:17` | the backup `cp` is not checked; `settings.json` is replaced even when it failed | `cp ... || exit` |
-| C11 | `scripts/apply.sh` manifest | files of a skill dropped from the copy list stay in `~/.claude/skills`, unreported | reported or removed |
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
+| C14 | `scripts/dashboard/codex.py:77`, `server.py:101`, `:337`, `projects.py:265` | these `shutil.which` hits (codex, ao, rtk) are run by name; on Windows a binary in the dashboard's current folder would be found first (same class as the closed C5 in `toolreg.which`) | the dashboard resolves them like `toolreg.which` or runs from the repo folder; test |
 
 ## 4. Tests and CI
 

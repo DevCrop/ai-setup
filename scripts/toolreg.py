@@ -23,6 +23,38 @@ def load_machine(repo=REPO):
     return m if isinstance(m, dict) else {}
 
 
+# The shape each machine.json key must have; a value of another type is ignored (and reported), never a crash.
+MACHINE_TYPES = {"bin": dict, "checkout": dict, "disabled": list, "projectRoots": list}
+
+
+def machine_problems(machine):
+    """One line per key whose value has the wrong type, for bootstrap check to show."""
+    return ["%s is %s, expected %s; ignored" % (k, type(machine[k]).__name__, t.__name__)
+            for k, t in MACHINE_TYPES.items() if k in machine and not isinstance(machine[k], t)]
+
+
+def _mget(machine, key):
+    """machine[key] when it has the expected type, else an empty value of that type."""
+    v = machine.get(key)
+    return v if isinstance(v, MACHINE_TYPES[key]) else MACHINE_TYPES[key]()
+
+
+def which(name, windows=None):
+    """shutil.which, except a hit in the current folder that is not on PATH: Windows searches the current folder first, so a git.exe
+    lying in some project folder would be started by a "read-only" check."""
+    w = shutil.which(name)
+    if windows is None:
+        windows = os.name == "nt"
+    if not w or not windows:  # POSIX searches the current folder only when PATH asks for it (an empty or "." entry)
+        return w
+    try:
+        parent, cwd = Path(w).resolve().parent, Path.cwd().resolve()
+        on_path = {Path(p).resolve() for p in os.environ.get("PATH", "").split(os.pathsep) if p}
+    except OSError:
+        return w
+    return None if parent == cwd and cwd not in on_path else w
+
+
 def write_machine(found, repo=REPO):
     """Add detected values to state/machine.json. A value already there wins: the user may have set it by hand.
     A file that exists but does not parse is refused (ValueError): rewriting it from scratch would lose the hand edits in it."""
@@ -36,13 +68,21 @@ def write_machine(found, repo=REPO):
             raise ValueError(str(f) + " is not a JSON object; fix it by hand first")
     m = load_machine(repo)
     for key, val in found.items():
+        if key in m and not isinstance(m[key], type(val)):  # a wrong type is the user's to fix: it stays and keeps being reported
+            continue
         if isinstance(val, dict):
             cur = m.get(key) if isinstance(m.get(key), dict) else {}
             m[key] = {**val, **cur}
         elif key not in m:
             m[key] = val
     f.parent.mkdir(exist_ok=True)
-    f.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp = f.with_name(f.name + ".tmp")  # written whole, then swapped in: an interrupted write never leaves a truncated machine.json
+    try:
+        tmp.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, f)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     return m
 
 
@@ -104,11 +144,11 @@ def find_bin(entry, machine, toks, spawn=None):
     env = entry.get("env")
     if env and os.environ.get(env):
         p = os.environ[env]
-        return (shutil.which(p) or (p if Path(p).exists() else None)), env, None
-    mp = (machine.get("bin") or {}).get(entry["id"])
+        return (which(p) or (p if Path(p).exists() else None)), env, None
+    mp = _mget(machine, "bin").get(entry["id"])
     if isinstance(mp, str) and mp:
-        return (shutil.which(mp) or (mp if Path(mp).exists() else None)), "machine.json", None
-    names = [w for w in (shutil.which(n) for n in entry.get("bin", [])) if w]
+        return (which(mp) or (mp if Path(mp).exists() else None)), "machine.json", None
+    names = [w for w in (which(n) for n in entry.get("bin", [])) if w]
     if len(names) > 1 and entry.get("version"):  # e.g. a Windows Store python3 stub ahead of a real python: take the first that answers
         for w in names:
             v = run_version(w, entry["version"], spawn)
@@ -141,7 +181,7 @@ def checkout_candidates(entry, machine, toks, repo=REPO):
     out = []
     if s.get("env") and os.environ.get(s["env"]):
         out.append((s["env"], Path(os.environ[s["env"]]).expanduser()))
-    mc = (machine.get("checkout") or {}).get(entry["id"])
+    mc = _mget(machine, "checkout").get(entry["id"])
     if isinstance(mc, str) and mc:
         out.append(("machine.json", Path(mc).expanduser()))
     if s.get("legacy"):
@@ -174,12 +214,12 @@ def project_roots(machine, toks, repo=REPO):
     """Folders that hold projects. PROJECT_ROOTS > machine.json projectRoots > state/project-roots.txt > ${HOME}/Projects if it exists."""
     if "PROJECT_ROOTS" in os.environ:
         lines, src = os.environ["PROJECT_ROOTS"].split(os.pathsep), "PROJECT_ROOTS"
-    elif isinstance(machine.get("projectRoots"), list):
+    elif isinstance(machine.get("projectRoots"), list):  # another type is reported by machine_problems and falls through
         lines, src = [x for x in machine["projectRoots"] if isinstance(x, str)], "machine.json"
     else:
         f = repo / "state" / "project-roots.txt"
         try:
-            lines, src = f.read_text(encoding="utf-8", errors="replace").splitlines(), "state/project-roots.txt"
+            lines, src = f.read_text(encoding="utf-8-sig", errors="replace").splitlines(), "state/project-roots.txt"  # -sig: Notepad BOM
         except OSError:
             d = Path(toks["HOME"]) / "Projects"
             return ([d] if d.is_dir() else []), "default"
@@ -227,7 +267,7 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
     if exe and not version and entry.get("version") and via != "path":  # a path candidate may be a GUI app; starting it to ask its version would open a window
         version = run_version(exe, entry["version"], spawn)
     out = {"id": entry["id"], "label": entry.get("label", entry["id"]), "kind": entry.get("kind", "tool"),
-           "required": bool(entry.get("required")), "disabled": entry["id"] in (machine.get("disabled") or []),
+           "required": bool(entry.get("required")), "disabled": entry["id"] in _mget(machine, "disabled"),
            "found": bool(exe), "path": exe, "via": via, "version": version, "min": entry.get("min"),
            "versionOk": version_ok(version, entry.get("min")) if exe and version else (not entry.get("min") if exe else False),
            "install": install_command(entry), "note": entry.get("note", "")}

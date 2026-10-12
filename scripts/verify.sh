@@ -82,6 +82,7 @@ if out="$(bash "$repo/scripts/qa-deny.sh" --static 2>&1)"; then pass "$(printf '
 if [ -z "${QA_APPLY_RUNNING:-}" ]; then
   # 3a. status line cache segment: sample prompt_cache JSON (warm, expiring, cold, absent)
   if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  if out="$(bash "$repo/scripts/qa-setup-claude-mem.sh" 2>&1)"; then pass "setup-claude-mem backs up before it writes"; else fail "setup-claude-mem: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
 
   # 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
   if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then

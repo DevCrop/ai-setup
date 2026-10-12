@@ -33,7 +33,7 @@ def collect(repo=toolreg.REPO):
     machine, toks = toolreg.load_machine(repo), toolreg.tokens(repo)
     items = [toolreg.detect(e, machine, toks, repo) for e in toolreg.load_registry(repo)]
     roots, rsrc = toolreg.project_roots(machine, toks, repo)
-    return {"items": items, "projectRoots": [str(r) for r in roots], "projectRootsSource": rsrc,
+    return {"items": items, "projectRoots": [str(r) for r in roots], "projectRootsSource": rsrc, "machineProblems": toolreg.machine_problems(machine),
             "missingRequired": [i["id"] for i in items if i["required"] and not i["disabled"] and not (i["found"] and i["versionOk"])]}
 
 
@@ -57,6 +57,8 @@ def lines(r):
             out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"] else "not found; tried " + " > ".join(s["tried"]) + "; clone " + s["repo"]))
     out.append("projects  " + (", ".join(r["projectRoots"]) or "none") + " [" + r["projectRootsSource"] + "]")
     out.append("missing required: " + (", ".join(r["missingRequired"]) or "none"))
+    for p in r.get("machineProblems", []):
+        out.append("state/machine.json: " + p)
     return out
 
 
@@ -65,7 +67,9 @@ def found_values(r):
     co = {i["id"]: i["setup"]["checkout"] for i in r["items"]
           if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("fromEnv")}
     out = {"checkout": co}
-    if r.get("projectRootsSource") in ("state/project-roots.txt", "default"):
+    # the legacy file is migrated; the default (~/Projects when it exists) is not written: an empty list recorded once would hide
+    # ~/Projects for good after it is created
+    if r.get("projectRootsSource") == "state/project-roots.txt":
         out["projectRoots"] = r["projectRoots"]
     return out
 
@@ -316,7 +320,7 @@ def main(argv=None):
     if a.write:
         try:
             toolreg.write_machine(found_values(r))
-        except ValueError as e:
+        except (ValueError, OSError) as e:  # a broken file, a full disk, a file held open by an editor
             print("not written: " + str(e), file=sys.stderr)
             return 2
     if a.json:

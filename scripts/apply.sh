@@ -121,7 +121,8 @@ if [ "$dry" = 1 ]; then
       [ -n "$p" ] || continue
       case "$p" in /*) continue ;; esac
       [ "$p" = settings.json ] && continue
-      managed "$p" && removable "$p" && echo "would remove (no longer in the repo): $p"
+      if managed "$p"; then removable "$p" && echo "would remove (no longer in the repo): $p"
+      elif removable "$p"; then echo "kept (dropped from the copy list; remove it by hand if unused): $p"; fi
     done || true
   fi
   echo "dry run: nothing was written"
@@ -149,7 +150,8 @@ if [ -f "$manifest" ]; then
     [ -n "$p" ] || continue
     case "$p" in /*) continue ;; esac
     [ "$p" = settings.json ] && continue  # merged, never deleted
-    managed "$p" || continue
+    # an item dropped from $items (a retired skill): not deleted, since items outside the list are never touched, but reported each run
+    if ! managed "$p"; then removable "$p" && echo "kept (dropped from the copy list; remove it by hand if unused): $p" && echo "$p" >> "$tmp/dropped.list"; continue; fi
     removable "$p" || continue
     rm -f "$dest/$p" || continue
     (cd "$dest" && rmdir -p "$(dirname "$p")" 2>/dev/null) || true
@@ -165,6 +167,7 @@ if [ -s "$tmp/foreign.list" ]; then
   sort "$tmp/foreign.list" | head -n 20 | sed 's/^/kept (not from this repo): /'
   [ "$(wc -l < "$tmp/foreign.list")" -gt 20 ] && echo "kept (not from this repo): ... and $(( $(wc -l < "$tmp/foreign.list") - 20 )) more"
 fi
+[ -f "$tmp/dropped.list" ] && sort -u "$tmp/dropped.list" >> "$tmp/new.list"  # keep reporting them until removed by hand
 cp "$tmp/new.list" "$manifest.new" && mv "$manifest.new" "$manifest"
 
 if ! command -v rtk >/dev/null 2>&1; then
