@@ -42,7 +42,7 @@ export class DelegationFlow extends Component {
       { a: [ag("reviewer")], go: "기준 + 변경 파일 목록만", back: "검토 결과" },
       { a: [main(), adv()], go: "완료 선언 전 검토", back: "조언" },
       { a: [main(), who("사용자", "")], go: "", back: "증거를 확인한 뒤 완료 보고", fin: true }];
-    const box = el("div", "flow");
+    const box = el("div", "steps");
     steps.forEach((st, k) => {
       const row = el("div", "fstep"), n = el("div", "fnum", String(k + 1)), card = el("div", "fcard"), head = el("div", "fwho");
       st.a.forEach((x, i) => { if (i) head.append(el("span", "farrow", st.par ? "+" : st.fin ? "→" : st.self ? "" : "⇄")); head.append(x); });

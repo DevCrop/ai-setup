@@ -240,3 +240,9 @@ RTK 절감 (시점별로 값이 다르다):
 - 세션 공유: 바깥 Claude 세션의 `CLAUDE_CODE_SESSION_ID`가 `claude -p`에 상속되어 두 실행이 같은 트랜스크립트 파일에 기록됐다. `bench.sh`가 이 변수를 지우고, `report.py`는 실행 프롬프트부터 다음 실행 프롬프트 전까지만 센다.
 - 하네스 검증 실행(`BENCH_SETTINGS`로 훅을 뺀 설정, 각 1회, 기준값 아님): single $0.141(CLI $0.142), 30초, 숨은 테스트 16/16. subagents(worker 3개) $0.271(CLI $0.331), 49초, 16/16. 입력·캐시 쓰기·캐시 읽기 토큰은 CLI `modelUsage`와 정확히 일치했고(42 / 47,318 / 477,279), 출력 토큰만 로그 3,354 대 CLI 9,394로 달랐다. 원인은 밝히지 못했다(이 컨테이너의 세션 간 메시지 기능이 섞인 실행). 그래서 리포트에 CLI 집계 열을 함께 둔다.
 
+## AO Codex 리뷰어 레인 (2026-10-12, 소스 확인)
+
+공식 문서 사이트(`developers.openai.com`, `learn.chatgpt.com`)는 이 클라우드 컨테이너의 네트워크 정책에서 막혀(403) 소스 코드로 확인했다.
+- AO `OrchestratorInc/agent-orchestrator` 커밋 `1787604`: `backend/internal/domain/reviewerharness.go`에 `ReviewerCodex = "codex"`. `projectconfig.go`의 `ReviewerConfig{Harness, AgentConfig}`, 설정한 리뷰어가 워커 하네스보다 우선(`ResolveReviewerHarness`), 비우면 워커 하네스를 따른다(Claude 워커면 claude-code). `backend/internal/cli/project.go`의 `--reviewer`는 하네스 이름(모델 아님), `--config-json`은 설정 전체. `review.go`의 `ao review trigger --harness/--model/--effort`는 한 번만 적용. 모델과 effort는 Codex로 전달된다: TUI 경로는 `codex --model`과 `-c model_reasoning_effort=`(`adapters/agent/codex/codex.go`), 기본 리뷰 경로는 app-server 드라이버가 `Model`/`Effort`를 직접 받는다(`review/launcher.go`, `reviewer/codex/codex.go`). 함정: `ao project get --json`은 설정을 `.project.config`에 두고 `set-config --config-json`은 모르는 키를 무시해, 출력 전체를 넣으면 오류 없이 빈 설정으로 교체된다(`cli/project.go`의 `projectGetResult`, `buildProjectConfig`). CLI 구조체에 없는 `agentConfig.effort`, `preRemove`, `disabled`는 왕복에서 빠진다.
+- Codex `openai/codex` 커밋 `9f3d255`: `codex-rs/models-manager/models.json` 설명 — `gpt-6-astra` "Frontier intelligence for the most demanding work", `gpt-6.1-sol` "Latest workhorse model for coding and everyday work", `gpt-6-luna` "Fast and affordable model for easier tasks".
+- 실행해 보지 못함: AO에서 Codex 리뷰어가 실제로 도는 것(이 컨테이너에 AO와 Codex 로그인이 없음).

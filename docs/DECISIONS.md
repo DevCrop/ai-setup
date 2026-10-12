@@ -2,6 +2,15 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — AO reviewer lane
+
+### AO reviewer lane is Codex `gpt-6.1-sol`; Claude keeps the worker lanes
+- Why: the reviewer should not share the author's vendor and blind spots ("the author does not verify its own output"), and one Codex lane keeps routing simple (Claude already has Haiku, Sonnet and Opus). `gpt-6.1-sol` is the Codex catalog's "workhorse model for coding"; `gpt-6-astra` (frontier) and `gpt-6-luna` (easier tasks) can be added later if a measured need appears. Effort stays at the model default, which is `low` for `gpt-6.1-sol` (`models.json`); raise it per pass with `ao review trigger --effort` if reviews miss things.
+- Where: per machine, in each AO project's config (`reviewers[].harness = "codex"`, `agentConfig.model`), not in this repository. The `orchestrate` skill and `docs/GUIDE.md` say how. Sources in `docs/evidence.md` ("AO Codex 리뷰어 레인").
+- Not verified: a real Codex review run in AO; review quality against a Claude reviewer.
+- AO itself is still a candidate (entry below); this applies when it is used. No `verify.sh` check: the setting lives in each machine's AO config, not in this repository.
+- Undo: remove `reviewers` from the AO project config (AO then follows the worker's harness: claude-code for Claude workers) and these lines.
+
 ## 2026-10-12 — model usage and saving view
 
 ### Cache reads are shown as their own cost, and AO is judged by a same-task benchmark
