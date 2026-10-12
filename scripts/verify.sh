@@ -121,9 +121,10 @@ if command -v jq >/dev/null 2>&1; then
     && pass "permissions.disableBypassPermissionsMode is disable (bypass stays for isolated containers, not this setup)" \
     || fail "permissions.disableBypassPermissionsMode must be \"disable\""
   # Model lanes (decision 2026-10-12): Opus main at medium effort, Haiku executors, Opus verifiers, no Sonnet or Fable in the repo.
-  jq -e '.model == "opus" and .modelSettings["claude-opus-5-5"].effortLevel == "medium"' "$src/settings.json" >/dev/null 2>&1 \
-    && pass "main model is opus at medium effort" \
-    || fail "settings.json model must be opus with modelSettings.claude-opus-5-5.effortLevel medium"
+  # `opus[1m]` is the spelling the CLI writes back (decision 2026-10-13); Opus 5.5 already runs at 1M, so it changes nothing else.
+  jq -e '.model == "opus[1m]" and .modelSettings["claude-opus-5-5"].effortLevel == "medium"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "main model is opus[1m] at medium effort" \
+    || fail "settings.json model must be opus[1m] with modelSettings.claude-opus-5-5.effortLevel medium"
   jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
     && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
     || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
