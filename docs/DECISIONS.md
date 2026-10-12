@@ -2,6 +2,13 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — Archify removed
+
+### Archify is not used; the Codex setup installs Ponytail and RTK only
+- What: Archify is gone from both setups. Here: the `claude/CLAUDE.md` Tools line, the routine's Archify version check, report line and `latest_archify_version` key, the `.archify/` ignore and the Archify word in the `qa-project-setup.sh` pattern. In codex-setup (DevCrop/codex-setup#21, its Decision 003): the bundled package, its manifest, lock and registry entries, the Archify-rendered flow diagram and its receipt check. The local copies (`~/.claude/skills/archify`, a link to `~/.agents/skills/archify`, and `~/.codex/skills/archify`) are deleted on each machine.
+- Why: the user does not use it (2026-10-13). Its bundled copy also blocked `setup.py apply` on this machine: the installed copy was newer than the vendored one, so two files showed as modified-file conflicts.
+- Undo: revert this PR and DevCrop/codex-setup#21, then reinstall Archify per its README. It supersedes "Ponytail always on; Archify only on request" (2026-10-09) for the Archify half.
+
 ## 2026-10-12 — round close
 
 ### Home-folder secrets denied with `~/` patterns; wrong-type live settings never pass silently
@@ -153,7 +160,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: drop the guard and re-enable per project.
 
 ### Third-party plugins are pinned through an own marketplace (pending)
-- Why: Ponytail, claude-mem and Archify are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
+- Why: Ponytail and claude-mem are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
 - Status: waits for the forks; until then `settings.json` still names the upstream marketplaces, and the `autoMode.environment` line says so ("plugins come from the marketplaces already listed"). When the pinned marketplace exists, change that line, `extraKnownMarketplaces` and `enabledPlugins` in the same PR. The `soft_deny` rule already blocks plugin installs unless the user names them.
 
 ### `apply.sh` merges `settings.json` and keeps no backup

@@ -53,7 +53,7 @@ Open (2026-10-12):
 - Not compared yet: the handoff note rule (`claude/CLAUDE.md`, Context and handoff; Claude also posts it on the work's own PR) against Codex's handoff guidance.
 
 Closed. The two asks from 2026-10-12 were fixed by Codex in [codex-setup v1.3.2](https://github.com/DevCrop/codex-setup/releases/tag/v1.3.2) (DevCrop/codex-setup#19):
-- Bundled `archify` and `ponytail` now install to `~/.agents/skills` (confirmed in the official [skills docs](https://learn.chatgpt.com/docs/build-skills)). Old TRACE-owned copies in `$CODEX_HOME/skills` are retired only when recorded and unmodified.
+- Bundled `archify` and `ponytail` now install to `~/.agents/skills` (Archify was removed from both setups on 2026-10-13, DevCrop/codex-setup#21) (confirmed in the official [skills docs](https://learn.chatgpt.com/docs/build-skills)). Old TRACE-owned copies in `$CODEX_HOME/skills` are retired only when recorded and unmodified.
 - `setup.py verify` fails on a legacy `[profiles.<name>]` table that clashes with a `<name>.config.toml` profile. `doctor` does not run this check.
 
 The handoff note that carried them was removed; it is in git history (`git show 4148b3b:docs/codex-handoff.md`).

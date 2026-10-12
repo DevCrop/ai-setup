@@ -21,7 +21,7 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | S3 | `claude/settings.json` hooks | secret-guard watches Bash only; a commit through GitHub MCP (`push_files`, `create_or_update_file`) is not checked | an MCP matcher, or the limit written in GUIDE (Secret-guard hook) |
 | S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
 | S6 | `scripts/dashboard/projects.py:318` (Windows) | a project hook path `\\host\share\x` makes `.exists()` contact that SMB host on every 10 s refresh | absolute, UNC and drive paths rejected as in `server.py` `ui_asset`; unit test |
-| S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail, claude-mem and Archify install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
+| S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail and claude-mem install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
 
 ## 3. Correctness
 
