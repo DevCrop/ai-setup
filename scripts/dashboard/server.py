@@ -22,7 +22,7 @@ import inventory
 import privacy
 import projects as projects_mod
 from fsutil import mem_dir, mtime as _mtime, newest_file, read_json as _read_json
-from efficiency import AoEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency, UsageEfficiency
+from efficiency import AoEfficiency, BenchEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency, UsageEfficiency
 from cache import TtlCache
 from fixes import FixRegistry, MemRedactOn, RtkUpdate
 from procs import BASH, ProcessRunner
@@ -436,6 +436,7 @@ EFFICIENCY = EfficiencyReport(  # add a tool by adding a source here
     AoEfficiency(lambda: SOURCES["ao"].read({})),
     ModelEfficiency(lambda: inventory.agents(ROOT)),
     UsageEfficiency(PROJECTS, lambda: inventory.agents(ROOT)),
+    BenchEfficiency(ROOT / "reports" / "bench" / "latest.json"),
 )
 
 

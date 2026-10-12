@@ -399,5 +399,21 @@ except Exception as ex:
 ue2 = efficiency.UsageEfficiency(tmp / "projects", lambda: []).collect()
 check(all(m["value"] == "측정 불가" for m in ue2["metrics"] if m["basis"] == "unavailable"), "usage: an unavailable metric carries no number")
 
+# ---- cost split and the bench comparison source ----
+sp = usage.split("claude-sonnet-5-5", {"input": 1000, "write5m": 100, "write1h": 10000, "read": 100000, "output": 2000})
+check(sp and abs(sp["read"] - 0.01) < 1e-12 and abs(sp["write"] - (100 * 2.5 + 10000 * 4) / 1e6) < 1e-12 and usage.split("gpt-x", {}) is None, "usage: split prices each kind; both cache-write rates are one 'write'", sp)
+check(abs(sum(u["split"].values()) - u["actualUSD"]) < 1e-5, "usage: the split adds up to the actual cost", (u["split"], u["actualUSD"]))
+bp = tmp / "bench.json"
+be = efficiency.BenchEfficiency(bp).collect()
+check(be["data"] is None and be["metrics"][0]["basis"] == "unavailable", "bench: no report yet is 'unavailable', not zeros")
+bp.write_text(json.dumps({"generated": "x", "missing": ["ao-r2"], "arms": {"single": {"runs": 3, "costUSD": {"mean": 0.5, "min": 0.4, "max": 0.6, "n": 3}, "wallSec": {"mean": 600}, "scorePct": {"mean": 100}, "split": {"read": 0.3, "write": 0.1, "output": 0.1, "input": 0}, "vsSingle": {"costUSD": 0.0}},
+    "evil-arm": {"runs": 1}, "ao": {"runs": "3", "costUSD": {"mean": float("nan")}, "split": {"read": 1e999}}}}).replace("NaN", "1e999"), encoding="utf-8")
+be = efficiency.BenchEfficiency(bp).collect()
+json.dumps(be, allow_nan=False)
+check(set(be["data"]["arms"]) == {"single", "ao"} and be["data"]["arms"]["ao"]["runs"] == 0 and be["data"]["arms"]["ao"]["split"]["read"] == 0, "bench: unknown arms dropped, non-numbers and non-finite values zeroed or nulled", be["data"]["arms"])
+check(len(be["metrics"]) == 1 and "빠진 실행 1개" in be["caveats"][0], "bench: one metric per arm with a cost; missing runs are named in the caveats", be["metrics"])
+bp.write_text("{broken", encoding="utf-8")
+check(efficiency.BenchEfficiency(bp).collect()["data"] is None, "bench: a damaged report is 'unavailable', never raised")
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

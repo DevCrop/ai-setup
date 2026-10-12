@@ -21,6 +21,7 @@ PRICES = {
     "claude-fable-5-1": (10.0, 12.5, 20.0, 0.25, 50.0),
 }
 FIELDS = ("input", "write5m", "write1h", "read", "output")
+KINDS = ("input", "write", "read", "output")  # cost kinds shown to the user: both cache-write rates are one "write"
 
 
 LIMIT = 1e12  # no single token count is near this; larger or non-finite values (a damaged log) count as 0 so one line cannot ruin a total
@@ -36,6 +37,15 @@ def _tokens(u):
     if not (w5 or w1):  # no split in the log: the whole write is priced at the 1-hour rate (the one the CLI used when it did split)
         w1 = _n(u.get("cache_creation_input_tokens"))
     return dict(zip(FIELDS, (_n(u.get("input_tokens")), w5, w1, _n(u.get("cache_read_input_tokens")), _n(u.get("output_tokens")))))
+
+
+def split(model, t):
+    """USD per cost kind (input, cache write, cache read, output) for a token dict at `model`'s list price, or None when the model is not on PRICES."""
+    p = PRICES.get(model)
+    if not p:
+        return None
+    usd = {f: t.get(f, 0) * r / 1e6 for f, r in zip(FIELDS, p)}
+    return {"input": usd["input"], "write": usd["write5m"] + usd["write1h"], "read": usd["read"], "output": usd["output"]}
 
 
 def price(model, t):
@@ -115,13 +125,15 @@ def collect(projects_dir):
                 baseline += own or 0.0
             else:
                 baseline += alt
-    out = {}
+    out, kinds = {}, dict.fromkeys(KINDS, 0.0)
     for name, t in models.items():
-        c = price(name, t)
+        c, sp = price(name, t), split(name, t)
         out[name] = {**t, "costUSD": None if c is None else round(c, 6)}
+        for k in KINDS:
+            kinds[k] += sp[k] if sp else 0.0
     actual = sum(v["costUSD"] or 0.0 for v in out.values())
     return {"sessions": sessions, "models": out, "actualUSD": round(actual, 6), "baselineUSD": round(baseline, 6),
-            "savedUSD": round(baseline - actual, 6), "notRepriced": notrepriced}
+            "savedUSD": round(baseline - actual, 6), "notRepriced": notrepriced, "split": {k: round(v, 6) for k, v in kinds.items()}}
 
 
 def collect_agents(projects_dir):

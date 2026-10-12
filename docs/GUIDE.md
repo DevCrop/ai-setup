@@ -173,6 +173,19 @@ Limit: it reads the command text. Aliases, scripts that call git, git itself hel
 
 Use AO only for parallel work with disjoint file scopes. Set permissions with `ao project set-config <id> --permission ...` (it replaces the whole config: round-trip `ao project get --json` first), put the done criteria and "never push" in `--agent-rules`, and push and merge by hand. Killing a worker session empties its worktree and blocks review, so trigger `ao review trigger` before ending it, or re-register the repository and use `--claim-pr`. Measured behavior and traps: `docs/evidence.md` ("Orchestrator.inc(AO) 도입 검토").
 
+## Benchmark: single vs subagents vs AO
+
+One fixed job (three independent Python tasks in `scripts/bench/fixture`, graded by hidden tests in `scripts/bench/hidden` the agents never see) run three ways, and one table that compares them: cost split into cache read, cache write, output and input, wall time, peak context of the main thread, and the hidden-test score. Use it to decide whether AO, or parallel subagents, beat one agent on this machine.
+
+1. Run on the machine you work on, after `bash scripts/apply.sh` (`run` refuses otherwise: the hooks in `settings.json` live in the config directory, and without them every Bash call is blocked). All three arms on the same machine, settings, Claude Code version and model, or the table compares machines. Use a work folder outside this repository.
+2. `bash scripts/bench.sh run <work> single 3`, then `bash scripts/bench.sh run <work> subagents 3`. Each run is `claude -p` on a fresh committed copy of the fixture (with this repo's agents in `.claude/agents`), permission mode auto, up to 30 minutes. Costs tokens: roughly six short sessions plus nine subagents.
+3. `bash scripts/bench.sh prepare-ao <work> 3`, then for each `ao-r*` folder in turn: register `<folder>/repo` as an AO project, set the worker model to the same model and the permission to auto (`ao project get <id> --json`, then `ao project set-config`), spawn three workers at once with the three prompt files pasted verbatim, and when they finish merge their branches into `main` in that repo (before ending the sessions). The prompt carries the marker the report looks for; `ao spawn --help` shows how your version takes a prompt.
+4. `bash scripts/bench.sh report <work>` prints the table and writes `reports/bench/latest.json` (gitignored); the dashboard's efficiency tab shows it as "같은 과제 비교".
+
+How to read it: compare cost and time only between arms with the same hidden-test score. Every delegate pays its own start-up (about 43K prompt tokens written to the cache, `docs/evidence.md`), so parallel arms can be faster and dearer at once; the table shows that rather than hiding it.
+
+Limits: three runs per arm is a small sample. Wall time is first to last transcript entry of the sessions carrying the marker, so an AO orchestrator session (no marker), session titles and hook classifier calls are left out. A run whose marker is found in no transcript is listed as missing and left out of the averages. The tasks are small and touch different files; they say nothing about large projects or overlapping files. Harness test: `bash scripts/bench.sh selftest` (synthetic logs, also in CI). `BENCH_SETTINGS=<file>` swaps the settings file and skips the applied-setup check; it exists to test the harness, and its numbers are not a baseline.
+
 ## Troubleshooting and traps
 
 - **A hook or deny rule blocks something harmless**: read the message (the secret-guard hook prints the file names); `git clean -n`, editing `.env.example` and reading a project `.npmrc` are known, accepted over-blocks (`docs/DECISIONS.md`). Do not widen the rule from a chat message: edit `claude/settings.json` in a PR.
