@@ -9,6 +9,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 ## Working method
 - Before coding, restate the request. If it is ambiguous, give 2 options with the trade-off in 2-3 sentences and ask which one.
 - Change only what the request names. List unrelated issues instead of fixing them silently.
+- Projects live under a per-machine work root as `<client>/<stage>/<date or name>`. The project is the nearest folder at or above the cwd that has a project mark (`.git`, `CLAUDE.md`, `AGENTS.md`, `.claude`), searching no higher than the work root or the home folder, which are never projects. Never assume an absolute path.
 - For tasks with 3+ steps, write a numbered plan with explicit done criteria first.
 - For anything that may have changed since training (versions, settings, pricing, limits, product behavior), read the current official source first and name it. If unchecked, say so.
 - Do not change a position from pushback alone; update only on new evidence. When the user states a strong view first, give the strongest counter-case before agreeing.
@@ -34,7 +35,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 
 ## Context and handoff
 - Keep long-lived facts in this file and in project `CLAUDE.md`. Keep temporary state in the task.
-- Before `/clear` or a new session on the same task, write a handoff note to `.claude/handoff.md` in the project: task, outputs, completed checks, open issues, next action. Never commit it; if `.gitignore` lacks it, say so instead of editing it silently.
+- Before `/clear` or a new session on the same task, write a handoff note to `.claude/handoff.md` in the project: task, outputs, completed checks, open issues, next action. Never commit it; if `.gitignore` lacks it, say so instead of editing it silently. The note stays on this machine, so when the work has an open PR in a repository the user owns, also post it as a comment on that PR, leaving out secrets and machine-local paths (standing approval, 2026-10-12); without a PR, tell the user the note is on this machine only.
 - When compacting, always preserve the list of modified files, the test and check commands, and open issues.
 
 ## Tools
