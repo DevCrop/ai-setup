@@ -320,7 +320,7 @@ def main(argv=None):
     if a.write:
         try:
             toolreg.write_machine(found_values(r))
-        except ValueError as e:
+        except (ValueError, OSError) as e:  # a broken file, a full disk, a file held open by an editor
             print("not written: " + str(e), file=sys.stderr)
             return 2
     if a.json:

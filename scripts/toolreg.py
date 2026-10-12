@@ -39,12 +39,14 @@ def _mget(machine, key):
     return v if isinstance(v, MACHINE_TYPES[key]) else MACHINE_TYPES[key]()
 
 
-def which(name):
+def which(name, windows=None):
     """shutil.which, except a hit in the current folder that is not on PATH: Windows searches the current folder first, so a git.exe
     lying in some project folder would be started by a "read-only" check."""
     w = shutil.which(name)
-    if not w:
-        return None
+    if windows is None:
+        windows = os.name == "nt"
+    if not w or not windows:  # POSIX searches the current folder only when PATH asks for it (an empty or "." entry)
+        return w
     try:
         parent, cwd = Path(w).resolve().parent, Path.cwd().resolve()
         on_path = {Path(p).resolve() for p in os.environ.get("PATH", "").split(os.pathsep) if p}
@@ -66,6 +68,8 @@ def write_machine(found, repo=REPO):
             raise ValueError(str(f) + " is not a JSON object; fix it by hand first")
     m = load_machine(repo)
     for key, val in found.items():
+        if key in m and not isinstance(m[key], type(val)):  # a wrong type is the user's to fix: it stays and keeps being reported
+            continue
         if isinstance(val, dict):
             cur = m.get(key) if isinstance(m.get(key), dict) else {}
             m[key] = {**val, **cur}
@@ -73,8 +77,12 @@ def write_machine(found, repo=REPO):
             m[key] = val
     f.parent.mkdir(exist_ok=True)
     tmp = f.with_name(f.name + ".tmp")  # written whole, then swapped in: an interrupted write never leaves a truncated machine.json
-    tmp.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp, f)
+    try:
+        tmp.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, f)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     return m
 
 

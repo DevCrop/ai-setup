@@ -165,9 +165,11 @@ real_which, oldcwd = toolreg.shutil.which, os.getcwd()
 os.chdir(here)
 toolreg.shutil.which = lambda n, *a, **k: str(fake) if n in ("git", "git.exe") else real_which(n, *a, **k)
 try:
-    check(toolreg.which("git") is None, "which: a hit in the current folder (not on PATH) is refused")
+    check(toolreg.which("git") == str(fake) if os.name != "nt" else True, "which: POSIX keeps shutil.which (it searches the cwd only when PATH asks)")
+    # the guard is for Windows, which searches the current folder first
+    check(toolreg.which("git", windows=True) is None, "which: a hit in the current folder (not on PATH) is refused")
     os.environ["PATH"] = str(here) + os.pathsep + os.environ.get("PATH", "")
-    check(toolreg.which("git") == str(fake), "which: the current folder counts when it is on PATH")
+    check(toolreg.which("git", windows=True) == str(fake), "which: the current folder counts when it is on PATH")
 finally:
     os.environ["PATH"] = os.environ["PATH"].split(os.pathsep, 1)[1]
     toolreg.shutil.which = real_which
@@ -204,6 +206,20 @@ except Exception as e:
     check(False, "bootstrap check: bad machine.json values are shown, not a crash", repr(e))
 (repo / "state" / "machine.json").unlink()
 (repo / "tools.json").unlink()
+(repo / "state" / "machine.json").write_text(json.dumps({"checkout": ["hand"]}), encoding="utf-8")
+m = toolreg.write_machine({"checkout": {"codex": "/x"}, "projectRoots": ["P"]}, repo)
+check(m["checkout"] == ["hand"] and m["projectRoots"] == ["P"], "write_machine: a wrong-typed key stays for the user to fix, other keys are added", m)
+real_replace = toolreg.os.replace
+toolreg.os.replace = lambda a, b: (_ for _ in ()).throw(PermissionError("held open"))
+try:
+    toolreg.write_machine({"projectRoots": ["Q"]}, repo)
+    check(False, "write_machine: a failed swap raises and leaves no temp file")
+except PermissionError:
+    check(not list((repo / "state").glob("*.tmp")) and json.loads((repo / "state" / "machine.json").read_text(encoding="utf-8"))["projectRoots"] == ["P"],
+          "write_machine: a failed swap raises and leaves no temp file")
+finally:
+    toolreg.os.replace = real_replace
+(repo / "state" / "machine.json").unlink()
 
 # ---- bootstrap on the real registry ----
 reg = toolreg.load_registry()

@@ -167,7 +167,7 @@ if [ -s "$tmp/foreign.list" ]; then
   sort "$tmp/foreign.list" | head -n 20 | sed 's/^/kept (not from this repo): /'
   [ "$(wc -l < "$tmp/foreign.list")" -gt 20 ] && echo "kept (not from this repo): ... and $(( $(wc -l < "$tmp/foreign.list") - 20 )) more"
 fi
-[ -f "$tmp/dropped.list" ] && cat "$tmp/dropped.list" >> "$tmp/new.list"  # keep reporting them until removed by hand
+[ -f "$tmp/dropped.list" ] && sort -u "$tmp/dropped.list" >> "$tmp/new.list"  # keep reporting them until removed by hand
 cp "$tmp/new.list" "$manifest.new" && mv "$manifest.new" "$manifest"
 
 if ! command -v rtk >/dev/null 2>&1; then
