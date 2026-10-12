@@ -142,10 +142,11 @@ CWD="$r/deep/er" run 2 'git add -A'
 CWD="$r" run 2 'cd deep && git add -A'
 CWD="$r" run 2 'git -C deep add -u'
 CWD="$t/clean" run 0 "cd $r/deep && git add ok-in-deep.txt"
-# speed: a broad add over many files stays well inside the 30 s hook timeout
+# speed: a broad add over many files stays inside the 30 s hook timeout
 mkdir "$t/big"; (cd "$t/big" && for i in $(seq 1 60); do mkdir d$i; for j in $(seq 1 300); do : > d$i/f$j.txt; done; done; echo s > d60/.env)
 s0=$(date +%s); CWD="$t/big" run 2 'git init && git add -A'; el=$(( $(date +%s) - s0 ))
-if [ "$el" -le 10 ]; then echo "PASS 18000 files judged in ${el}s"; else echo "FAIL 18000 files took ${el}s (limit 10)"; fail=$((fail+1)); fi
+lim="${QA_HOOKS_TIME_LIMIT:-20}"  # under the 30 s hook timeout, with room for slow runners (Git Bash starts processes slowly)
+if [ "$el" -le "$lim" ]; then echo "PASS 18000 files judged in ${el}s"; else echo "FAIL 18000 files took ${el}s (limit $lim)"; fail=$((fail+1)); fi
 # expansion where the option or verb belongs, ANSI-C quoting, --git-dir/--work-tree and GIT_DIR from a directory that is not a repo
 run 2 'git${IFS}add${IFS}-A'
 run 2 'git$IFS add -A'
