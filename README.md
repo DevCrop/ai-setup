@@ -52,6 +52,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 | Single vs subagents vs AO, same task | `bash scripts/bench.sh run <work> single 3` (and `subagents 3`; AO arm in docs/GUIDE.md), then `bench.sh report <work>`; the dashboard panel "같은 과제 비교" reads `reports/bench/latest.json` |
 | Is claude-mem working? | `curl -s http://127.0.0.1:37777/api/health` and the dashboard panel "도구 점검" |
 | Why was a decision made, how do I undo it? | [docs/DECISIONS.md](docs/DECISIONS.md); measurements in [docs/evidence.md](docs/evidence.md) |
+| What is still open, and what must I do by hand? | [docs/BACKLOG.md](docs/BACKLOG.md) (section 1 is yours) |
 
 ## Changing this repo
 

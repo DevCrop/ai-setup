@@ -1,6 +1,6 @@
 # Setup guide
 
-End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). This is the only runbook. Why things are the way they are: `docs/DECISIONS.md`; measurements and the original wording of old decisions: `docs/evidence.md`.
+End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). This is the only runbook. Why things are the way they are: `docs/DECISIONS.md`; measurements and the original wording of old decisions: `docs/evidence.md`; open work, by priority: `docs/BACKLOG.md`.
 
 ## Quick path (new machine, about 15 minutes)
 

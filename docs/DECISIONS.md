@@ -162,8 +162,9 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Not adopted this round
 - A `git-guard` hook (the classifier plus the deny backstop cover it), the Bash sandbox and `autoMode.classifyAllShell` (no allow rules to suspend; the sandbox is not available on native Windows), a `PermissionDenied` logging hook or dashboard tab (use `/permissions` → Recently denied), dashboard CSP/SSE/new features (feature freeze), an ADR folder (this file is enough for one person).
 
-### Docs: one runbook, one decision log, one evidence file
-- `docs/GUIDE.md` is the only runbook, `docs/DECISIONS.md` this log, `docs/evidence.md` the verbatim measurements. `docs/NEXT-MACHINE.md` was split into them; the dated status table, the "remaining work" list and the repository history were dropped (git keeps them).
+### Docs: one runbook, one decision log, one evidence file, one backlog
+- `docs/GUIDE.md` is the only runbook, `docs/DECISIONS.md` this log, `docs/evidence.md` the verbatim measurements. `docs/NEXT-MACHINE.md` was split into them; the dated status table and the repository history were dropped (git keeps them).
+- Changed 2026-10-12: open work lives in `docs/BACKLOG.md` (it replaces the dropped "remaining work" list). Why: after PRs #95 to #98 the open items were spread over review reports, DECISIONS "Not checked" lines and GUIDE, and the user asked for one document. Rule: a row names its file and its done criterion and is deleted in the PR that does it; steps GUIDE owns are referenced, not copied. Undo: fold the rows back into GUIDE and DECISIONS, delete the file and its links in README, GUIDE and the root `CLAUDE.md`.
 
 ## 2026-10-11 — earlier
 
