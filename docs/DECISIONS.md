@@ -2,6 +2,14 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — AO runs on the local machine, not in cloud sessions
+
+### AO is not used or QA'd in cloud sessions
+- What: AO (Orchestrator.inc) runs and is QA'd only on the local machine, the AO desktop app with its daemon. Cloud sessions (claude.ai/code, `claude --cloud`) do not install, build or run AO. For parallel work in the cloud, use what the cloud docs offer: several `claude --cloud` sessions, a project, or subagents. To steer local AO work from a phone, start a local Claude Code session with Remote Control and run `ao` from it.
+- Why, from the official docs (code.claude.com/docs/en/claude-code-on-the-web, read 2026-10-12): a cloud session runs in an isolated VM; sessions "stop after a period of inactivity and the session's VM is reclaimed", and on reopen "background work that was still running when the VM was reclaimed, such as subagents and shell commands" is not restored. That would include the AO daemon and its worker panes, which are background shell processes (inferred). A setup script "is cached only when it finishes in roughly five minutes". The cloud QA had to build AO from source and fetch a newer Go toolchain (about 0.9 GB of Go caches) and zellij. The build time was not measured, so whether it fits the five-minute cache is untested. Whether an AO Linux release exists was not checked. Reaching the user's own computer is Remote Control's job (docs/en/remote-control), not the cloud session's.
+- Why, from the cloud QA (2026-10-12, `docs/evidence.md`, "AO 클라우드 QA"): workers and guardrails ran, but the AO-specific results (reviewer, config fields) do not carry over to the local AO. The build came from `aoagents/agent-orchestrator` (the `tools.json` install URL). That is a different codebase from the local app's `OrchestratorInc/agent-orchestrator` 0.13.6. It has no `ao review trigger` and no reviewer model field. The review loop also needs a GitHub PR, so the reviewer lane could not be reproduced. (The session's classifier also refused a `bypass-permissions` worker; the local setup uses `--permission auto`, which did run.) The first interactive worker stopped at Claude Code's first-run theme picker, which any machine without saved settings may hit (inferred).
+- Undo: delete this entry. Nothing in `claude/` or `scripts/` depends on it.
+
 ## 2026-10-12 — model lanes: Opus orchestrates and verifies, Haiku executes, no Sonnet
 
 ### Model lanes: Opus orchestrates and verifies, Haiku executes
@@ -105,7 +113,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - What: `usage.py` splits cost into input, cache write, cache read and output; the efficiency tab shows the split and the cache-read share. `scripts/bench.sh` runs one fixed job as one agent, as parallel `worker` subagents and as AO workers, and `scripts/bench/report.py` compares cost by kind, wall time, peak context and a hidden-test score; the dashboard reads `reports/bench/latest.json`.
 - Why: in one long session in this cloud container (2026-10-12, `docs/evidence.md`) Sonnet cache reads were $2.95 of about $5.5 (list price), and the main context grew to 316K tokens (median 212K over 139 requests). Context length looks like a bigger lever than routing, and AO's value (time against start-up cost) cannot be read from logs of different jobs.
 - Rule: all arms on one machine with the setup applied. A first harness run here, without `apply.sh`, blocked every Bash call through the missing `secret-guard` hook and measured nothing; `run` now refuses in that state. Log cost is cross-checked against the CLI's own `total_cost_usd` (transcripts held fewer output tokens in one run).
-- Open: no AO numbers yet (AO is not installable in this container: GitHub is outside its network policy). `autoCompactWindow` stays 400000 until the benchmark or a week of `/usage` gives a reason.
+- Open: no AO numbers yet (AO is not installable in this container: GitHub is outside its network policy; a later cloud session could build it, but AO is not run in the cloud anyway, entry "AO runs on the local machine"). `autoCompactWindow` stays 400000 until the benchmark or a week of `/usage` gives a reason.
 - Undo: remove `scripts/bench.sh`, `scripts/bench/`, `BenchEfficiency`, `ui/bench-panel.js`, the split in `usage.py` and its UI, and the CI step in one PR.
 
 ### The efficiency tab sums per-reply usage from the session logs; `modelUsage` is not used
