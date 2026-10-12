@@ -51,9 +51,9 @@ check(toolreg.version_ok("2.1.295", "2.1.295") and not toolreg.version_ok("2.1.2
 check(not toolreg.version_ok(None, "3.11") and toolreg.version_ok(None, None), "version_ok: unknown version")
 
 # ---- install command per platform ----
-check(toolreg.install_command(ENTRY, "win32") == "winget install --id QA.Tool --exact", "install: winget on Windows")
-check(toolreg.install_command(ENTRY, "darwin") == "brew install qatool", "install: brew on macOS")
-check(toolreg.install_command({"install": {"cask": "c", "brew": "b"}}, "darwin") == "brew install --cask c", "install: cask wins on macOS")
+check(toolreg.install_command(ENTRY, "win32") == "winget install --id QA.Tool --exact --no-upgrade", "install: winget on Windows, never upgrades")
+check(toolreg.install_command(ENTRY, "darwin") == "env HOMEBREW_NO_INSTALL_UPGRADE=1 brew install qatool", "install: brew on macOS, never upgrades")
+check(toolreg.install_command({"install": {"cask": "c", "brew": "b"}}, "darwin") == "env HOMEBREW_NO_INSTALL_UPGRADE=1 brew install --cask c", "install: cask wins on macOS")
 check(toolreg.install_command(ENTRY, "linux").endswith("https://example.invalid"), "install: URL elsewhere")
 check(toolreg.install_command({"id": "x"}, "win32") is None, "install: nothing known")
 
@@ -181,8 +181,9 @@ except ValueError:
     check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "[]", "write_machine: refuses a file that is valid JSON but not an object")
 
 # ---- install / clone / apply / verify / autostart with fake ask and run (nothing is installed or written outside tmp) ----
-def item(id_, found=False, required=False, disabled=False, setup=None, label=None):
-    return {"id": id_, "label": label or id_, "found": found, "required": required, "disabled": disabled, "install": None, **({"setup": setup} if setup else {})}
+def item(id_, found=False, required=False, disabled=False, setup=None, label=None, versionOk=True, version=None, min_=None):
+    return {"id": id_, "label": label or id_, "found": found, "required": required, "disabled": disabled, "install": None,
+            "versionOk": versionOk, "version": version, "min": min_, **({"setup": setup} if setup else {})}
 
 yes, no = (lambda q: True), (lambda q: False)
 ran = []
@@ -192,14 +193,14 @@ def fake_run(rc=0):
         return rc
     return f
 
-check(toolreg.install_argv({"install": {"winget": "A.B"}}, "win32") == ["winget", "install", "--id", "A.B", "--exact"], "install_argv: winget argv")
+check(toolreg.install_argv({"install": {"winget": "A.B"}}, "win32") == ["winget", "install", "--id", "A.B", "--exact", "--no-upgrade"], "install_argv: winget argv")
 check(toolreg.install_argv({"install": {"url": "u"}}, "win32") is None, "install_argv: URL only gives no argv")
 ents = {"a": {"id": "a", "install": {"winget": "A.A"}}, "b": {"id": "b", "install": {"url": "https://x"}}, "c": {"id": "c", "install": {"winget": "C.C"}}}
 r = {"items": [item("a", required=True), item("b", required=True), item("c", found=True), item("d", disabled=True)]}
 ents["d"] = {"id": "d", "install": {"winget": "D.D"}}
 ran.clear()
 rc = bootstrap.cmd_install(r, ents, ask=yes, run=fake_run(0), platform="win32")
-check(ran == [(["winget", "install", "--id", "A.A", "--exact"], None)], "install: only missing, enabled items with a package are run", str(ran))
+check(ran == [(["winget", "install", "--id", "A.A", "--exact", "--no-upgrade"], None)], "install: only missing, enabled items with a package are run", str(ran))
 check(rc == 1, "install: a required item with only a URL counts as not done")
 ran.clear()
 rc = bootstrap.cmd_install({"items": [item("a", required=True)]}, ents, ask=no, run=fake_run(0), platform="win32")
@@ -207,6 +208,20 @@ check(ran == [] and rc == 1, "install: declining a required item runs nothing an
 rc = bootstrap.cmd_install({"items": [item("a")]}, ents, ask=yes, run=fake_run(5), platform="win32")
 check(rc == 1, "install: a failing installer exits 1")
 check(bootstrap.cmd_install({"items": [item("c", found=True)]}, ents, ask=yes, run=fake_run(0)) == 0, "install: nothing missing exits 0")
+ran.clear()
+rc = bootstrap.cmd_install({"items": [item("c", found=True, required=True, versionOk=False, version="18.0", min_="22")]}, ents, ask=yes, run=fake_run(0), platform="win32")
+check(rc == 1 and ran == [], "install: a required item that is too old is reported, not upgraded, and exits 1")
+check(toolreg.upgrade_command({"install": {"winget": "A.B"}}, "win32") == "winget upgrade --id A.B --exact"
+      and toolreg.upgrade_command({"install": {"cask": "c", "brew": "b"}}, "darwin") == "brew upgrade --cask c"
+      and toolreg.upgrade_command({"install": {"brew": "b"}}, "darwin") == "brew upgrade b"
+      and toolreg.upgrade_command({"install": {"url": "u"}}, "win32") == "공식 안내: u", "upgrade_command: an upgrade, not the no-upgrade install")
+import io, contextlib
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    bootstrap.cmd_install({"items": [item("c", found=True, required=True, versionOk=False, version="18.0", min_="22")]}, ents, ask=yes, run=fake_run(0), platform="win32")
+check("upgrade by hand: winget upgrade --id C.C --exact" in buf.getvalue(), "install: a too-old item is told the upgrade command", buf.getvalue())
+rc = bootstrap.cmd_install({"items": [item("c", found=True, versionOk=False, version="1", min_="2")]}, ents, ask=yes, run=fake_run(0), platform="win32")
+check(rc == 0 and ran == [], "install: an optional item that is too old is reported only")
 
 cl_ent = {"id": "s", "setup": {"repo": "https://example.invalid/s", "candidates": ["${LOCALAPPDATA}/no", "${REPO_PARENT}/clone-s"]}}
 ran.clear()
@@ -217,6 +232,12 @@ check(rc == 0 and ran and ran[0][0] == ["git", "clone", "https://example.invalid
 ran.clear()
 rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": cl_ent}, ask=yes, run=fake_run(0), toks=toks)
 check(rc == 1 and ran == [], "clone: never into a non-empty folder")
+(tmp / "clone-f").write_text("x", encoding="utf-8")
+cl_f = {"id": "s", "setup": {"repo": "r", "candidates": ["${REPO_PARENT}/clone-f"]}}
+rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": cl_f}, ask=yes, run=fake_run(0), toks=toks)
+check(rc == 1 and ran == [], "clone: a file at the target path is refused, not a crash")
+rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": {"id": "s", "setup": {"repo": "r", "candidates": ["${REPO_PARENT}/clone-new"]}}}, ask=no, run=fake_run(0), toks=toks)
+check(rc == 1 and ran == [], "clone: declining exits 1")
 
 PLAN = json.dumps([{"path": "a", "action": "keep"}, {"path": "b", "action": "write"}])
 check(bootstrap.summarize("trace", 0, PLAN, "")[:2] == ["plan: keep 1, write 1", "  write b"], "summarize: TRACE plan counts and changes")
@@ -237,11 +258,14 @@ def fake_capture(out, rc=0):
 ran.clear()
 r = {"items": [item("t", setup={"checkout": str(tmp), "repo": "r"}, label="T")]}
 rc = bootstrap.cmd_apply(r, {"t": tr}, ask=no, run=fake_run(0), capture=fake_capture(PLAN))
-check(ran == [] and caps and caps[-1][-1] == "plan" and rc == 0, "apply: plan is shown, declining runs nothing")
+check(ran == [] and caps and caps[-1][-1] == "plan" and rc == 1, "apply: plan is shown, declining runs nothing and exits 1")
 rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(0), capture=fake_capture(PLAN))
 check(ran and ran[-1][0][-1] == "apply" and ran[-1][1] == str(tmp) and rc == 0, "apply: confirmed apply runs in the checkout")
 rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(2), capture=fake_capture(PLAN))
 check(rc == 1, "apply: a failing apply exits 1")
+ran.clear()
+rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(0), capture=fake_capture(PLAN, 3))
+check(rc == 1 and ran == [], "apply: a failed plan is not applied and exits 1")
 check(bootstrap.cmd_apply({"items": [item("t", setup={"checkout": None, "repo": "r"})]}, {"t": tr}, ask=yes, run=fake_run(0)) == 1, "apply: no checkout exits 1 and points to clone")
 rc = bootstrap.cmd_verify(r, {"t": tr}, capture=fake_capture(json.dumps({"status": "pass", "errors": []}), 0))
 check(rc == 0, "verify: TRACE pass")

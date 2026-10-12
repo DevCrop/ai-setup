@@ -151,9 +151,13 @@ newcfg; out="$(dryrun || true)"
 apply >/dev/null; out="$(dryrun)"
 ! printf '%s' "$out" | grep -q "^would " && pass "11 dry run after apply: everything unchanged" || bad "11 dry run after apply ($out)"
 echo changed >> "$cfg/agents/reviewer.md"; echo stale > "$cfg/hooks/old.sh"; echo hooks/old.sh >> "$cfg/.claude-global-manifest"; cp "$cfg/agents/reviewer.md" "$base/b11"
+echo '{"theme":"light"}' > "$base/live.json"; jq -s '.[0] * .[1]' "$cfg/settings.json" "$base/live.json" > "$base/set11" && cp "$base/set11" "$cfg/settings.json"
+cp "$cfg/.claude-global-manifest" "$base/m11"
 out="$(dryrun)"
 printf '%s' "$out" | grep -q "^would write: agents (1 files)" && printf '%s' "$out" | grep -q "^would remove (no longer in the repo): hooks/old.sh" \
   && cmp -s "$base/b11" "$cfg/agents/reviewer.md" && [ -f "$cfg/hooks/old.sh" ] && pass "11 dry run: names a changed file and a stale one, touches neither" || bad "11 dry run drift ($out)"
+cmp -s "$base/set11" "$cfg/settings.json" && cmp -s "$base/m11" "$cfg/.claude-global-manifest" \
+  && pass "11 dry run: settings.json with a changed key and the manifest are byte for byte unchanged" || bad "11 dry run touched settings.json or the manifest"
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" --bogus 2>&1)"; rc=$?
 [ "$rc" = 2 ] && pass "11 unknown argument: exit 2" || bad "11 unknown argument (rc=$rc)"
 

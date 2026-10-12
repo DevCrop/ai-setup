@@ -190,12 +190,25 @@ def install_argv(entry, platform=sys.platform):
     """The package-manager command that installs this entry here, or None when only a manual URL is known."""
     i = entry.get("install") or {}
     if platform.startswith("win") and i.get("winget"):
-        return ["winget", "install", "--id", i["winget"], "--exact"]
+        return ["winget", "install", "--id", i["winget"], "--exact", "--no-upgrade"]
+    # without this, brew install upgrades a formula or cask that is installed but outdated
     if platform == "darwin" and i.get("cask"):
-        return ["brew", "install", "--cask", i["cask"]]
+        return ["env", "HOMEBREW_NO_INSTALL_UPGRADE=1", "brew", "install", "--cask", i["cask"]]
     if platform == "darwin" and i.get("brew"):
-        return ["brew", "install", i["brew"]]
+        return ["env", "HOMEBREW_NO_INSTALL_UPGRADE=1", "brew", "install", i["brew"]]
     return None
+
+
+def upgrade_command(entry, platform=sys.platform):
+    """The command that upgrades an installed entry: shown for a version that is too old, never run by bootstrap."""
+    i = entry.get("install") or {}
+    if platform.startswith("win") and i.get("winget"):
+        return "winget upgrade --id %s --exact" % i["winget"]
+    if platform == "darwin" and i.get("cask"):
+        return "brew upgrade --cask " + i["cask"]
+    if platform == "darwin" and i.get("brew"):
+        return "brew upgrade " + i["brew"]
+    return ("공식 안내: " + i["url"]) if i.get("url") else None
 
 
 def install_command(entry, platform=sys.platform):

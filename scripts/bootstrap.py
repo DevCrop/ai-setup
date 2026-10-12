@@ -148,10 +148,15 @@ def verify_passed(parser, rc, out):
 
 def cmd_install(r, entries, ask=ask, run=run, platform=sys.platform):
     todo = [i for i in r["items"] if not i["found"] and not i["disabled"]]
+    old = [i for i in r["items"] if i["found"] and not i["versionOk"] and not i["disabled"]]
+    bad = done = 0
+    for i in old:  # never upgraded here: an upgrade can break what already uses the old version
+        print("%s: too old (%s, needs %s+); upgrade by hand: %s" % (i["id"], i["version"] or "?", i["min"],
+                                                                   toolreg.upgrade_command(entries[i["id"]], platform) or "no source known"))
+        bad += i["required"]
     if not todo:
         print("nothing to install")
-        return 0
-    bad = done = 0
+        return 1 if bad else 0
     for i in todo:
         argv = toolreg.install_argv(entries[i["id"]], platform)
         if not argv:
@@ -191,13 +196,15 @@ def cmd_clone(r, entries, ask=ask, run=run, toks=None):
             print("%s: no candidate path on this system" % i["id"])
             bad += 1
             continue
-        if target.exists() and any(target.iterdir()):
-            print("%s: %s exists and is not empty; set its path in state/machine.json (checkout.%s) instead" % (i["id"], target, i["id"]))
+        if target.exists() and (not target.is_dir() or any(target.iterdir())):
+            print("%s: %s exists (a file or a folder that is not empty); set its path in state/machine.json (checkout.%s) instead" % (i["id"], target, i["id"]))
             bad += 1
             continue
         if ask("clone %s into %s ?" % (i["setup"]["repo"], target)):
             target.parent.mkdir(parents=True, exist_ok=True)
             bad += run(["git", "clone", i["setup"]["repo"], str(target)]) != 0
+        else:
+            bad += 1
     return 1 if bad else 0
 
 
@@ -210,12 +217,18 @@ def cmd_apply(r, entries, ask=ask, run=run, capture=capture):
         if e["setup"].get("plan"):
             rc, out, err = capture(setup_argv(e, "plan"), cwd=d)
             print("\n".join(summarize(e["setup"].get("parser"), rc, out, err)))
+            if rc != 0:
+                print("%s: plan failed (exit %d); not applied" % (i["id"], rc))
+                bad += 1
+                continue
         else:
             print("this setup has no plan step; apply writes without a preview")
         if ask("apply %s now?" % i["label"]):
             rc = run(setup_argv(e, "apply"), cwd=d)
             print("%s: %s" % (i["id"], "applied" if rc == 0 else "apply failed (exit %d)" % rc))
             bad += rc != 0
+        else:
+            bad += 1
     if not todo:
         print("no setup checkout found; run: python scripts/bootstrap.py clone")
         return 1
