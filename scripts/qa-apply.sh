@@ -210,5 +210,18 @@ cmp -s "$base/set11" "$cfg/settings.json" && cmp -s "$base/m11" "$cfg/.claude-gl
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" --bogus 2>&1)"; rc=$?
 [ "$rc" = 2 ] && pass "11 unknown argument: exit 2" || bad "11 unknown argument (rc=$rc)"
 
+# 12. a skill dropped from the copy list: its files are reported (dry run and apply) and kept, and stay listed until removed by hand
+newcfg; apply >/dev/null
+mkdir -p "$cfg/skills/oldskill"; echo old > "$cfg/skills/oldskill/SKILL.md"; echo skills/oldskill/SKILL.md >> "$cfg/.claude-global-manifest"
+out="$(dryrun)"
+printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.md" && pass "12 dry run names a file of a dropped skill" || bad "12 dry run dropped skill ($out)"
+out="$(apply)"
+printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.md" && [ -f "$cfg/skills/oldskill/SKILL.md" ] \
+  && pass "12 apply names a file of a dropped skill and keeps it" || bad "12 apply dropped skill ($out)"
+out="$(apply)"
+printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.md" && pass "12 the report repeats until the file is removed" || bad "12 second apply ($out)"
+rm "$cfg/skills/oldskill/SKILL.md"; out="$(apply)"
+! printf '%s' "$out" | grep -q "oldskill" && ! grep -q oldskill "$cfg/.claude-global-manifest" && pass "12 once removed by hand it leaves the manifest" || bad "12 after removal ($out)"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

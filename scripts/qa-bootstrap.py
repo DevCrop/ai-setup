@@ -131,6 +131,80 @@ try:
 except ValueError:
     check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "not json", "write_machine: refuses to overwrite a broken file")
 
+# ---- BACKLOG C3: the "default" project root is not written by --write (it would hide ~/Projects for good once empty) ----
+r0 = {"items": [], "projectRoots": [], "projectRootsSource": "default"}
+check("projectRoots" not in bootstrap.found_values(r0), "found_values: a default project root is not recorded", bootstrap.found_values(r0))
+r0 = {"items": [], "projectRoots": [str(tmp / "a")], "projectRootsSource": "state/project-roots.txt"}
+check(bootstrap.found_values(r0).get("projectRoots") == [str(tmp / "a")], "found_values: the legacy file is still migrated")
+
+# ---- BACKLOG C4: a BOM (Notepad, PowerShell 5.1) does not break the first path ----
+(repo / "state" / "project-roots.txt").write_text("\ufeff" + str(tmp / "a") + "\n", encoding="utf-8")
+roots, src = toolreg.project_roots({}, toks, repo)
+check(roots == [tmp / "a"], "roots: a BOM in project-roots.txt is dropped", roots)
+import importlib.util
+spec = importlib.util.spec_from_file_location("dashprojects", str(Path(__file__).resolve().parent / "dashboard" / "projects.py"))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "dashboard"))
+dp = importlib.util.module_from_spec(spec); spec.loader.exec_module(dp)
+(repo / "state" / "projects.txt").write_text("\ufeff" + str(tmp / "a") + "\n", encoding="utf-8")
+os.environ.pop("PROJECT_DIRS", None)
+listed = [str(x) for x in dp.project_dirs(repo, tmp / "no-logs")]
+check(listed == [str(tmp / "a")], "dashboard projects.txt: a BOM is dropped", listed)
+(repo / "state" / "projects.txt").unlink()
+(tmp / "a" / "p1").mkdir(parents=True, exist_ok=True)
+(repo / "state" / "project-roots.txt").write_text("\ufeff" + str(tmp / "a") + "\n", encoding="utf-8")
+os.environ.pop("PROJECT_ROOTS", None)
+listed = [str(x) for x in dp.discover_projects(repo, tmp / "no-logs")]
+check(listed == [str(tmp / "a" / "p1")], "dashboard project-roots.txt: a BOM is dropped", listed)
+(repo / "state" / "project-roots.txt").unlink()
+
+# ---- BACKLOG C5: a git.exe in the current folder is not taken for the tool unless that folder is on PATH ----
+here = tmp / "cwdbin"; here.mkdir()
+fake = here / ("git.exe" if os.name == "nt" else "git")
+fake.write_text("", encoding="utf-8")
+real_which, oldcwd = toolreg.shutil.which, os.getcwd()
+os.chdir(here)
+toolreg.shutil.which = lambda n, *a, **k: str(fake) if n in ("git", "git.exe") else real_which(n, *a, **k)
+try:
+    check(toolreg.which("git") is None, "which: a hit in the current folder (not on PATH) is refused")
+    os.environ["PATH"] = str(here) + os.pathsep + os.environ.get("PATH", "")
+    check(toolreg.which("git") == str(fake), "which: the current folder counts when it is on PATH")
+finally:
+    os.environ["PATH"] = os.environ["PATH"].split(os.pathsep, 1)[1]
+    toolreg.shutil.which = real_which
+    os.chdir(oldcwd)
+
+# ---- BACKLOG C6: machine.json is replaced in one step (temp file + os.replace) ----
+(repo / "state" / "machine.json").write_text("{}", encoding="utf-8")
+seen_replace = []
+real_replace = toolreg.os.replace
+toolreg.os.replace = lambda a, b: (seen_replace.append((str(a), str(b))), real_replace(a, b))[1]
+try:
+    toolreg.write_machine({"projectRoots": ["W"]}, repo)
+finally:
+    toolreg.os.replace = real_replace
+check(len(seen_replace) == 1 and seen_replace[0][1] == str(repo / "state" / "machine.json") and toolreg.load_machine(repo).get("projectRoots") == ["W"]
+      and not list((repo / "state").glob("*.tmp*")), "write_machine: written through a temp file and os.replace", seen_replace)
+
+# ---- BACKLOG C7: wrong types in machine.json are reported and ignored, never a crash ----
+bad = {"bin": "x", "checkout": ["y"], "disabled": 5, "projectRoots": "z"}
+try:
+    r = toolreg.detect(ENTRY, bad, toks, repo)
+    roots, src = toolreg.project_roots(bad, toks, repo)
+    probs = toolreg.machine_problems(bad)
+    check(not r["disabled"] and src != "machine.json" and sorted(p.split(" ")[0] for p in probs) == ["bin", "checkout", "disabled", "projectRoots"],
+          "machine.json wrong types: ignored and each bad key reported", probs)
+except Exception as e:
+    check(False, "machine.json wrong types: ignored and each bad key reported", repr(e))
+(repo / "state" / "machine.json").write_text(json.dumps(bad), encoding="utf-8")
+(repo / "tools.json").write_text(json.dumps({"tools": [ENTRY]}), encoding="utf-8")
+try:
+    rep = bootstrap.collect(repo)
+    check(len(rep.get("machineProblems", [])) == 4 and any("machine.json" in l for l in bootstrap.lines(rep)), "bootstrap check: bad machine.json values are shown, not a crash", rep.get("machineProblems"))
+except Exception as e:
+    check(False, "bootstrap check: bad machine.json values are shown, not a crash", repr(e))
+(repo / "state" / "machine.json").unlink()
+(repo / "tools.json").unlink()
+
 # ---- bootstrap on the real registry ----
 reg = toolreg.load_registry()
 ids = [e["id"] for e in reg]
@@ -145,7 +219,7 @@ check(out[0].startswith("MISS qa") and "install: " in out[0], "bootstrap.lines: 
 check(out[-1] == "missing required: qa", "bootstrap.lines: summary names what is missing")
 fv = bootstrap.found_values({"items": [{"id": "a", "setup": {"checkout": "P", "source": "${REPO}"}}, {"id": "b", "setup": {"checkout": "Q", "source": "machine.json"}},
                                       {"id": "c", "setup": {"checkout": "S", "source": "QA_DIR", "fromEnv": True}}], "projectRoots": ["R"], "projectRootsSource": "default"})
-check(fv == {"checkout": {"a": "P"}, "projectRoots": ["R"]}, "bootstrap.found_values: keeps searched values, not machine.json or env ones", json.dumps(fv))
+check(fv == {"checkout": {"a": "P"}}, "bootstrap.found_values: keeps searched values, not machine.json, env or default ones", json.dumps(fv))
 fv = bootstrap.found_values({"items": [], "projectRoots": ["R"], "projectRootsSource": "PROJECT_ROOTS"})
 check("projectRoots" not in fv, "bootstrap.found_values: project roots from an env var are not recorded")
 os.environ["QA_DIR"] = str(envd)
