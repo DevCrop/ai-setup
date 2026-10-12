@@ -269,7 +269,9 @@ if [ "$live" -eq 1 ]; then
            + [own_perm[] as $k | select((($l.permissions // {})[$k]) != (($r.permissions // {})[$k])) | "permissions." + $k]
            + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "modelSettings" or $k == "env") | not) | select($l[$k] != $r[$k]) | $k]
            + [($r.enabledPlugins // {} | to_entries[]) | select((($l.enabledPlugins // {})[.key]) != .value) | "enabledPlugins." + .key]
-           + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f | select(((($l.modelSettings // {})[$e.key] // {})[$f]) != $e.value[$f]) | "modelSettings." + $e.key + "." + $f])
+           + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f
+              | (if ($l.modelSettings | type) == "object" then $l.modelSettings[$e.key] else null end) as $le
+              | select(($le | type) != "object" or $le[$f] != $e.value[$f]) | "modelSettings." + $e.key + "." + $f])
         | join(", ")' 2>/dev/null)"
       if [ -z "$owned_diff" ]; then pass "in sync: settings.json (keys owned by this repo)"
       else warn "settings.json differs from claude/settings.json in: $owned_diff (apply.sh restores the repo values; to keep a change, edit claude/settings.json first)"; fi

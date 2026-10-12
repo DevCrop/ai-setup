@@ -62,7 +62,9 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
      + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]
      + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "modelSettings" or $k == "env") | not) | select(($l | has($k)) and $l[$k] != $r[$k]) | $k]
      + [($r.enabledPlugins // {} | to_entries[]) as $e | select((($l.enabledPlugins // {}) | has($e.key)) and (($l.enabledPlugins // {})[$e.key] != $e.value)) | "enabledPlugins." + $e.key]
-     + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f | select(((($l.modelSettings // {})[$e.key] // {}) | has($f)) and ((($l.modelSettings // {})[$e.key])[$f] != $e.value[$f])) | "modelSettings." + $e.key + "." + $f]) as $replaced
+     + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f
+        | (if ($l.modelSettings | type) == "object" then $l.modelSettings[$e.key] else $l.modelSettings end) as $le
+        | select($le != null and (($le | type) != "object" or (($le | has($f)) and $le[$f] != $e.value[$f]))) | "modelSettings." + $e.key + "." + $f]) as $replaced
   | ($x | map(select(. as $p | ($l | getpath($p)) != null)) | map(join("."))) as $removed
   | (($l | keys) - ($r | keys) - ($x | map(select(length == 1) | .[0]))) as $only_top
   | ((($l.enabledPlugins // {}) | keys) - (($r.enabledPlugins // {}) | keys) - ($x | map(select(.[0] == "enabledPlugins" and length == 2) | .[1]))) as $only_plugins

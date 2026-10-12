@@ -417,5 +417,14 @@ check(efficiency.BenchEfficiency(bp).collect()["data"]["arms"]["single"]["split"
 bp.write_text("{broken", encoding="utf-8")
 check(efficiency.BenchEfficiency(bp).collect()["data"] is None, "bench: a damaged report is 'unavailable', never raised")
 
+import inventory
+me = inventory.main_effort
+check(me({"model": "opus", "effortLevel": "high", "modelSettings": {"claude-opus-5-5": {"effortLevel": "medium"}}}) == "medium", "routing effort: the main model's entry wins over the top-level level")
+check(me({"model": "opus", "modelSettings": {"claude-opus-4-6": {"effortLevel": "low"}, "claude-opus-5-5": {"effortLevel": "medium"}}}) == "medium", "routing effort: an alias picks the newest matching entry, not the first")
+check(me({"model": "claude-opus-4-6", "modelSettings": {"claude-opus-4-6": {"effortLevel": "low"}, "claude-opus-5-5": {"effortLevel": "medium"}}}) == "low", "routing effort: a full model ID matches only itself")
+check(me({"model": "opus", "effortLevel": "high", "modelSettings": {"claude-sonnet-5-5": {"effortLevel": "low"}}}) == "high", "routing effort: no entry for the main model falls back to the top-level level")
+odd = [me({"model": "opus", "effortLevel": "high", "modelSettings": v}) for v in ("x", [1], None, {"claude-opus-5-5": "high"}, {"claude-opus-5-5": {"effortLevel": ["x"]}})] + [me({"model": 5, "modelSettings": {}})]
+check(odd == ["high"] * 5 + [None], "routing effort: odd types fall back, never raise or pass a non-string through", odd)
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

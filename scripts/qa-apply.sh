@@ -155,6 +155,18 @@ out="$(apply)"
 printf '%s' "$out" | grep -q "replaced live value of: .*modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ] \
   && pass "10a apply resets a hand-saved Opus effort and names the field" || bad "10a Opus effort reset ($out)"
 
+# 10c. a live modelSettings that is not an object, or an entry that is not an object: apply repairs and names it, verify --live warns
+for bad in '"x"' '[1,2]' '{"claude-opus-5-5":"high"}'; do
+  newcfg; apply >/dev/null
+  jq --argjson b "$bad" '.modelSettings=$b' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+  v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+  out="$(apply 2>&1)"; rc=$?
+  if [ "$rc" = 0 ] && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" \
+     && printf '%s' "$out" | grep -q "modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
+    pass "10c modelSettings $bad: verify warns, apply repairs and names the field"
+  else bad "10c modelSettings $bad (rc=$rc; $out; $(printf '%s' "$v" | grep -i modelsettings))"; fi
+done
+
 # 10b. verify --live names config changes recorded after the last apply (config-audit.sh log), and skips the ones within 2 minutes
 newcfg; apply >/dev/null
 now="$(date -u +%s)"
