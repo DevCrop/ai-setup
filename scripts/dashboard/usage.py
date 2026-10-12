@@ -6,6 +6,8 @@ Not counted: calls that never reach a transcript (session titles, hook classifie
 session checked on 2026-10-12 they stopped updating partway through and missed a subagent that ran afterwards.
 
 A reply is logged once per content block with identical usage, so entries are de-duplicated by requestId (summing them would count a reply up to 4 times).
+A forked or resumed session copies earlier replies into its own file with the same requestId (seen 2026-10-13 with claude -p --resume
+--fork-session), so collect() also de-duplicates across files.
 Only model names on PRICES leave this module; anything else is reported as "other" and is not repriced.
 
 Prices (USD per million tokens): https://platform.claude.com/docs/en/about-claude/pricing, checked 2026-10-12. They reproduce the CLI's own
@@ -54,11 +56,12 @@ def price(model, t):
     return None if not p else sum(t.get(f, 0) * r for f, r in zip(FIELDS, p)) / 1e6
 
 
-_memo = {}  # path -> ((mtime_ns, size), {model: tokens}); a log that did not change is not read again
+_memo = {}  # path -> ((mtime_ns, size), {request key: (model, tokens)}); a log that did not change is not read again
 
 
-def read_log(path):
-    """{model: tokens} for one log, de-duplicated by requestId."""
+def read_requests(path):
+    """{request key: (model, tokens)} for one log. The key is the requestId (or the entry uuid), so the same reply in two files has the
+    same key; an entry with neither gets a key unique to this file and line."""
     try:
         st = Path(path).stat()
         key = (st.st_mtime_ns, st.st_size)
@@ -81,20 +84,34 @@ def read_log(path):
                     continue
                 m = d.get("message") if isinstance(d.get("message"), dict) else {}
                 if isinstance(m.get("usage"), dict) and isinstance(m.get("model"), str) and m["model"]:
-                    rid = next((x for x in (d.get("requestId"), d.get("uuid")) if isinstance(x, str) and x), i)
-                    seen[rid] = (m["model"], _tokens(m["usage"]))
+                    rid = next((x for x in (d.get("requestId"), d.get("uuid")) if isinstance(x, str) and x), None)
+                    seen[rid if rid else (str(path), i)] = (m["model"], _tokens(m["usage"]))
     except OSError:
         return {}
+    if len(_memo) > 4000:  # logs that were deleted would otherwise stay in memory
+        _memo.clear()
+    _memo[str(path)] = (key, seen)
+    return seen
+
+
+def _sum(requests, skip=None):
+    """{model: tokens} over requests; keys in `skip` (a set) are left out and the counted keys are added to it."""
     out = {}
-    for model, t in seen.values():
+    for k, (model, t) in requests.items():
+        if skip is not None:
+            if k in skip:
+                continue
+            skip.add(k)
         name = model if model in PRICES else "other"
         row = out.setdefault(name, dict.fromkeys(FIELDS, 0))
         for f in FIELDS:
             row[f] += t[f]
-    if len(_memo) > 4000:  # logs that were deleted would otherwise stay in memory
-        _memo.clear()
-    _memo[str(path)] = (key, out)
     return out
+
+
+def read_log(path):
+    """{model: tokens} for one log, de-duplicated by requestId within the file."""
+    return _sum(read_requests(path))
 
 
 def _add(into, per_model):
@@ -108,13 +125,17 @@ def collect(projects_dir):
     """Totals over every session log under <projects_dir>/*/*.jsonl plus each one's <session>/subagents/*.jsonl."""
     base = Path(projects_dir)
     models, sessions, baseline, notrepriced = {}, 0, 0.0, 0
+    counted = set()  # request keys already summed: a reply copied into a forked session's file counts once
     for f in sorted(base.glob("*/*.jsonl")) if base.is_dir() else []:
-        per = {k: dict(v) for k, v in read_log(f).items()}
-        for sub in sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl")):
-            _add(per, read_log(sub))
+        reqs = [read_requests(f)] + [read_requests(sub) for sub in sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl"))]
+        if not any(reqs):
+            continue
+        sessions += 1  # a fork whose replies were all counted in another file is still a session
+        per = {}
+        for r in reqs:
+            _add(per, _sum(r, counted))
         if not per:
             continue
-        sessions += 1
         _add(models, per)
         main = max((m for m in per if m in PRICES), key=lambda m: per[m]["output"], default=None)  # the model that wrote the most output carries the session
         for name, t in per.items():

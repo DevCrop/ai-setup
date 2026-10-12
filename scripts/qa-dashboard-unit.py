@@ -373,6 +373,19 @@ hk = usage.price("claude-haiku-5-5", {"input": 2000, "output": 500})
 alt = usage.price("claude-sonnet-5-5", {"input": 2000, "output": 500})
 check(abs(u["savedUSD"] - (alt - hk)) < 1e-9 and u["sessions"] == 1, "usage: saving = Haiku tokens repriced on the session's main model minus their real cost", u)
 check(set(usage.collect_agents(tmp / "projects")) == {"explorer"} and usage.collect_agents(tmp / "projects")["explorer"]["models"] == ["claude-haiku-5-5"], "usage: subagent rows carry the model that really answered")
+# BACKLOG C2: a forked or resumed session copies earlier replies into its own file with the same requestId (seen 2026-10-13 with
+# claude -p --resume --fork-session); they count once across files
+fd = tmp / "forkproj" / "p"
+fd.mkdir(parents=True)
+(fd / "orig.jsonl").write_text("\n".join([_ln("r1", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r2", "claude-sonnet-5-5", input_tokens=10, output_tokens=100)]) + "\n", encoding="utf-8")
+(fd / "fork.jsonl").write_text("\n".join([_ln("r1", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r2", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r3", "claude-sonnet-5-5", input_tokens=10, output_tokens=100)]) + "\n", encoding="utf-8")
+fu = usage.collect(tmp / "forkproj")
+check(fu["models"]["claude-sonnet-5-5"]["output"] == 300 and fu["sessions"] == 2, "usage: replies copied into a forked session count once", fu["models"])
+nd = tmp / "noridproj" / "p"
+nd.mkdir(parents=True)
+line = json.dumps({"message": {"model": "claude-sonnet-5-5", "usage": {"input_tokens": 1, "output_tokens": 7}}})
+(nd / "a.jsonl").write_text(line + "\n", encoding="utf-8"); (nd / "b.jsonl").write_text(line + "\n", encoding="utf-8")
+check(usage.collect(tmp / "noridproj")["models"]["claude-sonnet-5-5"]["output"] == 14, "usage: lines without a requestId are not merged across files", usage.collect(tmp / "noridproj"))
 check(usage.collect(tmp / "nowhere")["sessions"] == 0 and usage.collect_agents(tmp / "nowhere") == {}, "usage: a missing projects folder is empty, not an error")
 
 import efficiency
