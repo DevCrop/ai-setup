@@ -69,7 +69,7 @@ On the macOS run (M5):
 On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex`, which runs TRACE 1.2.5: the upgrade conflicts on `~/.agents/skills/archify`, an unreleased archify dev copy that `~/.claude/skills/archify` links to, and TRACE bundles stable releases only. Apply after archify publishes a release newer than v3.0.1 and TRACE bundles it; then check the child models in a live `codex exec`.
+- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex`, which runs TRACE 1.2.5. Archify is being dropped (2026-10-13), but TRACE bundles it as a required tool, so applying 1.3.3 as is would install it again in `~/.agents/skills`: remove archify from codex-setup's manifest first, then plan/apply/verify and check the child models in a live `codex exec`.
 
 ## 7. Measure
 
