@@ -43,8 +43,8 @@ Ponytail: installed x.y.z, enabled yes/no (or NOT INSTALLED, unhealthy) | latest
 EXPOSED: repo | file name (only when found, first line of the report)
 AO: not installed or x.y.z | latest x.y.z | doctor result (report only)
 Setup health: verify.sh --live | N FAIL, N WARN | the FAIL and WARN lines
-Tool registry: bootstrap.py check | missing required: ... | the lines that are not OK
 - rtk in use | commands today vs last run | signal or unknown
+Tool registry: bootstrap.py check | missing required: ... | the lines that are not OK
 Tool efficiency:
 - tool | metric | value | measured, estimated or unavailable
 Docs watch:
