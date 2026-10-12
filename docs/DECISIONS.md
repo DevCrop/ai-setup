@@ -2,11 +2,24 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — project path rule and handoff on the PR
+
+### The project is found from the cwd by its marks, never from a fixed path
+- What: `claude/CLAUDE.md` (Working method): projects live under a per-machine work root as `<client>/<stage>/<date or name>`; the project is the nearest folder at or above the cwd with `.git`, `CLAUDE.md`, `AGENTS.md` or `.claude`, searching no higher than the work root or the home folder, which are never projects. The marks are the dashboard's (`scripts/dashboard/projects.py`); the work root is what the dashboard and `bootstrap.py` call a project root.
+- Why: project folders sit one to three levels deep and the root differs per machine; `~/.claude` would otherwise make the home folder a project.
+- Not yet: the same line in codex-setup `global/AGENTS.md` (an ask for the Codex side, `docs/codex-alignment.md`), and the dashboard project search to depth 3 (frozen, entry below).
+- Undo: remove the line from `claude/CLAUDE.md` and this entry.
+
+### The handoff note is also posted on the work's own open PR (standing approval)
+- What: besides `.claude/handoff.md` (entry 2026-10-11), the note goes in a comment on the work's open PR in a repository the user owns, without secrets or machine-local paths; without such a PR the model says the note is on this machine only. `claude/CLAUDE.md` names it as the one exception to "send anything outward only after approval".
+- Why: on 2026-10-12 a note stayed on one PC when the work continued on another machine. The user gave this standing approval the same day.
+- Undo: remove the sentence from the handoff line and the exception from the Safety line in `claude/CLAUDE.md`, and this entry.
+
 ## 2026-10-12 — tool registry and bootstrap
 
 ### One hub, one registry: `tools.json` in this repo, per-machine values in `state/machine.json`
 - What: every dependency and tool (git, python, node, jq, gh, rtk, claude, codex, ao, cursor) is one entry in `tools.json`: how to detect it, its minimum version, its setup checkout candidates and its winget/brew/cask id or install URL. `scripts/toolreg.py` reads it; `scripts/bootstrap.py` is the one entry point (`check`, `install`, `clone`, `apply`, `verify`, `autostart`). A new tool is one entry.
-- Why: each machine has different paths (project folders at different depths, codex-setup under `Documents/ChatGPT/글로벌 셋업` on the Windows PC), and the setup steps were spread over three repos and hand edits (a hand-made autostart `.vbs` with a fixed Python path). Machine facts are in the PR #91 handoff comment. The hub stays here because this repo is already cloned first on every machine.
+- Why: each machine has different paths (project folders at different depths, codex-setup under `Documents/ChatGPT/글로벌 셋업` on the Windows PC), and the setup steps were spread over three repos and hand edits (a hand-made autostart `.vbs` with a fixed Python path). Per-machine facts belong in `state/machine.json` on that machine, not in the repo or a PR comment. The hub stays here because this repo is already cloned first on every machine.
 - Rule: paths in `tools.json` use tokens (`${HOME}`, `${DOCUMENTS}`, `${LOCALAPPDATA}`, `${REPO}`, `${REPO_PARENT}`), never one user's path. Per-machine values go in gitignored `state/machine.json`; precedence for setup checkouts and project roots is environment variable > `machine.json` > legacy `state/*.txt` > registry candidates (project roots fall back to `~/Projects`; binaries: environment variable > `machine.json` > PATH > registry paths).
 - Undo: delete `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `scripts/qa-bootstrap.py` and the "Tool registry and bootstrap check" step in both jobs of `.github/workflows/check.yml`; remove GUIDE quick path 1b and step 5, the "Adding a tool" line and the bootstrap mentions in `CLAUDE.md`, `README.md` and GUIDE section 0; `apply.sh --dry-run` (qa-apply case 11) can stay. The dashboard does not import the registry yet.
 
@@ -19,7 +32,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Dashboard feature freeze kept until the Mac run
 - What: the tools tab and the project search to depth 3 (PR3 of the plan) wait for the macOS run.
 - Why: the 2026-10-11 "Dashboard structure" entry freezes features until that run, and it has not happened yet.
-- Also waiting for that run: deferred review findings 6–10 in the PR #91 handoff comment (LaunchAgent PATH, `bootstrap.sh` installing git when present, `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS/Linux).
+- Also waiting for that run: deferred review findings 6–10 of PR #91 (LaunchAgent PATH, `bootstrap.sh` installing git when present, `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS/Linux).
 - Undo: lift the freeze after the run by editing both entries.
 
 ## 2026-10-12 — AO reviewer lane
@@ -53,7 +66,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Working rules added to `claude/CLAUDE.md` (the plan's deferred D6 items)
 - Commits: English Conventional Commits (`type: summary`, body gives the reason and the check). Code comments in English; text the user sees keeps the project's language. Why: the history is mostly `type: summary` already (22 of the last 40 subjects did not match a strict `type(scope):` pattern, so this tightens it rather than describing it), and one format keeps tools and the log consistent.
 - Tests: a bug fix starts with a reproducing test; new logic with a branch, a parser or a security effect ships with a test. Not "every change": exploratory work, docs and settings do not need it.
-- Handoff note: `.claude/handoff.md` in the project, never committed (this repo's `.gitignore` lists it; the rule tells the model to say so when a project does not). It is per machine, so it is also posted as a comment on the work's open PR in a repository the user owns, without secrets or machine-local paths; the user gave this standing approval on 2026-10-12 after a note stayed on one PC (it is the exception to "send anything outward only after approval"). Without a PR the model says the note is on this machine only.
+- Handoff note: `.claude/handoff.md` in the project, never committed (this repo's `.gitignore` lists it; the rule tells the model to say so when a project does not). It is per machine; since 2026-10-12 it is also posted on the work's open PR (entry above).
 - claude-mem retention: no automatic deletion, prune by hand. Revisit when size or search quality degrades. Not checked: whether claude-mem can delete by age and under which setting; read its docs before choosing an automatic policy.
 - Undo: remove the lines from `claude/CLAUDE.md`, the `.claude/handoff.md` line in `.gitignore` (optional, it is harmless) and this entry in one PR.
 

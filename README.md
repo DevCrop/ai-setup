@@ -7,7 +7,7 @@ Source of truth for the global Claude Code setup (`~/.claude` on each machine). 
 | Situation | Do this | Done when |
 |---|---|---|
 | **A machine that is already set up: take the latest `main`** | `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` (Git Bash on Windows, not PowerShell: its `bash` is WSL) | the last line says `0 FAIL, 0 WARN` |
-| **A new machine** | the 7-step table "Quick path" in [docs/GUIDE.md](docs/GUIDE.md) (about 15 minutes), then the checklist below | `verify.sh --live` says `0 FAIL`, checklist ticked |
+| **A new machine** | the "Quick path" table in [docs/GUIDE.md](docs/GUIDE.md) (about 15 minutes), then the checklist below | `verify.sh --live` says `0 FAIL`, checklist ticked |
 | **You changed `claude/`** | branch, PR, reviewer, CI green, merge (see "Changing this repo"), then the first row on every machine | same as the first row |
 | **You changed permissions or hooks** | `bash scripts/verify.sh --full` on every machine that has RTK | `qa-deny.sh` prints PASS for all cases |
 | **Something looks wrong** | [Where to check what](#where-to-check-what), then "Troubleshooting and traps" in docs/GUIDE.md | |
@@ -31,7 +31,7 @@ Then open http://127.0.0.1:8787 (it should answer 200). Open a new Claude Code s
 | 2 | `git`, `jq` (also needed by the status line), `node` 22+, `python` or `python3`, `gh`; `rtk` recommended (`winget install rtk-ai.rtk`, `brew install rtk`) | `python3 scripts/bootstrap.py check` ends with `missing required: none` |
 | 3 | Plugins: `ponytail@ponytail` (always on) and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh` | `claude plugin list`; the script prints `OK` |
 | 4 | Scheduled task `daily-claude-update`: create it in the Claude app from `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with this clone's path). In the app's Scheduled settings pick **Sonnet** and permission mode **auto**: no script or tool can set either | run it once; `reports/YYYY-MM-DD.md` appears; the run session shows the model |
-| 5 | Project folder for the dashboard: `state/project-roots.txt` (one folder per line, or env `PROJECT_ROOTS`; differs per machine and is gitignored) | the dashboard project list shows your projects |
+| 5 | Project folder for the dashboard: `state/project-roots.txt` (one folder per line, or env `PROJECT_ROOTS`; differs per machine and is gitignored) | the dashboard project list shows your projects. It lists one level below each root (deeper search waits for the Mac run): with the `<client>/<stage>/<name>` layout, list the stage folders, not the work root |
 | 6 | Dashboard autostart (optional): `python3 scripts/bootstrap.py autostart` (Windows Startup `.vbs` with pythonw, macOS LaunchAgent; shows the file and asks first); delete the file to undo | after a reboot http://127.0.0.1:8787 answers |
 | 7 | Leave `desktop-commander@synced` disabled and VS Code `claudeCode.initialPermissionMode` unset | `verify.sh --live` has no WARN for `desktop-commander`; the VS Code setting is checked by looking at it, no script reads it |
 
@@ -77,10 +77,11 @@ Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewr
 - `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push/update-index/mv/apply --index/am` of secret-looking files (the list is `is_secret` in the script); fails closed when it cannot judge
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
 - `docs/` — `GUIDE.md` (start here), `DECISIONS.md`, `evidence.md` (Korean originals kept verbatim), `codex-alignment.md`, `review-claude-mem.md`
+- `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py` (+ `bootstrap.sh`, `bootstrap.ps1` for a bare machine) — tool registry and the machine setup entry point
 - `scripts/apply.sh`, `verify.sh`, `docs-watch.sh`, `setup-claude-mem.sh`, `bench.sh` — apply, read-only checks, docs diff for the routine, claude-mem settings, benchmark harness
 - `scripts/qa-*.sh` — QA suites (hooks, deny rules, dashboard API and UI, role agents, project setup, statusline)
 - `scripts/dashboard/` — local dashboard (`server.py` + `ui/` ES modules), `http://127.0.0.1:8787`
-- `state/`, `reports/` — per-machine baseline (`state/last-seen.json`, written by the daily routine) and reports (gitignored)
+- `state/`, `reports/` — per-machine values (`state/machine.json` from `bootstrap.py check --write`, legacy `project-roots.txt`, `trace-dir.txt`), the daily routine's baseline (`state/last-seen.json`) and reports (gitignored)
 
 Runtime data (credentials, session history, auto-memory, plugins, caches) is never stored here. See `.gitignore`. Scope: local machines only; cloud sessions read the project's own `.claude/`, not `~/.claude/`.
 
