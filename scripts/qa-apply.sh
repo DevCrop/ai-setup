@@ -20,6 +20,7 @@ apply() { # runs apply.sh against $cfg (path given to CLAUDE_CONFIG_DIR as is, s
   case "${1:-$cfg}" in "$base"/*) ;; *) echo "refusing to apply outside $base: ${1:-$cfg}" >&2; exit 2 ;; esac
   HOME="$base/s$n" CLAUDE_CONFIG_DIR="${1:-$cfg}" bash "$repo/scripts/apply.sh" 2>&1
 }
+dryrun() { HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" --dry-run 2>&1; }
 live() { jq -r "$1" "$cfg/settings.json"; }
 sorted() { jq -S . "$1"; }
 
@@ -142,6 +143,23 @@ printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions
 jq '.enabledPlugins["superpowers@claude-plugins-official"]=true' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^WARN  settings.json still has keys that scripts/removed-keys.json deletes" && pass "10 verify --live: a removed key still present is a WARN" || bad "10 verify --live removed-key WARN"
+
+# 11. --dry-run writes nothing, reports what would change, and says unchanged once applied
+newcfg; out="$(dryrun || true)"
+[ ! -e "$cfg" ] && printf '%s' "$out" | grep -q "^would write: settings.json" && printf '%s' "$out" | grep -q "^dry run: nothing was written" \
+  && pass "11 dry run on a fresh machine: nothing written, every item reported" || bad "11 dry run fresh ($out)"
+apply >/dev/null; out="$(dryrun)"
+! printf '%s' "$out" | grep -q "^would " && pass "11 dry run after apply: everything unchanged" || bad "11 dry run after apply ($out)"
+echo changed >> "$cfg/agents/reviewer.md"; echo stale > "$cfg/hooks/old.sh"; echo hooks/old.sh >> "$cfg/.claude-global-manifest"; cp "$cfg/agents/reviewer.md" "$base/b11"
+echo '{"theme":"light"}' > "$base/live.json"; jq -s '.[0] * .[1]' "$cfg/settings.json" "$base/live.json" > "$base/set11" && cp "$base/set11" "$cfg/settings.json"
+cp "$cfg/.claude-global-manifest" "$base/m11"
+out="$(dryrun)"
+printf '%s' "$out" | grep -q "^would write: agents (1 files)" && printf '%s' "$out" | grep -q "^would remove (no longer in the repo): hooks/old.sh" \
+  && cmp -s "$base/b11" "$cfg/agents/reviewer.md" && [ -f "$cfg/hooks/old.sh" ] && pass "11 dry run: names a changed file and a stale one, touches neither" || bad "11 dry run drift ($out)"
+cmp -s "$base/set11" "$cfg/settings.json" && cmp -s "$base/m11" "$cfg/.claude-global-manifest" \
+  && pass "11 dry run: settings.json with a changed key and the manifest are byte for byte unchanged" || bad "11 dry run touched settings.json or the manifest"
+out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" --bogus 2>&1)"; rc=$?
+[ "$rc" = 2 ] && pass "11 unknown argument: exit 2" || bad "11 unknown argument (rc=$rc)"
 
 echo "failures: $fail"
 [ "$fail" -eq 0 ]
