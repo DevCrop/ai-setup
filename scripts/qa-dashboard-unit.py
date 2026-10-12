@@ -373,6 +373,37 @@ hk = usage.price("claude-haiku-5-5", {"input": 2000, "output": 500})
 alt = usage.price("claude-sonnet-5-5", {"input": 2000, "output": 500})
 check(abs(u["savedUSD"] - (alt - hk)) < 1e-9 and u["sessions"] == 1, "usage: saving = Haiku tokens repriced on the session's main model minus their real cost", u)
 check(set(usage.collect_agents(tmp / "projects")) == {"explorer"} and usage.collect_agents(tmp / "projects")["explorer"]["models"] == ["claude-haiku-5-5"], "usage: subagent rows carry the model that really answered")
+# BACKLOG C2: a forked or resumed session copies earlier replies into its own file with the same requestId (seen 2026-10-13 with
+# claude -p --resume --fork-session); they count once across files
+fd = tmp / "forkproj" / "p"
+fd.mkdir(parents=True)
+(fd / "orig.jsonl").write_text("\n".join([_ln("r1", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r2", "claude-sonnet-5-5", input_tokens=10, output_tokens=100)]) + "\n", encoding="utf-8")
+(fd / "fork.jsonl").write_text("\n".join([_ln("r1", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r2", "claude-sonnet-5-5", input_tokens=10, output_tokens=100), _ln("r3", "claude-sonnet-5-5", input_tokens=10, output_tokens=100)]) + "\n", encoding="utf-8")
+fu = usage.collect(tmp / "forkproj")
+check(fu["models"]["claude-sonnet-5-5"]["output"] == 300 and fu["sessions"] == 2, "usage: replies copied into a forked session count once", fu["models"])
+# the session's main model comes from its full logs: a fork that sorts first must not take the original's main-model replies
+sd = tmp / "forkmain" / "p"
+(sd / "b-orig" / "subagents").mkdir(parents=True)
+(sd / "b-orig.jsonl").write_text("\n".join([_ln("m1", "claude-sonnet-5-5", output_tokens=1000), _ln("m2", "claude-sonnet-5-5", output_tokens=1000)]) + "\n", encoding="utf-8")
+(sd / "b-orig" / "subagents" / "agent-x.jsonl").write_text(_ln("h1", "claude-haiku-5-5", output_tokens=500) + "\n", encoding="utf-8")
+(sd / "b-orig" / "subagents" / "agent-x.meta.json").write_text(json.dumps({"agentType": "explorer"}), encoding="utf-8")
+(sd / "a-fork.jsonl").write_text("\n".join([_ln("m1", "claude-sonnet-5-5", output_tokens=1000), _ln("m2", "claude-sonnet-5-5", output_tokens=1000), _ln("m3", "claude-sonnet-5-5", output_tokens=1000)]) + "\n", encoding="utf-8")
+mu = usage.collect(tmp / "forkmain")
+want = usage.price("claude-sonnet-5-5", {"output": 500}) - usage.price("claude-haiku-5-5", {"output": 500})
+check(abs(mu["savedUSD"] - want) < 1e-9 and mu["models"]["claude-haiku-5-5"]["output"] == 500, "usage: a fork sorting first keeps the original's main model for the saving", mu)
+(sd / "a-fork" / "subagents").mkdir(parents=True)
+(sd / "a-fork" / "subagents" / "agent-x.jsonl").write_text(_ln("h1", "claude-haiku-5-5", output_tokens=500) + "\n", encoding="utf-8")  # a fork that copied the subagent log
+(sd / "a-fork" / "subagents" / "agent-x.meta.json").write_text(json.dumps({"agentType": "explorer"}), encoding="utf-8")
+ag = usage.collect_agents(tmp / "forkmain")
+check(ag["explorer"]["calls"] == 1 and ag["explorer"]["output"] == 500, "usage: a subagent log copied into a fork counts once per agent row", ag)
+(sd / "a-fork" / "subagents" / "agent-x.meta.json").write_text(json.dumps({"agentType": 5}), encoding="utf-8")  # damaged, sorts first
+ag = usage.collect_agents(tmp / "forkmain")
+check(ag.get("explorer", {}).get("calls") == 1, "usage: a damaged meta file does not hide the valid copy of the same agent", ag)
+nd = tmp / "noridproj" / "p"
+nd.mkdir(parents=True)
+line = json.dumps({"message": {"model": "claude-sonnet-5-5", "usage": {"input_tokens": 1, "output_tokens": 7}}})
+(nd / "a.jsonl").write_text(line + "\n", encoding="utf-8"); (nd / "b.jsonl").write_text(line + "\n", encoding="utf-8")
+check(usage.collect(tmp / "noridproj")["models"]["claude-sonnet-5-5"]["output"] == 14, "usage: lines without a requestId are not merged across files", usage.collect(tmp / "noridproj"))
 check(usage.collect(tmp / "nowhere")["sessions"] == 0 and usage.collect_agents(tmp / "nowhere") == {}, "usage: a missing projects folder is empty, not an error")
 
 import efficiency
