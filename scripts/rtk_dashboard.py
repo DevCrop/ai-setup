@@ -53,6 +53,54 @@ def numbers(source, fields):
     return result
 
 
+def aggregate_fields(raw):
+    summary = numbers(raw['summary'], SUMMARY_FIELDS)
+    daily = []
+    for row in raw['daily']:
+        date = row['date']
+        if not isinstance(date, str) or \
+                datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d') != date:
+            raise ValueError('Invalid aggregate date')
+        daily.append({'date': date, **numbers(row, DAILY_FIELDS)})
+    if len({r['date'] for r in daily}) != len(daily):
+        raise ValueError('Duplicate aggregate date')
+    return summary, sorted(daily, key=lambda r: r['date'])
+
+
+def saved_snapshot(reports):
+    """Whitelist an actual saved snapshot; never make an unavailable read fresh."""
+    raw = json.loads(safe_file(Path(reports) / 'rtk-efficiency.json').read_text(encoding='utf-8'))
+    summary, daily = aggregate_fields(raw)
+    if not isinstance(raw.get('collected_at'), str):
+        raise ValueError('Invalid snapshot time')
+    datetime.fromisoformat(raw['collected_at'].replace('Z', '+00:00'))
+    probe = raw.get('probe', {})
+    if not isinstance(probe, dict):
+        raise ValueError('Invalid probe')
+    result = {k: raw[k] for k in ('collected_at', 'collection_date_kst') if k in raw}
+    result.update(summary=summary, daily=daily,
+                  probe={k: v for k, v in probe.items() if k in PROBE_FIELDS},
+                  arithmetic_difference=summary['total_saved'] - (summary['total_input'] - summary['total_output']),
+                  openai_usage_measured=False,
+                  live={'enabled': True, 'initial_error': True, 'poll_interval_ms': 2000,
+                        'writes_scheduled_snapshot': False})
+    return result
+
+
+def history_recovery(raw):
+    value = raw.get('history_recovery', {})
+    if not isinstance(value, dict) or value.get('status') != 'partial':
+        return None
+    counts = numbers(value, ('recovered_commands', 'previous_commands', 'previous_saved'))
+    if any(v < 0 for v in counts.values()):
+        raise ValueError('Invalid recovery count')
+    checked = value['previous_collected_at']
+    if not isinstance(checked, str):
+        raise ValueError('Invalid recovery time')
+    datetime.fromisoformat(checked.replace('Z', '+00:00'))
+    return {'status': 'partial', **counts, 'previous_collected_at': checked}
+
+
 def write_ready(path, ready):
     """Replace only a recognizable previous viewer receipt, never arbitrary files."""
     path = safe_file(path)
@@ -101,19 +149,11 @@ class Collector:
                 if proc.returncode or len(proc.stdout) > 8 * 1024 * 1024:
                     raise RuntimeError('Aggregate unavailable')
                 raw = json.loads(proc.stdout)
-                summary = numbers(raw['summary'], SUMMARY_FIELDS)
-                daily = []
-                for row in raw['daily']:
-                    date = row['date']
-                    if not isinstance(date, str) or \
-                            datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m-%d') != date:
-                        raise ValueError('Invalid aggregate date')
-                    daily.append({'date': date, **numbers(row, DAILY_FIELDS)})
-                if len({r['date'] for r in daily}) != len(daily):
-                    raise ValueError('Duplicate aggregate date')
+                summary, daily = aggregate_fields(raw)
                 now = datetime.now(timezone.utc)
                 # The scheduled snapshot is evidence, not live raw command history.
                 probe = {}
+                recovery = None
                 probe_state = 'unavailable'
                 baseline = safe_file(self.reports / 'rtk-efficiency.json')
                 try:
@@ -121,7 +161,8 @@ class Collector:
                     probe = {k: v for k, v in saved.get('probe', {}).items()
                              if k in PROBE_FIELDS}
                     probe_state = 'retained'
-                except (OSError, ValueError, TypeError):
+                    recovery = history_recovery(saved)
+                except (OSError, ValueError, TypeError, KeyError):
                     pass
                 self.cached = {
                     'collected_at': now.isoformat(),
@@ -136,6 +177,8 @@ class Collector:
                              'probe_state': probe_state,
                              'writes_scheduled_snapshot': False},
                 }
+                if recovery:
+                    self.cached['history_recovery'] = recovery
                 self.error = False
                 return self.cached
             except Exception:
@@ -187,7 +230,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_body(200, json.dumps(data, ensure_ascii=False).encode(),
                                       'application/json; charset=utf-8')
             if parsed.path in ('/', '/rtk-efficiency.html'):
-                data = self.server.collector.snapshot()
+                try:
+                    data = self.server.collector.snapshot()
+                except RuntimeError:
+                    try:
+                        data = saved_snapshot(self.server.reports)
+                    except (OSError, ValueError, TypeError, KeyError):
+                        data = {'collected_at': None, 'summary': {}, 'daily': [], 'probe': {},
+                                'openai_usage_measured': False,
+                                'live': {'enabled': True, 'initial_error': True,
+                                         'poll_interval_ms': 2000, 'writes_scheduled_snapshot': False}}
                 template = safe_file(self.server.reports / 'rtk-efficiency.template.html').read_text(encoding='utf-8')
                 if template.count('__RTK_REPORT_DATA__') != 1:
                     raise ValueError('Report template invalid')
@@ -196,6 +248,7 @@ class Handler(BaseHTTPRequestHandler):
                                       'text/html; charset=utf-8')
             allowlist = {
                 '/adaptive-routine.html': ('adaptive-routine.html', 'text/html; charset=utf-8'),
+                '/rtk-history-snapshot.html': ('rtk-history-snapshot.html', 'text/html; charset=utf-8'),
                 '/assets/PretendardVariable.woff2': ('assets/PretendardVariable.woff2', 'font/woff2'),
             }
             if parsed.path in allowlist:

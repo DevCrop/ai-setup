@@ -3,10 +3,11 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),asse
 const template=fs.readFileSync(path.join(__dirname,'../templates/reports/rtk-efficiency.template.html'),'utf8');
 const code=[...template.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1];
 function fixture(count=2){return {collected_at:'2026-10-08T07:00:00Z',collection_date_kst:'2026-10-08',summary:{total_commands:count,total_input:100,total_output:60,total_saved:40,avg_savings_pct:40},daily:[{date:'2026-10-08',commands:count,input_tokens:100,output_tokens:60,saved_tokens:40,savings_pct:40}],probe:{checked_at:'2026-10-08T05:25:00Z',raw_bytes:84,filtered_bytes:66,raw_exit:0,filtered_exit:0,required_evidence_preserved:true,recorded_invocation_delta:1},arithmetic_difference:0,live:{enabled:true}};}
-function app(live=true){
+function app(live=true,initialError=false,recovery=null,empty=false){
  const elements=new Map(),timers=new Map(),docEvents={},windowEvents={};let timerID=0,calls=0,response=fixture(3),failure=false,pending=null;
  for(const [,id] of template.matchAll(/\bid="([^"]+)"/g))elements.set(id,{textContent:'',innerHTML:'',style:{},value:id==='sort'?'desc':'all',clientWidth:700,hidden:id==='live-toggle',events:{},addEventListener(name,fn){this.events[name]=fn;},querySelectorAll(){return [];}});
- const initial=fixture();initial.live.enabled=live;elements.get('rtk-report-data').textContent=JSON.stringify(initial);
+ const initial=fixture();initial.live.enabled=live;initial.live.initial_error=initialError;initial.history_recovery=recovery;elements.get('rtk-report-data').textContent=JSON.stringify(initial);
+ if(empty){initial.summary={};initial.daily=[];initial.collected_at=null;elements.get('rtk-report-data').textContent=JSON.stringify(initial);}
  const doc={hidden:false,getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id);},querySelectorAll:()=>[],addEventListener:(name,fn)=>docEvents[name]=fn};
  const context=vm.createContext({document:doc,window:{innerWidth:1000,addEventListener:(name,fn)=>windowEvents[name]=fn},location:{hostname:live?'127.0.0.1':'',protocol:live?'http:':'file:'},Intl,Date,Number,Math,JSON,AbortController,
   setTimeout:(fn,delay)=>{const id=++timerID;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),
@@ -17,6 +18,9 @@ function app(live=true){
 }
 (async()=>{
  const staticView=app(false);assert.equal(staticView.timers.size,0);assert.equal(staticView.elements.get('live-state').textContent,'저장 스냅샷');
+ const stale=app(true,true);assert.match(stale.elements.get('live-state').textContent,/집계 오류/);assert.equal(stale.elements.get('collection-state').textContent,'이전 수집값');await stale.tick();assert.equal(stale.elements.get('live-state').textContent,'실시간 · 2초');
+ const recovered=app(true,false,{status:'partial',recovered_commands:1,previous_commands:100,previous_saved:25000,previous_collected_at:'2026-10-08T06:00:00Z'});assert.equal(recovered.elements.get('history-recovery').hidden,false);assert.match(recovered.elements.get('history-recovery-note').textContent,/100/);assert.match(recovered.elements.get('history-recovery-note').textContent,/합산하지/);
+ const empty=app(true,true,null,true);assert.equal(empty.elements.get('collection-state').textContent,'수집 실패');assert.match(empty.elements.get('hero-saved').innerHTML,/—/);assert.match(empty.elements.get('trend').innerHTML,/기존 이력 미확인/);
  const a=app();const probe=a.elements.get('probe-date').textContent;
  await a.tick();assert.equal(a.calls,1);assert.match(a.elements.get('metrics').innerHTML,/>3</);assert.equal(a.elements.get('probe-date').textContent,probe);
  const previous=a.elements.get('collected').textContent,table=a.elements.get('daily-table').innerHTML;
