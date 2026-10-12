@@ -203,5 +203,6 @@ class UsageEfficiency(EfficiencySource):
             ideas.append(f"모델 배치로 줄인 몫은 {share * 100:.1f}%입니다. " + ("이 로그에서는 비용 대부분이 메인 모델의 캐시 읽기와 출력이라, 서브에이전트 배치만 바꿔서는 이 비율이 크게 달라지지 않을 수 있습니다(세션이 늘면 다시 확인하세요)." if share < 0.15 else "배치를 바꾸는 효과가 큰 편이니 어느 에이전트가 기여했는지 아래 표에서 보세요."))
         return {"metrics": m, "ideas": ideas, "data": {"actualUSD": u["actualUSD"], "baselineUSD": u["baselineUSD"], "savedUSD": u["savedUSD"], "models": {k: {"costUSD": t["costUSD"], "output": t["output"]} for k, t in by.items()}, "agents": rows},
                 "caveats": ["절감액은 '같은 토큰이 메인 모델에서도 들었다'는 가정의 계산입니다. 싼 모델이 같은 품질로 해냈는지는 로그로 알 수 없어 품질은 반영하지 않습니다.",
+                            "서브에이전트는 시작할 때마다 시스템 프롬프트(약 40K 토큰)를 새로 캐시에 씁니다. 이 토큰이 절감액 계산에 들어가므로, 같은 일을 메인에서 직접 했을 때와의 비교가 아니라 '이 토큰을 메인 단가로 냈다면'의 비교입니다.",
                             "트랜스크립트에 남지 않는 호출(세션 제목, 훅 분류기)은 집계되지 않습니다. 로그의 modelUsage 합계는 중간에 멈춘 사례가 있어 쓰지 않았습니다.",
                             "가격은 공식 가격표(2026-10-12 확인) 기준이며 Haiku 5.5의 10만 토큰 초과 요금 구간은 반영하지 않았습니다."]}
