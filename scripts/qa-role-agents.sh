@@ -268,7 +268,8 @@ if [ "${QA_MODE:-}" != grade ]; then
   i=0
   for n in $names; do
     mk "$n"; p="$(prompt "$n" | sed "s/python3/$py/g") 사용자에게 되묻지 말고 바로 진행해. 서브에이전트를 쓰면 그 보고를 그대로 전달해."
-    ( cd "$work/$n" && timeout 900 claude -p "$p" --settings "$repo/claude/settings.json" --permission-mode auto --output-format stream-json --verbose --max-turns 12 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err" ) &
+    tmo=900; [ "$n" = route-fullstack ] && tmo=1800  # three delegated roles in one run took longer than 900 s on 2026-10-12
+    ( cd "$work/$n" && timeout "$tmo" claude -p "$p" --settings "$repo/claude/settings.json" --permission-mode auto --output-format stream-json --verbose --max-turns 12 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err" ) &
     i=$((i + 1)); [ $((i % 3)) -eq 0 ] && wait
   done
   wait
