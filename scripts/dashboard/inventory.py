@@ -88,7 +88,7 @@ def routing(root, ao_projects):
             "routine": routine[:200], "ao": ao_projects,
             "notes": ["서브에이전트는 설정된 advisor를 상속한다(공식 advisor 문서): 위임이 많으면 Opus 입력 토큰이 늘어난다",
                       "대량·정형 서브에이전트 작업은 Haiku(explorer)로 보낸다",
-                      "AO 워커·리뷰어 모델은 AO 프로젝트 설정(--model, --reviewer)이며 AO 출력에는 실제 사용 모델 필드가 없다",
+                      "AO 워커 모델은 프로젝트 설정 --model, 리뷰어는 reviewers[](하네스 codex + agentConfig.model)이며 AO 출력에는 실제 사용 모델 필드가 없다",
                       "공식 가격(100만 토큰, 입력/출력): Haiku 5.5 $0.10/$0.50 · Sonnet 5.5 $2/$10 · Opus 5.5 $4/$20 · Fable 5.1 $10/$50 (models overview, 2026-10-11 확인). 구독에서는 청구액이 아니라 한도를 쓰는 상대 크기로 봅니다",
                       "Fable은 Max에서 별도 풀이 아니라 주간 한도의 최대 50% 몫이고 같은 풀을 가장 빨리 씁니다(공식 지원 문서, 2026-10-11). 기본 라우팅에 두지 않고 사용자가 고른 어려운 단일 작업에만 씁니다"]}
 
