@@ -86,7 +86,7 @@ grade() { # name
   printf '%s' "$prop" | grep -q '"defaultMode"' && fail "$n P: proposes defaultMode" || pass "$n P: no defaultMode proposed"
   printf '%s' "$prop" | grep -Eq 'Bash\((rtk )?[^)]*(build|install|deploy|sass|\<ci\>)' && fail "$n P: allows a command that writes files" || pass "$n P: allow has no writing command"
   printf '%s' "$prop" | grep -q 'Read(\*\*/\.env' && pass "$n P: proposes the .env deny" || fail "$n P: no .env deny proposed"
-  printf '%s' "$prop" | grep -q 'CLAUDE\.local\.md' && printf '%s' "$prop" | grep -q 'settings\.local\.json' && pass "$n P: proposes gitignore for local files" || fail "$n P: no gitignore proposal"
+  printf '%s' "$prop" | grep -q 'CLAUDE\.local\.md' && printf '%s' "$prop" | grep -q 'settings\.local\.json' && printf '%s' "$prop" | grep -q 'handoff\.md' && pass "$n P: proposes gitignore for local files and the handoff note" || fail "$n P: no gitignore proposal"
   case "$n" in
     next)     grep -q 'npm run lint' "$r" && grep -Eq 'typecheck|tsc' "$r" && pass "$n P: commands from CI/package.json" || fail "$n P: missing next commands" ;;
     php)      grep -Eq 'phpunit|composer test' "$r" && grep -q 'stylelint\|lint:css' "$r" && pass "$n P: php and scss checks found" || fail "$n P: missing php/scss checks" ;;

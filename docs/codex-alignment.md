@@ -48,7 +48,11 @@ The reviewer reads the project `AGENTS.md` and `~/.codex/AGENTS.md`. It never re
 3. **Codex review quota.** The ChatGPT Codex GitHub review bot reported "usage limits for code reviews" on PR #74 (2026-10-12). Not checked: whether AO's Codex reviewer (the Codex CLI) draws on the same quota.
 
 ## Asks for the Codex side (codex-setup is maintained by Codex; this repo does not change it)
-None open. The two asks from 2026-10-12 were fixed by Codex in [codex-setup v1.3.2](https://github.com/DevCrop/codex-setup/releases/tag/v1.3.2) (DevCrop/codex-setup#19):
+Open (2026-10-12):
+- Project path rule: add the line from `claude/CLAUDE.md` (Working method, "Projects live under a per-machine work root ...") to `global/AGENTS.md`, so both agents find the project the same way. To be raised with Codex from the Windows PC after the TRACE fix.
+- Not compared yet: the handoff note rule (`claude/CLAUDE.md`, Context and handoff; Claude also posts it on the work's own PR) against Codex's handoff guidance.
+
+Closed. The two asks from 2026-10-12 were fixed by Codex in [codex-setup v1.3.2](https://github.com/DevCrop/codex-setup/releases/tag/v1.3.2) (DevCrop/codex-setup#19):
 - Bundled `archify` and `ponytail` now install to `~/.agents/skills` (confirmed in the official [skills docs](https://learn.chatgpt.com/docs/build-skills)). Old TRACE-owned copies in `$CODEX_HOME/skills` are retired only when recorded and unmodified.
 - `setup.py verify` fails on a legacy `[profiles.<name>]` table that clashes with a `<name>.config.toml` profile. `doctor` does not run this check.
 
