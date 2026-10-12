@@ -30,11 +30,6 @@
      "paths": ["${LOCALAPPDATA}/Programs/agent-orchestrator/resources/daemon/ao.exe"],
      "home": {"default": "${HOME}/.ao"},
      "install": {"url": "https://github.com/aoagents/agent-orchestrator"},
-     "note": "Setup and project registration live in the private repo DevCrop/ao-work-history (setup/setup.py)."},
-    {"id": "cursor", "label": "Cursor", "kind": "tool", "required": false, "bin": ["cursor"], "env": "CURSOR_BIN", "version": ["--version"],
-     "paths": ["${LOCALAPPDATA}/Programs/cursor/Cursor.exe", "/Applications/Cursor.app"],
-     "home": {"default": "${HOME}/.cursor"},
-     "install": {"winget": "Anysphere.Cursor", "cask": "cursor"},
-     "note": "Detection only for now; no setup repo."}
+     "note": "Setup and project registration live in the private repo DevCrop/ao-work-history (setup/setup.py)."}
   ]
 }
