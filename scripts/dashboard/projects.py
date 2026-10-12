@@ -306,6 +306,9 @@ def rule_skills(ctx):
         yield finding("fix", "warn", "skills 문제 (500줄 초과 %d, description 없음 %d)" % (sk.count("길이"), sk.count("description")), "SKILL.md는 500줄 이하를 권장하고, description이 있어야 Claude가 언제 쓸지 판단합니다.", "긴 참고 자료는 별도 파일로 옮기고 frontmatter에 description을 씁니다.", "skills")
 
 
+HOOK_REL = re.compile(r"^[\w .-]+(?:/[\w .-]+)*$")
+
+
 def rule_hooks(ctx):
     d, f, al, cl, perm, text, cfg, local = ctx.d, ctx.f, ctx.al, ctx.cl, ctx.perm, ctx.text, ctx.cfg, ctx.local
     hk = cfg.get("hooks") if isinstance(cfg.get("hooks"), dict) else {}
@@ -315,7 +318,10 @@ def rule_hooks(ctx):
             for h in ((g.get("hooks") if isinstance(g, dict) else None) or []):
                 cmd = str(h.get("command", "")) if isinstance(h, dict) else ""
                 m = re.search(r"\"\$\{?CLAUDE_PROJECT_DIR\}?/([^\"]+)\"", cmd) or re.search(r"\$\{?CLAUDE_PROJECT_DIR\}?\"?/([\w./-]+)", cmd)  # quoted path may hold spaces
-                if m and ".." not in m.group(1) and not (d / m.group(1)).exists():
+                rel = m.group(1) if m else ""
+                # only plain relative paths reach the filesystem: an absolute, UNC (//host, \\host) or drive path (C:) could make
+                # exists() contact a network host on every refresh
+                if rel and HOOK_REL.match(rel) and ".." not in rel.split("/") and not (d / rel).exists():
                     gone += 1
     if gone:
         yield finding("fix", "bad", "hook이 가리키는 프로젝트 스크립트가 없음 (%d개)" % gone, "없는 스크립트를 실행하는 hook은 매번 실패합니다.", "경로를 고치거나 hook을 지웁니다 (/hooks로 확인).", "hooks")

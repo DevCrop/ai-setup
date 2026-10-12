@@ -555,7 +555,14 @@ class H(BaseHTTPRequestHandler):
             self.send_error(403)
             return
         try:
-            req = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 20000)) or b"{}")
+            n = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            n = -1
+        if n < 0:  # read(-1) would block this handler thread until the client closes the connection
+            self.send_error(400)
+            return
+        try:
+            req = json.loads(self.rfile.read(min(n, 20000)) or b"{}")
             fid = str(req.get("id", ""))
             if req.get("action") == "apply":
                 targets = [str(t) for t in req.get("targets", [])]

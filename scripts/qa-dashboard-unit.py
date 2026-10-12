@@ -430,5 +430,72 @@ check(me({"model": "opus", "effortLevel": "high", "modelSettings": {"claude-sonn
 odd = [me({"model": "opus", "effortLevel": "high", "modelSettings": v}) for v in ("x", [1], None, {"claude-opus-5-5": "high"}, {"claude-opus-5-5": {"effortLevel": ["x"]}})] + [me({"model": 5, "modelSettings": {}})]
 check(odd == ["high"] * 5 + [None], "routing effort: odd types fall back, never raise or pass a non-string through", odd)
 
+# ---- BACKLOG C1: debug() survives odd log lines (a list, a string message, non-dict content items, unhashable ids) ----
+import inventory
+dbg_log = tmp / "dbg.jsonl"
+dbg_log.write_text("\n".join([
+    "[1,2]", '"str"', '{"message":"str"}', '{"message":{"content":["text", 5, null]}}',
+    '{"message":{"content":[{"type":"tool_use","id":["x"],"name":"Bash"}]}}',
+    '{"message":{"content":[{"type":"tool_result","tool_use_id":{"a":1},"is_error":true,"content":"boom"}]}}',
+    json.dumps({"timestamp": "t", "message": {"content": [{"type": "tool_use", "id": "u1", "name": "mcp__x__Read"}]}}),
+    json.dumps({"timestamp": "t", "message": {"content": [{"type": "tool_result", "tool_use_id": "u1", "is_error": True, "content": [{"text": "File does not exist"}]}]}}),
+]), encoding="utf-8")
+try:
+    dres = inventory.debug(dbg_log)
+    check(dres["scanned"] == 2 and dres["tools"].get("Read") == 1, "debug(): odd lines are skipped, real tool errors still counted", dres)
+except Exception as e:
+    check(False, "debug(): odd lines are skipped, real tool errors still counted", repr(e))
+
+# ---- BACKLOG C9: a negative Content-Length is refused, not read to EOF ----
+httpd2 = ThreadingHTTPServer(("127.0.0.1", 0), server.H)
+port2 = httpd2.server_address[1]
+threading.Thread(target=httpd2.serve_forever, daemon=True).start()
+import socket
+sk = socket.create_connection(("127.0.0.1", port2), timeout=5)
+sk.sendall(("POST /api/fix HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nContent-Type: application/json\r\nX-Dash-Token: %s\r\nContent-Length: -1\r\n\r\n{}" % (port2, server.TOKEN)).encode())
+try:
+    first = sk.recv(200).decode("latin-1")
+    check(first.startswith("HTTP/1.") and " 400 " in first.split("\r\n")[0], "POST with Content-Length -1 answers 400 at once", first[:40])
+except socket.timeout:
+    check(False, "POST with Content-Length -1 answers 400 at once", "timed out: the handler is reading to EOF")
+sk.close()
+httpd2.shutdown()
+
+# ---- BACKLOG C10: MemRedactOn offers nothing when its settings file is missing or broken, and names the real file ----
+import fixes
+memd = tmp / "memdir"
+os.environ["CLAUDE_MEM_DIR"] = str(memd)
+mr = fixes.MemRedactOn()
+check(mr.preview()["targets"] == [], "mem-redact-on: missing settings file is not offered", mr.preview())
+memd.mkdir()
+(memd / "settings.json").write_text("{broken", encoding="utf-8")
+check(mr.preview()["targets"] == [], "mem-redact-on: broken settings file is not offered", mr.preview())
+(memd / "settings.json").write_text("[1]", encoding="utf-8")
+check(mr.preview()["targets"] == [], "mem-redact-on: a settings file that is not an object is not offered", mr.preview())
+(memd / "settings.json").write_text("{}", encoding="utf-8")
+pv = mr.preview()
+check(pv["targets"] == ["~/memdir/settings.json"] and fixes.MemRedactOn.label() == "~/memdir/settings.json", "mem-redact-on: the preview names the CLAUDE_MEM_DIR file", pv)
+r = fixes.FixRegistry(); r.register(mr)
+res = r.apply("mem-redact-on", pv["targets"])
+check(res["ok"] and json.loads((memd / "settings.json").read_text(encoding="utf-8")).get("CLAUDE_MEM_REDACT_ENABLED") == "true", "mem-redact-on: preview and run agree on that file", res)
+del os.environ["CLAUDE_MEM_DIR"]
+
+# ---- BACKLOG S6: a hook path that is absolute, UNC or a drive path never reaches the filesystem ----
+import projects, pathlib, types
+seen = []
+real_exists = pathlib.Path.exists
+pathlib.Path.exists = lambda self, *a, **k: (seen.append(str(self)), real_exists(self, *a, **k))[1]
+try:
+    hooks = {"PreToolUse": [{"hooks": [{"command": c} for c in (
+        '"$CLAUDE_PROJECT_DIR//host/share/x.sh"', '"$CLAUDE_PROJECT_DIR/\\\\host\\share\\x.sh"', '"$CLAUDE_PROJECT_DIR/C:/x.sh"',
+        '"$CLAUDE_PROJECT_DIR/c:x.sh"', '"$CLAUDE_PROJECT_DIR/missing dir/x.sh"')]}]}
+    pd = tmp / "hookproj"; pd.mkdir()
+    ctx = types.SimpleNamespace(d=pd, f={}, al="", cl="", perm={}, text="", cfg={"hooks": hooks}, local={})
+    got = list(projects.rule_hooks(ctx))
+finally:
+    pathlib.Path.exists = real_exists
+check(not any("host" in p or ":" in p.replace(str(tmp), "") for p in seen), "rule_hooks(): UNC, absolute and drive paths are not passed to exists()", seen)
+check(len(got) == 1 and "(1" in got[0]["what"], "rule_hooks(): only the relative missing script counts", got)
+
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

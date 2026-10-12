@@ -20,7 +20,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | S2 | `secret-guard.sh:72`, `:102` | only `cd` moves the hook's cwd, not `pushd`; outside a repo `rev-parse` fails first, so even a literal secret path is not checked | `pushd repo && git add .env` blocks in `qa-hooks.sh` |
 | S3 | `claude/settings.json` hooks | secret-guard watches Bash only; a commit through GitHub MCP (`push_files`, `create_or_update_file`) is not checked | an MCP matcher, or the limit written in GUIDE (Secret-guard hook) |
 | S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
-| S6 | `scripts/dashboard/projects.py:318` (Windows) | a project hook path `\\host\share\x` makes `.exists()` contact that SMB host on every 10 s refresh | absolute, UNC and drive paths rejected as in `server.py` `ui_asset`; unit test |
 | S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail and claude-mem install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
 
 ## 3. Correctness
@@ -29,7 +28,6 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 
 | # | Where | Problem | Done when |
 |---|---|---|---|
-| C1 | `scripts/dashboard/inventory.py:218` `debug()` | a log line that is a list, or has a string `message`, raises; `/api/inventory` returns 500 for every side tab | type guards; unit test with those lines |
 | C2 | `scripts/dashboard/usage.py:70` | duplicate requests are removed per file only; a resumed or forked session may count twice (not confirmed on real logs) | checked on real logs; dedupe across files if confirmed |
 | C3 | `scripts/bootstrap.py:68-69` `found_values` | with no `~/Projects`, `check --write` stores `"projectRoots": []` from the `"default"` source, which then hides `~/Projects` for good | the default source is not written; test |
 | C4 | `scripts/toolreg.py:182`, `scripts/dashboard/projects.py:52`, `:80` | `project-roots.txt` and `projects.txt` read as `utf-8`; a BOM (Notepad, PowerShell 5.1) breaks the first path | `utf-8-sig`; test |
@@ -37,8 +35,6 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | C6 | `scripts/toolreg.py:45` | `machine.json` is written in place; an interrupted write leaves a truncated file that reads as `{}` | temp file and `os.replace` |
 | C7 | `scripts/toolreg.py` | wrong types in `machine.json`, such as `"bin": "x"` or `"disabled": 5`, crash `check` with exit 3 | types checked, the bad value reported |
 | C8 | `scripts/setup-claude-mem.sh:17` | the backup `cp` is not checked; `settings.json` is replaced even when it failed | `cp ... || exit` |
-| C9 | `scripts/dashboard/server.py:558` | a negative `Content-Length` blocks a handler thread (needs the token) | values below 0 rejected |
-| C10 | `scripts/dashboard/fixes.py` `MemRedactOn` | offered when `settings.json` is missing or broken, then fails; the preview names `~/.claude-mem` even with `CLAUDE_MEM_DIR` set | preview and run agree; test |
 | C11 | `scripts/apply.sh` manifest | files of a skill dropped from the copy list stay in `~/.claude/skills`, unreported | reported or removed |
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
 
