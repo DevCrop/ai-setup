@@ -238,8 +238,8 @@ class BenchEfficiency(EfficiencySource):
             st = lambda f: {s: _num((a.get(f) or {}).get(s)) for s in ("mean", "min", "max", "n")} if isinstance(a.get(f), dict) else None
             sp = a.get("split") if isinstance(a.get("split"), dict) else {}
             vs = a.get("vsSingle") if isinstance(a.get("vsSingle"), dict) else {}
-            arms[k] = {"label": ARM_LABEL[k], "runs": _num(a.get("runs")) or 0, "costUSD": st("costUSD"), "wallSec": st("wallSec"),
-                       "peakContext": st("peakContext"), "scorePct": st("scorePct"), "split": {x: _num(sp.get(x)) or 0 for x in usage.KINDS},
+            arms[k] = {"label": ARM_LABEL[k], "runs": _num(a.get("runs")) or 0, "costUSD": st("costUSD"), "cliCostUSD": st("cliCostUSD"), "wallSec": st("wallSec"),
+                       "peakContext": st("peakContext"), "scorePct": st("scorePct"), "split": {x: max(0, _num(sp.get(x)) or 0) for x in usage.KINDS},
                        "vsSingle": {x: _num(vs.get(x)) for x in ("costUSD", "wallSec", "peakContext")}}
         if not arms:
             return {"metrics": [unavailable("비교 결과", "아직 실행하지 않았습니다: bash scripts/bench.sh (사용법은 docs/GUIDE.md)")], "caveats": [], "ideas": [], "data": None}
@@ -253,6 +253,7 @@ class BenchEfficiency(EfficiencySource):
         missing = doc.get("missing") if isinstance(doc.get("missing"), list) else []
         gen = doc.get("generated") if isinstance(doc.get("generated"), str) else ""
         caveats = ["실행 횟수가 적으면 운이 섞입니다. 방식마다 3회 이상, 같은 머신·같은 설정·같은 Claude Code 버전에서 돌린 결과만 비교하세요.",
+                   "로그 비용은 트랜스크립트 토큰 기준입니다. 'CLI 집계'(claude -p가 스스로 낸 값)보다 낮게 나온 실행이 있었습니다(백그라운드 서브에이전트, 출력 토큰 누락). AO 실행에는 CLI 집계가 없습니다.",
                    "시간은 로그의 첫 기록부터 마지막 기록까지입니다. AO 오케스트레이터처럼 마커가 없는 세션, 세션 제목·훅 분류기 호출은 빠집니다.",
                    "과제는 서로 다른 파일 3개짜리 작은 작업입니다. 큰 프로젝트나 파일이 겹치는 작업의 결과를 대신하지 않습니다."]
         if missing:

@@ -412,6 +412,8 @@ be = efficiency.BenchEfficiency(bp).collect()
 json.dumps(be, allow_nan=False)
 check(set(be["data"]["arms"]) == {"single", "ao"} and be["data"]["arms"]["ao"]["runs"] == 0 and be["data"]["arms"]["ao"]["split"]["read"] == 0, "bench: unknown arms dropped, non-numbers and non-finite values zeroed or nulled", be["data"]["arms"])
 check(len(be["metrics"]) == 1 and "빠진 실행 1개" in be["caveats"][0], "bench: one metric per arm with a cost; missing runs are named in the caveats", be["metrics"])
+bp.write_text(json.dumps({"arms": {"single": {"runs": 1, "costUSD": {"mean": 1}, "split": {"read": 2, "write": -1}}}}), encoding="utf-8")
+check(efficiency.BenchEfficiency(bp).collect()["data"]["arms"]["single"]["split"]["write"] == 0, "bench: a negative split value is clamped to 0")
 bp.write_text("{broken", encoding="utf-8")
 check(efficiency.BenchEfficiency(bp).collect()["data"] is None, "bench: a damaged report is 'unavailable', never raised")
 

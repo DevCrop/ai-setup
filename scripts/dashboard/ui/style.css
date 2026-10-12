@@ -369,3 +369,11 @@ a:hover { text-decoration: underline; }
 .ulegend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); font-size: var(--t-xs); font-family: var(--mono); background: none; }
 .ulegend span { background: none; }
 .ulegend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; background: currentColor; }
+/* narrow screens: a wide comparison table becomes one card per row, each cell labelled with its header */
+@media (max-width: 640px) {
+  .ucards tr:first-child { display: none; }
+  .ucards tr, .ucards td { display: block; }
+  .ucards tr { border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .ucards td { border: 0; padding: 2px var(--s2); }
+  .ucards td::before { content: attr(data-label); color: var(--faint); font-size: var(--t-xs); margin-right: var(--s2); }
+}

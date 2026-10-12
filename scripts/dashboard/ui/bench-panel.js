@@ -11,17 +11,20 @@ const range = (st, f) => (st && st.n > 1 ? " (" + f(st.min) + "~" + f(st.max) + 
 export class BenchPanel {
   constructor(data) { this.d = data; }
   render() {
-    const arms = Object.entries(this.d.arms), tbl = el("table", "utable"), head = el("tr");
-    ["방식", "실행", "비용 평균", "시간 평균", "최대 컨텍스트", "숨은 테스트", "기본 대비 비용", "기본 대비 시간"].forEach((h) => head.append(el("th", null, h)));
+    const arms = Object.entries(this.d.arms), tbl = el("table", "utable ucards"), head = el("tr");
+    const cols = ["방식", "실행", "비용 평균(로그)", "CLI 집계", "시간 평균", "최대 컨텍스트", "숨은 테스트", "기본 대비 비용", "기본 대비 시간"];
+    cols.forEach((h) => head.append(el("th", null, h)));
     tbl.append(head);
     arms.forEach(([, a]) => {
       const tr = el("tr"), vs = a.vsSingle || {};
       tr.append(el("td", "nm", a.label), el("td", null, String(a.runs)),
         el("td", null, usd(a.costUSD && a.costUSD.mean) + range(a.costUSD, usd)),
+        el("td", null, a.cliCostUSD && a.cliCostUSD.mean != null ? usd(a.cliCostUSD.mean) : "-"),
         el("td", null, mins(a.wallSec && a.wallSec.mean) + range(a.wallSec, mins)),
         el("td", null, a.peakContext && a.peakContext.mean != null ? Math.round(a.peakContext.mean / 1000) + "K" : "-"),
         el("td", null, a.scorePct && a.scorePct.mean != null ? a.scorePct.mean.toFixed(0) + "%" : "-"),
         el("td", null, pct(vs.costUSD)), el("td", null, pct(vs.wallSec)));
+      [...tr.children].forEach((td, i) => td.setAttribute("data-label", cols[i]));  // the narrow layout shows each cell with its header
       tbl.append(tr);
     });
     const splits = arms.flatMap(([, a]) => [el("div", "grp", a.label), splitBar(a.split), splitLegend(a.split)]);

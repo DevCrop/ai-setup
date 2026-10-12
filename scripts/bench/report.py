@@ -11,6 +11,7 @@ Score: the hidden tests (scripts/bench/hidden) run against a copy of repo/; the 
 """
 import argparse
 import json
+import re
 import os
 import shutil
 import statistics
@@ -56,15 +57,69 @@ def _ts(s):
         return None
 
 
-def scan(path):
-    """(first timestamp, last timestamp, peak context tokens of one request) for one transcript."""
-    first = last = None
-    peak = 0
+def _prompt_text(d):
+    """The text of a user prompt entry (a string, or the text blocks of a list), else None. Tool results are not prompts."""
+    if not isinstance(d, dict) or d.get("type") != "user":
+        return None
+    c = (d.get("message") if isinstance(d.get("message"), dict) else {}).get("content")
+    if isinstance(c, str):
+        return c
+    if isinstance(c, list):
+        t = [b.get("text") for b in c if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)]
+        return "\n".join(t) if t else None
+    return None
+
+
+_OTHER_RUN = re.compile(r"\[BENCH-[\w-]+\] Do ")  # the opening of every bench prompt (bench.sh `prompt`)
+
+
+def window(path, marker):
+    """(start, end) line numbers of this run inside a transcript, or None when no typed user prompt in it holds "[<marker>] Do "
+    (anywhere, in case a tool such as AO wraps the prompt; a later message that only quotes the marker does not match).
+    end is the next prompt of another bench run, else the end of the file: two runs that share one session
+    file (a parent's CLAUDE_CODE_SESSION_ID passed on, for example) are then counted apart."""
+    start = end = None
     try:
         with open(path, encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                if '"timestamp"' not in line:
+            for i, line in enumerate(fh):
+                if '"user"' not in line or "[BENCH-" not in line:
                     continue
+                try:
+                    t = _prompt_text(json.loads(line))
+                except ValueError:
+                    continue
+                if t is None:
+                    continue
+                if start is None and ("[" + marker + "] Do ") in t:
+                    start = i
+                elif start is not None and _OTHER_RUN.search(t):
+                    end = i
+                    break
+    except OSError:
+        return None
+    return None if start is None else (start, end)
+
+
+def find_sessions(projects, marker):
+    """[(main transcript, (start, end))] for every transcript with a prompt that starts with the run's marker."""
+    hits = []
+    for f in sorted(Path(projects).glob("*/*.jsonl")) if Path(projects).is_dir() else []:
+        w = window(f, marker)
+        if w:
+            hits.append((f, w))
+    return hits
+
+
+def read_span(path, start=0, end=None):
+    """({model: tokens}, first ts, last ts, peak context) for lines start..end-1, replies de-duplicated by requestId as in usage.read_log."""
+    seen, first, last, peak = {}, None, None, 0
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for i, line in enumerate(fh):
+                if i < start:
+                    continue
+                if end is not None and i >= end:
+                    break
                 try:
                     d = json.loads(line)
                 except ValueError:
@@ -75,25 +130,17 @@ def scan(path):
                 if t is not None:
                     first, last = (t if first is None else min(first, t)), (t if last is None else max(last, t))
                 m = d.get("message") if isinstance(d.get("message"), dict) else {}
-                u = m.get("usage") if isinstance(m.get("usage"), dict) else None
-                if u:
+                if isinstance(m.get("usage"), dict) and isinstance(m.get("model"), str) and m["model"]:
+                    u = m["usage"]
                     peak = max(peak, usage._n(u.get("input_tokens")) + usage._n(u.get("cache_read_input_tokens")) + usage._n(u.get("cache_creation_input_tokens")))
+                    rid = next((x for x in (d.get("requestId"), d.get("uuid")) if isinstance(x, str) and x), i)
+                    seen[rid] = (m["model"] if m["model"] in usage.PRICES else "other", usage._tokens(u))
     except OSError:
         pass
-    return first, last, peak
-
-
-def find_sessions(projects, marker):
-    """Main transcripts that contain the marker. The marker is in the first prompt, so a plain substring test is enough."""
-    hits = []
-    for f in sorted(Path(projects).glob("*/*.jsonl")) if Path(projects).is_dir() else []:
-        try:
-            with open(f, encoding="utf-8", errors="replace") as fh:
-                if any(marker in line for line in fh):
-                    hits.append(f)
-        except OSError:
-            continue
-    return hits
+    per = {}
+    for model, t in seen.values():
+        usage._add(per, {model: t})
+    return per, first, last, peak
 
 
 def grade(repo):
@@ -111,20 +158,54 @@ def grade(repo):
             return {"passed": 0, "total": 0, "error": "grader did not finish"}
 
 
-def run_row(run_dir, projects):
-    meta = json.loads(Path(run_dir, "bench.json").read_text(encoding="utf-8"))
+def cli_cost(run_dir):
+    """total_cost_usd of the last result event in <run>/stream.jsonl (`claude -p` runs only), else None. A cross-check: the
+    transcripts can hold fewer output tokens than the CLI bills (seen 2026-10-12 in a run with background subagents)."""
+    cost = None
+    try:
+        with open(Path(run_dir, "stream.jsonl"), encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if '"result"' not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                v = d.get("total_cost_usd") if isinstance(d, dict) and d.get("type") == "result" else None
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v < 1e6:
+                    cost = float(v)
+    except OSError:
+        return None
+    return cost
+
+
+def read_meta(run_dir):
+    """bench.json as a dict with string arm (one of ARMS) and marker, else None."""
+    try:
+        meta = json.loads(Path(run_dir, "bench.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    ok = isinstance(meta, dict) and meta.get("arm") in ARMS and isinstance(meta.get("marker"), str) and meta["marker"].startswith("BENCH-")
+    return meta if ok else None
+
+
+def run_row(run_dir, projects, meta):
     mains = find_sessions(projects, meta["marker"])
     per, subs, first, last, peak = {}, 0, None, None, 0
-    for f in mains:
-        logs = [f] + sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl"))
-        subs += len(logs) - 1
-        for log in logs:
-            usage._add(per, usage.read_log(log))
-            a, b, p = scan(log)
-            first = a if first is None or (a is not None and a < first) else first
-            last = b if last is None or (b is not None and b > last) else last
-            if log == f:
-                peak = max(peak, p)  # the main thread's context; a subagent's is its own, smaller one
+    for f, (lo, hi) in mains:
+        p, a, b, pk = read_span(f, lo, hi)
+        usage._add(per, p)
+        first = a if first is None or (a is not None and a < first) else first
+        last = b if last is None or (b is not None and b > last) else last
+        peak = max(peak, pk)  # the main thread's context; a subagent's is its own, smaller one
+        end_ts = read_span(f, hi)[1] if hi is not None else None  # first timestamp at or after the next run's prompt
+        for log in sorted((f.with_suffix("") / "subagents").glob("agent-*.jsonl")):
+            sp, sa, sb, _ = read_span(log)
+            if sa is None or a is None or sa < a or (end_ts is not None and sa >= end_ts):
+                continue  # a subagent of another run in the same session file
+            subs += 1
+            usage._add(per, sp)
+            last = sb if last is None or (sb is not None and sb > last) else last
     split = dict.fromkeys(usage.KINDS, 0.0)
     cost, other = 0.0, 0
     for model, t in per.items():
@@ -136,7 +217,7 @@ def run_row(run_dir, projects):
             split[k] += sp[k]
         cost += sum(sp.values())
     return {"arm": meta["arm"], "rep": meta.get("rep"), "dir": Path(run_dir).name, "sessions": len(mains), "subagents": subs,
-            "costUSD": round(cost, 6), "split": {k: round(v, 6) for k, v in split.items()}, "models": sorted(per),
+            "costUSD": round(cost, 6), "cliCostUSD": cli_cost(run_dir), "split": {k: round(v, 6) for k, v in split.items()}, "models": sorted(per),
             "unpricedModels": other, "wallSec": round(last - first, 1) if first is not None and last is not None else None,
             "peakContext": peak, "score": grade(Path(run_dir, "repo"))}
 
@@ -155,7 +236,7 @@ def summarize(rows):
         if not rs:
             continue
         pct = [100 * r["score"]["passed"] / r["score"]["total"] if r["score"].get("total") else 0 for r in rs]
-        arms[arm] = {"label": LABEL[arm], "runs": len(rs), "costUSD": _stats([r["costUSD"] for r in rs]),
+        arms[arm] = {"label": LABEL[arm], "runs": len(rs), "costUSD": _stats([r["costUSD"] for r in rs]), "cliCostUSD": _stats([r["cliCostUSD"] for r in rs]),
                      "split": {k: round(statistics.mean(r["split"][k] for r in rs), 6) for k in usage.KINDS},
                      "wallSec": _stats([r["wallSec"] for r in rs]), "peakContext": _stats([r["peakContext"] for r in rs]),
                      "scorePct": _stats(pct), "subagents": _stats([r["subagents"] for r in rs])}
@@ -169,23 +250,28 @@ def summarize(rows):
 
 def collect(work, projects):
     runs = sorted(p for p in Path(work).glob("*-r*") if Path(p, "bench.json").is_file())
-    rows = [run_row(p, projects) for p in runs]
+    metas = {p: read_meta(p) for p in runs}
+    rows = [run_row(p, projects, m) for p, m in metas.items() if m]
     missing = [r["dir"] for r in rows if not r["sessions"]]
-    return {"generated": datetime.now().astimezone().isoformat(timespec="seconds"), "prices": "usage.PRICES (official list, 2026-10-12)",
+    return {"invalid": [p.name for p, m in metas.items() if not m],"generated": datetime.now().astimezone().isoformat(timespec="seconds"), "prices": "usage.PRICES (official list, 2026-10-12)",
             "runs": rows, "arms": summarize(rows), "missing": missing}
 
 
 def table(rep):
-    out = ["| 방식 | 실행 | 비용(평균) | 캐시 읽기 비중 | 시간(평균) | 최대 컨텍스트 | 숨은 테스트 | 기본 대비 비용 / 시간 |", "|---|---|---|---|---|---|---|---|"]
+    out = ["| 방식 | 실행 | 비용(평균, 로그) | CLI 집계 | 캐시 읽기 비중 | 시간(평균) | 최대 컨텍스트 | 숨은 테스트 | 기본 대비 비용 / 시간 |", "|---|---|---|---|---|---|---|---|---|"]
     for arm, a in rep["arms"].items():
         tot = sum(a["split"].values())
         vs = a.get("vsSingle") or {}
         f = lambda v: "-" if v is None else f"{v:+.1f}%"
-        out.append(f"| {a['label']} | {a['runs']} | ${a['costUSD']['mean']:.3f} | {(a['split']['read'] / tot * 100) if tot else 0:.0f}% | "
+        cli = a.get("cliCostUSD")
+        clis = "-" if not cli else f"${cli['mean']:.3f}" + (" (차이 5% 초과)" if abs(cli["mean"] - a["costUSD"]["mean"]) > 0.05 * cli["mean"] else "")
+        out.append(f"| {a['label']} | {a['runs']} | ${a['costUSD']['mean']:.3f} | {clis} | {(a['split']['read'] / tot * 100) if tot else 0:.0f}% | "
                    f"{(a['wallSec']['mean'] / 60) if a['wallSec'] else 0:.1f}분 | {int(a['peakContext']['mean']) if a['peakContext'] else 0:,} | "
                    f"{a['scorePct']['mean']:.0f}% | {f(vs.get('costUSD'))} / {f(vs.get('wallSec'))} |")
     if rep["missing"]:
         out.append(f"\n로그를 찾지 못한 실행(집계 제외): {', '.join(rep['missing'])}")
+    if rep.get("invalid"):
+        out.append(f"\nbench.json이 깨져 건너뛴 실행: {', '.join(rep['invalid'])}")
     return "\n".join(out)
 
 
@@ -196,6 +282,9 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     rep = collect(a.work, a.projects)
+    if not rep["runs"]:
+        print(f"no bench runs in {a.work} (expected <arm>-r<N>/bench.json); nothing written", file=sys.stderr)
+        sys.exit(1)
     if a.out:
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps(rep, ensure_ascii=False, indent=1, allow_nan=False), encoding="utf-8")

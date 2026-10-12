@@ -15,17 +15,19 @@
 set -u
 repo="$(cd "$(dirname "$0")/.." && pwd -W 2>/dev/null || pwd)"  # pwd -W: native Windows path for claude.exe (Git Bash)
 bench="$repo/scripts/bench"
+py="$(command -v python3 || command -v python)"  # Windows runners may only have python
 cmd="${1:-}"; shift || true
 
 fresh() { # arm rep -> prints the run dir: a committed copy of the fixture plus this repo's agents, and bench.json with a unique marker
   local d="$work/$1-r$2" marker
+  if [ -e "$d" ] && [ -z "${BENCH_FORCE:-}" ]; then echo "$d exists (an earlier run); move it away or set BENCH_FORCE=1 to replace it" >&2; return 1; fi
   marker="BENCH-$1-r$2-$(date +%s)-$RANDOM$RANDOM"
-  rm -rf "$d" && mkdir -p "$d" && cp -R "$bench/fixture" "$d/repo" && mkdir -p "$d/repo/.claude" && cp -R "$repo/claude/agents" "$d/repo/.claude/agents" || exit 1
+  rm -rf "$d" && mkdir -p "$d" && cp -R "$bench/fixture" "$d/repo" && mkdir -p "$d/repo/.claude" && cp -R "$repo/claude/agents" "$d/repo/.claude/agents" || return 1
   ( cd "$d/repo" && git init -q -b main && git add -A && git -c user.name=bench -c user.email=bench@localhost commit -qm "bench fixture" ) || exit 1
   printf '{"arm": "%s", "rep": %s, "marker": "%s", "created": "%s"}\n' "$1" "$2" "$marker" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$d/bench.json"
   echo "$d"
 }
-marker_of() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["marker"])' "$1/bench.json"; }
+marker_of() { "$py" -c 'import json,sys;print(json.load(open(sys.argv[1]))["marker"])' "$1/bench.json"; }
 
 prompt() { # arm marker
   case "$1" in
@@ -49,10 +51,13 @@ case "$cmd" in
       echo "BENCH_SETTINGS=$settings: harness test only, not a baseline" >&2
     fi
     mkdir -p "$work" && work="$(cd "$work" && pwd)" || exit 2
+    to="$(command -v timeout || command -v gtimeout || true)"  # stock macOS has neither: runs then have no time limit
+    [ -n "$to" ] || echo "no timeout/gtimeout: runs have no 30-minute limit" >&2
     for r in $(seq 1 "$reps"); do
-      d="$(fresh "$arm" "$r")"; m="$(marker_of "$d")"
+      d="$(fresh "$arm" "$r")" || exit 1; m="$(marker_of "$d")"
       echo "== $arm r$r ($d)"
-      ( cd "$d/repo" && timeout 1800 claude -p "$(prompt "$arm" "$m")" --settings "$settings" --permission-mode auto \
+      # a parent Claude session's id must not leak in: with it, runs share one transcript
+      ( cd "$d/repo" && env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_REMOTE_SESSION_ID ${to:+"$to" 1800} claude -p "$(prompt "$arm" "$m")" --settings "$settings" --permission-mode auto \
           --output-format stream-json --verbose > "$d/stream.jsonl" 2> "$d/stream.err" ) || echo "   exit $? (see $d/stream.err)"
     done ;;
   prepare-ao)
@@ -60,7 +65,7 @@ case "$cmd" in
     case "$reps" in ''|*[!0-9]*) echo "reps must be a number" >&2; exit 2 ;; esac
     mkdir -p "$work" && work="$(cd "$work" && pwd)" || exit 2
     for r in $(seq 1 "$reps"); do
-      d="$(fresh ao "$r")"; m="$(marker_of "$d")"; mkdir -p "$d/prompts"
+      d="$(fresh ao "$r")" || exit 1; m="$(marker_of "$d")"; mkdir -p "$d/prompts"
       for t in slug duration percentile; do prompt "ao-$t" "$m" > "$d/prompts/$t.txt"; done
       echo "== ao r$r: $d/repo, prompts in $d/prompts/"
     done
@@ -77,8 +82,8 @@ EOF
     ;;
   report)
     work="${1:?usage: bash scripts/bench.sh report <work-dir>}"
-    python3 "$bench/report.py" "$work" --out "$repo/reports/bench/latest.json" && echo "(JSON: reports/bench/latest.json)" ;;
+    "$py" "$bench/report.py" "$work" --out "$repo/reports/bench/latest.json" && echo "(JSON: reports/bench/latest.json)" ;;
   selftest)
-    python3 "$bench/selftest.py" ;;
+    "$py" "$bench/selftest.py" ;;
   *) sed -n '2,13p' "$0"; exit 2 ;;
 esac

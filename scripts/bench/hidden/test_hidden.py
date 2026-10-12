@@ -1,9 +1,16 @@
 # Hidden grading tests for the bench fixture. Never copied into a run before the agents finish; report.py copies them in only to grade.
+import importlib
 import unittest
 
-from textkit.duration import parse_duration
-from textkit.slug import slugify
-from textkit.stats import percentile
+
+def _fn(module, name):
+    """Import at call time, so a broken module fails only its own tests and the other tasks are still graded."""
+    return getattr(importlib.import_module("textkit." + module), name)
+
+
+def slugify(*a): return _fn("slug", "slugify")(*a)
+def parse_duration(*a): return _fn("duration", "parse_duration")(*a)
+def percentile(*a): return _fn("stats", "percentile")(*a)
 
 
 class Slug(unittest.TestCase):
