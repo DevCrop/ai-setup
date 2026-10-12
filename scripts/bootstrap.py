@@ -12,7 +12,12 @@ import argparse, json, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import toolreg
+try:
+    import toolreg
+except Exception:  # a broken toolreg.py must exit 3 (crash), not 1 ("required tool missing")
+    import traceback
+    traceback.print_exc()
+    sys.exit(3)
 
 
 def collect(repo=toolreg.REPO):

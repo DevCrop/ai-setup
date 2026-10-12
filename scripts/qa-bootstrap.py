@@ -151,8 +151,34 @@ check("projectRoots" not in fv, "bootstrap.found_values: project roots from an e
 os.environ["QA_DIR"] = str(envd)
 check(toolreg.detect(ENTRY, {}, toks, repo)["setup"]["fromEnv"], "detect: a checkout from the env var is marked fromEnv")
 del os.environ["QA_DIR"]
-stub = dict(ENTRY, env=None, bin=["no-such-bin-qa-xyz", Path(sys.executable).stem])
-check(toolreg.detect(stub, {}, toks, repo)["found"], "detect: PATH names are tried in order")
+# two PATH names both exist: the first is a stub that prints no version (like the Windows Store python3), the second answers
+bindir = tmp / "bin"
+bindir.mkdir()
+for name, body in (("qa-stub-xyz", ""), ("qa-real-xyz", "echo qa 1.2.3")):
+    if os.name == "nt":
+        (bindir / (name + ".cmd")).write_text("@echo off\r\n" + body + "\r\nexit /b 0\r\n", encoding="utf-8")
+    else:
+        f = bindir / name
+        f.write_text("#!/bin/sh\n" + body + "\nexit 0\n", encoding="utf-8")
+        f.chmod(0o755)
+calls = []
+def spawn(cmd, timeout):
+    calls.append(cmd[0])
+    import subprocess
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+old_path = os.environ["PATH"]
+os.environ["PATH"] = str(bindir) + os.pathsep + old_path
+two = dict(ENTRY, env=None, min=None, bin=["qa-stub-xyz", "qa-real-xyz"])
+r = toolreg.detect(two, {}, toks, repo, spawn)
+os.environ["PATH"] = old_path
+check(r["found"] and "qa-real-xyz" in r["path"] and r["version"] == "1.2.3", "detect: a stub first on PATH is skipped for the name that answers --version", json.dumps(r))
+check(len(calls) == 2, "detect: each name's version is asked once, through the injected spawn", str(calls))
+(repo / "state" / "machine.json").write_text("[]", encoding="utf-8")
+try:
+    toolreg.write_machine({"projectRoots": ["Z"]}, repo)
+    check(False, "write_machine: refuses a file that is valid JSON but not an object")
+except ValueError:
+    check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "[]", "write_machine: refuses a file that is valid JSON but not an object")
 
 print(("FAIL " + str(len(fails))) if fails else "ALL PASS")
 sys.exit(1 if fails else 0)

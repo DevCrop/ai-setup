@@ -29,9 +29,11 @@ def write_machine(found, repo=REPO):
     f = repo / "state" / "machine.json"
     if f.exists():
         try:
-            json.loads(f.read_text(encoding="utf-8-sig"))
+            ok = isinstance(json.loads(f.read_text(encoding="utf-8-sig")), dict)
         except ValueError:
-            raise ValueError(str(f) + " is not valid JSON; fix it by hand first")
+            ok = False
+        if not ok:
+            raise ValueError(str(f) + " is not a JSON object; fix it by hand first")
     m = load_machine(repo)
     for key, val in found.items():
         if isinstance(val, dict):
@@ -97,27 +99,28 @@ def run_version(exe, args, spawn=None):
         return None
 
 
-def find_bin(entry, machine, toks):
-    """(path, where it came from). A path from the env var or machine.json that does not exist is reported, not silently skipped."""
+def find_bin(entry, machine, toks, spawn=None):
+    """(path, where it came from, version if it was already read). A path from the env var or machine.json that does not exist is reported, not silently skipped."""
     env = entry.get("env")
     if env and os.environ.get(env):
         p = os.environ[env]
-        return (shutil.which(p) or (p if Path(p).exists() else None)), env
+        return (shutil.which(p) or (p if Path(p).exists() else None)), env, None
     mp = (machine.get("bin") or {}).get(entry["id"])
     if isinstance(mp, str) and mp:
-        return (shutil.which(mp) or (mp if Path(mp).exists() else None)), "machine.json"
+        return (shutil.which(mp) or (mp if Path(mp).exists() else None)), "machine.json", None
     names = [w for w in (shutil.which(n) for n in entry.get("bin", [])) if w]
     if len(names) > 1 and entry.get("version"):  # e.g. a Windows Store python3 stub ahead of a real python: take the first that answers
         for w in names:
-            if run_version(w, entry["version"]):
-                return w, "PATH"
+            v = run_version(w, entry["version"], spawn)
+            if v:
+                return w, "PATH", v
     if names:
-        return names[0], "PATH"
+        return names[0], "PATH", None
     for tpl in entry.get("paths", []):
         p = expand(tpl, toks)
         if p is not None and p.exists():
-            return str(p), "path"
-    return None, None
+            return str(p), "path", None
+    return None, None, None
 
 
 def is_checkout(d, markers):
@@ -198,9 +201,8 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
     """Everything known about one tool on this machine, as plain JSON-able values."""
     machine = load_machine(repo) if machine is None else machine
     toks = tokens(repo) if toks is None else toks
-    exe, via = find_bin(entry, machine, toks)
-    version = None
-    if exe and entry.get("version") and via != "path":  # a path candidate may be a GUI app; starting it to ask its version would open a window
+    exe, via, version = find_bin(entry, machine, toks, spawn)
+    if exe and not version and entry.get("version") and via != "path":  # a path candidate may be a GUI app; starting it to ask its version would open a window
         version = run_version(exe, entry["version"], spawn)
     out = {"id": entry["id"], "label": entry.get("label", entry["id"]), "kind": entry.get("kind", "tool"),
            "required": bool(entry.get("required")), "disabled": entry["id"] in (machine.get("disabled") or []),
