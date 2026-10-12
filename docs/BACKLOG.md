@@ -75,7 +75,7 @@ On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`
 |---|---|---|
 | R1 | Prompt cache TTL trial (DECISIONS 2026-10-11, PR #46) | due 2026-10-14 to 10-18: `/usage` Behavior flags and Attribution; drop `subagentPromptCacheTtl` if short subagents dominate |
 | R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls in the main thread and in Haiku executors, which inherit the advisor and read the "consult it before done" rule (advisor doc) |
-| R3 | `autoCompactWindow` 400000, AO numbers, a real Codex reviewer run in AO | DECISIONS "Cache reads are shown as their own cost" (Open) and "AO reviewer lane" (Not verified) |
+| R3 | `autoCompactWindow` 400000, AO numbers, Codex review quality against a Claude reviewer (the first Codex run is done: evidence "AO 로컬 QA", 2026-10-12) | DECISIONS "Cache reads are shown as their own cost" (Open) and "AO reviewer lane" (Not verified) |
 
 ## 8. Known limits (no action unless they bite)
 
