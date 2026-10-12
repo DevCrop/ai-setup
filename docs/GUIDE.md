@@ -217,7 +217,7 @@ The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, 
 | L-2 | Mac | this guide's quick path from the start | 0 FAIL, only the expected WARN lines; `qa-statusline.sh` passes (BSD sed) | — |
 | L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
 | L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
-| L-5 | both | `bash scripts/qa-deny.sh` | all PASS (28 cases; with RTK installed it exercises the rewrite) | — |
+| L-5 | both | `bash scripts/qa-deny.sh` | all PASS (30 cases; with RTK installed it exercises the rewrite) | — |
 | L-6 | both | `qa-role-agents.sh <dir>` real mode, `qa-project-setup.sh <dir>`, one AO worker | still pass in auto mode; note any action the classifier skipped | — |
 | L-7 | both | `bash scripts/qa-ui.sh` | 80 checks pass; no backup tile; AUTO badge | — |
 | L-8 | both | in a session: stage a secret file; remove jq from PATH and stage again; remove jq and run `ls`; ask for `cat .env` | blocked; blocked; allowed; refused | — |
