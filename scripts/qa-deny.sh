@@ -13,8 +13,6 @@ settings="${CLAUDE_QA_SETTINGS:-$repo/claude/settings.json}"
 
 fail=0
 
-# Static check, no CLI needed: every Bash deny or ask pattern needs an `rtk `-prefixed twin
-# and the reverse, because permission rules are evaluated on the hook-rewritten input.
 classify() { # stream-json output -> error | blocked | runs | no-call
   if ! printf '%s' "$1" | grep -q '"type":"result"'; then echo error
   elif ! printf '%s' "$1" | grep -q '"permission_denials":\[\]'; then echo blocked
@@ -36,6 +34,8 @@ $r")"
   echo "FAIL  classify gave: $c1 $c2 $c3 $c4 $c5"; exit 1
 fi
 
+# Static check, no CLI needed: every Bash deny or ask pattern needs an `rtk `-prefixed twin
+# and the reverse, because permission rules are evaluated on the hook-rewritten input.
 [ -f "$settings" ] || { echo "settings not found: $settings" >&2; exit 2; }
 bash_rules="$(grep -o '"Bash([^"]*)"' "$settings" | sed 's/^"Bash(//; s/)"$//')"
 twins=0
