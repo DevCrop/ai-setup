@@ -72,12 +72,12 @@ out="$(apply)"
 
 # 5. rules added by hand do not survive: allow, autoMode.allow, an extra hook event, an extra marketplace, changed values
 jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.allow=["x"] | .hooks.Stop=[{"hooks":[{"type":"command","command":"x"}]}]
-    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="bypassPermissions" | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="bypassPermissions" | del(.permissions.disableBypassPermissionsMode) | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 out="$(apply)"
-if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, (.autoMode|has("allow")), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode]')" = '[[],false,false,false,"auto"]' ] \
+if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, (.autoMode|has("allow")), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"auto","disable"]' ] \
    && [ "$(live '.permissions.deny|length')" = "$(jq '.permissions.deny|length' "$repo/claude/settings.json")" ] \
    && [ "$(live '.skillOverrides["auto-mode-setup"]')" = off ] && printf '%s' "$out" | grep -q "replaced live value of"; then
-  pass "5 hand-added allow/autoMode/hook/marketplace/mode are replaced by the repo values and reported"
+  pass "5 hand-added allow/autoMode/hook/marketplace/mode and a removed bypass lock are replaced by the repo values and reported"
 else bad "5 owned keys not restored ($out)"; fi
 
 # 6. keys listed in scripts/removed-keys.json are deleted

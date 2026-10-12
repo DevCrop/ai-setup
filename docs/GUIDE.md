@@ -151,7 +151,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 The default mode is `auto`, the mode the permission-modes doc recommends for working without prompts; `bypassPermissions` is documented for isolated containers and VMs only, so it is not used here (it replaces the 2026-10-10 decision). In auto mode a classifier reviews actions that no rule already decided. It blocks force pushes, `reset --hard`, `clean -fd`, irreversible deletes, secrets in commits, credential output and prompt-injection-driven actions by default, and it reads `CLAUDE.md`.
 
 Two layers, on purpose:
-- **Deterministic:** `permissions.deny` blocks in every mode; `permissions.ask` always prompts, even in auto mode; the `secret-guard` hook blocks staging secret files. These do not depend on a model.
+- **Deterministic:** `permissions.deny` blocks in every mode; `permissions.ask` always prompts, even in auto mode, and covers only `git push` (decision 2026-10-12: no other permission prompts); the `secret-guard` hook blocks staging secret files. These do not depend on a model.
 - **Classifier:** the `autoMode` block in `claude/settings.json` adds this setup's context (`environment`), a plugin-install rule (`soft_deny`) and a secret-file rule (`hard_deny`). Every array starts with `"$defaults"`; without it the built-in rules for that array are dropped. `permissions.allow` stays empty (broad allow rules are suspended in auto mode anyway).
 
 Rules of use:
@@ -161,7 +161,8 @@ Rules of use:
 - If auto mode is not available (turned off for the account or server side), sessions start in Manual mode; the deny, ask and hook layer still works. Classifier calls count toward token usage on some plans (permission-modes doc).
 - VS Code: `claudeCode.initialPermissionMode` does not accept `auto`; leave it unset.
 - AO workers: `ao project set-config <id> --permission auto` (it replaces the whole config; round-trip `ao project get --json` first). Deny and ask rules apply to workers in every mode.
-- Going back to bypass is a decision to record, not a setting to flip: change `permissions.defaultMode` and the check in `scripts/verify.sh` in one PR.
+- Bypass is locked: `permissions.disableBypassPermissionsMode` is `"disable"`, so `--dangerously-skip-permissions` is refused on any machine where `apply.sh` ran. Going back to bypass is a decision to record, not a setting to flip: change `permissions.defaultMode`, that key and the checks in `scripts/verify.sh` in one PR.
+- Bypass in an isolated container or VM (permission-modes doc: "Isolated containers and VMs only"): do not run `apply.sh` there; start `claude -p "<prompt>" --dangerously-skip-permissions` as a non-root user. Deny rules still apply in bypass mode; allow rules and the classifier do not.
 
 ## Secret-guard hook
 

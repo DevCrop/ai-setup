@@ -46,7 +46,7 @@ trap 'rm -rf "$tmp"' EXIT
 if [ -s "$live" ]; then cp "$live" "$tmp/live.json"; else echo '{}' > "$tmp/live.json"; fi
 jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '
   def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
-  def own_perm: ["defaultMode","deny","ask","allow"];
+  def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
   $l[0] as $l | $r[0] as $r | $x[0] as $x
   | ($l * $r)
   | reduce own_top[] as $k (.; if ($r | has($k)) then .[$k] = $r[$k] else del(.[$k]) end)
@@ -56,7 +56,7 @@ jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpf
 # What the merge kept, replaced and removed (reported, never silent).
 jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '
   def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
-  def own_perm: ["defaultMode","deny","ask","allow"];
+  def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
   $l[0] as $l | $r[0] as $r | $x[0] as $x
   | ([own_top[] as $k | select(($l | has($k)) and ($l[$k] != $r[$k])) | $k]
      + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]
