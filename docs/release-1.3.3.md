@@ -4,10 +4,12 @@
 생성되는 서브에이전트의 기본 모델을 정한다. 부모 모델은 계속 사용자가 고른다.
 
 - `config.toml` `[agents]`에 `default_subagent_model = "gpt-6.1-sol"`,
-  `default_subagent_reasoning_effort = "medium"`을 관리 키로 추가한다. 다른 키와
-  사용자 값은 기존 방식대로 보존하고, rollback은 원래 값을 되돌린다.
+  `default_subagent_reasoning_effort = "medium"`을 관리 키로 추가한다. 이 두 키에 사용자
+  값이 있으면 덮어쓰고 원래 값을 기록한다(rollback·uninstall이 되돌림). 다른 키는 보존한다.
 - `agents/explorer.toml`: 읽기 전용(`sandbox_mode = "read-only"`) `explorer`
   커스텀 에이전트, `gpt-6-luna` / `high`. 같은 이름의 기본 explorer를 대체한다.
+  사용자 소유 `agents/explorer.toml`이 이미 있으면 plan이 conflict로 멈추므로, 내용을
+  확인해 옮기거나 지운 뒤 다시 plan한다.
 - 근거: [Models](https://learn.chatgpt.com/docs/models),
   [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents),
   2026-10-12 확인. 측정한 순위가 아니다.
