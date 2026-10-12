@@ -102,6 +102,10 @@ if command -v jq >/dev/null 2>&1; then
   jq -e '.permissions.disableBypassPermissionsMode == "disable"' "$src/settings.json" >/dev/null 2>&1 \
     && pass "permissions.disableBypassPermissionsMode is disable (bypass stays for isolated containers, not this setup)" \
     || fail "permissions.disableBypassPermissionsMode must be \"disable\""
+  # Model lanes (decision 2026-10-12): Opus main at medium effort, Haiku executors, Opus verifiers, no Sonnet or Fable in the repo.
+  jq -e '.model == "opus" and .modelSettings["claude-opus-5-5"].effortLevel == "medium"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "main model is opus at medium effort" \
+    || fail "settings.json model must be opus with modelSettings.claude-opus-5-5.effortLevel medium"
   jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
     && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
     || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
@@ -158,6 +162,8 @@ for f in "$src"/agents/*.md; do
   bad=""
   for k in $(printf '%s\n' "$keys" | sort -u); do in_list "$k" "$agent_keys" || bad="$bad $k"; done
   [ -z "$bad" ] || warn "$n: unknown frontmatter key(s):$bad (ignored by Claude Code)"
+  amodel="$(frontmatter "$f" | sed -n 's/^model:[[:space:]]*//p')"
+  case "$amodel" in haiku|opus|inherit|"") ;; *) fail "$n: model '$amodel' is outside the lanes (haiku executors, opus verifiers; decision 2026-10-12)" ;; esac
   aname="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
   case "$aname" in *:*) fail "$n: name '$aname' contains ':' (reserved for plugin-scoped names, sub-agents doc)" ;; esac
   [ "${#aname}" -le 256 ] || fail "$n: name is longer than 256 characters (sub-agents doc)"
@@ -251,8 +257,9 @@ if [ "$live" -eq 1 ]; then
         $l[0] as $l | $r[0] as $r
         | ([own_top[] as $k | select($l[$k] != $r[$k]) | $k]
            + [own_perm[] as $k | select((($l.permissions // {})[$k]) != (($r.permissions // {})[$k])) | "permissions." + $k]
-           + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "env") | not) | select($l[$k] != $r[$k]) | $k]
-           + [($r.enabledPlugins // {} | to_entries[]) | select((($l.enabledPlugins // {})[.key]) != .value) | "enabledPlugins." + .key])
+           + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "modelSettings" or $k == "env") | not) | select($l[$k] != $r[$k]) | $k]
+           + [($r.enabledPlugins // {} | to_entries[]) | select((($l.enabledPlugins // {})[.key]) != .value) | "enabledPlugins." + .key]
+           + [($r.modelSettings // {} | to_entries[]) | select((($l.modelSettings // {})[.key]) != .value) | "modelSettings." + .key])
         | join(", ")' 2>/dev/null)"
       if [ -z "$owned_diff" ]; then pass "in sync: settings.json (keys owned by this repo)"
       else warn "settings.json differs from claude/settings.json in: $owned_diff (apply.sh restores the repo values; to keep a change, edit claude/settings.json first)"; fi

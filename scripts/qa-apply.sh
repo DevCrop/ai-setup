@@ -133,13 +133,13 @@ out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2
 
 # 10. verify.sh --live compares only the repo-owned keys: machine-only keys are fine, a changed owned key is a WARN
 newcfg; apply >/dev/null
-jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" && ! printf '%s' "$v" | grep -qE "^(FAIL|WARN)  .*settings\.json" \
-  && printf '%s' "$v" | grep -q "^INFO  machine-only settings.json keys" && pass "10 verify --live: machine-only keys are INFO, owned keys in sync" || bad "10 verify --live with machine-only keys ($(printf '%s' "$v" | grep -i settings))"
-jq '.permissions.allow=["Bash(*)"] | .autoMode.environment=["only mine"]' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+  && printf '%s' "$v" | grep -q "^INFO  machine-only settings.json keys" && pass "10 verify --live: machine-only keys and a level saved for another model are not drift, owned keys in sync" || bad "10 verify --live with machine-only keys ($(printf '%s' "$v" | grep -i settings))"
+jq '.permissions.allow=["Bash(*)"] | .autoMode.environment=["only mine"] | .modelSettings["claude-opus-5-5"].effortLevel="high"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions.allow" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "autoMode" && pass "10 verify --live: a hand-edited owned key is a WARN naming the key" || bad "10 verify --live drift WARN ($(printf '%s' "$v" | grep -i 'settings'))"
+printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions.allow" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "autoMode" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5" && pass "10 verify --live: a hand-edited owned key is a WARN naming the key" || bad "10 verify --live drift WARN ($(printf '%s' "$v" | grep -i 'settings'))"
 jq '.enabledPlugins["superpowers@claude-plugins-official"]=true' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^WARN  settings.json still has keys that scripts/removed-keys.json deletes" && pass "10 verify --live: a removed key still present is a WARN" || bad "10 verify --live removed-key WARN"

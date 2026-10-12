@@ -2,6 +2,16 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — model lanes: Opus orchestrates and verifies, Haiku executes, no Sonnet
+
+### Model lanes: Opus orchestrates and verifies, Haiku executes
+- What: `settings.json` `model` is `opus` with `modelSettings.claude-opus-5-5.effortLevel: "medium"`; `worker`, `backend`, `frontend` move from Sonnet to Haiku (with `explorer`, `publisher` already there); `qa` and `reviewer` move from Sonnet to Opus and keep `effort: high`; `advisorModel` stays `opus`. The `orchestrate` skill, `claude/CLAUDE.md`, the routine target and the docs say the same. `verify.sh` asserts the main model, the Opus effort entry, and that no agent names `sonnet` or `fable`.
+- Why: the user chose Opus as orchestrator at medium effort and Haiku as executor, and no Sonnet or Fable (2026-10-12). Verifiers go to Opus rather than Haiku: a false pass is the most expensive failure (entry above), and the review rounds of 2026-10-12 found real defects the author had missed.
+- Effort: model-config says Opus 5.5 starts at `medium` and a top-level `effortLevel` in user settings does not apply to it, so the existing `effortLevel: "high"` keeps applying only to older models such as a Fable session the user picks; `modelSettings` states Opus's level explicitly. `apply.sh` merges `modelSettings` key by key, so levels a machine saved for other models stay.
+- Aliases: on the Anthropic API `opus` and `haiku` resolve to Opus 5.5 and Haiku 5.5 (model-config, "Model aliases"); on Bedrock, Vertex or Foundry they resolve to older models.
+- Not measured: cost and quality of the new lanes on this setup's jobs. Run `bash scripts/bench.sh` and `QA_AGENT_MODEL` comparisons in `scripts/qa-role-agents.sh` on a machine with the CLI; the dashboard's efficiency hint text (`scripts/dashboard/efficiency.py`) still describes the Sonnet lanes and waits for the dashboard freeze to lift.
+- Undo: set `model` back to `sonnet`, drop `modelSettings`, put `model: sonnet` back in `worker`, `backend`, `frontend`, `qa`, `reviewer`, restore the lanes line in the `orchestrate` skill and `claude/CLAUDE.md`, and remove the `verify.sh` lane checks.
+
 ## 2026-10-12 — skill and agent metadata against the official limits
 
 ### `when_to_use`, agent colors, and the official limits checked by `verify.sh`
@@ -162,7 +172,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### `agentPushNotifEnabled: true` is in the shared settings
 - The desktop app writes it; without it `apply.sh` used to delete it. The key is not in the public docs.
 
-### Model lanes unchanged: Sonnet main, Opus advisor, Haiku only where it was measured
+### Model lanes unchanged: Sonnet main, Opus advisor, Haiku only where it was measured (replaced 2026-10-12, entry "Model lanes: Opus orchestrates and verifies")
 - `publisher` and `explorer` run on Haiku; `backend`, `frontend`, `worker`, `qa`, `reviewer` on Sonnet (a false pass costs more than the saving). Single runs per scenario are not statistics. Fable is never a default, subagent or advisor: it draws from the same weekly pool (at most 50% of it) and is picked by the user for one hard task.
 
 ### `.env` can leak through recursive search, so agents exclude it
@@ -187,7 +197,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Ponytail always on; Archify only on request
 - Ponytail costs about 641 tokens a session plus Node hooks; Archify is installed after review and used for diagrams only.
 
-### Daily routine on every machine, Sonnet, read-only
+### Daily routine on every machine, Sonnet (Opus since 2026-10-12), read-only
 - `reports/` and `state/` are local and gitignored, so machines do not mix baselines and `git pull` never conflicts.
 
 ### Rules for orchestration live in the `orchestrate` skill, not in `CLAUDE.md`
