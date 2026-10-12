@@ -84,10 +84,12 @@ if [ -z "${QA_APPLY_RUNNING:-}" ]; then
   if out="$(bash "$repo/scripts/qa-statusline.sh" 2>&1)"; then pass "statusline cache segment"; else fail "statusline: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
 
   # 3b. secret-guard hook: file present, referenced from settings.json, unit tests pass
-  if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '[.hooks.PreToolUse[].hooks[].command] | any(contains("hooks/secret-guard.sh"))' "$src/settings.json" >/dev/null 2>&1; then
+  # both entries: Bash, and the GitHub MCP file writes (push_files, create_or_update_file) with onFailure block
+  if [ -f "$src/hooks/secret-guard.sh" ] && jq -e '([.hooks.PreToolUse[] | select(.matcher == "Bash") | .hooks[].command] | any(contains("hooks/secret-guard.sh")))
+       and ([.hooks.PreToolUse[] | select((.matcher // "") | test("push_files")) | .hooks[] | select(.onFailure == "block") | .command] | any(contains("hooks/secret-guard.sh")))' "$src/settings.json" >/dev/null 2>&1; then
     if out="$(bash "$repo/scripts/qa-hooks.sh" 2>&1)"; then pass "secret-guard hook ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "secret-guard unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
   else
-    fail "secret-guard hook missing or not referenced in settings.json"
+    fail "secret-guard hook missing, or not referenced for Bash and for the GitHub MCP file writes in settings.json"
   fi
 
   # 3d. session hooks: compact-context.sh (SessionStart compact) and config-audit.sh (ConfigChange) present, referenced, unit tests pass

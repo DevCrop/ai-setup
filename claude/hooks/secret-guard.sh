@@ -23,9 +23,16 @@ is_secret() {
 }
 # GitHub MCP file writes (push_files, create_or_update_file; matcher in settings.json): judge the paths they carry. A commit made this way
 # never passes through git on this machine, so the Bash checks below cannot see it.
-if printf '%s' "$input" | grep -Eq '"tool_name"[[:space:]]*:[[:space:]]*"mcp__[^"]*github[^"]*__(push_files|create_or_update_file)"'; then
+mcpre='^mcp__.*github.*__(push_files|create_or_update_file)$'
+# The branch is chosen from the decoded tool_name (an escaped name or an extra key in a Bash call cannot switch it); grep on the raw
+# input only decides when jq is missing or the input is not JSON, and that case blocks below.
+if command -v jq >/dev/null 2>&1; then tn="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null | tr -d '\r')"; else tn=""; fi
+if [[ "$tn" =~ $mcpre ]] || { [ -z "$tn" ] && printf '%s' "$input" | grep -Eq 'mcp__[^"]*github[^"]*__(push_files|create_or_update_file)'; }; then
   command -v jq >/dev/null 2>&1 || { echo "secret-guard: blocked, jq not found, so this GitHub file write cannot be checked for secret files." >&2; exit 2; }
-  mpaths="$(printf '%s' "$input" | jq -r '[.tool_input.files[]?.path?, .tool_input.path?] | .[] | select(type == "string")' 2>/dev/null)" \
+  # every path, also from nested arrays; a path that is not a string cannot be judged and blocks
+  mpaths="$(printf '%s' "$input" | jq -r '
+    ([.tool_input.files] | flatten | map(select(type == "object") | .path)) + [.tool_input.path]
+    | map(select(. != null)) | if all(type == "string") then .[] else error("non-string path") end' 2>/dev/null)" \
     || { echo "secret-guard: blocked, unreadable hook input for a GitHub file write." >&2; exit 2; }
   mhits=""
   while IFS= read -r f; do [ -n "$f" ] && is_secret "$f" && mhits="$mhits $f"; done <<< "$(printf '%s' "$mpaths" | tr -d '\r')"

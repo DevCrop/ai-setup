@@ -248,6 +248,13 @@ runmcp 2 mcp__plugin_engineering_github__push_files '{"files":[{"path":"id_rsa",
 runmcp 0 mcp__github__push_files '{"files":[{"path":"src/a.js","content":"x"},{"path":".env.example","content":"S="}]}'
 runmcp 0 mcp__github__create_or_update_file '{"path":"README.md","content":"git add .env"}'
 runmcp 0 mcp__github__search_code '{"query":".env"}'
+# the branch is chosen from the decoded tool_name: an escaped name or an extra key in a Bash call cannot switch it
+out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":".env","content":"x"}]}}' | bash "$hook" 2>&1)"; rc=$?
+if [ "$rc" = 2 ]; then echo "PASS rc=2  mcp push_files with an escaped name"; else echo "FAIL want=2 got=$rc  mcp escaped name [$out]"; fail=$((fail+1)); fi
+out="$(jq -n --arg d "$r" '{tool_name:"Bash",cwd:$d,tool_input:{command:"git add .env.production",x:{tool_name:"mcp__github__push_files"}}}' | bash "$hook" 2>&1)"; rc=$?
+if [ "$rc" = 2 ]; then echo "PASS rc=2  Bash call with an extra mcp tool_name key"; else echo "FAIL want=2 got=$rc  Bash with extra key [$out]"; fail=$((fail+1)); fi
+runmcp 2 mcp__github__create_or_update_file '{"path":[".env"]}'
+runmcp 2 mcp__github__push_files '{"files":[[{"path":".env"}]]}'
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *)  # without jq a GitHub file write cannot be judged: blocked
   out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":"a.txt"}]}}' | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
   if [ "$rc" = 2 ]; then echo "PASS rc=2  (no jq) mcp push_files"; else echo "FAIL want=2 got=$rc  (no jq) mcp push_files [$out]"; fail=$((fail+1)); fi ;;

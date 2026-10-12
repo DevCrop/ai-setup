@@ -5,7 +5,7 @@ import { Badge, Panel, Note, Grid2, KeyValue, Command, Tiles, Donut, DonutBlock,
 import { ErrorTimeline } from "../diagrams.js";
 
 const KINDS = {
-  "hook-block": { tone: "warn", ic: "shield", name: "훅 차단", color: "var(--warn)", mean: "secret-guard 훅이 비밀 파일이 들어가는 git add/commit/push를 막았습니다.", fix: "차단된 파일을 변경에서 빼거나 .gitignore에 넣고 다시 실행하세요. 템플릿이면 이름을 .example로 바꿉니다." },
+  "hook-block": { tone: "warn", ic: "shield", name: "훅 차단", color: "var(--warn)", mean: "secret-guard 훅이 비밀 파일이 들어가는 git add/commit/push나 GitHub MCP 파일 쓰기(push_files, create_or_update_file)를 막았습니다.", fix: "차단된 파일을 변경에서 빼거나 .gitignore에 넣고 다시 실행하세요. 템플릿이면 이름을 .example로 바꿉니다." },
   "hook-error": { tone: "bad", ic: "x", name: "훅 오류", color: "var(--bad)", mean: "훅 스크립트 자체가 실패했습니다(차단 exit 2가 아님).", fix: "bash scripts/qa-hooks.sh 와 verify.sh --live 로 훅 파일과 경로를 확인하세요." },
   permission: { tone: "warn", ic: "lock", name: "권한 거부", color: "var(--info)", mean: "deny/ask 규칙이나 권한 모드가 호출을 막았습니다.", fix: "규칙은 claude/settings.json 입니다. 정말 필요하면 사용자 확인 후 PR로 바꿉니다." },
   "tool-error": { tone: "info", ic: "dot", name: "도구 오류", color: "var(--faint)", mean: "명령이 0이 아닌 코드로 끝났거나 파일 없음 같은 일반 실패입니다.", fix: "원문은 세션 로그에 있습니다(대시보드는 본문을 보내지 않음). 같은 오류가 2번이면 멈추고 원인을 보고합니다." }
