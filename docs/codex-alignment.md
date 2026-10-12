@@ -32,7 +32,7 @@ Compared on 2026-10-12:
 | Ponytail | Always on (decision 2026-10-09, about 641 tokens a session) | Only when explicitly requested (`allow_implicit_invocation: false`) | Each setup recorded its own choice. Change either one only by a new decision. |
 | Verification | A separate reviewer subagent; the author does not verify its own output | The parent reviews the affected diff | Claude has reviewer and qa role agents. In AO the Codex reviewer covers the cross-vendor check (below). |
 | Parallel delegates | At most 3 | At most 2 children, no recursion | Local operating limits, not official values. Each fits its own tool's limits. |
-| Model choice | Lanes: Haiku, Sonnet, Opus as advisor, Fable on request | Keep the user's selected model and effort; CLI profiles are optional | Claude routes by role; TRACE leaves the choice to the app. |
+| Model choice | Lanes: Opus main and verifiers (medium effort main), Haiku executors, Fable on request; no Sonnet (2026-10-12) | Keep the user's selected model and effort; CLI profiles are optional | Claude routes by role; TRACE leaves the choice to the app. |
 | Branch prefix | `claude/` (the Claude Code harness convention; not written in `claude/`) | `codex/` (`guides/github-workflow.md`) | Local reasoning: the prefix shows which tool made a branch. |
 
 ## Where the two meet: AO

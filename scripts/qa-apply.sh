@@ -133,16 +133,39 @@ out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2
 
 # 10. verify.sh --live compares only the repo-owned keys: machine-only keys are fine, a changed owned key is a WARN
 newcfg; apply >/dev/null
-jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"} | .modelSettings["claude-opus-5-5"].autoCompactWindow=500000' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" && ! printf '%s' "$v" | grep -qE "^(FAIL|WARN)  .*settings\.json" \
-  && printf '%s' "$v" | grep -q "^INFO  machine-only settings.json keys" && pass "10 verify --live: machine-only keys are INFO, owned keys in sync" || bad "10 verify --live with machine-only keys ($(printf '%s' "$v" | grep -i settings))"
-jq '.permissions.allow=["Bash(*)"] | .autoMode.environment=["only mine"]' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+  && printf '%s' "$v" | grep -q "^INFO  machine-only settings.json keys" && pass "10 verify --live: machine-only keys and a level saved for another model are not drift, owned keys in sync" || bad "10 verify --live with machine-only keys ($(printf '%s' "$v" | grep -i settings))"
+jq '.permissions.allow=["Bash(*)"] | .autoMode.environment=["only mine"] | .modelSettings["claude-opus-5-5"].effortLevel="high"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions.allow" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "autoMode" && pass "10 verify --live: a hand-edited owned key is a WARN naming the key" || bad "10 verify --live drift WARN ($(printf '%s' "$v" | grep -i 'settings'))"
+printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions.allow" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "autoMode" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" && pass "10 verify --live: a hand-edited owned key is a WARN naming the key" || bad "10 verify --live drift WARN ($(printf '%s' "$v" | grep -i 'settings'))"
 jq '.enabledPlugins["superpowers@claude-plugins-official"]=true' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^WARN  settings.json still has keys that scripts/removed-keys.json deletes" && pass "10 verify --live: a removed key still present is a WARN" || bad "10 verify --live removed-key WARN"
+
+# 10a. apply reports a modelSettings field only when it replaces it: another model's level or a machine-only field is not "replaced"
+newcfg; apply >/dev/null
+jq '.modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"} | .modelSettings["claude-opus-5-5"].autoCompactWindow=500000' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+out="$(apply)"
+! printf '%s' "$out" | grep -q "modelSettings" && [ "$(live '.modelSettings["claude-fable-5-1"].effortLevel')" = xhigh ] && [ "$(live '.modelSettings["claude-opus-5-5"].autoCompactWindow')" = 500000 ] \
+  && pass "10a apply keeps other models' levels and extra fields without reporting them" || bad "10a modelSettings report ($out)"
+jq '.modelSettings["claude-opus-5-5"].effortLevel="high"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+out="$(apply)"
+printf '%s' "$out" | grep -q "replaced live value of: .*modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ] \
+  && pass "10a apply resets a hand-saved Opus effort and names the field" || bad "10a Opus effort reset ($out)"
+
+# 10c. a live modelSettings that is not an object, or an entry that is not an object: apply repairs and names it, verify --live warns
+for bad in '"x"' '[1,2]' '{"claude-opus-5-5":"high"}'; do
+  newcfg; apply >/dev/null
+  jq --argjson b "$bad" '.modelSettings=$b' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+  v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+  out="$(apply 2>&1)"; rc=$?
+  if [ "$rc" = 0 ] && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" \
+     && printf '%s' "$out" | grep -q "modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
+    pass "10c modelSettings $bad: verify warns, apply repairs and names the field"
+  else bad "10c modelSettings $bad (rc=$rc; $out; $(printf '%s' "$v" | grep -i modelsettings))"; fi
+done
 
 # 10b. verify --live names config changes recorded after the last apply (config-audit.sh log), and skips the ones within 2 minutes
 newcfg; apply >/dev/null

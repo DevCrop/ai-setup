@@ -78,10 +78,30 @@ def orchestration(root):
                        "서브에이전트 보고는 주장이다: 인용한 증거를 확인한 뒤 완료로 전달"]}
 
 
+def _version(key):
+    return [int(p) for p in re.findall(r"\d+", key)]
+
+
+def main_effort(s):
+    """The main model's effort: its own modelSettings entry wins over the top-level effortLevel (settings reference). Entries are keyed by
+    canonical name; an alias main model ("opus") matches the newest claude-opus-* entry, a full ID only itself. Non-strings are ignored."""
+    main, per = s.get("model"), s.get("modelSettings")
+    level = lambda v: v if isinstance(v, str) else None
+    top = level(s.get("effortLevel"))
+    if not isinstance(main, str) or not isinstance(per, dict):
+        return top
+    keys = [k for k, v in per.items() if isinstance(k, str) and isinstance(v, dict) and (k == main or k.startswith("claude-" + main + "-"))]
+    if not keys:
+        return top
+    best = main if main in keys else max(keys, key=_version)
+    return level(per[best].get("effortLevel")) or top
+
+
 def routing(root, ao_projects):
     s = _settings(root)
     routine = next((l.strip() for l in _read(root / "claude" / "routines" / "daily-update.md").split("\n") if l.startswith("Model:")), "")
-    return {"main": s.get("model"), "effort": s.get("effortLevel"), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
+    main = s.get("model")
+    return {"main": main, "effort": main_effort(s), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
             "cacheTtl": s.get("promptCacheTtl"), "subagentCacheTtl": s.get("subagentPromptCacheTtl"),
             "plugins": sorted(k for k, v in (s.get("enabledPlugins") or {}).items() if v),
             "agents": [{"name": a["name"], "model": a["model"], "effort": a["effort"]} for a in agents(root)],

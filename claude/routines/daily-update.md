@@ -2,9 +2,9 @@
 
 Purpose: track Claude Code, RTK and Anthropic releases and changes to the official docs this setup depends on, check that the applied setup matches this repository and the installed tools are actually in use, report what matters, and propose setup changes. This routine only reads and reports. It never changes `~/.claude` and never installs anything on its own. An update is reported with its exact command and applied by the user.
 
-Model: Sonnet (target). Run once per day.
+Model: Opus (target; no Sonnet since 2026-10-12). Run once per day.
 
-Set Sonnet explicitly in the app's Scheduled settings and check the model shown in the run session (history: docs/GUIDE.md, scheduled task).
+Set Opus explicitly in the app's Scheduled settings and check the model shown in the run session (history: docs/GUIDE.md, scheduled task).
 
 ## Steps
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # QA for the project-setup skill. Builds throwaway projects, runs the skill with `claude -p`, grades the stream.
 # Usage: bash scripts/qa-project-setup.sh <work-dir> [fixture...]   (fixtures: next php react markup existing agents both; default all)
-# Needs: claude CLI (uses the sonnet model, costs tokens), jq, git. The script writes only under <work-dir>; the claude runs
+# Needs: claude CLI (uses the opus model, the main-thread model of this setup; costs tokens), jq, git. The script writes only under <work-dir>; the claude runs
 # use your global settings (auto mode default) and are not persisted (--no-session-persistence), but nothing stops a model from writing elsewhere.
 # Axes: G = reads the global layer and does not restate it (4 English phrases only); I = follows the global instructions (no .env,
 # nothing written, Korean, "Not verified"); P = proposals in fenced blocks match the project: commands present, no writing command in allow,
@@ -106,7 +106,7 @@ grade() { # name
 
 for n in $names; do
   [ "${QA_MODE:-}" = grade ] && continue
-  (fixture "$n"; [ "${QA_MODE:-}" = build ] && exit 0; cd "$work/$n" && MSYS_NO_PATHCONV=1 claude -p "/project-setup-qa" --model sonnet --output-format stream-json --verbose --max-turns 40 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err") &
+  (fixture "$n"; [ "${QA_MODE:-}" = build ] && exit 0; cd "$work/$n" && MSYS_NO_PATHCONV=1 claude -p "/project-setup-qa" --model opus --output-format stream-json --verbose --max-turns 40 --no-session-persistence > "$work/_out/$n.jsonl" 2> "$work/_out/$n.err") &
 done
 wait
 [ "${QA_MODE:-}" = build ] && { echo "fixtures built in $work (canary $canary)"; exit 0; }
