@@ -103,6 +103,17 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(data['probe'], {})
         self.assertEqual(data['live']['probe_state'], 'unavailable')
 
+    def test_partial_history_is_disclosed_without_merging_or_private_fields(self):
+        saved = json.loads(self.baseline.read_text(encoding='utf-8'))
+        saved['history_recovery'] = {'status': 'partial', 'recovered_commands': 1,
+            'previous_commands': 100, 'previous_saved': 25000,
+            'previous_collected_at': '2026-10-08T06:00:00Z', 'private': 'SECRET'}
+        self.baseline.write_text(json.dumps(saved), encoding='utf-8')
+        data = self.collector().snapshot()
+        self.assertEqual(data['summary'], self.raw['summary'])
+        self.assertEqual(data['history_recovery']['previous_commands'], 100)
+        self.assertNotIn('private', data['history_recovery'])
+
     def test_ready_file_refuses_unmanaged_contents_and_replaces_owned_receipt(self):
         path = self.reports / '.rtk-live-ready.json'
         ready = {'url': 'http://127.0.0.1:50000/rtk-efficiency.html', 'pid': 123,
@@ -168,6 +179,41 @@ class HTTPTests(unittest.TestCase):
         status, _, body = self.request('/api/rtk')
         self.assertEqual(status, 503)
         self.assertNotIn(b'SECRET', body)
+
+    def test_initial_aggregate_failure_serves_stale_dashboard_then_recovers(self):
+        snapshot = {**aggregate(), 'collected_at': '2026-10-08T07:00:00Z',
+                    'collection_date_kst': '2026-10-08', 'private': 'SECRET',
+                    'history_recovery': {'status': 'partial', 'recovered_commands': 1,
+                        'previous_commands': 100, 'previous_saved': 25000,
+                        'previous_collected_at': '2026-10-08T06:00:00Z'}}
+        baseline = self.root / 'rtk-efficiency.json'
+        baseline.write_text(json.dumps(snapshot), encoding='utf-8')
+        original = baseline.read_bytes()
+        def fail(): raise RuntimeError('SECRET')
+        self.server.collector.snapshot = fail
+        status, _, body = self.request('/rtk-efficiency.html')
+        self.assertEqual(status, 200)
+        data = json.loads(body.decode().split('>', 1)[1].split('</script>')[0])
+        self.assertTrue(data['live']['initial_error'])
+        self.assertEqual(data['collected_at'], snapshot['collected_at'])
+        self.assertEqual(data['summary'], snapshot['summary'])
+        self.assertEqual(data['history_recovery'], snapshot['history_recovery'])
+        self.assertNotIn(b'SECRET', body)
+        self.assertEqual(self.request('/api/rtk')[0], 503)
+        self.assertEqual(baseline.read_bytes(), original)
+        self.server.collector.snapshot = lambda: {'live': {'enabled': True}, **aggregate()}
+        self.assertEqual(self.request('/api/rtk')[0], 200)
+
+    def test_initial_failure_without_snapshot_never_fabricates_zero(self):
+        def fail(): raise RuntimeError('unavailable')
+        self.server.collector.snapshot = fail
+        status, _, body = self.request('/rtk-efficiency.html')
+        self.assertEqual(status, 200)
+        data = json.loads(body.decode().split('>', 1)[1].split('</script>')[0])
+        self.assertIsNone(data['collected_at'])
+        self.assertEqual(data['summary'], {})
+        self.assertTrue(data['live']['initial_error'])
+        self.assertEqual(self.request('/api/rtk')[0], 503)
 
 
 if __name__ == '__main__':

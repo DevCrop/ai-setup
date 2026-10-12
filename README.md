@@ -1,4 +1,4 @@
-# TRACE Setup v1.3.0
+# TRACE Setup v1.3.1
 
 Portable Codex personal instructions, optional profiles, pinned Archify/Ponytail,
 and ownership-based deployment. Python 3.11+ and Git are required; Node.js is needed
@@ -13,6 +13,8 @@ Follow the [detailed Windows installation guide](docs/install-another-windows-pc
 for missing dependencies/folders, project packages, login and host-local scheduling.
 This payload includes the reviewed handoff and stable skill updates. See
 [v1.3.0 verification and upgrade](docs/release-1.3.0.md).
+The [v1.3.1 live-view recovery fix](docs/release-1.3.1.md) keeps the dashboard
+available during collection failures without reporting stale data as fresh.
 
 For the final two-lane task/maintenance flow, per-diagnostic RTK routing and
 confirmed-history review, see the Korean [shareable routine](docs/codex-routine-share.md).
@@ -151,7 +153,7 @@ cache is copied.
 
 ## Migrating v1.0.1 and other computers
 
-Use tag `v1.3.0` for a reproducible release checkout. On an existing TRACE host,
+Use tag `v1.3.1` for a reproducible release checkout. On an existing TRACE host,
 review `plan` before `apply`. Do not copy an entire Codex home between computers;
 authenticate independently and preserve local model, MCP, permissions and app state.
 
