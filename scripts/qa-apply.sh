@@ -144,6 +144,17 @@ jq '.enabledPlugins["superpowers@claude-plugins-official"]=true' "$cfg/settings.
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
 printf '%s' "$v" | grep -q "^WARN  settings.json still has keys that scripts/removed-keys.json deletes" && pass "10 verify --live: a removed key still present is a WARN" || bad "10 verify --live removed-key WARN"
 
+# 10b. verify --live names config changes recorded after the last apply (config-audit.sh log), and skips the ones within 2 minutes
+newcfg; apply >/dev/null
+now="$(date -u +%s)"
+printf '%s\tT\tuser_settings\t/during/apply\n' "$now" > "$cfg/config-changes.log"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^PASS  no config change recorded after the last apply.sh" && pass "10b verify --live: a change during apply is not reported" || bad "10b verify --live grace ($(printf '%s' "$v" | grep -i config))"
+printf '%s\tT\tskills\t/by/hand/SKILL.md\n' "$((now + 600))" >> "$cfg/config-changes.log"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^WARN  config changed outside this repo" && printf '%s' "$v" | grep -q "/by/hand/SKILL.md" && ! printf '%s' "$v" | grep -q "/during/apply" \
+  && pass "10b verify --live: a later change is a WARN naming the file" || bad "10b verify --live later change ($(printf '%s' "$v" | grep -iA3 config))"
+
 # 11. --dry-run writes nothing, reports what would change, and says unchanged once applied
 newcfg; out="$(dryrun || true)"
 [ ! -e "$cfg" ] && printf '%s' "$out" | grep -q "^would write: settings.json" && printf '%s' "$out" | grep -q "^dry run: nothing was written" \

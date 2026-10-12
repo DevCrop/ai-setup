@@ -71,6 +71,15 @@ if [ -z "${QA_APPLY_RUNNING:-}" ]; then
   else
     fail "secret-guard hook missing or not referenced in settings.json"
   fi
+
+  # 3d. session hooks: compact-context.sh (SessionStart compact) and config-audit.sh (ConfigChange) present, referenced, unit tests pass
+  if [ -f "$src/hooks/compact-context.sh" ] && [ -f "$src/hooks/config-audit.sh" ] \
+     && jq -e '([.hooks.SessionStart[]? | select(.matcher == "compact") | .hooks[].command] | any(contains("hooks/compact-context.sh")))
+               and ([.hooks.ConfigChange[]?.hooks[].command] | any(contains("hooks/config-audit.sh")))' "$src/settings.json" >/dev/null 2>&1; then
+    if out="$(bash "$repo/scripts/qa-hooks-session.sh" 2>&1)"; then pass "session hooks ($(printf '%s' "$out" | grep -c '^PASS') unit cases)"; else fail "session hook unit tests: $(printf '%s' "$out" | grep '^FAIL' | head -3)"; fi
+  else
+    fail "compact-context.sh or config-audit.sh missing or not referenced in settings.json"
+  fi
 fi
 
 # 3c. apply.sh scenarios in scratch directories (fresh, rerun, stale files, machine-only keys, owned keys, removed keys, no jq, bad JSON)
@@ -260,6 +269,19 @@ $(cd "$dest" 2>/dev/null && find "$item" -type f 2>/dev/null)
 EOF
   done
   [ -z "$foreign" ] || info "files in managed folders that are not from this repo (kept by apply.sh):$foreign"
+  # 9b. config-changes.log (hooks/config-audit.sh): settings or skill changes recorded more than 2 minutes after the last apply.sh were
+  #     made outside this repo. apply.sh itself triggers lines during a running session; the grace period skips those.
+  clog="$dest/config-changes.log"
+  if [ -f "$clog" ] && [ -f "$dest/.claude-global-manifest" ]; then
+    applied_at="$(date -r "$dest/.claude-global-manifest" +%s 2>/dev/null || echo 0)"
+    later="$(awk -F '\t' -v t="$applied_at" '$1 ~ /^[0-9]+$/ && $1 > t + 120 {print $2 " " $3 " " $4}' "$clog" | tail -n 3)"
+    if [ -n "$later" ]; then
+      warn "config changed outside this repo after the last apply.sh (last 3 from $clog; move wanted changes into claude/, then apply):"
+      printf '%s\n' "$later" | sed 's/^/        /'
+    else
+      pass "no config change recorded after the last apply.sh"
+    fi
+  fi
 
   # 10. tools
   command -v jq >/dev/null 2>&1 && pass "jq on PATH" || fail "jq not on PATH (the status line needs it)"

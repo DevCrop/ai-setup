@@ -2,6 +2,18 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — session hooks and the settings schema
+
+### SessionStart `compact` hook re-injects the handoff note; ConfigChange hook logs edits outside this repo
+- What: `claude/hooks/compact-context.sh` and `claude/hooks/config-audit.sh` (`docs/GUIDE.md`, Session hooks); `verify.sh --live` reads `config-changes.log`; `docs-watch.sh` and the routine now watch the hooks reference page.
+- Why: best-practices and hooks-guide ("Re-inject context after compaction") recommend a deterministic hook over an advisory line, and the security page recommends auditing settings changes with ConfigChange hooks. The audit hook only logs: its output is never shown (hooks reference, "ConfigChange decision control"), and blocking would also block the app's own writes (theme, plugins) and `apply.sh`.
+- Checked: `qa-hooks-session.sh` (note found from a subfolder, home folder skipped, 9 KB note cut under the 10,000-character cap, broken input, rotation), `qa-apply.sh` case 10b (a change within 2 minutes of apply is not reported, a later one is). Not checked here: a real `/compact` in a session (`docs/GUIDE.md` local checklist).
+- Undo: remove the two hook files, the `SessionStart` and `ConfigChange` entries in `claude/settings.json`, check 3d and 9b in `verify.sh`, case 10b in `qa-apply.sh` and `scripts/qa-hooks-session.sh`.
+
+### `$schema` in `claude/settings.json`
+- What: `"$schema": "https://json.schemastore.org/claude-code-settings.json"` (settings page). Editors validate and complete the file. The settings page says the schema can lag behind new keys, so a warning on a recently documented key is not an error.
+- Undo: remove the line.
+
 ## 2026-10-12 — prompts only for push; bypass locked
 
 ### Ask rules cover push only; `git -C`/`git -c` forms of the deny rules added; `shred` denied
