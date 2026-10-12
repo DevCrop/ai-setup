@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for the dashboard logic that the shape checks in qa-dashboard.sh cannot see. No model calls, no network beyond 127.0.0.1.
 Usage: python3 scripts/qa-dashboard-unit.py   (run first by scripts/qa-dashboard.sh)
-Covers: the project checks on 29 fixture projects against scripts/qa-dashboard-golden.json (run with --update-golden after a deliberate change), settings() with a missing / broken live file, safe_command (what may leave the machine), the .mcp.json token detector,
+Covers: the Codex setup source (TRACE verify and plan through a stub setup.py), the project checks on 29 fixture projects against scripts/qa-dashboard-golden.json (run with --update-golden after a deliberate change), settings() with a missing / broken live file, safe_command (what may leave the machine), the .mcp.json token detector,
 TtlCache (single flight, failing sources), the AO PR field allow-list, a log with odd lines, and the HTTP guards (bad token, a failing source)."""
 import http.client, json, os, shutil, subprocess, sys, tempfile, threading, time
 from http.server import ThreadingHTTPServer
@@ -271,6 +271,64 @@ check([e["target"] for e in ev["events"] if e["kind"] == "tool"] == ["", "a.txt"
       "session_events(): odd lines skipped, nothing but tool name, time and base name/safe command in any event", ev)
 check(server.newest_file([tmp / "gone.jsonl", logdir / "s.jsonl"]) == logdir / "s.jsonl" and server.newest_file([]) is None, "newest_file(): a file that vanished does not raise")
 
+# ---- Codex setup (TRACE): found by TRACE_DIR / state file / default places, its verify and plan shown as reported ----
+import codex
+os.environ.pop("TRACE_DIR", None)
+croot = tmp / "croot" / "claude-global"
+croot.mkdir(parents=True)
+cx = codex.CodexSetup(server.RUNNER, croot)
+s = cx.state()
+check(s["available"] is False and s["tried"] == ["이 레포 옆", "홈 폴더"] and "codex" in s, "codex: no TRACE checkout -> not available, lists where it looked", s)
+trace = tmp / "trace dir"  # a space in the path, as on Windows user folders
+(trace / "scripts").mkdir(parents=True)
+(trace / "manifest.json").write_text(json.dumps({"version": "9.9.9", "files": []}), encoding="utf-8")
+stub = trace / "scripts" / "setup.py"
+def stub_says(verify, plan):
+    stub.write_text("import json, sys\nout = {'verify': %r, 'plan': %r}[sys.argv[1]]\n"
+                    "if isinstance(out, str):\n    sys.stderr.write(out + '\\n'); sys.exit(1)\n"
+                    "print(json.dumps(out)); sys.exit(0 if not isinstance(out, dict) or out.get('status') == 'pass' else 1)\n" % (verify, plan), encoding="utf-8")
+stub_says({"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "unmanaged_skill_findings": ["skills/mine/SKILL.md"], "limit": "files only"},
+          [{"path": "AGENTS.md", "action": "conflict", "before": "a", "after": "b"}, {"path": "guides/rtk.md", "action": "write"}, {"path": "sol.config.toml", "action": "keep"}])
+(croot / "state").mkdir()
+(croot / "state" / "trace-dir.txt").write_text(str(trace) + "\n", encoding="utf-8")
+s = cx.state()
+check(s["available"] and s["source"] == "state/trace-dir.txt" and s["version"] == "9.9.9", "codex: state/trace-dir.txt points at the checkout", s)
+check(s["verify"] == {"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "errorCount": 2, "unmanaged": ["skills/mine/SKILL.md"], "limit": "files only"} and s["verifyError"] == "",
+      "codex: a failed verify (exit 1 with JSON) is shown as TRACE reported it, not as an error", s)
+check(s["plan"] == {"counts": {"conflict": 1, "write": 1, "keep": 1}, "changes": [{"path": "AGENTS.md", "action": "conflict"}, {"path": "guides/rtk.md", "action": "write"}], "changeCount": 2}
+      and "before" not in json.dumps(s["plan"]), "codex: plan counts every action, lists only changes, drops hashes", s)
+os.environ["TRACE_DIR"] = str(trace)
+stub_says("Interrupted transaction requires recovery", [])
+s = cx.state()
+check(s["source"] == "TRACE_DIR" and s["verify"] is None and s["verifyError"] == "Interrupted transaction requires recovery" and s["plan"]["changeCount"] == 0,
+      "codex: TRACE_DIR wins; a setup.py error shows its message, an empty plan shows no changes", s)
+s = codex.CodexSetup(server.RUNNER, croot, py_version=(3, 10)).state()
+check(s["available"] and "verify" not in s and "3.11" in s["error"], "codex: Python older than 3.11 is reported, setup.py is not run", s)
+os.environ["TRACE_DIR"] = str(trace)
+stub_says({"status": "pass", "errors": 5, "unmanaged_skill_findings": "abc"}, [{"path": 1, "action": "write"}, {"path": "x", "action": "constructor"}, "junk"])
+s = cx.state()
+check(s["verify"]["errors"] == [] and s["verify"]["unmanaged"] == [] and s["plan"] == {"counts": {"constructor": 1}, "changes": [{"path": "x", "action": "constructor"}], "changeCount": 1},
+      "codex: wrong field types from setup.py are dropped, not iterated or raised", s)
+stub.write_text("print('not json')\n", encoding="utf-8")
+s = cx.state()
+check(s["verify"] is None and s["verifyError"] == "exit 0, JSON 아님" and s["plan"] is None, "codex: non-JSON output is an error message, not a crash", s)
+stub.write_text("print('[' * 100000)\n", encoding="utf-8")
+s = cx.state()
+check(s["verify"] is None and s["verifyError"], "codex: deeply nested output does not raise out of state()", s.get("verifyError"))
+os.environ.pop("TRACE_DIR", None)
+(croot / "state" / "trace-dir.txt").write_text(str(trace), encoding="utf-16")
+check(cx.state()["available"] is False, "codex: a UTF-16 trace-dir.txt (PowerShell 5.1) means not found, not a crash")
+(croot / "state" / "trace-dir.txt").write_text("\ufeff" + str(trace), encoding="utf-8")
+check(cx.state().get("source") == "state/trace-dir.txt", "codex: a UTF-8 BOM in trace-dir.txt is ignored")
+os.environ["CODEX_BIN"] = str(tmp / "no-such-codex")
+check(cx.codex_cli() == {"found": False, "version": None}, "codex: CODEX_BIN naming a missing file is reported as not found")
+os.environ.pop("CODEX_BIN", None)
+real_find = cx.find
+cx.find = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+s = cx.state()
+check(s["available"] is False and s.get("failed") is True and "RuntimeError" in s["reason"], "codex: an unexpected error becomes a reason on screen, not an endless 'loading'", s)
+cx.find = real_find
+
 # ---- token compare and HTTP guards ----
 check(server.token_ok(server.TOKEN) and not server.token_ok("") and not server.token_ok("\u00e9") and not server.token_ok(server.TOKEN + "x"), "token_ok(): right token only; non-ASCII is a wrong token, not a TypeError")
 httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.H)
@@ -295,6 +353,51 @@ server.state = real_state
 st, body = req("GET", "/api/state")
 check(st == 200 and "settings" in json.loads(body), "GET /api/state is healthy again after the failure", st)
 httpd.shutdown()
+
+# ---- usage.py: tokens from the logs, de-duplicated by requestId, repriced on the session's main model ----
+import usage
+ud = tmp / "projects" / "p"
+(ud / "s1" / "subagents").mkdir(parents=True)
+def _ln(rid, model, **u):
+    return json.dumps({"requestId": rid, "message": {"model": model, "usage": u}})
+sonnet = dict(input_tokens=1000, output_tokens=2000, cache_read_input_tokens=100000, cache_creation_input_tokens=10000, cache_creation={"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 10000})
+(ud / "s1.jsonl").write_text("\n".join([_ln("a", "claude-sonnet-5-5", **sonnet)] * 3 + ["not json", '{"usage": 1}', _ln("z", "gpt-x", input_tokens=5, output_tokens=5)]) + "\n", encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-1.jsonl").write_text(_ln("b", "claude-haiku-5-5", input_tokens=2000, output_tokens=500, cache_creation_input_tokens=0) + "\n", encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-1.meta.json").write_text(json.dumps({"agentType": "explorer", "model": "haiku"}), encoding="utf-8")
+u = usage.collect(tmp / "projects")
+sm = u["models"]["claude-sonnet-5-5"]
+check(sm["output"] == 2000 and sm["read"] == 100000, "usage: a reply logged three times counts once", sm)
+check(abs(sm["costUSD"] - (1000 * 2 + 2000 * 10 + 100000 * 0.10 + 10000 * 4) / 1e6) < 1e-9, "usage: Sonnet cost = list prices x tokens (1h cache write)", sm["costUSD"])
+check("other" in u["models"] and u["models"]["other"]["costUSD"] is None, "usage: an unknown model is 'other' and carries no price", list(u["models"]))
+hk = usage.price("claude-haiku-5-5", {"input": 2000, "output": 500})
+alt = usage.price("claude-sonnet-5-5", {"input": 2000, "output": 500})
+check(abs(u["savedUSD"] - (alt - hk)) < 1e-9 and u["sessions"] == 1, "usage: saving = Haiku tokens repriced on the session's main model minus their real cost", u)
+check(set(usage.collect_agents(tmp / "projects")) == {"explorer"} and usage.collect_agents(tmp / "projects")["explorer"]["models"] == ["claude-haiku-5-5"], "usage: subagent rows carry the model that really answered")
+check(usage.collect(tmp / "nowhere")["sessions"] == 0 and usage.collect_agents(tmp / "nowhere") == {}, "usage: a missing projects folder is empty, not an error")
+
+import efficiency
+(ud / "s1" / "subagents" / "agent-2.meta.json").write_text(json.dumps({"agentType": "AcmeCorp-internal"}), encoding="utf-8")
+(ud / "s1" / "subagents" / "agent-2.jsonl").write_text(_ln("c", "claude-haiku-5-5", input_tokens=1, output_tokens=1) + "\n", encoding="utf-8")
+ue = efficiency.UsageEfficiency(tmp / "projects", lambda: [{"name": "explorer", "model": "haiku"}]).collect()
+check("Acme" not in json.dumps(ue) and "other" in [a["name"] for a in ue["data"]["agents"]], "usage: a custom agent type name is shown as 'other', never by name", [a["name"] for a in ue["data"]["agents"]])
+
+# hostile logs: nothing here may raise, and no non-finite or absurd number may reach the output
+hd = tmp / "hostile" / "p"
+(hd / "s1" / "subagents").mkdir(parents=True)
+(hd / "s1.jsonl").write_text("\n".join(['"usage"', "[1,2]", json.dumps({"requestId": ["x"], "message": {"model": "claude-sonnet-5-5", "usage": {"output_tokens": 5}}}),
+    json.dumps({"requestId": "r", "message": {"model": ["claude-sonnet-5-5"], "usage": {"output_tokens": 5}}}),
+    '{"requestId": "big", "message": {"model": "claude-sonnet-5-5", "usage": {"output_tokens": 1e999, "input_tokens": 1e30, "cache_read_input_tokens": -5}}}',
+    _ln("ok", "claude-sonnet-5-5", output_tokens=7)]) + "\n", encoding="utf-8")
+(hd / "s1" / "subagents" / "agent-1.meta.json").write_text("[1]", encoding="utf-8")
+(hd / "s1" / "subagents" / "agent-2.meta.json").write_text(json.dumps({"agentType": 5}), encoding="utf-8")
+try:
+    hu, ha = usage.collect(tmp / "hostile"), usage.collect_agents(tmp / "hostile")
+    dumped = json.dumps(hu, allow_nan=False) + json.dumps(ha, allow_nan=False)  # raises on NaN or Infinity
+    check(hu["models"]["claude-sonnet-5-5"]["output"] == 12 and ha == {}, "usage: damaged lines, odd types and absurd numbers are skipped, never raised or passed on", hu)
+except Exception as ex:
+    check(False, "usage: damaged logs must not raise", repr(ex))
+ue2 = efficiency.UsageEfficiency(tmp / "projects", lambda: []).collect()
+check(all(m["value"] == "측정 불가" for m in ue2["metrics"] if m["basis"] == "unavailable"), "usage: an unavailable metric carries no number")
 
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

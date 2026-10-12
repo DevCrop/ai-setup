@@ -38,7 +38,7 @@ const waitFor = async (expr, ms = 8000, step = 100) => { const t0 = Date.now(); 
 const go = async (url, w = 1280, h = 900) => { await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 }); await send("Page.navigate", { url }); await sleep(300); await waitFor(`document.body.classList.contains("loaded")`, 20000); };
 for (const d of ["Page", "Runtime", "Network"]) await send(d + ".enable");
 
-const TABS = ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup"];
+const TABS = ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup", "codex"];
 const clickTab = async (t) => { await ev(`document.querySelector('.side button[data-tab="${t}"]').click()`); await sleep(1200); };
 
 // colors: Claude palette has no blue/purple; scan every visible element's text, fill and border colors
@@ -77,7 +77,7 @@ console.log("== colors and links");
 await go(base + "/#prac");
 for (const scheme of ["dark", "light"]) {
   await ev(`document.documentElement.dataset.theme = "${scheme}"`); await sleep(400);
-  for (const t of ["monitor", "dbg", "orch", "route", "feat", "eff", "prac", "log", "setup"]) {
+  for (const t of TABS) {
     await clickTab(t);
     const bad = await ev(HUE_SCAN);
     check(bad.length === 0, `${scheme} ${t}: no blue/purple`, bad.join("; "));
@@ -86,6 +86,12 @@ for (const scheme of ["dark", "light"]) {
 await clickTab("prac");
 const links = await ev(`[...document.querySelectorAll("#v-prac a")].map((a) => ({ t: a.target, r: a.rel, h: a.href, c: getComputedStyle(a).color, u: getComputedStyle(a).textDecorationLine }))`);
 check(links.length >= 6 && links.every((l) => l.t === "_blank" && /noreferrer/.test(l.r) && /^https:\/\//.test(l.h) && l.u === "none" && l.c !== "rgb(0, 0, 238)"), "doc links: external, noreferrer, no default link style", JSON.stringify(links[0]));
+
+console.log("== usage panel");
+await clickTab("eff");
+const up = await ev(`(() => { const p = document.querySelector("#v-eff .ubar"); const t = document.getElementById("v-eff").innerText; return { has: !!p, bad: /NaN|Infinity|undefined|\\$inf/.test(t), widths: [...document.querySelectorAll("#v-eff .ubar-fill")].map((f) => parseFloat(f.style.width)) }; })()`);
+if (!up.has) console.log("SKIP  usage panel (no session logs on this machine, so the panel is not drawn)");
+else check(!up.bad && up.widths.every((w) => w >= 0 && w <= 100), "usage panel: bars within 0-100% and no NaN/Infinity/undefined text", JSON.stringify(up));
 
 console.log("== flow lines");
 for (const t of ["log", "orch", "route"]) {
