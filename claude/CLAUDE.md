@@ -9,6 +9,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 ## Working method
 - Before coding, restate the request. If it is ambiguous, give 2 options with the trade-off in 2-3 sentences and ask which one.
 - Change only what the request names. List unrelated issues instead of fixing them silently.
+- Projects live under a per-machine work root as `<client>/<stage>/<date or name>`. The project is the nearest folder from the cwd that has a project mark (`.git`, `CLAUDE.md`, `AGENTS.md`, `.claude`). Never assume an absolute path.
 - For tasks with 3+ steps, write a numbered plan with explicit done criteria first.
 - For anything that may have changed since training (versions, settings, pricing, limits, product behavior), read the current official source first and name it. If unchecked, say so.
 - Do not change a position from pushback alone; update only on new evidence. When the user states a strong view first, give the strongest counter-case before agreeing.
