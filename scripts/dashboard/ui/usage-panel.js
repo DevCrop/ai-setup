@@ -5,6 +5,29 @@ import { Badge, Panel, Note, Tiles, mk } from "./components.js";
 const usd = (x) => (x < 0.1 ? "$" + x.toFixed(4) : "$" + x.toFixed(2));
 const SHORT = (m) => m.replace(/^claude-/, "");
 
+export const KIND_LABEL = { read: "캐시 읽기", write: "캐시 쓰기", output: "출력", input: "입력" };
+
+// One stacked bar of the cost kinds, each segment's width its share of the total. Exported for the bench panel.
+export function splitBar(split) {
+  const total = Object.values(split || {}).reduce((a, b) => a + (b || 0), 0), t = el("div", "ubar-track ustack");
+  Object.keys(KIND_LABEL).forEach((k) => {
+    const v = (split && split[k]) || 0, f = el("div", "ubar-fill k-" + k);
+    f.style.width = total ? (v / total) * 100 + "%" : "0%";
+    f.title = KIND_LABEL[k] + " " + usd(v);
+    t.append(f);
+  });
+  return t;
+}
+
+export function splitLegend(split) {
+  const total = Object.values(split || {}).reduce((a, b) => a + (b || 0), 0), r = el("div", "ulegend");
+  Object.keys(KIND_LABEL).forEach((k) => {
+    const v = (split && split[k]) || 0;
+    r.append(el("span", "k-" + k, KIND_LABEL[k] + " " + (total ? Math.round((v / total) * 100) : 0) + "% · " + usd(v)));
+  });
+  return r;
+}
+
 function bar(label, value, max, cls, text) {
   const r = el("div", "ubar"), t = el("div", "ubar-track"), f = el("div", "ubar-fill " + cls);
   f.style.width = max ? Math.max(value ? 1.5 : 0, (value / max) * 100) + "%" : "0%";
@@ -30,6 +53,7 @@ export class UsagePanel {
     });
     return mk(Panel, "모델 배치 절감 (추정)", "공식 정가 × 로그 토큰",
       mk(Tiles, [["실사용(정가 환산)", usd(d.actualUSD), "acc"], ["메인 모델로만 돌렸다면", usd(d.baselineUSD), ""], ["줄인 몫", usd(d.savedUSD) + " · " + pct.toFixed(1) + "%", pct > 0 ? "ok" : ""]]),
+      ...(d.split ? [el("div", "grp", "비용 구성 (어디에 돈이 드나)"), splitBar(d.split), splitLegend(d.split)] : []),
       el("div", "grp", "같은 토큰의 비용 비교"),
       bar("실제 배치", d.actualUSD, max, "acc", usd(d.actualUSD)),
       bar("메인 모델만", d.baselineUSD, max, "base", usd(d.baselineUSD)),

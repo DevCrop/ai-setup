@@ -36,6 +36,8 @@ jobs:
           python3 scripts/qa-spawn-guard.py scripts/dashboard
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
+      - name: Bench report (self-test, no model calls)
+        run: bash scripts/bench.sh selftest
       - name: Apply into a scratch home, then check the dashboard server
         run: |
           h="$(mktemp -d)"
@@ -64,6 +66,8 @@ jobs:
           python scripts/qa-spawn-guard.py scripts/dashboard
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
+      - name: Bench report (self-test, no model calls)
+        run: bash scripts/bench.sh selftest
       - name: Apply into a scratch home, then check the dashboard server
         run: |
           h="$(mktemp -d)"

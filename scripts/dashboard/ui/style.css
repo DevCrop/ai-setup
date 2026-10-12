@@ -405,4 +405,22 @@ dialog pre .l-FAIL { color: var(--bad); font-weight: 700; } dialog pre .l-WARN {
 .utable th, .utable td { text-align: left; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
 .utable th { color: var(--faint); font-size: var(--t-xs); font-weight: 500; }
 .utable tr.idle td { color: var(--faint); }
+/* cost split: one stacked bar per row, segments in token-kind order; read is the accent because it is usually the largest and the lever */
+.ustack { display: flex; height: 14px; margin: 4px 0; }
+.ustack .ubar-fill { border-radius: 0; }
+.k-read { background: var(--accent); color: var(--accent); }
+.k-write { background: var(--warn); color: var(--warn); }
+.k-output { background: var(--ok); color: var(--ok); }
+.k-input { background: var(--faint); color: var(--muted); }
+.ulegend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); font-size: var(--t-xs); font-family: var(--mono); background: none; }
+.ulegend span { background: none; }
+.ulegend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; background: currentColor; }
+/* narrow screens: a wide comparison table becomes one card per row, each cell labelled with its header */
+@media (max-width: 640px) {
+  .ucards tr:first-child { display: none; }
+  .ucards tr, .ucards td { display: block; }
+  .ucards tr { border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .ucards td { border: 0; padding: 2px var(--s2); }
+  .ucards td::before { content: attr(data-label); color: var(--faint); font-size: var(--t-xs); margin-right: var(--s2); }
+}
 @media (max-width: 640px) { .ubar { grid-template-columns: minmax(64px, 110px) minmax(0, 1fr) 64px; } .utable { display: block; overflow-x: auto; } }

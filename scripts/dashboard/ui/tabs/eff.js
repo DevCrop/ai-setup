@@ -3,6 +3,7 @@ import { Tab } from "../tab.js";
 import { el } from "../dom.js";
 import { Badge, Panel, Note, Grid2, KeyValue, mk } from "../components.js";
 import { UsagePanel } from "../usage-panel.js";
+import { BenchPanel } from "../bench-panel.js";
 
 const BASIS = { measured: ["ok", "측정"], estimated: ["info", "추정"], unavailable: ["warn", "측정 불가"] };
 
@@ -20,6 +21,7 @@ export class EffTab extends Tab {
       return mk(Panel, s.title, "", ...body);
     });
     const u = e.sources.find((s) => s.name === "usage" && s.data);
-    v.replaceChildren(...(u ? [new UsagePanel(u.data).render()] : []), mk(Note, "도구가 스스로 센 값과 파일에서 읽은 값만 씁니다. '측정 불가'는 이 화면에서 읽을 방법이 없다는 뜻이며 값을 짐작해 채우지 않았습니다."), mk(Grid2, ...cards));
+    const b = e.sources.find((s) => s.name === "bench" && s.data);
+    v.replaceChildren(...(u ? [new UsagePanel(u.data).render()] : []), ...(b ? [new BenchPanel(b.data).render()] : []), mk(Note, "도구가 스스로 센 값과 파일에서 읽은 값만 씁니다. '측정 불가'는 이 화면에서 읽을 방법이 없다는 뜻이며 값을 짐작해 채우지 않았습니다."), mk(Grid2, ...cards));
   }
 }

@@ -13,6 +13,13 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 
 ## 2026-10-12 — model usage and saving view
 
+### Cache reads are shown as their own cost, and AO is judged by a same-task benchmark
+- What: `usage.py` splits cost into input, cache write, cache read and output; the efficiency tab shows the split and the cache-read share. `scripts/bench.sh` runs one fixed job as one agent, as parallel `worker` subagents and as AO workers, and `scripts/bench/report.py` compares cost by kind, wall time, peak context and a hidden-test score; the dashboard reads `reports/bench/latest.json`.
+- Why: in one long session in this cloud container (2026-10-12, `docs/evidence.md`) Sonnet cache reads were $2.95 of about $5.5 (list price), and the main context grew to 316K tokens (median 212K over 139 requests). Context length looks like a bigger lever than routing, and AO's value (time against start-up cost) cannot be read from logs of different jobs.
+- Rule: all arms on one machine with the setup applied. A first harness run here, without `apply.sh`, blocked every Bash call through the missing `secret-guard` hook and measured nothing; `run` now refuses in that state. Log cost is cross-checked against the CLI's own `total_cost_usd` (transcripts held fewer output tokens in one run).
+- Open: no AO numbers yet (AO is not installable in this container: GitHub is outside its network policy). `autoCompactWindow` stays 400000 until the benchmark or a week of `/usage` gives a reason.
+- Undo: remove `scripts/bench.sh`, `scripts/bench/`, `BenchEfficiency`, `ui/bench-panel.js`, the split in `usage.py` and its UI, and the CI step in one PR.
+
 ### The efficiency tab sums per-reply usage from the session logs; `modelUsage` is not used
 - What: `scripts/dashboard/usage.py` sums `message.usage` over every reply in the main logs and in `<session>/subagents/*.jsonl`, de-duplicated by `requestId`, and prices it with the official list prices. The tab shows actual cost, the same tokens repriced on each session's main model, the difference, per-model cost, and a table of defined versus actual model per agent.
 - Why: the logs' own `modelUsage` stopped updating at line 97 of 270 in the session checked and missed a subagent that ran later. A reply is logged once per content block with the same usage (35 requests in 60+ entries), so a plain sum counts it up to 4 times.

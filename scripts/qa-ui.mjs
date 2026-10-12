@@ -92,6 +92,9 @@ await clickTab("eff");
 const up = await ev(`(() => { const p = document.querySelector("#v-eff .ubar"); const t = document.getElementById("v-eff").innerText; return { has: !!p, bad: /NaN|Infinity|undefined|\\$inf/.test(t), widths: [...document.querySelectorAll("#v-eff .ubar-fill")].map((f) => parseFloat(f.style.width)) }; })()`);
 if (!up.has) console.log("SKIP  usage panel (no session logs on this machine, so the panel is not drawn)");
 else check(!up.bad && up.widths.every((w) => w >= 0 && w <= 100), "usage panel: bars within 0-100% and no NaN/Infinity/undefined text", JSON.stringify(up));
+const bp = await ev(`(() => { const t = document.getElementById("v-eff").innerText; const st = [...document.querySelectorAll("#v-eff .ustack")]; return { has: t.includes("같은 과제 비교 ("), bad: /NaN|Infinity|undefined/.test(t), sums: st.map((s) => [...s.children].reduce((a, c) => a + parseFloat(c.style.width || 0), 0)) }; })()`);
+if (!bp.has) console.log("SKIP  bench panel (no reports/bench/latest.json on this machine)");
+else check(!bp.bad && bp.sums.every((w) => w === 0 || Math.abs(w - 100) < 0.5), "bench panel: no NaN/Infinity/undefined text, each cost-split bar sums to 100%", JSON.stringify(bp));
 
 console.log("== flow lines");
 for (const t of ["log", "orch", "route"]) {

@@ -179,6 +179,7 @@ class UsageEfficiency(EfficiencySource):
         m = [metric("집계한 세션", f"{u['sessions']}개", "measured", "메인 로그와 서브에이전트 로그, requestId로 중복 제거"),
              metric("실사용 비용(정가 환산)", f"${u['actualUSD']:.2f}", "estimated", "토큰은 로그 실측, 금액은 공식 정가 곱셈입니다. 구독 청구액이 아니라 한도 사용량의 상대 크기로 보세요"),
              metric("같은 토큰을 메인 모델로 돌렸다면", f"${u['baselineUSD']:.2f}", "estimated", "각 세션에서 출력을 가장 많이 쓴 모델의 정가로 다시 계산. 같은 토큰이 들었다는 가정입니다"),
+             metric("캐시 읽기 비중", f"{(u['split']['read'] / u['actualUSD'] * 100) if u['actualUSD'] else 0:.0f}% (${u['split']['read']:.2f})", "estimated", "매 요청이 대화 전체를 캐시에서 다시 읽는 비용입니다. 이 비중이 크면 모델 배치보다 컨텍스트 길이(압축 기준, 새 세션)가 더 큰 지렛대입니다"),
              metric("모델 배치로 줄인 몫", f"${u['savedUSD']:.2f} ({(u['savedUSD'] / u['baselineUSD'] * 100) if u['baselineUSD'] else 0:.1f}%)", "estimated", "위 두 값의 차이")]
         for k, t in sorted(by.items(), key=lambda kv: -(kv[1]["costUSD"] or 0)):
             m.append(metric(f"{k} 사용", _usd(t["costUSD"]), "estimated", f"토큰 수는 로그 실측, 금액은 정가 곱셈. 토큰 {_k(tok(t))} · 출력 {_k(t['output'])} · 캐시 읽기 {_k(t['read'])}") if k != "other" else unavailable("other 모델 사용", f"단가표에 없는 모델이라 환산하지 않았습니다(토큰 {_k(tok(t))})"))
@@ -201,8 +202,60 @@ class UsageEfficiency(EfficiencySource):
         if u["baselineUSD"]:
             share = u["savedUSD"] / u["baselineUSD"]
             ideas.append(f"모델 배치로 줄인 몫은 {share * 100:.1f}%입니다. " + ("이 로그에서는 비용 대부분이 메인 모델의 캐시 읽기와 출력이라, 서브에이전트 배치만 바꿔서는 이 비율이 크게 달라지지 않을 수 있습니다(세션이 늘면 다시 확인하세요)." if share < 0.15 else "배치를 바꾸는 효과가 큰 편이니 어느 에이전트가 기여했는지 아래 표에서 보세요."))
-        return {"metrics": m, "ideas": ideas, "data": {"actualUSD": u["actualUSD"], "baselineUSD": u["baselineUSD"], "savedUSD": u["savedUSD"], "models": {k: {"costUSD": t["costUSD"], "output": t["output"]} for k, t in by.items()}, "agents": rows},
+        return {"metrics": m, "ideas": ideas, "data": {"actualUSD": u["actualUSD"], "baselineUSD": u["baselineUSD"], "savedUSD": u["savedUSD"], "models": {k: {"costUSD": t["costUSD"], "output": t["output"]} for k, t in by.items()}, "agents": rows, "split": u["split"]},
                 "caveats": ["절감액은 '같은 토큰이 메인 모델에서도 들었다'는 가정의 계산입니다. 싼 모델이 같은 품질로 해냈는지는 로그로 알 수 없어 품질은 반영하지 않습니다.",
                             "서브에이전트는 시작할 때마다 시스템 프롬프트(약 40K 토큰)를 새로 캐시에 씁니다. 이 토큰이 절감액 계산에 들어가므로, 같은 일을 메인에서 직접 했을 때와의 비교가 아니라 '이 토큰을 메인 단가로 냈다면'의 비교입니다.",
                             "트랜스크립트에 남지 않는 호출(세션 제목, 훅 분류기)은 집계되지 않습니다. 로그의 modelUsage 합계는 중간에 멈춘 사례가 있어 쓰지 않았습니다.",
                             "가격은 공식 가격표(2026-10-12 확인) 기준이며 Haiku 5.5의 10만 토큰 초과 요금 구간은 반영하지 않았습니다."]}
+
+
+ARMS = ("single", "subagents", "ao")
+ARM_LABEL = {"single": "기본 (메인 혼자)", "subagents": "내장 병렬 (서브에이전트)", "ao": "AO 워커 병렬"}
+
+
+def _num(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 1e12 and v == v else None  # v == v drops NaN
+
+
+class BenchEfficiency(EfficiencySource):
+    """The latest `bash scripts/bench.sh report` result: the same tasks run as one agent, as parallel subagents and as AO workers."""
+    name, title = "bench", "같은 과제 비교: 기본 vs 서브에이전트 vs AO"
+
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def collect(self):
+        try:
+            doc = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            doc = None
+        arms_in = doc.get("arms") if isinstance(doc, dict) and isinstance(doc.get("arms"), dict) else {}
+        arms = {}
+        for k in ARMS:  # only known arms and numeric fields pass; the file is ours but may be damaged or hand-edited
+            a = arms_in.get(k)
+            if not isinstance(a, dict):
+                continue
+            st = lambda f: {s: _num((a.get(f) or {}).get(s)) for s in ("mean", "min", "max", "n")} if isinstance(a.get(f), dict) else None
+            sp = a.get("split") if isinstance(a.get("split"), dict) else {}
+            vs = a.get("vsSingle") if isinstance(a.get("vsSingle"), dict) else {}
+            arms[k] = {"label": ARM_LABEL[k], "runs": _num(a.get("runs")) or 0, "costUSD": st("costUSD"), "cliCostUSD": st("cliCostUSD"), "wallSec": st("wallSec"),
+                       "peakContext": st("peakContext"), "scorePct": st("scorePct"), "split": {x: max(0, _num(sp.get(x)) or 0) for x in usage.KINDS},
+                       "vsSingle": {x: _num(vs.get(x)) for x in ("costUSD", "wallSec", "peakContext")}}
+        if not arms:
+            return {"metrics": [unavailable("비교 결과", "아직 실행하지 않았습니다: bash scripts/bench.sh (사용법은 docs/GUIDE.md)")], "caveats": [], "ideas": [], "data": None}
+        m = []
+        for k, a in arms.items():
+            c, w, s = a["costUSD"] or {}, a["wallSec"] or {}, a["scorePct"] or {}
+            if c.get("mean") is None:
+                continue
+            m.append(metric(a["label"], f"${c['mean']:.3f} · {(w.get('mean') or 0) / 60:.1f}분 · 테스트 {s.get('mean') or 0:.0f}%", "estimated",
+                            f"{a['runs']}회 평균. 토큰과 시간은 로그 실측, 금액은 정가 곱셈"))
+        missing = doc.get("missing") if isinstance(doc.get("missing"), list) else []
+        gen = doc.get("generated") if isinstance(doc.get("generated"), str) else ""
+        caveats = ["실행 횟수가 적으면 운이 섞입니다. 방식마다 3회 이상, 같은 머신·같은 설정·같은 Claude Code 버전에서 돌린 결과만 비교하세요.",
+                   "로그 비용은 트랜스크립트 토큰 기준입니다. 'CLI 집계'(claude -p가 스스로 낸 값)보다 낮게 나온 실행이 있었습니다(백그라운드 서브에이전트, 출력 토큰 누락). AO 실행에는 CLI 집계가 없습니다.",
+                   "시간은 로그의 첫 기록부터 마지막 기록까지입니다. AO 오케스트레이터처럼 마커가 없는 세션, 세션 제목·훅 분류기 호출은 빠집니다.",
+                   "과제는 서로 다른 파일 3개짜리 작은 작업입니다. 큰 프로젝트나 파일이 겹치는 작업의 결과를 대신하지 않습니다."]
+        if missing:
+            caveats.insert(0, f"로그를 찾지 못해 빠진 실행 {len(missing)}개가 있습니다.")
+        return {"metrics": m, "caveats": caveats, "ideas": [], "data": {"generated": gen[:40], "arms": arms}}
