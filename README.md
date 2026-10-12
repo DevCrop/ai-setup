@@ -1,4 +1,4 @@
-# TRACE Setup v1.3.1
+# TRACE Setup v1.3.2
 
 Portable Codex personal instructions, optional profiles, pinned Archify/Ponytail,
 and ownership-based deployment. Python 3.11+ and Git are required; Node.js is needed
@@ -24,6 +24,9 @@ This release also includes an opt-in [RTK live viewer](docs/rtk-live-dashboard.m
 local read-only aggregate polling, visible-tab refresh, pause/error states and a
 Windows launcher. The existing daily maintenance and stored probe timestamps
 remain independent. No startup task, hook or public web service is installed.
+
+The [v1.3.2 skills/profile fix](docs/release-1.3.2.md) moves bundled skills to
+`~/.agents/skills` and reports conflicting legacy profiles without editing them.
 
 ## Install
 
@@ -153,7 +156,7 @@ cache is copied.
 
 ## Migrating v1.0.1 and other computers
 
-Use tag `v1.3.1` for a reproducible release checkout. On an existing TRACE host,
+Use tag `v1.3.2` for a reproducible release checkout. On an existing TRACE host,
 review `plan` before `apply`. Do not copy an entire Codex home between computers;
 authenticate independently and preserve local model, MCP, permissions and app state.
 

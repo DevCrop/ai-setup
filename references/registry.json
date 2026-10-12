@@ -651,11 +651,15 @@
       "monitor": true,
       "last_reviewed": "2026-09-21",
       "latest_relevant_review": {
-        "date": "2026-10-08",
+        "date": "2026-10-12",
         "retrieval": "official-web-page",
         "status": "relevant-body-reviewed",
-        "claim": "Keep workflows focused and prefer instructions over scripts; user skills are cross-repository and selected by task match.",
-        "scope": "Project error workflow; preserve historical snapshots and exact installed runtime boundaries"
+        "sections": [
+          "Where Codex loads local skills",
+          "agents/openai.yaml"
+        ],
+        "claim": "Current documented USER skill root is $HOME/.agents/skills; allow_implicit_invocation false keeps explicit invocation available.",
+        "scope": "v1.3.2 bundled skill relocation; legacy-root deprecation is reviewer source evidence, not an explicit claim in this page."
       }
     },
     {
