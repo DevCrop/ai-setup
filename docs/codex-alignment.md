@@ -11,7 +11,7 @@ This page lists where the two personal layers agree, where they differ, and whic
 
 Compared on 2026-10-12:
 - Claude side: `claude/CLAUDE.md`, `claude/RTK.md`, `claude/skills/orchestrate/SKILL.md`.
-- Codex side: `global/AGENTS.md` and `global/guides/*.md` in codex-setup at `c297240`.
+- Codex side: `global/AGENTS.md` and `global/guides/*.md` in codex-setup at `c297240` (v1.2.4). The tables are pinned there; `global/guides/official-source-workflow.md` and `global/guides/rtk.md` changed by v1.3.2 and were not re-compared.
 
 ## Same intent (keep both as they are)
 | Rule | Claude (`claude/CLAUDE.md`) | Codex (`global/AGENTS.md`) |
