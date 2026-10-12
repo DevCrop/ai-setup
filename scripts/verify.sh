@@ -40,8 +40,8 @@ chars() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '; }
 # loses a trailing " # comment". Trailing spaces go in both cases.
 fm_value() {
   frontmatter "$1" | sed -n "s/^$2:[[:space:]]*//p" | sed 's/[[:space:]]*$//' | awk '
-    /^".*"$/ { print substr($0, 2, length($0) - 2); next }
-    /^'"'"'.*'"'"'$/ { print substr($0, 2, length($0) - 2); next }
+    /^"[^"]*"([[:space:]]+#.*)?$/ { sub(/^"/, ""); sub(/"([[:space:]]+#.*)?$/, ""); print; next }
+    /^'"'"'[^'"'"']*'"'"'([[:space:]]+#.*)?$/ { sub(/^'"'"'/, ""); sub(/'"'"'([[:space:]]+#.*)?$/, ""); print; next }
     { sub(/[[:space:]]+#.*$/, ""); print }'
 }
 # fm_multiline <file> <key>: true when the key's value spans lines (a block marker such as | >- >2, or an indented continuation line).
