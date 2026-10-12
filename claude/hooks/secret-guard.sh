@@ -9,10 +9,11 @@
 # xargs/find -exec as an argument of add/stage/update-index/apply/am/mv is read as "everything pending" (judged like git add -A).
 input="$(cat)"
 # Cheap gate on the raw input: JSON escapes for newline, return and tab become spaces first (else "\ngit" reads as "ngit"), then quotes and
-# backslashes are removed (g''it and g\it are git). No git word, nothing to check.
+# backslashes are removed (g''it and g\it are git). No git word, nothing to check. The word is matched in any case: a case-insensitive file
+# system (macOS, Windows) runs GIT or Git.exe as git.
 gate="$(printf '%s' "$input" | sed 's/\\[nrt]/ /g' | tr -d "\"'\\\\")"
 # $'...' (ANSI-C quoting, $'\x67it') can hide the word, so it also passes the gate and is decoded below.
-printf '%s' "$gate" | grep -Eq '(^|[^[:alnum:]_])git([^[:alnum:]_-]|$)' || printf '%s' "$input" | grep -Fq "\$'" || exit 0
+printf '%s' "$gate" | grep -Eiq '(^|[^[:alnum:]_])git([^[:alnum:]_-]|$)' || printf '%s' "$input" | grep -Fq "\$'" || exit 0
 verbs='add|stage|commit|push|update-index|mv|apply|am'
 block_unjudgeable() { # reason: block only when the input mentions a staging verb, otherwise let it through
   if printf '%s' "$gate" | grep -Eq "(^|[^[:alnum:]_])($verbs)([^[:alnum:]_-]|\$)" || printf '%s' "$input" | grep -Fq "\$'"; then
@@ -38,7 +39,7 @@ cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null | tr -d '\r')"
 
 # Fast path: no git word next to a staging verb means nothing to check.
 flat="$(printf '%s' "$cmd" | tr -d "\"'\\\\")"
-printf '%s' "$flat" | grep -Eq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
+printf '%s' "$flat" | grep -Eiq '(^|[^[:alnum:]_.-])git([^[:alnum:]_-]|$)' && printf '%s' "$flat" | grep -Eq "($verbs)" || exit 0
 
 is_secret() {
   case "$1" in .aws/credentials|*/.aws/credentials) return 0 ;; esac  # the file is just called "credentials": judge it by its directory
@@ -69,9 +70,11 @@ while IFS= read -r seg; do
   # shellcheck disable=SC2086
   set -- $seg
   [ "$#" -gt 0 ] || continue
-  if [ "$1" = cd ] && [ -n "${2:-}" ]; then d="${2/#\~/$HOME}"; n="$(absdir "$cur" "$d")"; [ -n "$n" ] && cur="$n"; continue; fi
+  if { [ "$1" = cd ] || [ "$1" = pushd ]; } && [ -n "${2:-}" ]; then d="${2/#\~/$HOME}"; n="$(absdir "$cur" "$d")"; [ -n "$n" ] && cur="$n"; continue; fi
   genv=()
-  while [ "$#" -gt 0 ] && [ "${1##*/}" != git ]; do
+  # git in any case, with or without .exe (Git Bash); the case pattern keeps bash 3.2 (stock macOS) working
+  while [ "$#" -gt 0 ]; do
+    case "${1##*/}" in [Gg][Ii][Tt]|[Gg][Ii][Tt].[Ee][Xx][Ee]) break ;; esac
     case "$1" in GIT_DIR=|GIT_WORK_TREE=) ;; GIT_DIR=*|GIT_WORK_TREE=*) genv+=("$1") ;; esac
     shift
   done
@@ -99,7 +102,8 @@ while IFS= read -r seg; do
   done
   verb="${1:-}"; [ "$#" -gt 0 ] && shift
   case "$verb" in add|stage|commit|push|update-index|mv|apply|am) ;; *) continue ;; esac
-  g rev-parse --git-dir >/dev/null 2>&1 || continue
+  # Outside a repo (or a directory the hook could not follow) git would judge nothing, but a literal secret path is still checked below.
+  inrepo=1; g rev-parse --git-dir >/dev/null 2>&1 || inrepo=0
   broad=0; paths=""; dd=0; [ "$expverb" = 1 ] && broad=1
   for t in "$@"; do
     # commit: words before -- are message text, not paths (staged files are judged from git instead)
@@ -120,6 +124,7 @@ while IFS= read -r seg; do
   [ "$verb" = am ] && broad=1
   case "$verb" in add|stage|update-index|apply|am) [ "$viaxargs" = 1 ] && broad=1 ;; esac
   for t in $paths; do is_secret "$t" && hits="$hits $t"; done
+  [ "$inrepo" = 1 ] || continue
   case "$verb" in
     add|stage|update-index|apply|am) [ "$broad" = 1 ] && judge < <(pending "$dir") ;;
     commit)
