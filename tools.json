@@ -29,7 +29,7 @@
     {"id": "ao", "label": "Agent Orchestrator", "kind": "tool", "required": false, "bin": ["ao"], "env": "AO_BIN",
      "paths": ["${LOCALAPPDATA}/Programs/agent-orchestrator/resources/daemon/ao.exe"],
      "home": {"default": "${HOME}/.ao"},
-     "install": {"url": "https://github.com/aoagents/agent-orchestrator"},
+     "install": {"url": "https://github.com/OrchestratorInc/agent-orchestrator"},
      "note": "Setup and project registration live in the private repo DevCrop/ao-work-history (setup/setup.py)."}
   ]
 }

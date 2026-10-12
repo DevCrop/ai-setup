@@ -8,7 +8,7 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 |---|---|---|
 | M1 | GUIDE local checks L-1 / L-2, then L-5 (`bash scripts/qa-deny.sh`, also run by `verify.sh --live --full`: 30 live cases) | `0 FAIL`; it is the first run with the real RTK hook |
 | M2 | Claude app, Scheduled settings of `daily-claude-update`: model **Opus** (decision 2026-10-12) and permission mode **auto** | GUIDE L-10; the run session shows `claude-opus-5-5` |
-| M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto | matches `claude/CLAUDE.md` (Safety) |
+| M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto, and the "Diagrams: Archify ..." line is removed (Archify is gone since 2026-10-13) | matches `claude/CLAUDE.md` (Safety, Tools) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
 | M5 | The macOS run (GUIDE L-2). It lifts the feature freeze and unblocks the macOS items in section 6 | GUIDE L-2 passes |
 
@@ -41,7 +41,6 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | C10 | `scripts/dashboard/fixes.py` `MemRedactOn` | offered when `settings.json` is missing or broken, then fails; the preview names `~/.claude-mem` even with `CLAUDE_MEM_DIR` set | preview and run agree; test |
 | C11 | `scripts/apply.sh` manifest | files of a skill dropped from the copy list stay in `~/.claude/skills`, unreported | reported or removed |
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
-| C13 | `claude/settings.json` `model`, `scripts/verify.sh --live` | `claude plugin list` (run by `verify.sh --live`) rewrites `"model": "opus"` to `"opus[1m]"` on a fresh config, so the next `apply.sh` reports and reverts it; decide whether the repo value becomes `opus[1m]` (check model-config first) | the repo value and the CLI agree; `verify.sh --live` then `apply.sh` reports no `model` change |
 
 ## 4. Tests and CI
 
@@ -69,7 +68,7 @@ On the macOS run (M5):
 On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex` (TRACE 1.2.5). Archify leaves codex-setup in PR #21 (DECISIONS 2026-10-13 "Archify removed"); rebase #20 on it, then plan/apply/verify and check the child models in a live `codex exec`.
+- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex` (TRACE 1.2.5). PR #21 removed Archify and is merged (`7e4a3e1`, DECISIONS 2026-10-13 "Archify removed"); #20 now conflicts with main: rebase it, then plan/apply/verify and check the child models in a live `codex exec`.
 
 ## 7. Measure
 

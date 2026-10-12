@@ -84,12 +84,15 @@ def _version(key):
 
 def main_effort(s):
     """The main model's effort: its own modelSettings entry wins over the top-level effortLevel (settings reference). Entries are keyed by
-    canonical name; an alias main model ("opus") matches the newest claude-opus-* entry, a full ID only itself. Non-strings are ignored."""
+    canonical name; an alias main model ("opus") matches the newest claude-opus-* entry, a full ID only itself. A "[1m]" suffix matches the
+    same entry as the name without it (settings reference, modelSettings). Non-strings are ignored."""
     main, per = s.get("model"), s.get("modelSettings")
     level = lambda v: v if isinstance(v, str) else None
     top = level(s.get("effortLevel"))
     if not isinstance(main, str) or not isinstance(per, dict):
         return top
+    if main.lower().endswith("[1m]"):
+        main = main[:-4]
     keys = [k for k, v in per.items() if isinstance(k, str) and isinstance(v, dict) and (k == main or k.startswith("claude-" + main + "-"))]
     if not keys:
         return top
