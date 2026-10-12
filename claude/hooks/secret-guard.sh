@@ -26,12 +26,16 @@ is_secret() {
 mcpre='^mcp__.*github.*__(push_files|create_or_update_file)$'
 # The branch is chosen from the decoded tool_name (an escaped name or an extra key in a Bash call cannot switch it); grep on the raw
 # input only decides when jq is missing or the input is not JSON, and that case blocks below.
-if command -v jq >/dev/null 2>&1; then tn="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null | tr -d '\r')"; else tn=""; fi
-if [[ "$tn" =~ $mcpre ]] || { [ -z "$tn" ] && printf '%s' "$input" | grep -Eq 'mcp__[^"]*github[^"]*__(push_files|create_or_update_file)'; }; then
+# tn is the name only for one JSON object with a string tool_name; any other shape is a non-empty marker that matches nothing
+tn=""; jqok=0
+if command -v jq >/dev/null 2>&1 && tn="$(printf '%s' "$input" | jq -r 'if type == "object" and (.tool_name | type) == "string" then .tool_name else "(bad-shape)" end' 2>/dev/null | tr -d '\r')"; then jqok=1; fi
+# an odd shape (no jq, not JSON, a non-string name, several objects) that still names a GitHub write is judged as one
+odd=0; { [ "$jqok" = 0 ] || [ "$tn" = "(bad-shape)" ] || [[ "$tn" == *$'\n'* ]]; } && odd=1
+if [[ "$tn" =~ $mcpre ]] || { [ "$odd" = 1 ] && printf '%s' "$input" | grep -Eq 'mcp__[^"]*github[^"]*__(push_files|create_or_update_file)'; }; then
   command -v jq >/dev/null 2>&1 || { echo "secret-guard: blocked, jq not found, so this GitHub file write cannot be checked for secret files." >&2; exit 2; }
   # every path, also from nested arrays; a path that is not a string cannot be judged and blocks
   mpaths="$(printf '%s' "$input" | jq -r '
-    ([.tool_input.files] | flatten | map(select(type == "object") | .path)) + [.tool_input.path]
+    ([.tool_input.files] | flatten | map(select(. != null)) | if all(type == "object") then map(.path) else error("non-object file") end) + [.tool_input.path]
     | map(select(. != null)) | if all(type == "string") then .[] else error("non-string path") end' 2>/dev/null)" \
     || { echo "secret-guard: blocked, unreadable hook input for a GitHub file write." >&2; exit 2; }
   mhits=""
@@ -41,7 +45,7 @@ if [[ "$tn" =~ $mcpre ]] || { [ -z "$tn" ] && printf '%s' "$input" | grep -Eq 'm
     echo "Leave them out of the write. *.example, *.sample, *.template are allowed." >&2
     exit 2
   fi
-  exit 0
+  [ "$odd" = 1 ] || exit 0  # an odd shape may also carry a Bash command: the checks below still run
 fi
 # Cheap gate on the raw input: JSON escapes for newline, return and tab become spaces first (else "\ngit" reads as "ngit"), then quotes and
 # backslashes are removed (g''it and g\it are git). No git word, nothing to check. The word is matched in any case: a case-insensitive file

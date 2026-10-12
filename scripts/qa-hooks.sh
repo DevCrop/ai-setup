@@ -255,6 +255,12 @@ out="$(jq -n --arg d "$r" '{tool_name:"Bash",cwd:$d,tool_input:{command:"git add
 if [ "$rc" = 2 ]; then echo "PASS rc=2  Bash call with an extra mcp tool_name key"; else echo "FAIL want=2 got=$rc  Bash with extra key [$out]"; fail=$((fail+1)); fi
 runmcp 2 mcp__github__create_or_update_file '{"path":[".env"]}'
 runmcp 2 mcp__github__push_files '{"files":[[{"path":".env"}]]}'
+runmcp 2 mcp__github__push_files '{"files":[".env"]}'
+for odd in '{"tool_name":5,"x":"mcp__github__push_files","tool_input":{"path":".env"}}' '{"tool_name":"Bash"} {"tool_name":"mcp__github__push_files","tool_input":{"path":".env"}}' \
+  "{\"tool_name\":\"Bash\",\"cwd\":\"$r\",\"tool_input\":{\"command\":\"git add .env.production\"}} {\"tool_name\":\"mcp__github__push_files\",\"tool_input\":{\"path\":\"a.txt\"}}"; do
+  out="$(printf '%s' "$odd" | bash "$hook" 2>&1)"; rc=$?
+  if [ "$rc" = 2 ]; then echo "PASS rc=2  odd shape $odd"; else echo "FAIL want=2 got=$rc  odd shape $odd [$out]"; fail=$((fail+1)); fi
+done
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *)  # without jq a GitHub file write cannot be judged: blocked
   out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":"a.txt"}]}}' | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
   if [ "$rc" = 2 ]; then echo "PASS rc=2  (no jq) mcp push_files"; else echo "FAIL want=2 got=$rc  (no jq) mcp push_files [$out]"; fail=$((fail+1)); fi ;;
