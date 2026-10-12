@@ -48,6 +48,7 @@ The reviewer reads the project `AGENTS.md` and `~/.codex/AGENTS.md`. It never re
 3. **Codex review quota.** The ChatGPT Codex GitHub review bot reported "usage limits for code reviews" on PR #74 (2026-10-12). Not checked: whether AO's Codex reviewer (the Codex CLI) draws on the same quota.
 
 ## Asks for the Codex side (codex-setup is maintained by Codex; this repo does not change it)
+The handoff note to paste into a Codex session, with evidence lines, a repro and done criteria, is `docs/codex-handoff.md` (Korean).
 - Skills are deployed to `$CODEX_HOME/skills`. Codex source marks that path deprecated ("Deprecated user skills location (`$CODEX_HOME/skills`), kept for backward compatibility.", `codex-rs/ext/skills/src/host_roots.rs` at `openai/codex` `9f3d255`); the current location is `~/.agents/skills`. No `files` entry in `manifest.json` sets `root`, so `setup.py` defaults it to `codex` (only `retired` entries use `personal_skills`), while the README describes `~/.agents/skills` as the personal skill root.
 - `setup.py verify` does not detect a legacy `[profiles.<name>]` table in `config.toml` with the same name as a `<name>.config.toml` profile file. The Codex loader refuses `--profile <name>` in that case (`codex-rs/config/src/loader/tests.rs`, `profile_v2_rejects_matching_legacy_profile_in_base_user_config`).
 - Both findings come from reading source only. Recheck them against the official docs, which this cloud container cannot reach.
