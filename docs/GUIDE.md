@@ -122,7 +122,7 @@ What to check afterwards:
 | Review | Fresh-context `reviewer` or `/code-review`; only findings that affect correctness or the stated requirements |
 | Parallel | Git worktrees; AO is optional. Workers per non-overlapping file area with tests as the done criterion, then an AO review per PR; measured once on a disposable repo (`docs/evidence.md`, "AO QA 실측") |
 
-Habits: `/clear` between unrelated tasks; after two failed corrections on one issue, `/clear` and restate the task; `/rewind` to undo; changes go through a branch and a PR and a person merges.
+Habits: `/clear` between unrelated tasks; after two failed corrections on one issue, `/clear` and restate the task; `/rewind` to undo; changes go through a branch and a PR and Claude merges once CI is green.
 
 ## 4. Daily routine and maintenance
 
