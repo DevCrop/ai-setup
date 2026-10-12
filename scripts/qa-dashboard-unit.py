@@ -459,6 +459,17 @@ try:
 except socket.timeout:
     check(False, "POST with Content-Length -1 answers 400 at once", "timed out: the handler is reading to EOF")
 sk.close()
+server.H.timeout, old_to = 1, server.H.timeout
+sk = socket.create_connection(("127.0.0.1", port2), timeout=8)
+sk.sendall(("POST /api/fix HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nContent-Type: application/json\r\nX-Dash-Token: %s\r\nContent-Length: 99999\r\n\r\n{}" % (port2, server.TOKEN)).encode())
+try:
+    sk.recv(200)
+    check(True, "an overstated Content-Length times out on the server side, not on the client")
+except socket.timeout:
+    check(False, "an overstated Content-Length times out on the server side, not on the client", "client waited 8 s")
+sk.close()
+server.H.timeout = old_to
+check(old_to == 10, "the request handler bounds socket reads (timeout 10 s)", old_to)
 httpd2.shutdown()
 
 # ---- BACKLOG C10: MemRedactOn offers nothing when its settings file is missing or broken, and names the real file ----
@@ -488,14 +499,14 @@ pathlib.Path.exists = lambda self, *a, **k: (seen.append(str(self)), real_exists
 try:
     hooks = {"PreToolUse": [{"hooks": [{"command": c} for c in (
         '"$CLAUDE_PROJECT_DIR//host/share/x.sh"', '"$CLAUDE_PROJECT_DIR/\\\\host\\share\\x.sh"', '"$CLAUDE_PROJECT_DIR/C:/x.sh"',
-        '"$CLAUDE_PROJECT_DIR/c:x.sh"', '"$CLAUDE_PROJECT_DIR/missing dir/x.sh"')]}]}
+        '"$CLAUDE_PROJECT_DIR/c:x.sh"', '"$CLAUDE_PROJECT_DIR/missing dir/x.sh"', '"$CLAUDE_PROJECT_DIR/pre+commit@v2.sh"')]}]}
     pd = tmp / "hookproj"; pd.mkdir()
     ctx = types.SimpleNamespace(d=pd, f={}, al="", cl="", perm={}, text="", cfg={"hooks": hooks}, local={})
     got = list(projects.rule_hooks(ctx))
 finally:
     pathlib.Path.exists = real_exists
 check(not any("host" in p or ":" in p.replace(str(tmp), "") for p in seen), "rule_hooks(): UNC, absolute and drive paths are not passed to exists()", seen)
-check(len(got) == 1 and "(1" in got[0]["what"], "rule_hooks(): only the relative missing script counts", got)
+check(len(got) == 1 and "(2" in got[0]["what"] and any(p.endswith("pre+commit@v2.sh") for p in seen), "rule_hooks(): relative missing scripts count, also names with + and @", got)
 
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

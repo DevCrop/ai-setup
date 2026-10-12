@@ -286,7 +286,7 @@ def mem_health(now=None):
     try:
         st = json.loads((mem / "settings.json").read_text(encoding="utf-8"))
         on = str(st.get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
-        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else "~/.claude-mem/settings.json 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]", "" if on else "mem-redact-on"))
+        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else MemRedactOn.label() + " 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]", "" if on else "mem-redact-on"))
     except Exception:
         pass
     return out
@@ -506,6 +506,8 @@ def local_host(value):
 
 
 class H(BaseHTTPRequestHandler):
+    timeout = 10  # every socket read is bounded: an overstated Content-Length cannot hold a handler thread
+
     def _send(self, body, ctype):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
