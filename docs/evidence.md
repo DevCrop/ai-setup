@@ -159,6 +159,15 @@ RTK 절감 (시점별로 값이 다르다):
   - 모델 배치: sonnet 6개, haiku 1개(explorer). 모델별 토큰·비용은 집계하지 못한다.
 - 일일 루틴과 감시 확장(2026-10-11): `claude/routines/daily-update.md`에 7c(도구 효율 스냅샷, 근거 등급 그대로 기록, 추정을 측정으로 올리지 않기)와 상태 키 `rtk_total_saved`를 추가했다. `scripts/docs-watch.sh`는 platform 문서 `about-claude/models/overview`와 `about-claude/pricing`도 감시한다(모델 추가, 가격, 퇴역일 변경 감지). 기존 루틴 파일에 `7b`가 두 번 나오는 번호 중복이 있으나 이번 범위가 아니라 고치지 않았다.
 
+## 모델 사용량 집계 검증 (2026-10-12)
+- 가격표 검증: 공식 가격표(platform.claude.com/docs/en/about-claude/pricing, 2026-10-12)로 한 세션 로그의 `modelUsage.costUSD`를 재계산하니 끝자리까지 일치했다. Sonnet 5.5: 2550×$2 + 7626×$10 + 1,260,195×$0.10 + 49,464×$4(1시간 캐시 쓰기) = $0.4052355. Haiku 5.5: 1301×$0.10 + 352×$0.50 = $0.0003061. thinking 토큰은 출력에 이미 포함이다.
+- `modelUsage`는 쓰지 않는다: 같은 로그에서 이 값은 270줄 중 97줄에서 멈췄고, 그 뒤에 실행한 haiku 서브에이전트(캐시 쓰기 43,025, 읽기 40,435)가 빠져 있었다.
+- 중복: 같은 `requestId`가 content block마다 한 줄씩 기록된다(요청 35개, 중복 있는 요청 25개, 최대 4줄). requestId로 중복을 제거하지 않으면 최대 4배로 부풀려진다.
+- 서브에이전트: `<세션>/subagents/agent-<id>.jsonl`(메시지에 model, usage, isSidechain=true)과 `.meta.json`(agentType, 요청 model 별칭)으로 남는다. 실제 응답 모델은 jsonl의 `message.model`이다.
+- 한 세션 결과(이 클라우드 세션, 서브에이전트 1회): Sonnet $1.44, Haiku $0.0058, 같은 토큰을 메인 모델로 돌린 가정 $1.55, 차이 $0.11(6.8%). 표본이 세션 1개라 일반화하지 않는다. 절감분의 대부분은 haiku 서브에이전트의 시스템 프롬프트 캐시 쓰기 43K 토큰을 Sonnet 단가로 돌린 값이다.
+- 별도 reviewer 검증(2026-10-12): 비정상 로그(JSON이 dict가 아닌 줄, requestId와 model이 리스트, meta.json이 리스트, 1e999와 1e30 토큰)에서 예외와 NaN이 나는 결함 5건을 찾았고 모두 고쳤다. 같은 입력이 수정 전 코드에서는 AttributeError를 내는 것을 확인했다. 가격표 계산은 손계산과 일치했고, 5MB 로그 200개(1GB)는 첫 호출 7.5초, 두 번째 0.01초였다.
+- 미시험: 서브에이전트 여러 개 병렬 호출, `maxTurns`로 끊긴 경우, 중첩 서브에이전트, 로컬 머신(Windows)의 로그 구조, Haiku 5.5의 10만 토큰 초과 요금 구간, 로그가 없는 호출(세션 제목, 훅 분류기)의 비용.
+
 ## 함정과 주의사항
 
 - x.com은 자동 fetch에 HTTP 402를 돌려준다. 앱 내장 브라우저로는 열린다. 공식 정보의 기준은 섹션 8의 공식 링크다.

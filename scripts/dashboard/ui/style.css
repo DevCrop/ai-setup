@@ -346,3 +346,16 @@ a:hover { text-decoration: underline; }
 .dia .flow-still { animation: none; stroke-dasharray: 2 5; stroke: var(--faint); }
 .dia .edge.flow-anim { stroke-width: 1.6; }
 @media (prefers-reduced-motion: reduce) { .dia .flow-anim { animation: none; } }
+
+/* usage panel (efficiency tab): cost bars and the agent defined-vs-actual table */
+.ubar { display: grid; grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) 72px; gap: var(--s2); align-items: center; padding: 3px 0; font-size: var(--t-sm); }
+.ubar-l { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ubar-track { height: 10px; background: var(--info-soft); border-radius: var(--r-sm); overflow: hidden; }
+.ubar-fill { height: 100%; border-radius: var(--r-sm); transition: width .4s var(--ease); }
+.ubar-fill.acc { background: var(--accent); }
+.ubar-fill.base { background: var(--faint); }
+.ubar-v { text-align: right; font-family: var(--mono); font-size: var(--t-xs); }
+.utable { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.utable th, .utable td { text-align: left; padding: 5px var(--s2); border-bottom: 1px solid var(--line); }
+.utable th { color: var(--faint); font-size: var(--t-xs); font-weight: 500; }
+.utable tr.idle td { color: var(--faint); }

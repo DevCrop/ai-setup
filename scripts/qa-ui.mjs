@@ -87,6 +87,12 @@ await clickTab("prac");
 const links = await ev(`[...document.querySelectorAll("#v-prac a")].map((a) => ({ t: a.target, r: a.rel, h: a.href, c: getComputedStyle(a).color, u: getComputedStyle(a).textDecorationLine }))`);
 check(links.length >= 6 && links.every((l) => l.t === "_blank" && /noreferrer/.test(l.r) && /^https:\/\//.test(l.h) && l.u === "none" && l.c !== "rgb(0, 0, 238)"), "doc links: external, noreferrer, no default link style", JSON.stringify(links[0]));
 
+console.log("== usage panel");
+await clickTab("eff");
+const up = await ev(`(() => { const p = document.querySelector("#v-eff .ubar"); const t = document.getElementById("v-eff").innerText; return { has: !!p, bad: /NaN|Infinity|undefined|\\$inf/.test(t), widths: [...document.querySelectorAll("#v-eff .ubar-fill")].map((f) => parseFloat(f.style.width)) }; })()`);
+if (!up.has) console.log("SKIP  usage panel (no session logs on this machine, so the panel is not drawn)");
+else check(!up.bad && up.widths.every((w) => w >= 0 && w <= 100), "usage panel: bars within 0-100% and no NaN/Infinity/undefined text", JSON.stringify(up));
+
 console.log("== flow lines");
 for (const t of ["log", "orch", "route"]) {
   await clickTab(t);
