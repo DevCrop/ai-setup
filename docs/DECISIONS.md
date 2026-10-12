@@ -10,6 +10,13 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Limit: a linked worktree of a different repository nested inside a project also walks on to that project's note; the printed header asks the model to check the note is about the current task.
 - Undo: in `find_note`, return plain instead of `2` and drop the worktree branch; drop `stop` in the caller; remove the four new cases in `qa-hooks-session.sh` and the GUIDE clause.
 
+## 2026-10-13 — Archify removed
+
+### Archify is not used; the Codex setup installs Ponytail and RTK only
+- What: Archify is gone from both setups. Here: the `claude/CLAUDE.md` Tools line, the routine's Archify version check, report line and `latest_archify_version` key, the `.archify/` ignore and the Archify word in the `qa-project-setup.sh` pattern. In codex-setup (DevCrop/codex-setup#21, its Decision 003): the bundled package, its manifest, lock and registry entries, the Archify-rendered flow diagram and its receipt check. The local copies (`~/.claude/skills/archify`, a link to `~/.agents/skills/archify`, and `~/.codex/skills/archify`) are deleted on each machine.
+- Why: the user does not use it (2026-10-13). Its bundled copy also blocked `setup.py apply` on this machine: the installed copy was newer than the vendored one, so two files showed as modified-file conflicts.
+- Undo: revert this PR and DevCrop/codex-setup#21, then reinstall Archify per its README. It supersedes "Ponytail always on; Archify only on request" (2026-10-09) for the Archify half.
+
 ## 2026-10-12 — round close
 
 ### Home-folder secrets denied with `~/` patterns; wrong-type live settings never pass silently
@@ -96,7 +103,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ## 2026-10-12 — tool registry and bootstrap
 
 ### One hub, one registry: `tools.json` in this repo, per-machine values in `state/machine.json`
-- What: every dependency and tool (git, python, node, jq, gh, rtk, claude, codex, ao, cursor) is one entry in `tools.json`: how to detect it, its minimum version, its setup checkout candidates and its winget/brew/cask id or install URL. `scripts/toolreg.py` reads it; `scripts/bootstrap.py` is the one entry point (`check`, `install`, `clone`, `apply`, `verify`, `autostart`). A new tool is one entry.
+- What: every dependency and tool (git, python, node, jq, gh, rtk, claude, codex, ao) is one entry in `tools.json`: how to detect it, its minimum version, its setup checkout candidates and its winget/brew/cask id or install URL. `scripts/toolreg.py` reads it; `scripts/bootstrap.py` is the one entry point (`check`, `install`, `clone`, `apply`, `verify`, `autostart`). A new tool is one entry.
 - Why: each machine has different paths (project folders at different depths, codex-setup under `Documents/ChatGPT/글로벌 셋업` on the Windows PC), and the setup steps were spread over three repos and hand edits (a hand-made autostart `.vbs` with a fixed Python path). Per-machine facts belong in `state/machine.json` on that machine, not in the repo or a PR comment. The hub stays here because this repo is already cloned first on every machine.
 - Rule: paths in `tools.json` use tokens (`${HOME}`, `${DOCUMENTS}`, `${LOCALAPPDATA}`, `${REPO}`, `${REPO_PARENT}`), never one user's path. Per-machine values go in gitignored `state/machine.json`; precedence for setup checkouts and project roots is environment variable > `machine.json` > legacy `state/*.txt` > registry candidates (project roots fall back to `~/Projects`; binaries: environment variable > `machine.json` > PATH > registry paths).
 - Undo: delete `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py`, `scripts/bootstrap.sh`, `scripts/bootstrap.ps1`, `scripts/qa-bootstrap.py` and the "Tool registry and bootstrap check" step in both jobs of `.github/workflows/check.yml`; remove GUIDE quick path 1b and step 5, the "Adding a tool" line and the bootstrap mentions in `CLAUDE.md`, `README.md` and GUIDE section 0; `apply.sh --dry-run` (qa-apply case 11) can stay. The dashboard does not import the registry yet.
@@ -161,7 +168,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: drop the guard and re-enable per project.
 
 ### Third-party plugins are pinned through an own marketplace (pending)
-- Why: Ponytail, claude-mem and Archify are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
+- Why: Ponytail and claude-mem are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
 - Status: waits for the forks; until then `settings.json` still names the upstream marketplaces, and the `autoMode.environment` line says so ("plugins come from the marketplaces already listed"). When the pinned marketplace exists, change that line, `extraKnownMarketplaces` and `enabledPlugins` in the same PR. The `soft_deny` rule already blocks plugin installs unless the user names them.
 
 ### `apply.sh` merges `settings.json` and keeps no backup

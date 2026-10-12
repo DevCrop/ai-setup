@@ -21,7 +21,7 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | S3 | `claude/settings.json` hooks | secret-guard watches Bash only; a commit through GitHub MCP (`push_files`, `create_or_update_file`) is not checked | an MCP matcher, or the limit written in GUIDE (Secret-guard hook) |
 | S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
 | S6 | `scripts/dashboard/projects.py:318` (Windows) | a project hook path `\\host\share\x` makes `.exists()` contact that SMB host on every 10 s refresh | absolute, UNC and drive paths rejected as in `server.py` `ui_asset`; unit test |
-| S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail, claude-mem and Archify install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
+| S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail and claude-mem install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
 
 ## 3. Correctness
 
@@ -69,7 +69,7 @@ On the macOS run (M5):
 On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex`, which runs TRACE 1.2.5. Archify is being dropped (2026-10-13), but TRACE bundles it as a required tool, so applying 1.3.3 as is would install it again in `~/.agents/skills`: remove archify from codex-setup's manifest first, then plan/apply/verify and check the child models in a live `codex exec`.
+- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex` (TRACE 1.2.5). Archify leaves codex-setup in PR #21 (DECISIONS 2026-10-13 "Archify removed"); rebase #20 on it, then plan/apply/verify and check the child models in a live `codex exec`.
 
 ## 7. Measure
 
