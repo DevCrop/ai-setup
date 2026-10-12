@@ -49,7 +49,7 @@ tool/runtime defect, access/permission limit or requirement conflict. Adding mor
 instructions is not a substitute for fixing the actual cause. Prefer existing
 native tools and checks; route every supported diagnostic through verified RTK
 under guides/rtk.md, including nested calls. Keep
-Ponytail/Archify explicit and retain exact evidence for final acceptance.
+Ponytail explicit and retain exact evidence for final acceptance.
 
 During the authorized host's existing scheduled routine, review new or changed lessons
 and official-source deltas only. Reuse settled evidence and disregard irrelevant
@@ -95,7 +95,7 @@ tasks; do not load this guide or perform a full setup audit at every task start.
    use their applicable local guidance. Define the requested result and acceptance.
 2. Select available purpose-built tools, connectors and applicable skills for the
    task; resolve required access when needed, rather than testing every integration.
-   Use existing project tools for project checks. Keep Ponytail/Archify explicit;
+   Use existing project tools for project checks. Keep Ponytail explicit;
    delegate only when the current host and applicable instructions permit it.
 3. Route each supported diagnostic through verified RTK, including orchestration
    subprocesses; preserve native exact reads, structured data, mutations and final

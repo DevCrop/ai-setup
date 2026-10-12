@@ -5,7 +5,7 @@ based on official sources. The OpenAI plugin supplies the actual execution tools
 Installing the skill neither installs that plugin nor grants browser/app access.
 The skill is discoverable normally, including outside the TRACE checkout; invoke
 `$computer-use-workflow` explicitly when testing its behavior in a new session.
-Ponytail and Archify retain their separate explicit invocation policy.
+Ponytail retains its separate explicit invocation policy.
 
 ## Daily review and task-time recovery
 

@@ -44,7 +44,7 @@ class HeartbeatTests(unittest.TestCase):
                        'gain --daily --format json', 'same-date snapshot',
                        'RTK estimates are not actual OpenAI usage',
                        'Do not mine other chats', 'active authorized task',
-                       'Ponytail and Archify only when explicitly requested']:
+                       'Ponytail only when explicitly requested']:
             self.assertIn(clause, prompt)
 
     def test_cleanup_needs_separate_exact_host_and_automation_authority(self):
