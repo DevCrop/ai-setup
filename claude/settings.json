@@ -278,6 +278,17 @@
             "onFailure": "block"
           }
         ]
+      },
+      {
+        "matcher": "^mcp__.*github.*__(push_files|create_or_update_file)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\"",
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
       }
     ],
     "SessionStart": [
