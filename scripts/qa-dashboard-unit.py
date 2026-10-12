@@ -559,6 +559,8 @@ try:
     check(procs.resolve(["rtk", "--version"], windows=True) == [str(fake), "--version"], "procs.resolve: the current folder counts when it is on PATH")
     check(procs.resolve(["/x/y/tool", "a"], windows=True) == ["/x/y/tool", "a"], "procs.resolve: a command with a path is left alone")
     os.environ["PATH"] = oldpath
+    # shutil.which is faked for the full path too: on Windows an extension-less file is not executable, and this checks procs' rule only
+    procs.shutil.which = lambda n, *a, **k: str(fake) if n in ("rtk", str(fake)) else real_which(n, *a, **k)
     check(procs.which(str(fake), windows=True) == str(fake), "procs.which: an explicit path in the current folder is honoured")
     other = tmp / "pathbin"; other.mkdir(exist_ok=True); good = other / "rtk"; good.write_text("", encoding="utf-8"); good.chmod(0o755)
     os.environ["PATH"] = str(other) + os.pathsep + oldpath
