@@ -53,13 +53,25 @@ class MemRedactOn(Fix):
     def settings_file():
         return mem_dir() / "settings.json"
 
-    def preview(self):
-        on = False
+    @classmethod
+    def label(cls):
+        """The settings file as the user sees it: ~/... under the home folder, else the full path (CLAUDE_MEM_DIR may point anywhere)."""
+        f = cls.settings_file()
         try:
-            on = str(json.loads(self.settings_file().read_text(encoding="utf-8")).get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
+            return "~/" + f.relative_to(Path.home()).as_posix()
+        except ValueError:
+            return str(f)
+
+    def preview(self):
+        title = "claude-mem 비밀 마스킹 켜기 (설정 파일을 백업한 뒤 CLAUDE_MEM_REDACT_ENABLED만 변경)"
+        try:
+            d = json.loads(self.settings_file().read_text(encoding="utf-8"))
         except Exception:
-            pass
-        return {"title": "claude-mem 비밀 마스킹 켜기 (설정 파일을 백업한 뒤 CLAUDE_MEM_REDACT_ENABLED만 변경)", "targets": [] if on else ["~/.claude-mem/settings.json"], "reversible": True}
+            d = None
+        if not isinstance(d, dict):  # missing or broken: run() would fail, so there is nothing to offer
+            return {"title": title + " - 설정 파일이 없거나 읽을 수 없어 할 일이 없습니다", "targets": [], "reversible": True}
+        on = str(d.get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
+        return {"title": title, "targets": [] if on else [self.label()], "reversible": True}
 
     def run(self, targets):
         f = self.settings_file()

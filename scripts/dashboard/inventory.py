@@ -219,12 +219,16 @@ def debug(session_file):
             d = json.loads(line)
         except Exception:
             continue
-        c = (d.get("message") or {}).get("content")
+        msg = d.get("message") if isinstance(d, dict) else None
+        c = msg.get("content") if isinstance(msg, dict) else None
         if not isinstance(c, list):
             continue
         for x in c:
+            if not isinstance(x, dict):
+                continue
             if x.get("type") == "tool_use":
-                names[x.get("id")] = str(x.get("name", "?")).split("__")[-1]
+                if isinstance(x.get("id"), str):
+                    names[x["id"]] = str(x.get("name", "?")).split("__")[-1]
             elif x.get("type") == "tool_result":
                 out["scanned"] += 1
                 if not x.get("is_error"):
@@ -232,7 +236,8 @@ def debug(session_file):
                 body = x.get("content")
                 text = body if isinstance(body, str) else " ".join(str(y.get("text", "")) for y in body if isinstance(y, dict)) if isinstance(body, list) else ""
                 k = _kind(text)
-                tool = names.get(x.get("tool_use_id"), "?")
+                tid = x.get("tool_use_id")
+                tool = names.get(tid, "?") if isinstance(tid, str) else "?"
                 detail = ""
                 if k == "hook-block":
                     m = re.search(r"included:(.*)", text)

@@ -19,7 +19,7 @@ assert not reg.apply("dummy", ["x"])["ok"] and dummy.calls == []                
 assert not reg.apply("rm-rf", [])["ok"] and reg.preview("rm-rf") is None          # unknown id refused
 assert reg.apply("dummy", ["b", "a"])["ok"] and dummy.calls == [["a", "b"]], dummy.calls
 assert sorted(server.FIXES._fixes) == ["mem-redact-on", "rtk-update"], sorted(server.FIXES._fixes)  # nothing else can ever run
-r = server.FIXES.apply("mem-redact-on", ["~/.claude-mem/settings.json"]); assert r["ok"], r
+r = server.FIXES.apply("mem-redact-on", ["~/mem/settings.json"]); assert r["ok"], r  # the CLAUDE_MEM_DIR file, shown under ~
 d = json.loads((h / "mem/settings.json").read_text()); assert d == {"CLAUDE_MEM_REDACT_ENABLED": "true", "X": "1"}, d
 assert len(list((h / "mem").glob("settings.json.bak-*"))) == 1
 assert server.FIXES.preview("mem-redact-on")["targets"] == []                      # already on: nothing to do
