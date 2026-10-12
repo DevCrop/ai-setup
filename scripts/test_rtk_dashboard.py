@@ -182,7 +182,10 @@ class HTTPTests(unittest.TestCase):
 
     def test_initial_aggregate_failure_serves_stale_dashboard_then_recovers(self):
         snapshot = {**aggregate(), 'collected_at': '2026-10-08T07:00:00Z',
-                    'collection_date_kst': '2026-10-08', 'private': 'SECRET'}
+                    'collection_date_kst': '2026-10-08', 'private': 'SECRET',
+                    'history_recovery': {'status': 'partial', 'recovered_commands': 1,
+                        'previous_commands': 100, 'previous_saved': 25000,
+                        'previous_collected_at': '2026-10-08T06:00:00Z'}}
         baseline = self.root / 'rtk-efficiency.json'
         baseline.write_text(json.dumps(snapshot), encoding='utf-8')
         original = baseline.read_bytes()
@@ -194,6 +197,7 @@ class HTTPTests(unittest.TestCase):
         self.assertTrue(data['live']['initial_error'])
         self.assertEqual(data['collected_at'], snapshot['collected_at'])
         self.assertEqual(data['summary'], snapshot['summary'])
+        self.assertEqual(data['history_recovery'], snapshot['history_recovery'])
         self.assertNotIn(b'SECRET', body)
         self.assertEqual(self.request('/api/rtk')[0], 503)
         self.assertEqual(baseline.read_bytes(), original)

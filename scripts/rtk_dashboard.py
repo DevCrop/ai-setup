@@ -84,6 +84,9 @@ def saved_snapshot(reports):
                   openai_usage_measured=False,
                   live={'enabled': True, 'initial_error': True, 'poll_interval_ms': 2000,
                         'writes_scheduled_snapshot': False})
+    recovery = history_recovery(raw)
+    if recovery:
+        result['history_recovery'] = recovery
     return result
 
 
