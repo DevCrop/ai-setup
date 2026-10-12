@@ -40,19 +40,27 @@ def _mget(machine, key):
 
 
 def which(name, windows=None):
-    """shutil.which, except a hit in the current folder that is not on PATH: Windows searches the current folder first, so a git.exe
-    lying in some project folder would be started by a "read-only" check."""
+    """shutil.which, except on Windows a bare name found in the current folder (not on PATH) is skipped in favour of the next copy on
+    PATH, or None: Windows searches the current folder first, so a stray binary there would be run. Explicit paths pass unchanged."""
     w = shutil.which(name)
     if windows is None:
         windows = os.name == "nt"
-    if not w or not windows:  # POSIX searches the current folder only when PATH asks for it (an empty or "." entry)
+    if not w or not windows or os.sep in name or "/" in name:  # POSIX searches the cwd only when PATH asks; only a bare name makes Windows search it
         return w
     try:
-        parent, cwd = Path(w).resolve().parent, Path.cwd().resolve()
-        on_path = {Path(p).resolve() for p in os.environ.get("PATH", "").split(os.pathsep) if p}
+        cwd = Path.cwd().resolve()
+        if Path(w).resolve().parent != cwd:
+            return w
+        dirs = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+        if any(Path(p).resolve() == cwd for p in dirs):
+            return w  # the current folder is on PATH on purpose
+        for p in dirs:  # a good copy further down PATH still counts (shutil.which(path=...) would add the cwd again, so ask per entry)
+            r = shutil.which(name, path=p)
+            if r and Path(r).resolve().parent != cwd:
+                return r
     except OSError:
         return w
-    return None if parent == cwd and cwd not in on_path else w
+    return None
 
 
 def write_machine(found, repo=REPO):

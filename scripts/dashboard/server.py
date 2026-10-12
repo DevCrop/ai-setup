@@ -9,7 +9,7 @@ and the tool-call names and timestamps of the newest session log in ~/.claude/pr
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
 (never arguments, so a pasted token or `KEY=value` cannot leave the machine). Message text is never emitted.
 """
-import hmac, json, os, re, secrets, shutil, sys, time, urllib.request
+import hmac, json, os, re, secrets, sys, time, urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable
 from datetime import datetime, timezone
@@ -25,7 +25,7 @@ from fsutil import mem_dir, mtime as _mtime, newest_file, read_json as _read_jso
 from efficiency import AoEfficiency, BenchEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency, UsageEfficiency
 from cache import TtlCache
 from fixes import FixRegistry, MemRedactOn, RtkUpdate
-from procs import BASH, ProcessRunner
+from procs import BASH, ProcessRunner, which
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -98,7 +98,7 @@ def reports():
 
 
 def ao_bin():
-    for c in (os.environ.get("AO_BIN"), str(Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/agent-orchestrator/resources/daemon/ao.exe"), shutil.which("ao")):
+    for c in (os.environ.get("AO_BIN"), str(Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/agent-orchestrator/resources/daemon/ao.exe"), which("ao")):
         if c and Path(c).exists():
             return c
     return None
@@ -334,7 +334,7 @@ def ao_health(ao, now=None):
 
 def tools_version_health():
     """RTK installed vs latest GitHub release. Network failure means 'not checked', never an error."""
-    if not shutil.which("rtk"):
+    if not which("rtk"):
         return []
     cur = run(["rtk", "--version"], timeout=10).strip()
     latest = cached("rtk_latest", 3600, RtkUpdate.latest, slow=True)

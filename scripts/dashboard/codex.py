@@ -5,9 +5,10 @@ The dashboard does not judge the Codex setup; it shows what TRACE's own checks s
 itself, outside spawn(), which would open a console window under pythonw.
 Where the TRACE checkout is: TRACE_DIR, else the first line of state/trace-dir.txt, else codex-setup next to this repo or in the home folder.
 """
-import json, os, shutil, sys
+import json, os, sys
 from collections import Counter
 from pathlib import Path
+from procs import which
 
 MIN_PY = (3, 11)  # TRACE needs tomllib
 MAX_ITEMS = 40
@@ -74,7 +75,7 @@ class CodexSetup:
             return None, short(p.stderr) or f"exit {p.returncode}, JSON 아님"
 
     def codex_cli(self):
-        exe = shutil.which(os.environ.get("CODEX_BIN") or "codex")  # a CODEX_BIN that names no file is "not found", like no codex on PATH
+        exe = which(os.environ.get("CODEX_BIN") or "codex")  # a CODEX_BIN that names no file is "not found", like no codex on PATH
         if not exe:
             return {"found": False, "version": None}
         try:
