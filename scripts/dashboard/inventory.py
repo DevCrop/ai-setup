@@ -81,7 +81,10 @@ def orchestration(root):
 def routing(root, ao_projects):
     s = _settings(root)
     routine = next((l.strip() for l in _read(root / "claude" / "routines" / "daily-update.md").split("\n") if l.startswith("Model:")), "")
-    return {"main": s.get("model"), "effort": s.get("effortLevel"), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
+    main, per_model = s.get("model"), s.get("modelSettings") if isinstance(s.get("modelSettings"), dict) else {}
+    # A model's own modelSettings entry wins over the top-level effortLevel (settings reference); the entry is keyed by the canonical name
+    entry = next((v for k, v in per_model.items() if isinstance(main, str) and isinstance(v, dict) and main in k), {})
+    return {"main": main, "effort": entry.get("effortLevel") or s.get("effortLevel"), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
             "cacheTtl": s.get("promptCacheTtl"), "subagentCacheTtl": s.get("subagentPromptCacheTtl"),
             "plugins": sorted(k for k, v in (s.get("enabledPlugins") or {}).items() if v),
             "agents": [{"name": a["name"], "model": a["model"], "effort": a["effort"]} for a in agents(root)],
