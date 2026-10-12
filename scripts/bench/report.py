@@ -70,12 +70,12 @@ def _prompt_text(d):
     return None
 
 
-_OTHER_RUN = re.compile(r"\[BENCH-[\w-]+\] Do ")  # the opening of every bench prompt (bench.sh `prompt`)
+_RUN = re.compile(r"^\[(BENCH-[\w-]+)\] Do ", re.M)  # a bench prompt opens a line with its marker (bench.sh `prompt`)
 
 
 def window(path, marker):
     """(start, end) line numbers of this run inside a transcript, or None when no typed user prompt in it holds "[<marker>] Do "
-    (anywhere, in case a tool such as AO wraps the prompt; a later message that only quotes the marker does not match).
+    at the start of a line (text a tool such as AO puts on earlier lines is fine; a message that quotes the marker mid-line does not match).
     end is the next prompt of another bench run, else the end of the file: two runs that share one session
     file (a parent's CLAUDE_CODE_SESSION_ID passed on, for example) are then counted apart."""
     start = end = None
@@ -85,14 +85,16 @@ def window(path, marker):
                 if '"user"' not in line or "[BENCH-" not in line:
                     continue
                 try:
-                    t = _prompt_text(json.loads(line))
+                    d = json.loads(line)
                 except ValueError:
                     continue
-                if t is None:
-                    continue
-                if start is None and ("[" + marker + "] Do ") in t:
+                t = _prompt_text(d)
+                if t is None or d.get("isCompactSummary"):
+                    continue  # a compaction summary quotes the run's own prompt; it is not a new run
+                found = set(_RUN.findall(t))
+                if start is None and marker in found:
                     start = i
-                elif start is not None and _OTHER_RUN.search(t):
+                elif start is not None and found - {marker}:
                     end = i
                     break
     except OSError:
@@ -282,8 +284,8 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     rep = collect(a.work, a.projects)
-    if not rep["runs"]:
-        print(f"no bench runs in {a.work} (expected <arm>-r<N>/bench.json); nothing written", file=sys.stderr)
+    if not rep["arms"]:
+        print(table(rep) + f"\nno run in {a.work} has a transcript under {a.projects} (expected <arm>-r<N>/bench.json and its sessions); nothing written", file=sys.stderr)
         sys.exit(1)
     if a.out:
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)

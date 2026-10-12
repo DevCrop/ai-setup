@@ -66,6 +66,12 @@ try:
                                               line("g", "2026-10-12T03:10:30Z", output_tokens=3000)]) + "\n", encoding="utf-8")
     (proj / "s4" / "subagents").mkdir(parents=True)
     (proj / "s4" / "subagents" / "agent-x.jsonl").write_text(line("h", "2026-10-12T03:10:20Z", output_tokens=500) + "\n", encoding="utf-8")
+    # compaction: the summary quotes the run's own prompt on a line of its own; the run goes on past it
+    mkrun("single", 4, "BENCH-single-4", True)
+    (proj / "s5.jsonl").write_text("\n".join([json.dumps({"timestamp": "2026-10-12T05:00:00Z", "type": "user", "message": {"content": "[BENCH-single-4] Do it"}}),
+                                              line("i", "2026-10-12T05:00:10Z", output_tokens=1000),
+                                              json.dumps({"timestamp": "2026-10-12T05:05:00Z", "type": "user", "isCompactSummary": True, "message": {"content": "This session is being continued.\n[BENCH-single-4] Do it"}}),
+                                              line("j", "2026-10-12T05:06:00Z", output_tokens=4500)]) + "\n", encoding="utf-8")
     # AO-like: three worker sessions with the same marker; wall time spans all of them
     mkrun("ao", 2, "BENCH-ao-2", True)
     for i, (a, b) in enumerate((("00", "40"), ("05", "50"), ("10", "30"))):
@@ -95,6 +101,8 @@ try:
     r2, r3 = rows["single-r2"], rows["single-r3"]
     check(abs(r2["costUSD"] - 0.01) < 1e-9 and r2["subagents"] == 0 and r2["wallSec"] == 10.0, "shared session file: the first run counts only its own span", r2)
     check(abs(r3["costUSD"] - 0.035) < 1e-9 and r3["subagents"] == 1, "shared session file: the subagent belongs to the run it started in", r3)
+    r4 = rows["single-r4"]
+    check(abs(r4["costUSD"] - 0.055) < 1e-9 and r4["wallSec"] == 360.0, "compaction summary quoting the prompt does not end the run", r4)
     a2 = rows["ao-r2"]
     check(a2["sessions"] == 3 and a2["wallSec"] == 50.0 and abs(a2["costUSD"] - 0.003) < 1e-9, "several sessions with one marker: costs add up, wall time spans them all", a2)
     vs = rep["arms"]["subagents"]["vsSingle"]
@@ -112,6 +120,10 @@ try:
     import subprocess
     r = subprocess.run([sys.executable, str(HERE / "report.py"), str(tmp / "empty"), "--projects", str(tmp / "projects"), "--out", str(tmp / "out.json")], capture_output=True, text=True)
     check(r.returncode != 0 and not (tmp / "out.json").exists(), "an empty work dir exits non-zero and writes nothing", (r.returncode, r.stderr[-200:]))
+    lone = tmp / "lone"
+    shutil.copytree(work / "ao-r1", lone / "ao-r1")
+    r = subprocess.run([sys.executable, str(HERE / "report.py"), str(lone), "--projects", str(tmp / "projects"), "--out", str(tmp / "out2.json")], capture_output=True, text=True)
+    check(r.returncode != 0 and not (tmp / "out2.json").exists(), "runs without any transcript exit non-zero and write nothing", r.returncode)
     t = report.table(rep)
     check("ao-r1" in t and "기본 (메인 혼자)" in t, "table names the arms and the missing run", t)
 finally:
