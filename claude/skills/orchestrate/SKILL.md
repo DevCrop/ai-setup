@@ -1,7 +1,7 @@
 ---
 name: orchestrate
 description: Use when splitting work across subagents, before delegating to a role agent (publisher, frontend, backend, qa), explorer, worker or reviewer, or when deciding whether to delegate at all.
-when_to_use: Requests such as 나눠서 해줘, 서브에이전트로 돌려, 병렬로 처리해, 이거 위임해도 돼, split this across agents, use subagents for this.
+when_to_use: Requests such as 서브에이전트로 나눠서 해줘, 에이전트한테 맡겨, 병렬 에이전트로 돌려, 이 작업 위임해도 돼, split this across subagents, delegate this to agents.
 ---
 
 Default to one agent. Delegate only when the part does not block the main thread's next step, or its output is large and mostly irrelevant to it. Otherwise work inline. Every delegate also pays a start-up cost: about 43K prompt tokens written to the cache in the one call measured (2026-10-12, `docs/evidence.md` in the claude-global repository), so a one-file lookup or a short edit is cheaper inline.
