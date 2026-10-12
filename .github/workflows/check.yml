@@ -27,7 +27,7 @@ jobs:
           for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
           python3 -c "import json;json.load(open('claude/settings.json'))"
       - name: Shellcheck (warnings and errors)
-        run: shellcheck -S warning scripts/*.sh claude/statusline.sh claude/hooks/secret-guard.sh
+        run: shellcheck -S warning scripts/*.sh claude/statusline.sh claude/hooks/*.sh
       - name: Repo checks
         run: bash scripts/verify.sh
       - name: Dashboard fix and spawn tests

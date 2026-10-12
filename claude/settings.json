@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "model": "sonnet",
   "effortLevel": "high",
   "advisorModel": "opus",
@@ -263,6 +264,30 @@
             "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/secret-guard.sh\"",
             "timeout": 30,
             "onFailure": "block"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/compact-context.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "matcher": "user_settings|skills",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/config-audit.sh\"",
+            "timeout": 5
           }
         ]
       }
