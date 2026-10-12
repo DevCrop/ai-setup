@@ -16,8 +16,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 | # | Where | Problem | Done when |
 |---|---|---|---|
-| S1 | `claude/hooks/secret-guard.sh:15`, `:41`, `:74` | `GIT add -A` exits at the case-sensitive gates (15, 41); `git.exe add -A` (Git Bash) is skipped at 74 | `qa-hooks.sh` cases for both block |
-| S2 | `secret-guard.sh:72`, `:102` | only `cd` moves the hook's cwd, not `pushd`; outside a repo `rev-parse` fails first, so even a literal secret path is not checked | `pushd repo && git add .env` blocks in `qa-hooks.sh` |
 | S3 | `claude/settings.json` hooks | secret-guard watches Bash only; a commit through GitHub MCP (`push_files`, `create_or_update_file`) is not checked | an MCP matcher, or the limit written in GUIDE (Secret-guard hook) |
 | S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
 | S7 | `settings.json` `extraKnownMarketplaces`, `enabledPlugins` | Ponytail and claude-mem install unpinned upstream code on every machine (DECISIONS "Third-party plugins are pinned through an own marketplace (pending)") | forks, `DevCrop/claude-plugins` with `sha`-pinned sources, and the `autoMode.environment` line changed in one PR |
