@@ -117,6 +117,13 @@ audit "$cfg" "{\"source\":\"user_settings\",\"file_path\":\"$cfg/settings.json\\
 mkdir -p "$t/dirlog/config-changes.log"
 audit "$t/dirlog" '{"source":"user_settings"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && ok "audit: an unwritable log (a directory) still exits 0 with no stderr" || bad "audit: unwritable log ($rc) [$err]"
+compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/empty\"}"
+printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a cwd without a note falls back to CLAUDE_PROJECT_DIR" || bad "compact: no fallback from a note-less cwd [$out]"
+compact "$t/home/w/proj" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/gone/wt\"}"
+printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a removed cwd is skipped and its parents are still searched" || bad "compact: removed cwd [$out]"
+mkdir -p "$t/realcfg"; ln -s "$t/realcfg" "$t/linkcfg"
+audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$t/realcfg/settings.json\"}"
+[ "$(wc -l < "$t/realcfg/config-changes.log" 2>/dev/null | tr -d ' ')" = 1 ] && ok "audit: a symlinked config dir reported by its real path is still logged" || bad "audit: symlinked config dir"
 audit "$t/missing-dir" '{"source":"user_settings"}'
 [ "$rc" = 0 ] && [ -z "$err" ] && [ ! -e "$t/missing-dir" ] && ok "audit: a missing config dir is not created, exit 0" || bad "audit: missing dir ($rc) [$err]"
 

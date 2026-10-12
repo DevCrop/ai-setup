@@ -21,7 +21,8 @@ if [ -n "$path" ]; then
   norm() { case "$1" in *\\*|?:*) command -v cygpath >/dev/null && { cygpath -u "$1"; return; } ;; esac; printf '%s' "$1"; }
   p="$(norm "$path" | tr '[:upper:]' '[:lower:]')"
   c="$(norm "$cfg" | tr '[:upper:]' '[:lower:]')"
-  case "$p" in "$c"/*) ;; *) exit 0 ;; esac
+  r="$(cd "$cfg" && pwd -P | tr '[:upper:]' '[:lower:]')"  # a symlinked config dir may be reported by its real path
+  case "$p" in "$c"/*|"$r"/*) ;; *) exit 0 ;; esac
 fi
 printf '%s\t%s\t%s\t%s\n' "$(date -u +%s)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$src" "$path" >> "$log" || exit 0
 size="$(wc -c < "$log" | tr -d ' ')"
