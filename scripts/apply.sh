@@ -11,7 +11,10 @@
 #   - scripts/removed-keys.json lists keys that are deleted from the live file.
 # Files in the managed folders are tracked in $dest/.claude-global-manifest: a file this script copied earlier and the repo no longer
 # has is deleted; a file that never came from this repo is kept and reported.
+# --dry-run writes nothing: it prints what would be written, replaced in settings.json and removed, then exits 0.
 set -eu
+dry=0
+case "${1:-}" in --dry-run) dry=1 ;; "") ;; *) echo "usage: bash scripts/apply.sh [--dry-run]" >&2; exit 2 ;; esac
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 src="$repo/claude"
@@ -35,7 +38,7 @@ if [ -s "$live" ] && ! jq -e 'type == "object"' "$live" >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$dest"
+[ "$dry" = 1 ] || mkdir -p "$dest"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/apply.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -67,21 +70,7 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
     (if ($only_top | length) > 0 then "kept machine-only keys: " + ($only_top | join(", ")) else empty end),
     (if ($only_plugins | length) > 0 then "kept machine-only enabledPlugins: " + ($only_plugins | join(", ")) else empty end)' > "$tmp/report.txt"
 
-# ---- copy ----
-for item in $items; do
-  if [ "$item" = settings.json ]; then
-    cp "$tmp/merged.json" "$dest/settings.json.new" && mv "$dest/settings.json.new" "$dest/settings.json"
-  elif [ -d "$src/$item" ]; then
-    mkdir -p "$dest/$item"
-    cp -R "$src/$item/." "$dest/$item/"
-  else
-    cp "$src/$item" "$dest/$item"
-  fi
-  echo "applied: $item"
-done
-sed 's/^/settings.json: /' "$tmp/report.txt"
-
-# ---- manifest: drop files the repo no longer has, report files it never had ----
+# ---- file list and manifest helpers (read only) ----
 : > "$tmp/new.list"
 for item in $items; do
   [ "$item" = settings.json ] && continue
@@ -102,6 +91,47 @@ removable() {
   done
   [ -f "$dest/$1" ] || [ -L "$dest/$1" ]
 }
+
+# ---- dry run: compare and report, write nothing ----
+if [ "$dry" = 1 ]; then
+  for item in $items; do
+    if [ "$item" = settings.json ]; then
+      if [ -s "$live" ] && [ "$(jq -S . "$live")" = "$(jq -S . "$tmp/merged.json")" ]; then echo "unchanged: settings.json"; else echo "would write: settings.json"; fi
+    elif [ -d "$src/$item" ]; then
+      ch="$( (cd "$src/$item" && find . -type f) | while IFS= read -r f; do cmp -s "$src/$item/$f" "$dest/$item/$f" || echo x; done | wc -l | tr -d ' ')"
+      if [ "$ch" = 0 ]; then echo "unchanged: $item"; else echo "would write: $item ($ch files)"; fi
+    elif cmp -s "$src/$item" "$dest/$item"; then echo "unchanged: $item"
+    else echo "would write: $item"
+    fi
+  done
+  sed 's/^/settings.json: /' "$tmp/report.txt"
+  if [ -f "$manifest" ]; then
+    grep -vxFf "$tmp/new.list" "$manifest" | while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      case "$p" in /*) continue ;; esac
+      [ "$p" = settings.json ] && continue
+      managed "$p" && removable "$p" && echo "would remove (no longer in the repo): $p"
+    done || true
+  fi
+  echo "dry run: nothing was written"
+  exit 0
+fi
+
+# ---- copy ----
+for item in $items; do
+  if [ "$item" = settings.json ]; then
+    cp "$tmp/merged.json" "$dest/settings.json.new" && mv "$dest/settings.json.new" "$dest/settings.json"
+  elif [ -d "$src/$item" ]; then
+    mkdir -p "$dest/$item"
+    cp -R "$src/$item/." "$dest/$item/"
+  else
+    cp "$src/$item" "$dest/$item"
+  fi
+  echo "applied: $item"
+done
+sed 's/^/settings.json: /' "$tmp/report.txt"
+
+# ---- manifest: drop files the repo no longer has, report files it never had (file list built above) ----
 if [ -f "$manifest" ]; then
   grep -vxFf "$tmp/new.list" "$manifest" > "$tmp/stale.list" || true
   while IFS= read -r p; do

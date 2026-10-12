@@ -180,5 +180,98 @@ try:
 except ValueError:
     check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "[]", "write_machine: refuses a file that is valid JSON but not an object")
 
+# ---- install / clone / apply / verify / autostart with fake ask and run (nothing is installed or written outside tmp) ----
+def item(id_, found=False, required=False, disabled=False, setup=None, label=None):
+    return {"id": id_, "label": label or id_, "found": found, "required": required, "disabled": disabled, "install": None, **({"setup": setup} if setup else {})}
+
+yes, no = (lambda q: True), (lambda q: False)
+ran = []
+def fake_run(rc=0):
+    def f(cmd, cwd=None):
+        ran.append((list(map(str, cmd)), cwd))
+        return rc
+    return f
+
+check(toolreg.install_argv({"install": {"winget": "A.B"}}, "win32") == ["winget", "install", "--id", "A.B", "--exact"], "install_argv: winget argv")
+check(toolreg.install_argv({"install": {"url": "u"}}, "win32") is None, "install_argv: URL only gives no argv")
+ents = {"a": {"id": "a", "install": {"winget": "A.A"}}, "b": {"id": "b", "install": {"url": "https://x"}}, "c": {"id": "c", "install": {"winget": "C.C"}}}
+r = {"items": [item("a", required=True), item("b", required=True), item("c", found=True), item("d", disabled=True)]}
+ents["d"] = {"id": "d", "install": {"winget": "D.D"}}
+ran.clear()
+rc = bootstrap.cmd_install(r, ents, ask=yes, run=fake_run(0), platform="win32")
+check(ran == [(["winget", "install", "--id", "A.A", "--exact"], None)], "install: only missing, enabled items with a package are run", str(ran))
+check(rc == 1, "install: a required item with only a URL counts as not done")
+ran.clear()
+rc = bootstrap.cmd_install({"items": [item("a", required=True)]}, ents, ask=no, run=fake_run(0), platform="win32")
+check(ran == [] and rc == 1, "install: declining a required item runs nothing and exits 1")
+rc = bootstrap.cmd_install({"items": [item("a")]}, ents, ask=yes, run=fake_run(5), platform="win32")
+check(rc == 1, "install: a failing installer exits 1")
+check(bootstrap.cmd_install({"items": [item("c", found=True)]}, ents, ask=yes, run=fake_run(0)) == 0, "install: nothing missing exits 0")
+
+cl_ent = {"id": "s", "setup": {"repo": "https://example.invalid/s", "candidates": ["${LOCALAPPDATA}/no", "${REPO_PARENT}/clone-s"]}}
+ran.clear()
+rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "https://example.invalid/s"})]}, {"s": cl_ent}, ask=yes, run=fake_run(0), toks=toks)
+check(rc == 0 and ran and ran[0][0] == ["git", "clone", "https://example.invalid/s", str(tmp / "clone-s")], "clone: first usable candidate, git clone", str(ran))
+(tmp / "clone-s").mkdir(exist_ok=True)
+(tmp / "clone-s" / "x").write_text("x", encoding="utf-8")
+ran.clear()
+rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": cl_ent}, ask=yes, run=fake_run(0), toks=toks)
+check(rc == 1 and ran == [], "clone: never into a non-empty folder")
+
+PLAN = json.dumps([{"path": "a", "action": "keep"}, {"path": "b", "action": "write"}])
+check(bootstrap.summarize("trace", 0, PLAN, "")[:2] == ["plan: keep 1, write 1", "  write b"], "summarize: TRACE plan counts and changes")
+check(bootstrap.summarize("trace", 1, json.dumps({"status": "fail", "errors": ["e1"]}), "")[0] == "verify: fail, 1 errors", "summarize: TRACE verify")
+check(bootstrap.summarize("trace", 1, "boom", "trace")[0].startswith("exit 1, not JSON"), "summarize: non-JSON output is reported")
+check(bootstrap.verify_passed("trace", 1, json.dumps({"status": "pass"})) and not bootstrap.verify_passed("trace", 0, "x"), "verify_passed: TRACE status, not exit code")
+check(bootstrap.verify_passed("lines", 0, "") and not bootstrap.verify_passed("lines", 1, ""), "verify_passed: lines uses the exit code")
+tr = {"id": "t", "setup": {"python": True, "plan": ["scripts/setup.py", "plan"], "apply": ["scripts/setup.py", "apply"], "verify": ["scripts/setup.py", "verify"], "parser": "trace"}}
+check(bootstrap.setup_argv(tr, "apply") == [sys.executable, "-B", "scripts/setup.py", "apply"], "setup_argv: python setups run under this interpreter")
+sh_ = {"id": "c", "setup": {"apply": ["bash", "scripts/apply.sh"]}}
+check(bootstrap.setup_argv(sh_, "apply")[1:] == ["scripts/apply.sh"] and "bash" in bootstrap.setup_argv(sh_, "apply")[0].lower(), "setup_argv: bash is resolved")
+caps = []
+def fake_capture(out, rc=0):
+    def f(cmd, cwd=None):
+        caps.append(cmd)
+        return rc, out, ""
+    return f
+ran.clear()
+r = {"items": [item("t", setup={"checkout": str(tmp), "repo": "r"}, label="T")]}
+rc = bootstrap.cmd_apply(r, {"t": tr}, ask=no, run=fake_run(0), capture=fake_capture(PLAN))
+check(ran == [] and caps and caps[-1][-1] == "plan" and rc == 0, "apply: plan is shown, declining runs nothing")
+rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(0), capture=fake_capture(PLAN))
+check(ran and ran[-1][0][-1] == "apply" and ran[-1][1] == str(tmp) and rc == 0, "apply: confirmed apply runs in the checkout")
+rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(2), capture=fake_capture(PLAN))
+check(rc == 1, "apply: a failing apply exits 1")
+check(bootstrap.cmd_apply({"items": [item("t", setup={"checkout": None, "repo": "r"})]}, {"t": tr}, ask=yes, run=fake_run(0)) == 1, "apply: no checkout exits 1 and points to clone")
+rc = bootstrap.cmd_verify(r, {"t": tr}, capture=fake_capture(json.dumps({"status": "pass", "errors": []}), 0))
+check(rc == 0, "verify: TRACE pass")
+rc = bootstrap.cmd_verify(r, {"t": tr}, capture=fake_capture(json.dumps({"status": "fail", "errors": ["x"]}), 1))
+check(rc == 1, "verify: TRACE fail exits 1")
+
+saved = sys.stdin
+import io
+sys.stdin = io.StringIO("")
+check(bootstrap.ask("q") is False, "ask: no terminal means no")
+sys.stdin = saved
+
+pyw = tmp / "py" / "pythonw.exe"
+pyw.parent.mkdir()
+pyw.write_text("", encoding="utf-8")
+path, data, undo = bootstrap.autostart_plan("win32", repo=Path("C:/r/claude-global"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
+check(path == tmp / "ad" / "Microsoft/Windows/Start Menu/Programs/Startup/claude-dashboard.vbs" and str(pyw).encode() in data and data.startswith(b"'"), "autostart: Windows .vbs in Startup with pythonw")
+_, data, _ = bootstrap.autostart_plan("win32", repo=Path("C:/작업/claude-global"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
+check(data[:2] == b"\xff\xfe" and "작업" in data.decode("utf-16"), "autostart: a non-ASCII path is written as UTF-16 with BOM (WSH reads that)")
+path, why, _ = bootstrap.autostart_plan("win32", repo=Path("C:/r"), python=str(tmp / "nopy" / "python.exe"), appdata=str(tmp / "ad"))
+check(path is None and "pythonw" in why, "autostart: no pythonw is refused")
+path, data, _ = bootstrap.autostart_plan("darwin", repo=Path("/r/claude-global"), python="/usr/bin/python3", home=str(tmp))
+import plistlib
+pl = plistlib.loads(data)
+check(path == tmp / "Library/LaunchAgents/com.claude-global.dashboard.plist" and pl["RunAtLoad"] and pl["ProgramArguments"][1].endswith("server.py"), "autostart: macOS LaunchAgent plist")
+check(bootstrap.autostart_plan("linux")[0] is None, "autostart: other systems are told how to start it by hand")
+target = tmp / "as" / "x.vbs"
+check(bootstrap.cmd_autostart(ask=no, plan=(target, b"new", "u")) == 1 and not target.exists(), "autostart: declining writes nothing")
+check(bootstrap.cmd_autostart(ask=yes, plan=(target, b"new", "u")) == 0 and target.read_bytes() == b"new", "autostart: confirmed write")
+check(bootstrap.cmd_autostart(ask=lambda q: 1 / 0, plan=(target, b"new", "u")) == 0, "autostart: same content is unchanged and does not ask")
+
 print(("FAIL " + str(len(fails))) if fails else "ALL PASS")
 sys.exit(1 if fails else 0)

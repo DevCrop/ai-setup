@@ -32,7 +32,7 @@ Then open http://127.0.0.1:8787 (it should answer 200). Open a new Claude Code s
 | 3 | Plugins: `ponytail@ponytail` (always on) and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh` | `claude plugin list`; the script prints `OK` |
 | 4 | Scheduled task `daily-claude-update`: create it in the Claude app from `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with this clone's path). In the app's Scheduled settings pick **Sonnet** and permission mode **auto**: no script or tool can set either | run it once; `reports/YYYY-MM-DD.md` appears; the run session shows the model |
 | 5 | Project folder for the dashboard: `state/project-roots.txt` (one folder per line, or env `PROJECT_ROOTS`; differs per machine and is gitignored) | the dashboard project list shows your projects |
-| 6 | Dashboard autostart (optional). Windows: a `.vbs` in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` that starts `pythonw scripts\dashboard\server.py` hidden from the clone folder; delete the file to undo | after a reboot http://127.0.0.1:8787 answers |
+| 6 | Dashboard autostart (optional): `python3 scripts/bootstrap.py autostart` (Windows Startup `.vbs` with pythonw, macOS LaunchAgent; shows the file and asks first); delete the file to undo | after a reboot http://127.0.0.1:8787 answers |
 | 7 | Leave `desktop-commander@synced` disabled and VS Code `claudeCode.initialPermissionMode` unset | `verify.sh --live` has no WARN for `desktop-commander`; the VS Code setting is checked by looking at it, no script reads it |
 
 Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it is committed.
