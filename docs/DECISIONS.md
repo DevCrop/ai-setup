@@ -2,6 +2,14 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-12 — AO runs on the local machine, not in cloud sessions
+
+### AO is not used or QA'd in cloud sessions
+- What: AO (Orchestrator.inc) runs and is QA'd only on the local machine, the AO desktop app with its daemon. Cloud sessions (claude.ai/code, `claude --cloud`) do not install, build or run AO. For parallel work in the cloud, use what the cloud docs offer: several `claude --cloud` sessions, a project, or subagents. To drive local AO from a phone, use Remote Control on the local machine.
+- Why, from the official docs (code.claude.com/docs/en/claude-code-on-the-web, read 2026-10-12): a cloud session runs in an isolated VM that "stop[s] after a period of inactivity", and on reopen "background work that was still running when the VM was reclaimed, such as subagents and shell commands" is not restored. That covers the AO daemon and its worker panes. A setup script "is cached only when it finishes in roughly five minutes". The cloud QA had to build AO from source and fetch a newer Go toolchain and zellij, about 0.9 GB of caches. Whether an AO Linux release exists was not checked. Reaching the user's own computer is Remote Control's job (docs/en/remote-control), not the cloud session's.
+- Why, from the cloud QA (2026-10-12, `docs/evidence.md`, "AO 클라우드 QA"): workers and guardrails ran, but the result does not carry over to the local AO. The build came from `aoagents/agent-orchestrator` (the `tools.json` install URL). That is a different codebase from the local app's `OrchestratorInc/agent-orchestrator` 0.13.6. It has no `ao review trigger` and no reviewer model field. The review loop also needs a GitHub PR, and the classifier refused a `bypass-permissions` worker, so the local setup could not be reproduced. The first interactive worker also stopped at the Claude Code theme picker.
+- Undo: delete this entry. Nothing in `claude/` or `scripts/` depends on it.
+
 ## 2026-10-12 — model lanes: Opus orchestrates and verifies, Haiku executes, no Sonnet
 
 ### Model lanes: Opus orchestrates and verifies, Haiku executes
