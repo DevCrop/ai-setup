@@ -19,7 +19,6 @@
 | Installed files and retired targets | [Manifest](../manifest.json) | setup.py verify and lifecycle tests |
 | Upstream package versions | [Version lock](../versions.lock.json) | Exact vendored file hashes |
 | Official source decisions | [Source registry](../references/registry.json) | Snapshot hashes and review statuses |
-| Failure/rollback branch | [Global flow](../diagrams/global/codex-flow.html) | Archify showcase plus browser containment |
 | Project adoption | [Project template](../templates/project/README.md) | Requires selected project's actual source and commands |
 
 ## Active installation audit

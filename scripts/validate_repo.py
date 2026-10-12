@@ -33,7 +33,7 @@ def main():
         assert re.fullmatch('[0-9a-f]{64}', entry['sha256'])
         retired.add(key)
     policies = [f for f in manifest['files'] if f.get('kind') == 'invocation-policy']
-    assert {f['target'] for f in policies} == {'archify/agents/openai.yaml', 'ponytail/agents/openai.yaml'}
+    assert {f['target'] for f in policies} == {'ponytail/agents/openai.yaml'}
     for f in policies:
         assert f["root"] == "personal_skills"
         assert (ROOT / f['source']).read_text(encoding='utf-8').strip() == 'policy:\n  allow_implicit_invocation: false'
@@ -57,10 +57,6 @@ def main():
                 raise ValueError('Source snapshot hash mismatch: ' + source['id'])
     if (ROOT / 'docs/index.md').read_bytes().replace(b'\r\n', b'\n') != render():
         raise ValueError('Documentation index is stale; run scripts/index_docs.py')
-    receipt = read_json(ROOT / 'diagrams/global/codex-flow.receipt.json')
-    for suffix, field in [('json', 'specification_sha256'), ('html', 'artifact_sha256')]:
-        if hashlib.sha256((ROOT / f'diagrams/global/codex-flow.{suffix}').read_bytes()).hexdigest() != receipt[field]:
-            raise ValueError('Flow receipt is stale: ' + suffix)
     for folder in ("global", "docs", "templates"):
         for p in (ROOT / folder).rglob("*.md"):
             text = p.read_text(encoding="utf-8")
