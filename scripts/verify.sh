@@ -36,8 +36,22 @@ fm_keys() { frontmatter "$1" | sed -n 's/^\([A-Za-z][A-Za-z_-]*\):.*/\1/p'; }
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 # Characters in UTF-8 text in any locale: bytes minus continuation bytes (wc -m counts bytes under LC_ALL=C).
 chars() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '; }
-# A frontmatter scalar as YAML reads it for the simple forms used here: a trailing " # comment" and surrounding quotes removed.
-fm_value() { frontmatter "$1" | sed -n "s/^$2:[[:space:]]*//p" | sed 's/[[:space:]]#.*$//; s/[[:space:]]*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/'; }
+# A one-line frontmatter scalar as YAML reads it: a quoted value loses its quotes and keeps any " #" inside them; an unquoted value
+# loses a trailing " # comment". Trailing spaces go in both cases.
+fm_value() {
+  frontmatter "$1" | sed -n "s/^$2:[[:space:]]*//p" | sed 's/[[:space:]]*$//' | awk '
+    /^"[^"]*"([[:space:]]+#.*)?$/ { sub(/^"/, ""); sub(/"([[:space:]]+#.*)?$/, ""); print; next }
+    /^'"'"'[^'"'"']*'"'"'([[:space:]]+#.*)?$/ { sub(/^'"'"'/, ""); sub(/'"'"'([[:space:]]+#.*)?$/, ""); print; next }
+    { sub(/[[:space:]]+#.*$/, ""); print }'
+}
+# fm_multiline <file> <key>: true when the key's value spans lines (a block marker such as | >- >2, or an indented continuation line).
+fm_multiline() {
+  # awk runs END after an exit in a rule, so the verdict is kept in m and END exits with it (m: 1 multi-line, 0 one line)
+  frontmatter "$1" | awk -v k="$2" '
+    found { m = ($0 ~ /^[[:space:]]+[^[:space:]]/); exit }
+    index($0, k ":") == 1 { v = substr($0, length(k) + 2); sub(/^[[:space:]]+/, "", v); if (v ~ /^[|>][0-9+-]*([[:space:]]+#.*)?$/) { m = 1; exit } found = 1; next }
+    END { exit !m }'
+}
 
 echo "== repo ($repo)"
 
@@ -195,13 +209,14 @@ for d in "$src"/skills/*/; do
   keys="$(fm_keys "$f")"
   dup="$(printf '%s\n' "$keys" | sort | uniq -d | tr '\n' ' ')"
   [ -z "$dup" ] || fail "$n: duplicate frontmatter key(s): $dup"
-  name="$(frontmatter "$f" | sed -n 's/^name:[[:space:]]*//p')"
+  name="$(fm_value "$f" name)"
   [ "$name" = "$dn" ] || fail "$n: name '$name' differs from directory '$dn'"
-  desc="$(frontmatter "$f" | sed -n 's/^description:[[:space:]]*//p')"
-  wtu="$(frontmatter "$f" | sed -n 's/^when_to_use:[[:space:]]*//p')"
+  desc="$(fm_value "$f" description)"
+  fm_multiline "$f" description && desc=""
+  wtu="$(fm_value "$f" when_to_use)"
   wtu_ok=1
   if printf '%s\n' "$keys" | grep -qx when_to_use; then
-    case "$wtu" in ""|"|"|">"|"|-"|">-"|"|+"|">+") wtu_ok=0; fail "$n: when_to_use missing or not on one line (the length check reads one line)" ;; esac
+    if [ -z "$wtu" ] || fm_multiline "$f" when_to_use; then wtu_ok=0; wtu=""; fail "$n: when_to_use missing or not on one line (the length check reads one line)"; fi
   fi
   if [ -z "$desc" ]; then
     fail "$n: description missing or not on one line"

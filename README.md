@@ -44,6 +44,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 | Is this machine equal to the repo? | `bash scripts/verify.sh --live` (applied files, owned settings keys, tools, Ponytail) |
 | Do the deny rules still block dangerous commands with RTK active? | `bash scripts/qa-deny.sh` (throwaway repo, haiku, needs a logged-in `claude`; `--static` only checks that every deny pattern has its `rtk ` twin, no CLI) or `verify.sh --full` |
 | Does the secret guard work? | `bash scripts/qa-hooks.sh` (no model calls; pass a mutated copy to prove the checks discriminate) |
+| Do the session hooks work? | `bash scripts/qa-hooks-session.sh` (compact-context and config-audit; no model calls; pass a mutated copy of `claude/hooks/` the same way) |
 | Is the dashboard healthy? | `bash scripts/qa-dashboard.sh` (API, security) and `bash scripts/qa-ui.sh` (headless Chrome, every tab); both end with `failures: 0` |
 | Do the role agents route and refuse correctly? | `bash scripts/qa-role-agents.sh <work-dir> [case]` (costs tokens; `QA_MODE=selftest` is free) |
 | What changed upstream (Claude Code, RTK, docs)? | `reports/YYYY-MM-DD.md`, written by the daily routine |
