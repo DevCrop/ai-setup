@@ -246,6 +246,9 @@ class Deployment:
         # Explicit legacy retirement only with previously reviewed fingerprints.
         for legacy in self.manifest.get("retired", []):
             rel = target_key(legacy)
+            if legacy.get("owned_only") and rel not in wanted:
+                # Owned removals already use the recorded hash above; unowned copies stay.
+                continue
             if rel in wanted or rel in self.record["files"]:
                 raise ValueError(f"Retired target collides with managed target: {rel}")
             before = content(self.path(rel))
@@ -351,12 +354,21 @@ class Deployment:
                 parsed = tomllib.loads((actual or b"").decode("utf-8-sig"))
                 if any(parsed.get("agents", {}).get(k) != v for k, v in self.manifest["agent_settings"].items()):
                     errors.append(p)
+                profiles = parsed.get("profiles", {})
+                for entry in self.manifest["files"]:
+                    target = entry["target"]
+                    if entry.get("root", "codex") == "codex" and "/" not in target and target.endswith(".config.toml"):
+                        name = target[:-len(".config.toml")]
+                        if isinstance(profiles, dict) and name in profiles:
+                            errors.append(f"Legacy profile clash: config.toml profiles.{name} conflicts with {target}")
             elif actual != data:
                 errors.append(p)
             elif self.record["files"].get(p, {}).get("sha256") != digest(data):
                 errors.append("ownership-hash:" + p)
         for item in self.manifest.get("retired", []):
             key = target_key(item)
+            if item.get("owned_only") and key not in self.record["files"]:
+                continue
             if self.path(key).exists():
                 errors.append("retired:" + key)
         return {"status": "pass" if not errors else "fail", "errors": errors,

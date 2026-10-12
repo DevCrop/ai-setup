@@ -30,12 +30,14 @@ class ReleaseTests(unittest.TestCase):
             for path, data in sentinels.items():
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
-            env = dict(os.environ, CODEX_HOME=str(home), PYTHONIOENCODING='utf-8')
+            env = dict(os.environ, CODEX_HOME=str(home), PYTHONIOENCODING='utf-8',
+                       USERPROFILE=str(root / 'user'), HOME=str(root / 'user'),
+                       LOCALAPPDATA=str(root / 'local'), XDG_STATE_HOME=str(root / 'xdg'))
 
             def run(command):
                 result = subprocess.run(
                     [sys.executable, '-B', str(ROOT / 'scripts/setup.py'), command,
-                     '--state', str(state), '--personal-skills', str(personal)],
+                     '--home', str(home), '--state', str(state), '--personal-skills', str(personal)],
                     cwd=root, env=env, capture_output=True, text=True, encoding='utf-8', timeout=30)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 return json.loads(result.stdout)
@@ -66,8 +68,8 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(dep.apply()['status'], 'unchanged')
             for skill in read_json(ROOT / 'versions.lock.json')['skills']:
                 for relative, expected in skill['files'].items():
-                    self.assertEqual(digest((dep.home / 'skills' / skill['name'] / relative).read_bytes()), expected)
-                self.assertEqual((dep.home / 'skills' / skill['name'] / 'agents/openai.yaml').read_text(encoding='utf-8').strip(),
+                    self.assertEqual(digest((dep.personal_skills / skill['name'] / relative).read_bytes()), expected)
+                self.assertEqual((dep.personal_skills / skill['name'] / 'agents/openai.yaml').read_text(encoding='utf-8').strip(),
                                  'policy:\n  allow_implicit_invocation: false')
             (dep.personal_skills / 'user').mkdir(parents=True)
             user = dep.personal_skills / 'user/SKILL.md'

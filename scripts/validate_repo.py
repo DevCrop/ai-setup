@@ -33,8 +33,9 @@ def main():
         assert re.fullmatch('[0-9a-f]{64}', entry['sha256'])
         retired.add(key)
     policies = [f for f in manifest['files'] if f.get('kind') == 'invocation-policy']
-    assert {f['target'] for f in policies} == {'skills/archify/agents/openai.yaml', 'skills/ponytail/agents/openai.yaml'}
+    assert {f['target'] for f in policies} == {'archify/agents/openai.yaml', 'ponytail/agents/openai.yaml'}
     for f in policies:
+        assert f["root"] == "personal_skills"
         assert (ROOT / f['source']).read_text(encoding='utf-8').strip() == 'policy:\n  allow_implicit_invocation: false'
     for skill in read_json(ROOT / "versions.lock.json")["skills"]:
         folder = ROOT / "vendor" / skill["name"]

@@ -30,6 +30,92 @@ class LifecycleTests(unittest.TestCase):
     def dep(self):
         return Deployment(self.source, self.home, self.state, self.root / 'personal skills')
 
+    def bundled_skill_upgrade(self, installed=True):
+        entries = []
+        for name in ("archify", "ponytail"):
+            for relative, data in (("SKILL.md", b"bundled skill\n"),
+                                   ("agents/openai.yaml", b"policy:\n  allow_implicit_invocation: false\n")):
+                source = f"{name}-{relative.replace('/', '-')}"
+                (self.source / source).write_bytes(data)
+                entries.append({"source": source, "target": f"skills/{name}/{relative}"})
+        self.manifest["version"] = "1.3.1"
+        self.manifest["files"].extend(entries)
+        self.write_manifest()
+        if installed:
+            self.dep().apply()
+        self.manifest["version"] = "1.3.2"
+        self.manifest["retired"] = [
+            {"target": e["target"], "sha256": digest((self.source / e["source"]).read_bytes()),
+             "owned_only": True} for e in entries]
+        for entry in entries:
+            entry["root"] = "personal_skills"
+            entry["target"] = entry["target"][len("skills/"):]
+        self.write_manifest()
+
+    def test_v131_bundled_skills_move_and_rollback(self):
+        self.bundled_skill_upgrade()
+        dep = self.dep()
+        self.assertFalse(any(row["action"] == "conflict" for row in dep.plan()))
+        dep.apply()
+        self.assertEqual(dep.verify()["status"], "pass")
+        self.assertEqual(dep.inventory(), [])
+        self.assertFalse(any(p.is_file() for p in (self.home / "skills").rglob("*")))
+        self.assertFalse(any(key.startswith("skills/") for key in dep.record["files"]))
+        for name in ("archify", "ponytail"):
+            self.assertTrue((dep.personal_skills / name / "SKILL.md").is_file())
+            self.assertEqual((dep.personal_skills / name / "agents/openai.yaml").read_bytes(),
+                             b"policy:\n  allow_implicit_invocation: false\n")
+        self.assertEqual(dep.apply()["status"], "unchanged")
+        dep.restore()
+        self.assertTrue((self.home / "skills/archify/SKILL.md").is_file())
+        self.assertFalse((dep.personal_skills / "archify/SKILL.md").exists())
+
+    def test_skill_move_preserves_unowned_old_root_files(self):
+        self.bundled_skill_upgrade(installed=False)
+        for name, data in (("archify", b"bundled skill\n"), ("ponytail", b"user skill\n")):
+            old = self.home / f"skills/{name}/SKILL.md"
+            old.parent.mkdir(parents=True, exist_ok=True)
+            old.write_bytes(data)
+        dep = self.dep()
+        dep.apply()
+        self.assertEqual(dep.verify()["status"], "pass")
+        for name, data in (("archify", b"bundled skill\n"), ("ponytail", b"user skill\n")):
+            self.assertEqual((self.home / f"skills/{name}/SKILL.md").read_bytes(), data)
+            self.assertIn(f"skills/{name}/SKILL.md", dep.inventory())
+
+    def test_skill_move_refuses_modified_owned_old_root_file(self):
+        self.bundled_skill_upgrade()
+        old = self.home / "skills/archify/SKILL.md"
+        old.write_bytes(b"user edit")
+        with self.assertRaises(ValueError):
+            self.dep().apply(True)
+        self.assertEqual(old.read_bytes(), b"user edit")
+        self.assertFalse((self.root / "personal skills/archify/SKILL.md").exists())
+
+    def test_legacy_profile_clash_reported_without_config_changes(self):
+        self.manifest["files"].append({"source": "rules.md", "target": "sol.config.toml"})
+        (self.source / "rules.md").write_text('model = "fixture"\n', encoding="utf-8")
+        self.write_manifest()
+        self.dep().apply()
+        config = self.home / "config.toml"
+        raw = config.read_bytes() + b'\n[profiles.sol]\nmodel = "user-choice"\n'
+        config.write_bytes(raw)
+        result = self.dep().verify()
+        self.assertEqual(result["status"], "fail")
+        self.assertEqual(result["errors"], [
+            "Legacy profile clash: config.toml profiles.sol conflicts with sol.config.toml"])
+        self.assertEqual(config.read_bytes(), raw)
+
+    def test_unrelated_legacy_profile_keeps_verify_result(self):
+        self.manifest["files"].append({"source": "rules.md", "target": "sol.config.toml"})
+        (self.source / "rules.md").write_text('model = "fixture"\n', encoding="utf-8")
+        self.write_manifest()
+        self.dep().apply()
+        before = self.dep().verify()
+        config = self.home / "config.toml"
+        config.write_bytes(config.read_bytes() + b'\n[profiles.user]\nmodel = "user-choice"\n')
+        self.assertEqual(self.dep().verify(), before)
+
     def test_v1_migration_two_roots_and_restore(self):
         self.dep().apply()
         record_path = self.state / 'installed.json'
