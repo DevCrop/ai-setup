@@ -165,7 +165,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### Rules for orchestration live in the `orchestrate` skill, not in `CLAUDE.md`
 - Needed only sometimes (best-practices: occasional knowledge goes in a skill). Description matching is probabilistic; `/orchestrate` is the fallback.
 
-### Deny covers dangerous paths only; ask rules enforce "confirm before push or delete"
+### Deny covers dangerous paths only; ask rules enforce "confirm before push" (delete left to the classifier since 2026-10-12)
 - No blanket `rm -rf *` deny (it would block requested clean-ups). Every Bash rule has an `rtk ` twin because RTK rewrites commands before rules are evaluated (`bash scripts/qa-deny.sh --static` checks it, `qa-deny.sh` tests it).
 
 ### Changes go through a branch and a PR, Claude merges (changed 2026-10-12)
