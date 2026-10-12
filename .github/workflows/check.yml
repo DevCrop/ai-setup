@@ -37,7 +37,7 @@ jobs:
       - name: Tool registry and bootstrap check
         run: |
           python3 scripts/qa-bootstrap.py
-          rc=0; python3 scripts/bootstrap.py check || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected
+          rc=0; python3 scripts/bootstrap.py check || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected; 3 = crash
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
       - name: Bench report (self-test, no model calls)
@@ -71,7 +71,7 @@ jobs:
       - name: Tool registry and bootstrap check
         run: |
           python scripts/qa-bootstrap.py
-          rc=0; python scripts/bootstrap.py check || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected
+          rc=0; python scripts/bootstrap.py check || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected; 3 = crash
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
       - name: Bench report (self-test, no model calls)

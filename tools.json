@@ -1,5 +1,5 @@
 {
-  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${DOCUMENTS} ${LOCALAPPDATA} ${REPO} ${REPO_PARENT}; never a machine's absolute path. Per-machine values go in state/machine.json. Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; formulae.brew.sh API; URLs answer HTTP 200).",
+  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${DOCUMENTS} ${LOCALAPPDATA} ${REPO} ${REPO_PARENT}; never a path inside one user's home; fixed system install locations (/Applications) are allowed. Per-machine values go in state/machine.json. Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; formulae.brew.sh API; URLs answer HTTP 200).",
   "tools": [
     {"id": "git", "label": "Git", "kind": "dep", "required": true, "bin": ["git"], "version": ["--version"],
      "install": {"winget": "Git.Git", "brew": "git"}},

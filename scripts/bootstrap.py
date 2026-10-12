@@ -6,6 +6,7 @@ Usage: python scripts/bootstrap.py [check] [--write] [--json]
            and the install command for anything missing. Exit 1 when a required item is missing or too old.
   --write  also record what was found in state/machine.json (values already there are kept).
   --json   print the result as JSON instead of lines.
+Exit codes: 0 ok, 1 a required item is missing or too old, 2 state/machine.json is broken (--write refused), 3 crash.
 """
 import argparse, json, sys
 from pathlib import Path
@@ -46,9 +47,13 @@ def lines(r):
 
 
 def found_values(r):
-    """What --write records: checkouts that were found by search (not by env var) and the project roots."""
-    co = {i["id"]: i["setup"]["checkout"] for i in r["items"] if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json"}
-    return {"checkout": co, "projectRoots": r["projectRoots"]}
+    """What --write records: what was found by search or a legacy file. A value from an env var is for that shell only and is not kept."""
+    co = {i["id"]: i["setup"]["checkout"] for i in r["items"]
+          if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("fromEnv")}
+    out = {"checkout": co}
+    if r.get("projectRootsSource") in ("state/project-roots.txt", "default"):
+        out["projectRoots"] = r["projectRoots"]
+    return out
 
 
 def main(argv=None):
@@ -59,7 +64,11 @@ def main(argv=None):
     a = ap.parse_args(argv)
     r = collect()
     if a.write:
-        toolreg.write_machine(found_values(r))
+        try:
+            toolreg.write_machine(found_values(r))
+        except ValueError as e:
+            print("not written: " + str(e), file=sys.stderr)
+            return 2
     if a.json:
         print(json.dumps(r, ensure_ascii=False, indent=2))
     else:
@@ -70,4 +79,9 @@ def main(argv=None):
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # paths hold Korean names; a cp949 console would otherwise crash on print
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception:  # exit 1 means "a required tool is missing"; a crash must not look like that to CI
+        import traceback
+        traceback.print_exc()
+        sys.exit(3)

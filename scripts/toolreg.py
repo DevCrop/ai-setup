@@ -24,7 +24,14 @@ def load_machine(repo=REPO):
 
 
 def write_machine(found, repo=REPO):
-    """Add detected values to state/machine.json. A value already there wins: the user may have set it by hand."""
+    """Add detected values to state/machine.json. A value already there wins: the user may have set it by hand.
+    A file that exists but does not parse is refused (ValueError): rewriting it from scratch would lose the hand edits in it."""
+    f = repo / "state" / "machine.json"
+    if f.exists():
+        try:
+            json.loads(f.read_text(encoding="utf-8-sig"))
+        except ValueError:
+            raise ValueError(str(f) + " is not valid JSON; fix it by hand first")
     m = load_machine(repo)
     for key, val in found.items():
         if isinstance(val, dict):
@@ -32,7 +39,6 @@ def write_machine(found, repo=REPO):
             m[key] = {**val, **cur}
         elif key not in m:
             m[key] = val
-    f = repo / "state" / "machine.json"
     f.parent.mkdir(exist_ok=True)
     f.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return m
@@ -65,7 +71,7 @@ def expand(s, toks):
 
 
 def parse_version(text):
-    m = re.search(r"\d+(?:\.\d+)+|\d+", text or "")
+    m = re.search(r"\d+(?:\.\d+)+", text or "") or re.search(r"\d+", text or "")  # a dotted number first: a date or build number may come before it
     return m.group(0) if m else None
 
 
@@ -100,10 +106,13 @@ def find_bin(entry, machine, toks):
     mp = (machine.get("bin") or {}).get(entry["id"])
     if isinstance(mp, str) and mp:
         return (shutil.which(mp) or (mp if Path(mp).exists() else None)), "machine.json"
-    for name in entry.get("bin", []):
-        w = shutil.which(name)
-        if w:
-            return w, "PATH"
+    names = [w for w in (shutil.which(n) for n in entry.get("bin", [])) if w]
+    if len(names) > 1 and entry.get("version"):  # e.g. a Windows Store python3 stub ahead of a real python: take the first that answers
+        for w in names:
+            if run_version(w, entry["version"]):
+                return w, "PATH"
+    if names:
+        return names[0], "PATH"
     for tpl in entry.get("paths", []):
         p = expand(tpl, toks)
         if p is not None and p.exists():
@@ -205,6 +214,7 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
     if entry.get("setup"):
         d, source, tried = find_checkout(entry, machine, toks, repo)
         out["setup"] = {"repo": entry["setup"]["repo"], "checkout": str(d) if d else None, "source": source,
+                        "fromEnv": bool(source) and source == entry["setup"].get("env"),
                         "tried": [s for s, _ in tried], "parser": entry["setup"].get("parser")}
     return out
 

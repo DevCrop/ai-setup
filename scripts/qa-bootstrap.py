@@ -45,6 +45,7 @@ check(toolreg.documents_dir().name != "", "documents_dir returns a folder name")
 check(toolreg.parse_version("git version 2.55.0.windows.4") == "2.55.0", "parse_version: git")
 check(toolreg.parse_version("v22.23.3") == "22.23.3", "parse_version: node v-prefix")
 check(toolreg.parse_version("2.1.296 (Claude Code)") == "2.1.296", "parse_version: claude")
+check(toolreg.parse_version("built 2026 version 1.2.3") == "1.2.3", "parse_version: a dotted version beats an earlier bare number")
 check(toolreg.version_ok("22.1", "22") and not toolreg.version_ok("21.9.9", "22"), "version_ok: major-only minimum")
 check(toolreg.version_ok("2.1.295", "2.1.295") and not toolreg.version_ok("2.1.292", "2.1.295"), "version_ok: patch boundary")
 check(not toolreg.version_ok(None, "3.11") and toolreg.version_ok(None, None), "version_ok: unknown version")
@@ -124,6 +125,11 @@ check(m["checkout"] == {"qa": "C:/hand/set", "other": "D:/글로벌"} and m["pro
 check("글로벌" in (repo / "state" / "machine.json").read_text(encoding="utf-8"), "write_machine: written as UTF-8")
 (repo / "state" / "machine.json").write_text("not json", encoding="utf-8")
 check(toolreg.load_machine(repo) == {}, "load_machine: a broken file reads as empty")
+try:
+    toolreg.write_machine({"projectRoots": ["Z"]}, repo)
+    check(False, "write_machine: refuses to overwrite a broken file")
+except ValueError:
+    check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "not json", "write_machine: refuses to overwrite a broken file")
 
 # ---- bootstrap on the real registry ----
 reg = toolreg.load_registry()
@@ -131,14 +137,22 @@ ids = [e["id"] for e in reg]
 check(len(ids) == len(set(ids)), "tools.json: ids are unique")
 check(all(e.get("kind") in ("dep", "tool") and e.get("label") for e in reg), "tools.json: every entry has kind and label")
 check(all(e["setup"].get("repo") and e["setup"].get("marker") and e["setup"].get("verify") for e in reg if e.get("setup")), "tools.json: every setup has repo, marker and verify")
-check(not any(":\\" in json.dumps(e) or "/Users/" in json.dumps(e) for e in reg), "tools.json: no machine absolute paths")
+check(not any(":\\" in json.dumps(e) or "/Users/" in json.dumps(e) or "/home/" in json.dumps(e) for e in reg), "tools.json: no path inside one user's home")
 r = bootstrap.collect()
 check({"items", "projectRoots", "missingRequired"} <= set(r) and len(r["items"]) == len(reg), "bootstrap.collect: shape")
 out = bootstrap.lines({"items": [dict(toolreg.detect(ENTRY, {}, toks, repo))], "projectRoots": [], "projectRootsSource": "default", "missingRequired": ["qa"]})
 check(out[0].startswith("MISS qa") and "install: " in out[0], "bootstrap.lines: missing required prints MISS and the install command", out[0])
 check(out[-1] == "missing required: qa", "bootstrap.lines: summary names what is missing")
-fv = bootstrap.found_values({"items": [{"id": "a", "setup": {"checkout": "P", "source": "${REPO}"}}, {"id": "b", "setup": {"checkout": "Q", "source": "machine.json"}}], "projectRoots": ["R"]})
-check(fv == {"checkout": {"a": "P"}, "projectRoots": ["R"]}, "bootstrap.found_values: does not echo machine.json back", json.dumps(fv))
+fv = bootstrap.found_values({"items": [{"id": "a", "setup": {"checkout": "P", "source": "${REPO}"}}, {"id": "b", "setup": {"checkout": "Q", "source": "machine.json"}},
+                                      {"id": "c", "setup": {"checkout": "S", "source": "QA_DIR", "fromEnv": True}}], "projectRoots": ["R"], "projectRootsSource": "default"})
+check(fv == {"checkout": {"a": "P"}, "projectRoots": ["R"]}, "bootstrap.found_values: keeps searched values, not machine.json or env ones", json.dumps(fv))
+fv = bootstrap.found_values({"items": [], "projectRoots": ["R"], "projectRootsSource": "PROJECT_ROOTS"})
+check("projectRoots" not in fv, "bootstrap.found_values: project roots from an env var are not recorded")
+os.environ["QA_DIR"] = str(envd)
+check(toolreg.detect(ENTRY, {}, toks, repo)["setup"]["fromEnv"], "detect: a checkout from the env var is marked fromEnv")
+del os.environ["QA_DIR"]
+stub = dict(ENTRY, env=None, bin=["no-such-bin-qa-xyz", Path(sys.executable).stem])
+check(toolreg.detect(stub, {}, toks, repo)["found"], "detect: PATH names are tried in order")
 
 print(("FAIL " + str(len(fails))) if fails else "ALL PASS")
 sys.exit(1 if fails else 0)
