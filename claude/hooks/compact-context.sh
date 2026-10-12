@@ -5,7 +5,7 @@
 # The search starts at the input's cwd, which follows Claude into a worktree; when that finds nothing (a cwd outside the project, or a
 # removed one), it starts again at ${CLAUDE_PROJECT_DIR}, which stays at the launch folder; not when the cwd's project has no note.
 # The search goes up to the first .claude/handoff.md, stops at the nearest project mark (.git, CLAUDE.md, AGENTS.md, .claude) that has
-# no note (a linked worktree, whose .git is a file, is not a stop), and stops at the home folder (compared with -ef, so a symlinked or differently
+# no note (a linked worktree, whose .git file points into .git/worktrees, is not a stop), and stops at the home folder (compared with -ef, so a symlinked or differently
 # spelled home is still the home folder), which is never a project. Never blocks: always exit 0, nothing on stderr.
 max=8000
 {
@@ -22,8 +22,10 @@ find_note() {
   while [ -n "$d" ] && [ "$d" != "." ] && ! [ "$d" -ef "$HOME" ]; do
     if [ -f "$d/.claude/handoff.md" ]; then printf '%s' "$d/.claude/handoff.md"; return; fi
     # a project mark without a note ends the walk: a nested project never gets its parent's note (project rule, global CLAUDE.md).
-    # A linked git worktree (.git is a file) is the same project as its main checkout, so the walk goes on to it.
-    if ! [ -f "$d/.git" ] && { [ -d "$d/.git" ] || [ -f "$d/CLAUDE.md" ] || [ -f "$d/AGENTS.md" ] || [ -d "$d/.claude" ]; }; then return 2; fi
+    # A linked git worktree (.git file whose gitdir is .../worktrees/...) is the same project as its main checkout, so the walk goes
+    # on to it; a submodule (.git file with .../modules/...) is a project of its own.
+    if [ -f "$d/.git" ] && grep -q '^gitdir: .*/worktrees/' "$d/.git"; then :
+    elif [ -e "$d/.git" ] || [ -f "$d/CLAUDE.md" ] || [ -f "$d/AGENTS.md" ] || [ -d "$d/.claude" ]; then return 2; fi
     p="$(dirname "$d")"
     [ "$p" = "$d" ] && return
     d="$p"

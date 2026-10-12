@@ -40,8 +40,8 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 | C9 | `scripts/dashboard/server.py:558` | a negative `Content-Length` blocks a handler thread (needs the token) | values below 0 rejected |
 | C10 | `scripts/dashboard/fixes.py` `MemRedactOn` | offered when `settings.json` is missing or broken, then fails; the preview names `~/.claude-mem` even with `CLAUDE_MEM_DIR` set | preview and run agree; test |
 | C11 | `scripts/apply.sh` manifest | files of a skill dropped from the copy list stay in `~/.claude/skills`, unreported | reported or removed |
-| C13 | `claude/settings.json` `model`, `scripts/verify.sh --live` | `claude plugin list` (run by `verify.sh --live`) rewrites `"model": "opus"` to `"opus[1m]"` on a fresh config, so the next `apply.sh` reports and reverts it; decide whether the repo value becomes `opus[1m]` (check model-config first) | the repo value and the CLI agree; `verify.sh --live` then `apply.sh` reports no `model` change |
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
+| C13 | `claude/settings.json` `model`, `scripts/verify.sh --live` | `claude plugin list` (run by `verify.sh --live`) rewrites `"model": "opus"` to `"opus[1m]"` on a fresh config, so the next `apply.sh` reports and reverts it; decide whether the repo value becomes `opus[1m]` (check model-config first) | the repo value and the CLI agree; `verify.sh --live` then `apply.sh` reports no `model` change |
 
 ## 4. Tests and CI
 
