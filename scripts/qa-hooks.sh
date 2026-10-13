@@ -267,4 +267,23 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *)  # without jq a GitHub file wr
   out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":"a.txt"}]}}' | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
   if [ "$rc" = 2 ]; then echo "PASS rc=2  (no jq) mcp push_files"; else echo "FAIL want=2 got=$rc  (no jq) mcp push_files [$out]"; fail=$((fail+1)); fi ;;
 esac
+# BACKLOG S5: the three secret lists agree. Every name below is a secret for the commit hook (is_secret), matches a Read(**/...) deny
+# rule in claude/settings.json, and every such rule is spelled out in the autoMode hard_deny text. Accepted differences (DECISIONS
+# "one secret list"): .claude.json and history.jsonl are commit-only; ~/.ssh/** and other ~/ rules are Read-only.
+eval "$(sed -n '/^is_secret() {/,/^}/p' "$hook")"
+settings="$repo/claude/settings.json"
+globs="$(jq -r '.permissions.deny[] | select(startswith("Read(**/")) | sub("^Read\\(\\*\\*/"; "") | rtrimstr(")")' "$settings" | tr -d '\r')"
+# Whole-name match: "*.key" must not pass because "*.keystore" is named.
+hard=" $(jq -r '.autoMode.hard_deny | join(" ")' "$settings" | sed -e 's/[(),]/ /g' -e 's/\. / /g') "
+for n in .env .env.production .credentials.json credentials.json gcp-credentials.json k.pem k.pem.bak server.key id_rsa id_ed25519 id_ecdsa id_dsa \
+         .npmrc .netrc .pypirc .pgpass .htpasswd .git-credentials a.p12 a.pfx a.jks a.keystore x.tfstate secrets.yaml secrets.yml .aws/credentials; do
+  is_secret "$n" || { echo "FAIL S5 is_secret misses $n"; fail=$((fail+1)); }
+  m=0
+  # shellcheck disable=SC2053  # $g is a glob on purpose: it is the deny rule's pattern
+  while IFS= read -r g; do [ -n "$g" ] && [[ "$n" == $g ]] && m=1; done <<< "$globs"
+  [ "$m" = 1 ] && echo "PASS S5 $n in all lists" || { echo "FAIL S5 no Read(**/...) deny rule matches $n"; fail=$((fail+1)); }
+done
+while IFS= read -r g; do
+  [ -z "$g" ] || [[ "$hard" == *" $g "* ]] || { echo "FAIL S5 hard_deny text does not name $g"; fail=$((fail+1)); }
+done <<< "$globs"
 echo "failures: $fail"; [ "$fail" = 0 ]
