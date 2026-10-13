@@ -476,39 +476,6 @@
       "monitor": false
     },
     {
-      "id": "R18",
-      "url": "https://github.com/tt-a1i/archify",
-      "canonical_url": "https://github.com/tt-a1i/archify",
-      "origin": "user",
-      "authority": "project-primary",
-      "disposition": "adopted-tool",
-      "reason": "User requires this tool; upstream describes its implementation, not measured routing savings.",
-      "review_status": "reviewed-release-adopted",
-      "body_fetched": true,
-      "historical_provenance": {
-        "inventory": "inventory/s2-20260912T150322Z/sources.json",
-        "retrieved_at_utc": "2026-09-12T15:03:23.264864+00:00",
-        "status": "fetched",
-        "final_url": "https://github.com/tt-a1i/archify",
-        "snapshot_name": "R18.txt",
-        "sha256": "2213fa18034e72b4d22ecc315b3a3f419252274a1c3953949ec27d7332589f19",
-        "error": null
-      },
-      "snapshot": null,
-      "applicable_files": [
-        "versions.lock.json",
-        "vendor/archify",
-        "diagrams/global"
-      ],
-      "monitor": false,
-      "last_review": {
-        "date": "2026-09-28",
-        "version": "3.0.0",
-        "url": "https://github.com/tt-a1i/archify/releases/tag/v3.0.0",
-        "claim": "Canonical release package; existing schema-v1 supported, guided/story views removed; finalize gates verified locally."
-      }
-    },
-    {
       "id": "R19",
       "url": "https://x.com/pvncher/status/2095991462416490862?s=46",
       "canonical_url": "https://x.com/pvncher/status/2095991462416490862",

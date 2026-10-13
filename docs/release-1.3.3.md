@@ -1,6 +1,6 @@
 # TRACE v1.3.3 — 서브에이전트 기본 모델과 Luna 탐색 에이전트
 
-사용자 선택(2026-10-12, [Decision 003](decisions/003-subagent-models.md))으로
+사용자 선택(2026-10-12, [Decision 004](decisions/004-subagent-models.md))으로
 생성되는 서브에이전트의 기본 모델을 정한다. 부모 모델은 계속 사용자가 고른다.
 
 - `config.toml` `[agents]`에 `default_subagent_model = "gpt-6.1-sol"`,

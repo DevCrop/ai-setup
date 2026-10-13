@@ -17,7 +17,7 @@
 | Python | 필수 | 3.11 이상; 이 저장소의 CI 기준은 3.11/3.14 |
 | Codex 데스크톱 앱 | 앱·예약 루틴·UI 사용 시 필요 | 공식 Windows 앱을 설치하고 본인 계정으로 로그인 |
 | Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 아래 npm 방식 또는 공식 standalone 중 한 방식 |
-| Node.js/npm | 이 문서의 npm CLI 설치·Archify 사용 시 필요 | 같은 날짜 검증 환경을 재현하려면 Node 22.23.3/npm 10.9.9 |
+| Node.js/npm | 이 문서의 npm CLI 설치 시 필요 | 같은 날짜 검증 환경을 재현하려면 Node 22.23.3/npm 10.9.9 |
 | RTK | 출력 축약 사용 시 설치 | TRACE의 고정 자산 설치기가 해당 OS/CPU 해시·버전 검증 |
 | Chrome/공식 확장 | Chrome 조작을 사용할 때 | 앱의 공식 연결 절차로 설치/연결; 기존 프로필과 권한 보존 |
 | 공식 Computer Use 플러그인 | 앱/브라우저 도구를 실제 사용할 때 | 해당 계정·앱에서 지원되는 공식 경로로 활성화 |
@@ -240,7 +240,7 @@ python -B scripts/setup.py doctor
 |---|---|---|
 | Codex 홈 | `CODEX_HOME`; 없으면 사용자 홈 `.codex`; `--home` | 설치기가 필요한 관리 파일의 부모 경로 생성; 인증/기존 설정 보존 |
 | 개인 UI 스킬 | 사용자 홈 `.agents/skills`; `--personal-skills` | 스킬 폴더 생성; Codex 홈 변경과 독립 |
-| Ponytail·Archify | Codex 홈의 `skills` | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
+| Ponytail | Codex 홈의 `skills` | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
 | 상태·한 개의 이전 복구점 | 해당 홈에 대응하는 사용자별 비공개 상태; `--state` | 다른 PC의 상태 복사 금지 |
 
 한 컴퓨터에서 여러 홈을 쓰는 경우 설치/검증/복구 모두 같은 세 경로를 사용한다.
@@ -318,8 +318,7 @@ UI 도구를 실제 사용하는 경우에만 `$computer-use-workflow`를 명시
 제공되는지 확인한다. 내장 브라우저·지정 Chrome·Windows 앱의 작은 승인된 조작을
 각각 검증한다. 파일 검사, 스킬 발견, 실제 호출, 화면 성공은 별개다.
 계정/클라이언트에서 없는 기능은 미지원으로 남기며 개인 스킬로 권한이 생기지 않는다.
-Ponytail·Archify는 필요한 작업에서 `$ponytail`/`$archify`를 명시한다.
-Archify의 기본 런타임은 Node이며, 설치된 패키지의 현재 절차를 읽고 실행한다.
+Ponytail은 필요한 작업에서 `$ponytail`을 명시한다.
 
 ## 9. 오전 8시 루틴을 새 PC에 등록하기
 

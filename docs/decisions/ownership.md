@@ -1,7 +1,7 @@
 # Ownership and package deployment
 
 The manifest owns global policy files, profiles, and every file in the reviewed
-Archify/Ponytail distributions. Bundled originals are pinned with per-file SHA-256
+Ponytail distribution. Bundled originals are pinned with per-file SHA-256
 in versions.lock.json. Keeping complete originals makes offline installation and
 transactional removal reproducible; package contents are not automatically loaded
 as prompt context.

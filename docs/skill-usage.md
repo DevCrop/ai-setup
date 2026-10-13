@@ -1,6 +1,6 @@
-# Ponytail·Archify 호출 가이드
+# Ponytail 호출 가이드
 
-두 스킬은 TRACE에서 명시적 호출 전용이다. 매 요청에 붙일 필요는 없다.
+Ponytail은 TRACE에서 명시적 호출 전용이다. 매 요청에 붙일 필요는 없다.
 스킬을 고른 뒤 **대상, 원하는 작업, 유지할 조건, 완료 조건**을 적는다.
 
 ## 선택 방법
@@ -9,7 +9,7 @@ Codex CLI/IDE에서는 `$`로 스킬을 선택하거나 `/skills`를 사용한�
 ChatGPT에서는 `@`로 선택한다. 앱의 선택 UI는 버전에 따라 다를 수 있다.
 이 Codex 데스크톱 대화에서는 사용자가 Ponytail을 선택한 뒤 `SKILL.md`가
 별도 스킬 첨부로 전달된 것을 확인했다. 이는 명시적 로딩의 증거이며,
-실제 코딩 성능이나 Archify 실행까지 확인했다는 뜻은 아니다.
+실제 코딩 성능까지 확인했다는 뜻은 아니다.
 
 아래 예시는 요청 문구다. 선택기가 나타나면 해당 스킬 항목을 선택하고
 뒤에 요청을 적는다. 스킬 이름을 코드 블록에 쓰거나 사용법을 질문하는 것과
@@ -21,31 +21,16 @@ $ponytail lite 이번 작업에만 적용해줘. src/styles/button.scss의 중�
 
 $ponytail full src/lib/parse.ts의 날짜 처리 오류를 수정해줘.
 기존 헬퍼와 오류 처리 방식을 유지하고, 해당 오류가 해결됐는지 확인해줘.
-
-$archify 이 프로젝트의 로그인 요청 흐름을 실제 코드 기준으로 그려줘.
-docs/architecture/project-flow.json과 project-flow.html을 갱신하고,
-확인하지 못한 연결은 추정으로 표시해줘. 도식 검증까지 완료해줘.
-
-$archify TRACE 글로벌 운영 흐름만 확인하고 변경된 부분을
-diagrams/global/codex-flow.json과 codex-flow.html에 반영해줘.
-프로젝트별 flow는 각 프로젝트에서 관리해줘.
 ```
 
-프로젝트에 같은 역할의 문서나 도식이 있으면 그 경로를 지정한다.
+프로젝트에 같은 역할의 문서가 있으면 그 경로를 지정한다.
 새 디렉터리 구조를 만들기 위해 중복 파일을 추가하지 않는다.
-
-Archify 3.0은 경로를 생략하면 요청별 날짜 폴더를 만드는 기본 절차가 있다.
-TRACE에서는 위 예시처럼 기존 정본 경로를 명시하고 `meta.output`에도 같은
-상대 HTML 경로를 기록한다. 검증은 `finalize`의 validate·deliver·check·browser-check
-통과로 확인한다. 자동 브라우저 검사와 사람이 화면을 보는 시각 검토는 구분한다.
-3.0에서 guided/story 뷰는 제거됐으며 기존 `meta.views`는 무시된다.
 
 ## 언제 선택하는가
 
 | 스킬 | 사용할 때 | 요청에 추가할 것 |
 |---|---|---|
 | Ponytail | 기존 구현 단순화, 중복 제거, 불필요한 추상화 검토 | 수정 범위와 유지해야 할 동작 |
-| Archify | 구조·워크플로·호출 순서를 시각화 | 근거 코드, 표현할 범위, 결과 경로 |
 
 Ponytail의 `lite/full/ultra`는 스킬의 접근 강도이며 모델의 추론 강도가 아니다.
 `lite`는 요구사항을 수행하며 단순한 대안을 제시하고, `full`은 재사용과 최소
@@ -53,13 +38,12 @@ Ponytail의 `lite/full/ultra`는 스킬의 접근 강도이며 모델의 추론 
 `full`이다. 기능·검증·보안 요구사항을 생략하는 권한은 아니다.
 
 Ponytail upstream에는 세션 지속 지시가 있지만 TRACE에서는 요청한 작업에
-한정한다. 계속 적용하려면 다음 작업에서도 명시한다. 두 스킬을 함께 쓸 때는
-“Ponytail로 구현하고, Archify로 변경된 구조만 도식화”처럼 각각의 역할을 적는다.
-설명 요청에 스킬 이름이 등장했다고 구현이나 도식 생성을 시작하지 않는다.
+한정한다. 계속 적용하려면 다음 작업에서도 명시한다.
+설명 요청에 스킬 이름이 등장했다고 구현을 시작하지 않는다.
 
 ## 설정과 확인
 
-TRACE가 관리하는 각 스킬의 `agents/openai.yaml`에는
+TRACE가 관리하는 Ponytail의 `agents/openai.yaml`에는
 `policy.allow_implicit_invocation: false`가 있다. 원본 스킬과 버전은 유지하므로
 명시적으로 사용할 때에는 상세 절차가 읽힌다. 이 정책은 다른 시스템·플러그인
 스킬의 호출 방식을 바꾸지 않는다.
@@ -70,6 +54,5 @@ TRACE가 관리하는 각 스킬의 `agents/openai.yaml`에는
 
 근거: [OpenAI Build skills](https://learn.chatgpt.com/docs/build-skills),
 [Astra 지침 가이드](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra),
-[고정 Ponytail 원본](../vendor/ponytail/SKILL.md),
-[고정 Archify 원본](../vendor/archify/SKILL.md).
+[고정 Ponytail 원본](../vendor/ponytail/SKILL.md).
 공식 호출 방식과 TRACE의 선택형·작업 한정 정책은 구분한다.

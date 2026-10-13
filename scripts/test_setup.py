@@ -32,7 +32,7 @@ class LifecycleTests(unittest.TestCase):
 
     def bundled_skill_upgrade(self, installed=True):
         entries = []
-        for name in ("archify", "ponytail"):
+        for name in ("sample", "ponytail"):
             for relative, data in (("SKILL.md", b"bundled skill\n"),
                                    ("agents/openai.yaml", b"policy:\n  allow_implicit_invocation: false\n")):
                 source = f"{name}-{relative.replace('/', '-')}"
@@ -61,36 +61,36 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(dep.inventory(), [])
         self.assertFalse(any(p.is_file() for p in (self.home / "skills").rglob("*")))
         self.assertFalse(any(key.startswith("skills/") for key in dep.record["files"]))
-        for name in ("archify", "ponytail"):
+        for name in ("sample", "ponytail"):
             self.assertTrue((dep.personal_skills / name / "SKILL.md").is_file())
             self.assertEqual((dep.personal_skills / name / "agents/openai.yaml").read_bytes(),
                              b"policy:\n  allow_implicit_invocation: false\n")
         self.assertEqual(dep.apply()["status"], "unchanged")
         dep.restore()
-        self.assertTrue((self.home / "skills/archify/SKILL.md").is_file())
-        self.assertFalse((dep.personal_skills / "archify/SKILL.md").exists())
+        self.assertTrue((self.home / "skills/sample/SKILL.md").is_file())
+        self.assertFalse((dep.personal_skills / "sample/SKILL.md").exists())
 
     def test_skill_move_preserves_unowned_old_root_files(self):
         self.bundled_skill_upgrade(installed=False)
-        for name, data in (("archify", b"bundled skill\n"), ("ponytail", b"user skill\n")):
+        for name, data in (("sample", b"bundled skill\n"), ("ponytail", b"user skill\n")):
             old = self.home / f"skills/{name}/SKILL.md"
             old.parent.mkdir(parents=True, exist_ok=True)
             old.write_bytes(data)
         dep = self.dep()
         dep.apply()
         self.assertEqual(dep.verify()["status"], "pass")
-        for name, data in (("archify", b"bundled skill\n"), ("ponytail", b"user skill\n")):
+        for name, data in (("sample", b"bundled skill\n"), ("ponytail", b"user skill\n")):
             self.assertEqual((self.home / f"skills/{name}/SKILL.md").read_bytes(), data)
             self.assertIn(f"skills/{name}/SKILL.md", dep.inventory())
 
     def test_skill_move_refuses_modified_owned_old_root_file(self):
         self.bundled_skill_upgrade()
-        old = self.home / "skills/archify/SKILL.md"
+        old = self.home / "skills/sample/SKILL.md"
         old.write_bytes(b"user edit")
         with self.assertRaises(ValueError):
             self.dep().apply(True)
         self.assertEqual(old.read_bytes(), b"user edit")
-        self.assertFalse((self.root / "personal skills/archify/SKILL.md").exists())
+        self.assertFalse((self.root / "personal skills/sample/SKILL.md").exists())
 
     def test_legacy_profile_clash_reported_without_config_changes(self):
         self.manifest["files"].append({"source": "rules.md", "target": "sol.config.toml"})

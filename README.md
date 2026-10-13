@@ -1,8 +1,7 @@
 # TRACE Setup v1.3.3
 
-Portable Codex personal instructions, optional profiles, pinned Archify/Ponytail,
-and ownership-based deployment. Python 3.11+ and Git are required; Node.js is needed
-to render Archify. Use ChatGPT subscription login on each host. No API key and no
+Portable Codex personal instructions, optional profiles, pinned Ponytail,
+RTK and ownership-based deployment. Python 3.11+ and Git are required. Use ChatGPT subscription login on each host. No API key and no
 50/200-run model benchmark are required.
 
 For the release contents, start with the Korean
@@ -49,12 +48,12 @@ local deployment state. Defaults use supported per-user locations, not drive let
 `~/.agents/skills`); CODEX_HOME does not relocate it. For isolated checks, set
 `--home`, `--personal-skills`, and `--state` to disposable locations together.
 Keep the same roots for plan/apply/verify/rollback. Overlapping roots are refused.
-The complete reviewed upstream skill packages are bundled in `vendor/` and managed
-by the same manifest for offline installation, removal, and rollback. They retain
+The complete reviewed upstream Ponytail package is bundled in `vendor/` and managed
+by the same manifest for offline installation, removal, and rollback. It retains
 upstream instructions unchanged; the global working agreement limits applicability.
-TRACE adds only `agents/openai.yaml` with implicit invocation disabled for these
-two skills. Invoke `$ponytail` or `$archify` explicitly (or select the skill in the
-app). This retains their full upstream procedures; it does not shorten the skills.
+TRACE adds only `agents/openai.yaml` with implicit invocation disabled for this
+skill. Invoke `$ponytail` explicitly (or select the skill in the
+app). This retains its full upstream procedure; it does not shorten the skill.
 `setup.py` is the sole install/update/verify/remove entry point, including skills.
 
 The personal `computer-use-workflow` skill is deployed to the supported user skill
@@ -63,7 +62,7 @@ the available official Computer Use runtime and keeps browser/native execution
 evidence separate. It is a TRACE-authored workflow, not an OpenAI-published plugin.
 See [Computer Use maintenance](docs/computer-use-maintenance.md).
 
-See [Ponytail·Archify usage examples](docs/skill-usage.md) for explicit selection,
+See [Ponytail usage examples](docs/skill-usage.md) for explicit selection,
 task scope, intensity and completion criteria. The English personalization source
 is [global/AGENTS.md](global/AGENTS.md); do not maintain a second edited copy.
 
@@ -129,11 +128,7 @@ authorization; local applied and publicly released states remain distinct.
 Start with [the project authoring contract](templates/project/README.md). Reuse
 existing rule documents; do not blindly copy the template into an existing repo.
 This release does not install product-project rules. Registered project health and
-RTK checks are separate from project onboarding. The current installation and
-adaptive-maintenance flow lives in [codex-flow.html](diagrams/global/codex-flow.html);
-the portable routine is documented in [the portable guide](docs/portable-routine.md).
-Each project's diagram must live
-in that project's own repository and describe inspected source.
+RTK checks are separate from project onboarding. The portable routine is documented in [the portable guide](docs/portable-routine.md).
 
 ## Checks and maintenance
 

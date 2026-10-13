@@ -1,4 +1,4 @@
-# Decision 003: subagent model defaults
+# Decision 004: subagent model defaults
 
 Approved by the user on 2026-10-12. The parent model stays the user's choice (decision 001); TRACE now also sets the default for spawned agents.
 
