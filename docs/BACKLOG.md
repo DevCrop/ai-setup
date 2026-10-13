@@ -1,6 +1,6 @@
 # Backlog
 
-Open work, by priority. Each row names where it is and what proves it done; delete the row in the PR that does it, and record any decision in `docs/DECISIONS.md`. Steps that GUIDE's local checklist already owns are referenced by their ID, not repeated. Every row was checked against `main` 0b43ae0 on 2026-10-12.
+Open work, by priority. Each row names where it is and what proves it done; delete the row in the PR that does it, and record any decision in `docs/DECISIONS.md`. Steps that GUIDE's local checklist already owns are referenced by their ID, not repeated. Every row was checked against `main` 31f1f01 on 2026-10-13.
 
 ## 1. Only you can do these (per machine)
 

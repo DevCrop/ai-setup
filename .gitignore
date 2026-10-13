@@ -2,15 +2,50 @@
 .credentials*
 .env*
 .claude.json
+# Secret file names that claude/hooks/secret-guard.sh is_secret() and the Read deny rules in claude/settings.json treat as secrets
+*.pem
+*.pem.*
+*.key
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+!id_rsa*.pub
+!id_ed25519*.pub
+!id_ecdsa*.pub
+!id_dsa*.pub
+*.p12
+*.pfx
+*.jks
+*.keystore
+*credentials*.json
+**/.aws/credentials
+.npmrc
+.netrc
+.pypirc
+.pgpass
+.htpasswd
+.git-credentials
+*.tfstate
+secrets.yaml
+secrets.yml
+# Example and template copies are not secrets (secret-guard lets them through too)
+!*.example
+!*.example.*
+!*.sample
+!*.sample.*
+!*.template
+!*.template.*
 
 # Personal session state
+.claude/worktrees/
 .claude/handoff.md
 settings.local.json
 history.jsonl
 
 # Per-machine values and reports (never commit)
-reports/
-state/
+/reports/
+/state/
 *.lock
 
 # OS and editor

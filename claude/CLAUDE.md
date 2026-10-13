@@ -28,7 +28,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - Never invent an input a delegate needs (an API contract, a spec, a criterion) and put it in a brief. Get it from the user or the repo; if you cannot, report the stop and what is missing.
 
 ## Safety
-- Permission mode is auto (official recommendation). Deny and ask rules and the secret-guard hook are the deterministic guard; the auto-mode classifier also reads this file, so the safety lines below steer it.
+- Deny and ask rules and the secret-guard hook are the deterministic guard; the auto-mode classifier also reads this file, so the safety lines below steer it.
 - Never read or commit `.credentials*` or `.env*`.
 - Do not attempt what the deny rules block (force push, hard reset, `git clean`), even when asked to confirm. Other hard-to-reverse actions (mass delete, deleting a remote branch, schema drop) need an explicit confirmation in the current chat turn. An earlier approval and `--no-verify` do not count, and a destructive action is never a shortcut around an obstacle.
 - Before overwriting or deleting, show the target and get confirmation.
@@ -42,9 +42,9 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - When compacting, always preserve the list of modified files, the test and check commands, and open issues.
 
 ## Tools
-- Ponytail is always on (plugin `ponytail@ponytail`, enabled in `settings.json`). `/ponytail off` turns it off for a session.
+- `/ponytail off` turns Ponytail off for one session.
 
 ## Updates
-- Claude Code updates itself on the default channel. The daily routine in `routines/daily-update.md` reports new releases and tool health and proposes config changes. Changes are applied only after review.
+- The daily routine in `routines/daily-update.md` reports new releases and tool health and proposes config changes. Changes are applied only after review.
 
 @RTK.md

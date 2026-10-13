@@ -1,6 +1,6 @@
 # Setup guide
 
-End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). This is the only runbook. Why things are the way they are: `docs/DECISIONS.md`; measurements and the original wording of old decisions: `docs/evidence.md`; open work, by priority: `docs/BACKLOG.md`.
+End-to-end order for a machine and a project. Sources: Claude Code docs (best-practices, memory, skills, plugins, permissions). This is the runbook for the Claude Code setup and the shared scripts; `codex/` and `ao/` keep their own (`operations.md` in `codex/docs/`, and `ao/README.md`). Why things are the way they are: `docs/DECISIONS.md`; measurements and the original wording of old decisions: `docs/evidence.md`; open work, by priority: `docs/BACKLOG.md`.
 
 ## Quick path (new machine, about 15 minutes)
 
@@ -34,14 +34,14 @@ claude-mem keeps a local memory database in `~/.claude-mem`. The plugin entry is
    - `CLAUDE_MEM_REDACT_ENABLED=true`: off by default; it masks secret-looking text before storage.
    The script backs up the file, changes only these two keys, and is safe to re-run.
 4. Leave Cloud Sync, Telegram and server keys empty unless you decide otherwise. The default provider uses your Claude subscription, so the observer spends plan limit; a past `quota_exhausted` entry in `~/.claude-mem/observer-health.json` is how that shows up.
-5. Check: `curl -s http://127.0.0.1:37777/api/settings` shows both values, and the dashboard "도구 점검" panel lists claude-mem items as OK. Review notes and risks: `docs/review-claude-mem.md`.
+5. Check: `curl -s http://127.0.0.1:37777/api/settings` shows both values, and the dashboard "도구 점검" panel lists claude-mem items as OK. Review notes and risks: `docs/reviews/claude-mem.md`.
 
 ## Layers
 
 | Layer | What | Where |
 |---|---|---|
 | Always on, every machine | RTK hook, Ponytail plugin, permissions (deny and ask rules, default mode auto with an `autoMode` block), `secret-guard` hook, session hooks `compact-context` and `config-audit`, short global `CLAUDE.md`, status line, agents `explorer` `reviewer` `worker` `publisher` `frontend` `backend` `qa`, daily routine | this repo, applied to `~/.claude` |
-| On demand | skill `orchestrate` (description match, or `/orchestrate`), skills `spec-writing` and `design-spec` (planning and design in the main thread), skill `project-setup` (manual, `/project-setup`), AO as an external app | skills, plugin scope, the user |
+| On demand | skill `orchestrate` (description match, or `/orchestrate`), skills `spec-writing` and `design-spec` (planning and design in the main thread), skill `project-setup` (manual, `/project-setup`), skill `ui-baseline` (preloaded into `publisher` and `frontend` when they run; not in the `/` menu), AO as an external app | skills, plugin scope, the user |
 | Per project, once | project `CLAUDE.md`, path-scoped rules, verification command, project permissions | the project's `.claude/` |
 
 Superpowers is not adopted (decision 2026-10-11): not at user scope, and no project install is recommended. Remove it from a machine with `claude plugin uninstall superpowers@claude-plugins-official`; `verify.sh --live` warns while it is installed.
@@ -53,7 +53,7 @@ Needed before the quick path (`python3 scripts/bootstrap.py check` lists all of 
 - `git` and GitHub access for the clone (the repo is private: `gh auth login` or a credential manager).
 - `jq` (required by `apply.sh` and the status line), `python3` (dashboard, QA scripts), `bash` (Git Bash on Windows).
 - `rtk` (recommended): `winget install rtk-ai.rtk`. It must be on PATH of the shell that Claude Code uses; after a fresh install open a new terminal or restart the app. Without it Bash still works, only the output filtering is off; `bash scripts/qa-deny.sh` should be run once where it is installed.
-- `node` (Ponytail hooks; the UI QA needs node 22+), `gh` (daily routine, optional).
+- `node` 22 or newer (required in `tools.json`; Ponytail hooks and the UI QA), `gh` (daily routine, optional).
 - Adding a tool: one entry in `tools.json`: `id`, `label`, `kind` (`dep` or `tool`), `required`, `bin`; optional `env`, `version`, `min`, `why`, `paths`, `home`, `setup` (needs `repo`, `marker`, `verify`), `install` (`winget` or `url`), `note`. `bootstrap.py check` shows it at once. Per-machine paths go in `state/machine.json`, never in `tools.json`.
 - Windows: Git Bash `$HOME` must equal `%USERPROFILE%`; otherwise set `CLAUDE_CONFIG_DIR` to `%USERPROFILE%\.claude`. `.gitattributes` keeps shell scripts on LF.
 
@@ -63,7 +63,7 @@ claude --version
 command -v rtk jq node gh python3
 ```
 
-Done when every command prints a value (`rtk`, `node`, `gh` may be missing; the rest may not). No path is hard-coded anywhere; only the clone location of this repo differs per machine. Cloud sessions (claude.ai/code) do not read `~/.claude`: their settings live in each project's `.claude/`.
+Done when every command prints a value (`rtk` and `gh` may be missing; the rest, `node` 22+ included, may not). No path is hard-coded anywhere; only the clone location of this repo differs per machine. Cloud sessions (claude.ai/code) do not read `~/.claude`: their settings live in each project's `.claude/`.
 
 ## 1. Apply the global setup (each machine)
 
@@ -81,7 +81,7 @@ bash scripts/verify.sh --live    # repo checks + applied files equal claude/ + t
 bash scripts/verify.sh --full    # also runs qa-deny.sh (claude CLI + haiku); run it where RTK is installed
 ```
 
-Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for example no `.ponytail-active` flag before the first new session). It is not strictly read-only: it runs `claude --version` and `claude plugin list`, and the CLI may rewrite `settings.json` while loading it (seen with Claude Code 2.1.296 on a fresh config: `"model": "opus"` became `"opus[1m]"`, and a `modelSettings` that is not an object was dropped); the next `apply.sh` restores the repo values (the repo spells the model `opus[1m]` since 2026-10-13, so that rewrite no longer shows as drift). Then spot-check by hand: `rtk gain` total commands grows after a few Bash calls, the status line shows `[model] N% context`, `/context` lists the Memory files `CLAUDE.md` and `RTK.md`, the seven custom agents (`explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`) and the skills (`orchestrate`, `spec-writing`, `design-spec`, ...), and `claude plugin details ponytail` shows its always-on token cost.
+Done when `verify.sh --live` prints `0 FAIL`. WARN lines are informational (for example no `.ponytail-active` flag before the first new session). It is not strictly read-only: it runs `claude --version` and `claude plugin list`, and the CLI may rewrite `settings.json` while loading it (seen with Claude Code 2.1.296 on a fresh config: `"model": "opus"` became `"opus[1m]"`, and a `modelSettings` that is not an object was dropped); the next `apply.sh` restores the repo values (the repo spells the model `opus[1m]` since 2026-10-13, so that rewrite no longer shows as drift). Then spot-check by hand: `rtk gain` total commands grows after a few Bash calls, the status line shows `[model] N% context`, `/context` lists the Memory files `CLAUDE.md` and `RTK.md`, the seven custom agents (`explorer`, `reviewer`, `worker`, `publisher`, `frontend`, `backend`, `qa`) and the skills (`orchestrate`, `spec-writing`, `design-spec`, `project-setup`, `ui-baseline`), and `claude plugin details ponytail` shows its always-on token cost.
 
 `apply.sh` merges `settings.json` instead of replacing it. This repo owns the top-level and `permissions.*` keys listed in `scripts/owned-keys.json` (read by both `apply.sh` and `verify.sh --live`) and the fields it sets inside `modelSettings` entries (live values are replaced, a key the repo lacks is deleted) and every other key the repo sets (`model`, `effortLevel`, ...). Keys that exist only on the machine, such as `env` (for example `CLAUDE_CODE_TMPDIR`) or a plugin enabled by `claude plugin install`, are kept and reported. `scripts/removed-keys.json` lists keys that are deleted. Files that an earlier apply copied (tracked in `~/.claude/.ai-setup-manifest`; a manifest under the pre-rename name is moved to it once, and `verify.sh --live` warns until then) and the repo no longer has are removed; files of an item dropped from the copy list (a retired skill) are kept and reported as `kept (dropped from the copy list ...)` on every apply and dry run until removed by hand; files that never came from this repo are kept and reported. `verify.sh --live` compares only the owned keys (WARN on a difference, INFO for machine-only keys).
 
@@ -132,7 +132,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 - Model of the scheduled task: the app task has no model field, so it runs on the app default. The first manual run (2026-10-09) ran on Haiku by decision; the first automatic run showed `claude-sonnet-5-5`, but whether that came from a setting or the default is unknown. Set Opus explicitly in the app's Scheduled settings (Sonnet until 2026-10-12) and check the model shown in the run session. Set the task's permission mode to auto too.
 - Monthly: `/doctor` on `CLAUDE.md`, skills and agents; `/context` for the share of system and MCP tool definitions (switch off connectors you do not use, for example the Chrome and Browser tools); `/skill-doctor` for what each skill costs and how often it is used (skills doc; Claude Code 2.1.252 or newer, run in the terminal, not over Remote Control, and not available when feature-flag fetching is off); `/insights` for friction points across recent sessions (costs doc; it uses tokens from your plan).
 - After any change to permissions or hooks: `bash scripts/verify.sh --full` on every machine where RTK is installed.
-- Weekly (GitHub, no PC involved): `.github/workflows/updates.yml` runs `scripts/check-updates.py --write` and opens or updates the PR `chore: update pinned versions` from `bot/updates` when a plugin pin, the Codex Ponytail skill, RTK or a recorded tool version moved (DECISIONS "Pinned versions move by a weekly PR"). Preview by hand: `python3 scripts/check-updates.py` (report only).
+- Weekly (GitHub, no PC involved): `.github/workflows/updates.yml` runs `scripts/update-pins.py --write` and opens or updates the PR `chore: update pinned versions` from `bot/updates` when a plugin pin, the Codex Ponytail skill, RTK or a recorded tool version moved (DECISIONS "Pinned versions move by a weekly PR"). Preview by hand: `python3 scripts/update-pins.py` (report only).
 - Edit `claude/` in this repo, never `~/.claude` directly.
 
 ## Live dashboard
@@ -141,7 +141,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 - Code: Python modules in `scripts/dashboard/` (`procs.py` is the only place a process starts, hidden on Windows), UI as ES modules in `scripts/dashboard/ui/` (a screen is a `Tab` subclass in `ui/tabs/`, built from `ui/components.js`).
 - Codex setup tab: shows what the Codex global setup (TRACE, [`codex/`](../codex/README.md)) reports about itself: `setup.py verify` and `setup.py plan` (both read-only) and `codex --version`. It never runs apply or rollback; those stay with Codex. The checkout is `codex/` in this repo only (`checkout.codex` in `state/machine.json` is not read). The Codex CLI is `CODEX_BIN` or `codex` on PATH. TRACE needs Python 3.11+.
-- Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths. Project roots name parent folders whose direct sub-folders are all listed (one level, never a drive root); they are read as `bootstrap.py check` reads them (`scripts/toolreg.py`): `PROJECT_ROOTS` (paths joined by the OS path separator) > `state/machine.json` `projectRoots` > `state/project-roots.txt` > `~/Projects` when it exists. A project root is the "work root" of the global path rule; with the `<client>/<stage>/<name>` layout, list the stage folders (a deeper search was dropped, `docs/DECISIONS.md` "two Windows PCs").
+- Project list: `PROJECT_DIRS` (paths joined by the OS path separator, `;` on Windows) or, without it, `state/projects.txt` (one path per line, `#` starts a comment); with neither, it uses folders recorded in session logs, skipping temp and worktree paths. Project roots name parent folders whose direct sub-folders are all listed (one level, never a drive root); they are read as `bootstrap.py check` reads them (`scripts/toolreg.py`): `PROJECT_ROOTS` (paths joined by the OS path separator) > `state/machine.json` `projectRoots` > `state/project-roots.txt` > `~/Projects` when it exists. A project root is the "work root" of the global path rule; with the `<client>/<stage>/<name>` layout, list the stage folders (a deeper search was dropped, `docs/DECISIONS.md` "two Windows PCs").
 - Autostart is a per-machine choice, not in the repo. Windows: a `.vbs` in the Startup folder that runs `pythonw scripts/dashboard/server.py` hidden (step 5 of section 1b).
 - Checks: `bash scripts/qa-dashboard.sh` (API, security, static files), `bash scripts/qa-ui.sh` (headless Chrome: every tab, three widths, palette, dialogs, flow lines, live update, offline and recovery; needs node 22+).
 - Not measured: sessions that run on another machine.
@@ -230,7 +230,7 @@ Container run, 2026-10-11 (Linux, claude 2.1.296, no RTK): `verify.sh` 0 FAIL, `
 
 ## Not verified
 
-- Windows Git Bash behavior of `apply.sh`, `verify.sh`, the plugin hooks and `qa-deny.sh` with the real RTK hook (tested on Linux without RTK).
+- Windows Git Bash with the real RTK hook: `apply.sh`, `verify.sh --live` and `qa-deny.sh` passed on 2026-10-13 (checklist L-1 and L-5); the plugin hooks there and the jq-off secret-guard simulation (L-1, L-8) are not checked.
 - The `claude plugin list` output format that `verify.sh` parses for the Ponytail status; a changed format shows up as a WARN, not a false PASS.
 - How often `orchestrate` is loaded by description matching (`/orchestrate` is the fallback).
 - `secret-guard`: hook latency, and running next to the real RTK hook (checked once with RTK-less project settings: `git add -A` was blocked).

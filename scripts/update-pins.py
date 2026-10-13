@@ -13,7 +13,7 @@ Unpinned tools: docs/tool-versions.json records the newest release seen (version
 Python is the newest patch of the minor that tools.json's winget id installs. A version that is not a plain
 version string is a failed source.
 
-Usage: python3 scripts/check-updates.py [--write] [--root DIR]
+Usage: python3 scripts/update-pins.py [--write] [--root DIR]
 Exit: 0 every source answered; 2 at least one source failed (the others are still reported and, with --write, written); 1 crash.
 Standard library only, Python 3.11+. Uses $GITHUB_TOKEN for the GitHub API when it is set."""
 import argparse
@@ -46,7 +46,7 @@ SEEN = {
     "ao": ("Agent Orchestrator", "github", "OrchestratorInc/agent-orchestrator"),
 }
 SEEN_DOC = ("Newest upstream release seen for tools this repo does not pin; not what any PC has installed. "
-            "Written by scripts/check-updates.py --write (weekly, .github/workflows/updates.yml); a changed version "
+            "Written by scripts/update-pins.py --write (weekly, .github/workflows/updates.yml); a changed version "
             "shows in that workflow's PR so each PC can run winget upgrade.")
 
 
@@ -65,7 +65,7 @@ class Net:
         return r.stdout
 
     def _get(self, url, limit):
-        headers = {"User-Agent": "ai-setup-check-updates/1"}
+        headers = {"User-Agent": "ai-setup-update-pins/1"}
         if url.startswith("https://api.github.com/"):
             headers["Accept"] = "application/vnd.github+json"
             if self.token:
@@ -85,7 +85,7 @@ class Net:
     def tree(self, url, commit, path):
         """Files under `path` at `commit`, as {path relative to `path`: bytes}. Fetches that one commit; no checkout."""
         env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1")
-        with tempfile.TemporaryDirectory(prefix="check-updates-") as d:
+        with tempfile.TemporaryDirectory(prefix="update-pins-") as d:
             def git(*args, text=True):
                 r = subprocess.run(["git", "-C", d, *args], capture_output=True, text=text, timeout=180, env=env)
                 if r.returncode:
