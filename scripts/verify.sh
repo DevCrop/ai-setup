@@ -133,6 +133,10 @@ if command -v jq >/dev/null 2>&1; then
   jq -e '.outputStyle == "Concise"' "$src/settings.json" >/dev/null 2>&1 \
     && pass "outputStyle is Concise" \
     || fail "settings.json outputStyle must be Concise (case-sensitive)"
+  # Weekly CI (decision 2026-10-13): check.yml also runs on a schedule and by hand.
+  grep -q '^  schedule:' "$repo/.github/workflows/check.yml" && grep -q '^  workflow_dispatch:' "$repo/.github/workflows/check.yml" \
+    && pass "check.yml runs weekly and by hand" \
+    || fail "check.yml must keep its schedule and workflow_dispatch triggers"
   jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
     && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
     || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
