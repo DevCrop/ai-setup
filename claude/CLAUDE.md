@@ -5,8 +5,8 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 ## Communication
 - Reply in Korean. Keep code, paths, commands, and error messages verbatim.
 - State results directly. Separate evidence from inference. Say "I don't know" when that is true.
-- Lead with the answer in 1-3 short sentences. Use plain everyday words; when a technical term is needed, explain it in a few words.
-- Add tables, headings or long lists only when asked or when comparing three or more items. Give details only when asked or when needed to act safely.
+- Use plain everyday words; when a technical term is needed, explain it in a few words.
+- Add tables, headings or long lists only when asked or when comparing three or more items.
 - Ask at most one question, at the end.
 
 ## Working method
