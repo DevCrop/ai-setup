@@ -1,6 +1,6 @@
 # ai-setup
 
-Source of truth for the global Claude Code setup (`~/.claude` on each machine). Edit `claude/` here, never `~/.claude` directly; `bash scripts/apply.sh` copies it over.
+Source of truth for the global agent setup on each machine: Claude Code (`claude/`, applied to `~/.claude`), the Codex setup TRACE (`codex/`, applied to `~/.codex` by its own `setup.py`, see [codex/README.md](codex/README.md)) and the Agent Orchestrator project setup (`ao/`, see [ao/README.md](ao/README.md)). Edit `claude/` here, never `~/.claude` directly; `bash scripts/apply.sh` copies it over.
 
 ## What do you want to do?
 
@@ -12,10 +12,10 @@ Source of truth for the global Claude Code setup (`~/.claude` on each machine). 
 | **You changed permissions or hooks** | `bash scripts/verify.sh --full` on every machine that has RTK | `qa-deny.sh` prints PASS for all cases |
 | **Something looks wrong** | [Where to check what](#where-to-check-what), then "Troubleshooting and traps" in docs/GUIDE.md | |
 
-After `git pull` (and `apply.sh`), restart the dashboard if it runs, so it reads the new code. Windows (PowerShell):
+After `git pull` (and `apply.sh`), restart the dashboard if it runs, so it reads the new code. Windows (PowerShell; it stops only Python processes whose command line names `scripts\dashboard\server.py`, never anything else on port 8787; not run on Windows yet, written 2026-10-13):
 
 ```powershell
-Get-NetTCPConnection -LocalPort 8787 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+Get-CimInstance Win32_Process -Filter "Name LIKE 'python%'" | Where-Object { $_.CommandLine -match 'scripts[\\/]dashboard[\\/]server\.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId }
 Start-Process pythonw -ArgumentList 'scripts\dashboard\server.py' -WindowStyle Hidden -WorkingDirectory C:\path\to\ai-setup
 ```
 
@@ -47,7 +47,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 | Do the session hooks work? | `bash scripts/qa-hooks-session.sh` (compact-context and config-audit; no model calls; pass a mutated copy of `claude/hooks/` the same way) |
 | Is the dashboard healthy? | `bash scripts/qa-dashboard.sh` (API, security) and `bash scripts/qa-ui.sh` (headless Chrome, every tab); both end with `failures: 0` |
 | Do the role agents route and refuse correctly? | `bash scripts/qa-role-agents.sh <work-dir> [case]` (costs tokens; `QA_MODE=selftest` is free) |
-| What changed upstream (Claude Code, RTK, docs)? | `reports/YYYY-MM-DD.md`, written by the daily routine; pin moves and new tool releases arrive as the weekly PR `chore: update pinned versions` (`python3 scripts/check-updates.py` previews it) |
+| What changed upstream (Claude Code, RTK, docs)? | `reports/YYYY-MM-DD.md`, written by the daily routine; pin moves and new tool releases arrive as the weekly PR `chore: update pinned versions` (`python3 scripts/update-pins.py` previews it) |
 | Which tools are used and what do they save? | dashboard tab "도구 효율" (every number is labelled measured, estimated or unavailable) |
 | Single vs subagents vs AO, same task | `bash scripts/bench.sh run <work> single 3` (and `subagents 3`; AO arm in docs/GUIDE.md), then `bench.sh report <work>`; the dashboard panel "같은 과제 비교" reads `reports/bench/latest.json` |
 | Is claude-mem working? | `curl -s http://127.0.0.1:37777/api/health` and the dashboard panel "도구 점검" |
@@ -58,7 +58,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 
 1. Branch from `main`, edit `claude/` or `scripts/`, run the check that matches the change (table above).
 2. Open a PR. A separate reviewer subagent checks it against written criteria; the author does not verify its own work.
-3. CI must be green on linux and windows (it also runs every Monday, and by hand from the Actions tab). Then merge (Claude merges once CI is green and the reviewer has no open findings).
+3. Every CI job must be green (`check.yml`: `linux`, `windows`, `codex`, `ao`; it also runs every Monday, and by hand from the Actions tab). Then merge (Claude merges once CI is green and the reviewer has no open findings).
 4. Every machine: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`.
 
 Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewrites `git ...` before permission rules run); `claude/CLAUDE.md` stays under 200 lines; never commit `reports/`, `state/`, credentials or `.env*`.
@@ -79,11 +79,16 @@ Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewr
 - `claude/hooks/secret-guard.sh` — PreToolUse hook: blocks `git add/stage/commit/push/update-index/mv/apply --index/am` of secret-looking files (the list is `is_secret` in the script); fails closed when it cannot judge
 - `claude/hooks/compact-context.sh`, `claude/hooks/config-audit.sh` — SessionStart (compact) hook that re-injects the project's handoff note, and ConfigChange hook that logs edits to `~/.claude` for `verify.sh --live` (never block)
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
-- `docs/` — `GUIDE.md` (start here), `DECISIONS.md`, `BACKLOG.md` (open work), `evidence.md` (Korean originals kept verbatim), `codex-alignment.md`, `review-claude-mem.md`
+- `docs/` — `GUIDE.md` (start here), `DECISIONS.md`, `BACKLOG.md` (open work), `evidence.md` (Korean originals kept verbatim), `codex-alignment.md`; `reviews/` (tool reviews: `claude-mem.md`, `superpowers-review.md`); `tool-versions.json` (newest upstream release of each unpinned tool, written by `scripts/update-pins.py --write` in the weekly PR, not by hand; it stays in `docs/` because that PR copies only that path and the pin files)
 - `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py` (+ `bootstrap.ps1` for a bare machine) — tool registry and the machine setup entry point
-- `scripts/apply.sh`, `verify.sh`, `docs-watch.sh`, `setup-claude-mem.sh`, `bench.sh` — apply, read-only checks, docs diff for the routine, claude-mem settings, benchmark harness
-- `scripts/qa-*.sh` — QA suites (hooks, deny rules, dashboard API and UI, role agents, project setup, statusline)
+- `scripts/owned-keys.json`, `scripts/removed-keys.json` — `settings.json` keys this repo owns (read by `apply.sh` and `verify.sh --live`) and keys `apply.sh` deletes
+- `scripts/apply.sh`, `verify.sh`, `docs-watch.sh`, `setup-claude-mem.sh`, `bench.sh` — apply, read-only checks, docs diff for the routine, claude-mem settings, benchmark harness (`scripts/bench/`: fixture, hidden tests, reference solution, `report.py`, `selftest.py`)
+- `scripts/update-pins.py` — moves the plugin, Codex Ponytail and RTK pins and records `docs/tool-versions.json` (named so it is not confused with `codex/scripts/check_updates.py`, a different script; DECISIONS 2026-10-13)
+- `scripts/qa-*.sh`, `qa-*.py`, `qa-ui.mjs` — QA suites (hooks, deny rules, apply, dashboard API, units and UI, role agents, project setup, statusline, docs watch, bootstrap, fixes, spawn guard, claude-mem setup, `qa-update-pins.py` with fake fetchers; `qa-dashboard-golden.json` is fixture data)
 - `scripts/dashboard/` — local dashboard (`server.py` + `ui/` ES modules), `http://127.0.0.1:8787`
+- `.github/workflows/check.yml` (CI: jobs `linux`, `windows`, `codex`, `ao`; push to `main`, PRs, Mondays, by hand), `.github/workflows/updates.yml` (weekly pin PR, runs on `main` only), `.github/dependabot.yml` (weekly PRs that move the commit SHAs the workflow actions are pinned to)
+- `codex/` — the Codex setup TRACE (moved in from DevCrop/codex-setup; own README, decisions in `codex/docs/decisions/`, runbook `operations.md` in `codex/docs/`)
+- `ao/` — the AO project setup (`setup.py`, `launch.ps1`, QA; runbook `ao/README.md`)
 - `state/`, `reports/` — per-machine values (`state/machine.json` from `bootstrap.py check --write`, and the older `project-roots.txt`, still read when machine.json has no `projectRoots`), the daily routine's baseline (`state/last-seen.json`) and reports (gitignored)
 
 Runtime data (credentials, session history, auto-memory, plugins, caches) is never stored here. See `.gitignore`. Scope: local machines only; cloud sessions read the project's own `.claude/`, not `~/.claude/`.
@@ -96,5 +101,5 @@ Needs `jq`; run in Git Bash. It copies `CLAUDE.md`, `RTK.md`, `settings.json`, `
 
 - **Windows, first machine:** applied and checked 2026-10-10 and 2026-10-11 (PRs up to #69). A real `claude -p` session in `bypassPermissions` with RTK on had `git add -A` blocked by the secret-guard hook (2026-10-10).
 - **Windows, second machine (fresh clone of `main`, 2026-10-12, PRs up to #88):** `verify.sh --live` 0 FAIL, 0 WARN; `qa-deny.sh` all 26 cases pass after `claude` login; `qa-dashboard.sh` and `qa-ui.sh` `failures: 0`; role-agent QA run, python-launcher fix in #83, scenario fixes in #86 and #87; benchmark single vs subagents vs AO, 3 runs each, all hidden tests 100% (results in the dashboard panel "같은 과제 비교"; `reports/bench/` is not committed).
-- **Not recorded elsewhere:** the second-machine results above are from the operator's runs and are not in `docs/evidence.md`; the "Last run" column of the local test checklist in `docs/GUIDE.md` is still empty.
+- **Not recorded elsewhere:** the second-machine results above are from the operator's runs and are not in `docs/evidence.md`. The "Last run" column of the local test checklist in `docs/GUIDE.md` has entries for L-1, L-5 and L-6 (2026-10-12 and 10-13); the other rows are still empty.
 - **Not run:** a reboot test of the dashboard autostart, Opus/auto mode of the scheduled task (set by hand in the app).

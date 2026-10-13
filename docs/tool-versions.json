@@ -1,5 +1,5 @@
 {
-  "_doc": "Newest upstream release seen for tools this repo does not pin; not what any PC has installed. Written by scripts/check-updates.py --write (weekly, .github/workflows/updates.yml); a changed version shows in that workflow's PR so each PC can run winget upgrade.",
+  "_doc": "Newest upstream release seen for tools this repo does not pin; not what any PC has installed. Written by scripts/update-pins.py --write (weekly, .github/workflows/updates.yml); a changed version shows in that workflow's PR so each PC can run winget upgrade.",
   "tools": {
     "claude": {
       "label": "Claude Code",
