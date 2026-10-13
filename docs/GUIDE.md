@@ -17,7 +17,7 @@ Run in order; each line says what proves it worked. Prerequisites are in section
 | 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
 | 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
 
-Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`.
+Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`. When a pin in `settings.json` moved to a newer version (the daily report says "update needed"), back up `~/.claude-mem` and run `claude plugin update <id>` in a new session; never when the installed version is newer than the pin.
 
 ## claude-mem (per machine)
 
