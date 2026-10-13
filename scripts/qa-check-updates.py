@@ -170,6 +170,8 @@ t = cu.tag_commits(ls(("v1.0.0^{}", B), ("v1.0.0", A), ("v0.9.0", C)))
 check(t == {"v1.0.0": B, "v0.9.0": C}, "peel: ^{} line wins whatever the order; lightweight tag keeps its sha", t)
 check(cu.newest_stable(["v1.9.0", "v1.10.0", "v2.0.0-rc.1", "latest", "1.10.1"]) == "1.10.1", "newest: numeric order, prereleases and names ignored")
 check(cu.newest_stable(["nightly"]) is None, "newest: no stable tag gives None")
+r = cu.Run(".", None, "2026-10-13"); r.error("x", ValueError("bad [link](http://e) @someone `cmd` <b>"))
+check(not any(c in r.errors[0] for c in "[]@`<>"), "error(): upstream text in an exception cannot carry Markdown, mentions or HTML into the PR body", r.errors)
 
 # ---- newer tags: pins, sha and vendored files updated ----
 root = make_repo()

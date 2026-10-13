@@ -64,7 +64,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}  # the commit the check job read, so a later push to main is not undone by the copy
       - uses: actions/download-artifact@v4
         with:
           name: updates
@@ -87,8 +87,8 @@ jobs:
           pr="$(gh pr list --head bot/updates --base main --state open --json number --jq '.[0].number // empty')"
           if git diff --cached --quiet; then
             echo "No pin or recorded version changed."
-            # An open bot PR whose files now equal main's has nothing left to merge.
-            if [ -n "$pr" ] && git fetch -q --depth=1 origin bot/updates && git diff --quiet HEAD FETCH_HEAD -- "${paths[@]}"; then
+            # Upstream now equals main, so an open bot PR either changes nothing or would move pins back: close it.
+            if [ -n "$pr" ]; then
               gh pr close "$pr" --comment "No change left; closed by updates.yml."
             fi
             exit 0

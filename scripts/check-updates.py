@@ -100,7 +100,7 @@ class Net:
                 meta, name = line.split("\t", 1)
                 mode, kind, blob = meta.split()
                 if kind != "blob" or mode not in ("100644", "100755"):
-                    raise ValueError(f"unexpected entry {mode} {kind} {name}")
+                    raise ValueError(f"unexpected entry {mode} {kind} {plain(name)}")
                 out[PurePosixPath(name).relative_to(path).as_posix()] = git("cat-file", "blob", blob, text=False)
             return out
 
@@ -162,6 +162,7 @@ class Run:
 
     def error(self, item, exc):
         msg = exc if isinstance(exc, str) else f"{type(exc).__name__}: {str(exc)[:200]}"
+        msg = re.sub(r"[^0-9A-Za-z.+_:/ ()'?=,-]", "?", msg)  # exception text can carry upstream text into the PR body
         self.errors.append(f"{item}: {msg}")
 
     def pin(self, label, current, newest, action):
@@ -213,15 +214,15 @@ class Run:
                     for rel in files:
                         p = PurePosixPath(rel)
                         if p.is_absolute() or ".." in p.parts or not p.parts:
-                            raise ValueError(f"unsafe path {rel}")
+                            raise ValueError(f"unsafe path {plain(rel)}")
                 except Exception as exc:
                     self.error(labels, exc)
                     for _, label, cur, _ in behind:
                         self.pin(label, cur, newest, "not updated (source failed; pins stay together)")
                     continue
                 if set(files) != set(skill["files"]):
-                    added = sorted(set(files) - set(skill["files"]))
-                    removed = sorted(set(skill["files"]) - set(files))
+                    added = [plain(x) for x in sorted(set(files) - set(skill["files"]))]
+                    removed = [plain(x) for x in sorted(set(skill["files"]) - set(files))]
                     self.notes.append(f"{name}: upstream {newest} changes the skill's file set (added {added or 'none'}, "
                                       f"removed {removed or 'none'}); update codex/vendor/{name}/, codex/manifest.json and "
                                       "the lock by hand")
