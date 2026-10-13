@@ -1,0 +1,1317 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-08",
+  "scope": "36 previously registered references, plus implementation sources. Fetched is not equivalent to reviewed. Historical inventory identifiers are archival provenance, not runtime dependencies.",
+  "sources": [
+    {
+      "id": "R01",
+      "url": "https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra",
+      "canonical_url": "https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Current official implementation guidance; only reviewed relevant sections underpin active policy.",
+      "review_status": "full-body-reviewed-2026-09-14",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.388756+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra",
+        "snapshot_name": "R01.txt",
+        "sha256": "12721134e08eb55b05e594855d11b7db4e76f77c00e84d4482f5cc68fabbcdf9",
+        "error": null
+      },
+      "snapshot": {
+        "path": "snapshots/R01.md",
+        "sha256": "a1deee4c0b3ca16a20385c27f0692e22d5150fdec81710c04742dd5da29f0468",
+        "bytes": 6517,
+        "retrieved_at_utc": "2026-09-14T14:14:52.847885+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "docs/operations.md",
+        "global/AGENTS.md",
+        "global/guides/official-source-workflow.md"
+      ],
+      "monitor": true,
+      "latest_relevant_review": {
+        "date": "2026-10-07",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "sections": [
+          "Up-to-date AGENTS.md",
+          "Persistence"
+        ],
+        "claim": "Task-relevant concise guidance and explicit completion; no performance transfer from Astra to the selected Sol model.",
+        "scope": "Relevant sections only; original snapshot bytes preserved"
+      },
+      "adopted_claims": [
+        "Define completion before implementation; read task-relevant guidance and avoid unnecessary verification."
+      ]
+    },
+    {
+      "id": "R02",
+      "url": "https://developers.openai.com/blog/architectural-visualization-with-astra",
+      "canonical_url": "https://developers.openai.com/blog/architectural-visualization-with-astra",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.389267+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/blog/architectural-visualization-with-astra",
+        "snapshot_name": "R02.txt",
+        "sha256": "3404a280a2d02408b2e77702e5e35e852e594f138396817156bc56590f498bb7",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R03",
+      "url": "https://developers.openai.com/blog/how-to-build-games-with-astra",
+      "canonical_url": "https://developers.openai.com/blog/how-to-build-games-with-astra",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.389468+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/blog/how-to-build-games-with-astra",
+        "snapshot_name": "R03.txt",
+        "sha256": "d9be2cc2bd6b7c62d259bb0851a7401a2f958ba77630613460a0f10e9cd284fb",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R04",
+      "url": "https://learn.chatgpt.com/guides/best-practices",
+      "canonical_url": "https://learn.chatgpt.com/guides/best-practices",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Reviewed goal/context/constraints/done-when, concise project guidance and relevant testing/diff-review sections; diagnostic classification remains local policy.",
+      "review_status": "relevant-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.389882+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/guides/best-practices",
+        "snapshot_name": "R04.txt",
+        "sha256": "2b5c9ac4c7aa120957105f35b83fd24c7ad33bb2b63910c516ea4fd5811a9da9",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [
+        "docs/operations.md",
+        "global/AGENTS.md",
+        "global/guides/official-source-workflow.md",
+        "templates/project/AGENTS.md"
+      ],
+      "monitor": true,
+      "latest_relevant_review": {
+        "date": "2026-10-07",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "sections": [
+          "Make guidance reusable with AGENTS.md",
+          "Improve reliability with testing and review",
+          "Use scheduled tasks for repeated work"
+        ],
+        "claim": "Codify confirmed recurring mistakes in concise scoped guidance; verify requested results.",
+        "scope": "Relevant sections only; original snapshot bytes preserved"
+      },
+      "adopted_claims": [
+        "Define the requested outcome and acceptance criteria.",
+        "Use concise project guidance and relevant checks; review the affected diff.",
+        "Add durable guidance for confirmed recurring mistakes rather than every attempt."
+      ]
+    },
+    {
+      "id": "R05",
+      "url": "https://openai.com/ko-KR/business/guides-and-resources/how-openai-uses-codex/",
+      "canonical_url": "https://openai.com/ko-KR/business/guides-and-resources/how-openai-uses-codex/",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "unverified",
+      "reason": "Body not available in retained evidence; not used as authority.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.541942+00:00",
+        "status": "fetch-failed",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": "HTTPError: HTTP Error 403: Forbidden"
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R06",
+      "url": "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
+      "canonical_url": "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "superseded",
+      "reason": "Historical model guide retained; current feature docs and Astra design guidance govern new settings.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.545425+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide",
+        "snapshot_name": "R06.txt",
+        "sha256": "a509dcad653606df65f5a4836e6a3bcf9efaa7f7d730392e5a81efb2c61447a3",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R07",
+      "url": "https://learn.chatgpt.com/docs/agent-configuration/rules",
+      "canonical_url": "https://learn.chatgpt.com/docs/agent-configuration/rules",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.546910+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/agent-configuration/rules.md",
+        "snapshot_name": "R07.txt",
+        "sha256": "04c837d168686d94e4fce70cac20e40fa6e5a7bc07047938dc699edcd546d5d3",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R08",
+      "url": "https://learn.chatgpt.com/docs/agent-configuration/speed",
+      "canonical_url": "https://learn.chatgpt.com/docs/agent-configuration/speed",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.600514+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/agent-configuration/speed.md",
+        "snapshot_name": "R08.txt",
+        "sha256": "a5bb428b3ad9b5e7981e6c7f71fd452df159ae41eb2243ff644a80b0a4ad152c",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R09",
+      "url": "https://learn.chatgpt.com/docs/agent-configuration/subagents?surface=app",
+      "canonical_url": "https://learn.chatgpt.com/docs/agent-configuration/subagents",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Current official implementation guidance; only reviewed relevant sections underpin active policy.",
+      "review_status": "relevant-sections-reviewed-2026-09-14",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.610451+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/agent-configuration/subagents?surface=app",
+        "snapshot_name": "R09.txt",
+        "sha256": "8ea9482d6e2cc70b659084345e24828dc55c670384241e67cc18ede1c85d5452",
+        "error": null
+      },
+      "snapshot": {
+        "path": "snapshots/R09.md",
+        "sha256": "578375343fcbb4bfac2121fbc2bc1ef9839b306c98e49e0472310ef6e179f5a6",
+        "bytes": 22084,
+        "retrieved_at_utc": "2026-09-14T14:14:53.264761+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "global/config.base.toml",
+        "global/guides/agent-orchestration.md"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R10",
+      "url": "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+      "canonical_url": "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Current official implementation guidance; only reviewed relevant sections underpin active policy.",
+      "review_status": "relevant-sections-reviewed-2026-09-14",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.691800+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/agent-configuration/agents-md.md",
+        "snapshot_name": "R10.txt",
+        "sha256": "9d1f87a2d1cb55b4782b95abe710692b35b9659789c2db31a22c7074a3383e8e",
+        "error": null
+      },
+      "snapshot": {
+        "path": "snapshots/R10.md",
+        "sha256": "9d1f87a2d1cb55b4782b95abe710692b35b9659789c2db31a22c7074a3383e8e",
+        "bytes": 9149,
+        "retrieved_at_utc": "2026-09-14T14:14:53.492958+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "templates/project/AGENTS.md",
+        "global/guides/official-source-workflow.md"
+      ],
+      "monitor": true,
+      "latest_relevant_review": {
+        "date": "2026-10-08",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "claim": "Global Codex-home instructions load across working roots; closer project overrides and global AGENTS.override precedence must be respected.",
+        "scope": "Project error workflow; preserve historical snapshots and exact installed runtime boundaries"
+      }
+    },
+    {
+      "id": "R11",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-basic",
+      "canonical_url": "https://learn.chatgpt.com/docs/config-file/config-basic",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.783224+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/config-file/config-basic.md",
+        "snapshot_name": "R11.txt",
+        "sha256": "7fc85ae0b8f8ae1483fca0cf8972ccc6ee6b923c9e156b0c2965c52ecb5941e0",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R12",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-advanced",
+      "canonical_url": "https://learn.chatgpt.com/docs/config-file/config-advanced",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Current official implementation guidance; only reviewed relevant sections underpin active policy.",
+      "review_status": "relevant-sections-reviewed-2026-09-14",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.801416+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/config-file/config-advanced.md",
+        "snapshot_name": "R12.txt",
+        "sha256": "42a5bc68a4ae38cae00df542edf16d3b059265b113f22884a8e9a598973190af",
+        "error": null
+      },
+      "snapshot": {
+        "path": "snapshots/R12.md",
+        "sha256": "42a5bc68a4ae38cae00df542edf16d3b059265b113f22884a8e9a598973190af",
+        "bytes": 52315,
+        "retrieved_at_utc": "2026-09-14T14:14:53.749982+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "global/profiles/"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R13",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "canonical_url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.822636+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/config-file/config-reference.md",
+        "snapshot_name": "R13.txt",
+        "sha256": "60f5567c787e50f805e7d8b30ae153a1712ae20625c3624372f4b566c88284cb",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [
+        "global/guides/rtk.md"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R14",
+      "url": "https://learn.chatgpt.com/docs/config-file/environment-variables",
+      "canonical_url": "https://learn.chatgpt.com/docs/config-file/environment-variables",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:22.954996+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/config-file/environment-variables.md",
+        "snapshot_name": "R14.txt",
+        "sha256": "ba6cf76677497e35af145c6cab6965dd9a550fd2251a580be93160b86416af4c",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R15",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-sample",
+      "canonical_url": "https://learn.chatgpt.com/docs/config-file/config-sample",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.025486+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/config-file/config-sample.md",
+        "snapshot_name": "R15.txt",
+        "sha256": "9d4b0d2fd7375e93e214b6a4d396ebb878806810d99cdf9d800926f345f27884",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R16",
+      "url": "https://github.com/donvito/codex-astra-luna-orchestrator",
+      "canonical_url": "https://github.com/donvito/codex-astra-luna-orchestrator",
+      "origin": "user",
+      "authority": "project-primary",
+      "disposition": "superseded",
+      "reason": "Fixed Astra/Luna routing not adopted; model-neutral operation supersedes it.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.221124+00:00",
+        "status": "fetched",
+        "final_url": "https://github.com/donvito/codex-astra-luna-orchestrator",
+        "snapshot_name": "R16.txt",
+        "sha256": "6655726a83a6bde29f86b520cef4db78ca3843d1a041819f9cc0ba4b33e8d7dc",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R17",
+      "url": "https://github.com/dietrichgebert/ponytail",
+      "canonical_url": "https://github.com/dietrichgebert/ponytail",
+      "origin": "user",
+      "authority": "project-primary",
+      "disposition": "adopted-tool",
+      "reason": "User requires this tool; upstream describes its implementation, not measured routing savings.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.221521+00:00",
+        "status": "fetched",
+        "final_url": "https://github.com/dietrichgebert/ponytail",
+        "snapshot_name": "R17.txt",
+        "sha256": "fe0299d65fe76871bfeb3d525f81c5c1374a69996982038b334e4396632d4758",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R19",
+      "url": "https://x.com/pvncher/status/2095991462416490862?s=46",
+      "canonical_url": "https://x.com/pvncher/status/2095991462416490862",
+      "origin": "user",
+      "authority": "social-unverified",
+      "disposition": "unverified",
+      "reason": "Body not available in retained evidence; not used as authority.",
+      "review_status": "unverified",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.284107+00:00",
+        "status": "reference-only",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R20",
+      "url": "https://x.com/VibeMarketer_/status/2096256484682404081?s=46",
+      "canonical_url": "https://x.com/VibeMarketer_/status/2096256484682404081",
+      "origin": "user",
+      "authority": "social-unverified",
+      "disposition": "unverified",
+      "reason": "Body not available in retained evidence; not used as authority.",
+      "review_status": "unverified",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.284122+00:00",
+        "status": "reference-only",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R21",
+      "url": "https://x.com/NOOROU/status/2097681098314575991?s=46",
+      "canonical_url": "https://x.com/NOOROU/status/2097681098314575991",
+      "origin": "user",
+      "authority": "social-unverified",
+      "disposition": "unverified",
+      "reason": "Body not available in retained evidence; not used as authority.",
+      "review_status": "unverified",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.284129+00:00",
+        "status": "reference-only",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R22",
+      "url": "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6",
+      "canonical_url": "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.284134+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6",
+        "snapshot_name": "R22.txt",
+        "sha256": "636dc7250f914867cd3a4f10693001ea3adfec7db68b26337ce623755c19acac",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R23",
+      "url": "https://openai.com/ko-KR/index/builders-guide-to-gpt-5-6/",
+      "canonical_url": "https://openai.com/ko-KR/index/builders-guide-to-gpt-5-6/",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.288228+00:00",
+        "status": "fetched",
+        "final_url": "https://openai.com/ko-KR/index/builders-guide-to-gpt-5-6/",
+        "snapshot_name": "R23.txt",
+        "sha256": "2bd165e9e7848165b27b7a679278fa317b3bb154a0d054ab238525b1dc771296",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R24",
+      "url": "https://learn.chatgpt.com/docs/build-skills",
+      "canonical_url": "https://learn.chatgpt.com/docs/build-skills",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Reviewed explicit-only invocation policy: agents/openai.yaml policy.allow_implicit_invocation=false. Upstream skill content is unchanged.",
+      "review_status": "relevant-section-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.321603+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/build-skills.md",
+        "snapshot_name": "R24.txt",
+        "sha256": "d15791562748e64a53dfec534b8558aa522e732cec0fdedcf7257fa4ef486a20",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [
+        "global/skill-policy/openai.yaml",
+        "manifest.json",
+        "global/guides/official-source-workflow.md"
+      ],
+      "monitor": true,
+      "last_reviewed": "2026-09-21",
+      "latest_relevant_review": {
+        "date": "2026-10-12",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "sections": [
+          "Where Codex loads local skills",
+          "agents/openai.yaml"
+        ],
+        "claim": "Current documented USER skill root is $HOME/.agents/skills; allow_implicit_invocation false keeps explicit invocation available.",
+        "scope": "v1.3.2 bundled skill relocation; legacy-root deprecation is reviewer source evidence, not an explicit claim in this page."
+      }
+    },
+    {
+      "id": "R25",
+      "url": "https://learn.chatgpt.com/docs/plugins",
+      "canonical_url": "https://learn.chatgpt.com/docs/plugins",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.455537+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/plugins.md",
+        "snapshot_name": "R25.txt",
+        "sha256": "edfc5dfe4e2fbd6b0d00ab30bda96241f6ca81f9a96141c2a340ec46e962446a",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R26",
+      "url": "https://learn.chatgpt.com/docs/pricing",
+      "canonical_url": "https://learn.chatgpt.com/docs/pricing",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.574614+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/pricing.md",
+        "snapshot_name": "R26.txt",
+        "sha256": "095adeca37f9e8ac4b21ef79a819701fe0138fcfd25b94cfeb0d64394b8eda56",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R27",
+      "url": "https://learn.chatgpt.com/docs/changelog",
+      "canonical_url": "https://learn.chatgpt.com/docs/changelog",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "partially-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.709652+00:00",
+        "status": "fetched",
+        "final_url": "https://learn.chatgpt.com/docs/changelog",
+        "snapshot_name": "R27.txt",
+        "sha256": "675b556228786b63dd9618c63a3305d35ffbc6540b0fce43e9ef88a2f37316a7",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": true,
+      "last_review": {
+        "date": "2026-10-08",
+        "version": "0.161.0",
+        "claim": "Reviewed stable release; installed binary matches official release digest. Protected settings and login preserved; desktop behavior remains separate."
+      }
+    },
+    {
+      "id": "R28",
+      "url": "https://developers.openai.com/api/docs/changelog",
+      "canonical_url": "https://developers.openai.com/api/docs/changelog",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.814263+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/api/docs/changelog",
+        "snapshot_name": "R28.txt",
+        "sha256": "fe7b8a9033f8d932b2a92402825fb08bb930a83d27887b99226b7a52455bfe87",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R29",
+      "url": "https://developers.openai.com/api/docs/guides/evaluation-best-practices",
+      "canonical_url": "https://developers.openai.com/api/docs/guides/evaluation-best-practices",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "archived",
+      "reason": "Model benchmark cancelled; retained as evaluation methodology context only.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.889998+00:00",
+        "status": "fetched",
+        "final_url": "https://developers.openai.com/api/docs/guides/evaluation-best-practices",
+        "snapshot_name": "R29.txt",
+        "sha256": "a844c16c2c288d6dfcf94d8eeabf7cada031bb3a3ab4b6250089dfbc0c9fc08e",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R30",
+      "url": "https://openai.com/index/separating-signal-from-noise-coding-evaluations/",
+      "canonical_url": "https://openai.com/index/separating-signal-from-noise-coding-evaluations/",
+      "origin": "additional",
+      "authority": "official-vendor",
+      "disposition": "archived",
+      "reason": "Model benchmark cancelled; retained as evaluation methodology context only.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:23.967000+00:00",
+        "status": "fetched",
+        "final_url": "https://openai.com/index/separating-signal-from-noise-coding-evaluations/",
+        "snapshot_name": "R30.txt",
+        "sha256": "c994990c561a90b0d315d74c6956ee1c69c70f3c1972292d8a04704647c1244a",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R31",
+      "url": "https://github.com/openai/skills",
+      "canonical_url": "https://github.com/openai/skills",
+      "origin": "additional",
+      "authority": "project-primary",
+      "disposition": "archived",
+      "reason": "Deprecated upstream examples; historical provenance retained. Current examples are R43/R44; no active global rule depends on this repository.",
+      "review_status": "deprecation-and-current-routing-reviewed-2026-10-05",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:24.007096+00:00",
+        "status": "fetched",
+        "final_url": "https://github.com/openai/skills",
+        "snapshot_name": "R31.txt",
+        "sha256": "ad8f399c48b40284cbe13267204dfcff996001285dcf09012da282e35bb765a1",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R32",
+      "url": "https://github.com/openai/codex",
+      "canonical_url": "https://github.com/openai/codex",
+      "origin": "additional",
+      "authority": "project-primary",
+      "disposition": "conditional",
+      "reason": "Relevant authoritative reference; review changed relevant sections before codifying new behavior.",
+      "review_status": "fetched-not-semantically-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/s2-20260912T150322Z/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:03:24.066237+00:00",
+        "status": "fetched",
+        "final_url": "https://github.com/openai/codex",
+        "snapshot_name": "R32.txt",
+        "sha256": "1c9b4eb1784a89d9e6a4017f0674f1d95634773c118b20b11cbb78d9cb792e29",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": true
+    },
+    {
+      "id": "R33",
+      "url": "https://openai.com/ko-KR/index/harness-engineering/",
+      "canonical_url": "https://openai.com/ko-KR/index/harness-engineering/",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "web-tool-body-reviewed",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/references-addendum-20260913/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:23:57.694144+00:00",
+        "status": "snapshot-failed",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": "HTTP Error 403: Forbidden"
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R34",
+      "url": "https://openai.com/ko-KR/index/gpt-5-6-frontier-intelligence-efficiency/",
+      "canonical_url": "https://openai.com/ko-KR/index/gpt-5-6-frontier-intelligence-efficiency/",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "web-tool-body-reviewed",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/references-addendum-20260913/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:23:57.694554+00:00",
+        "status": "snapshot-failed",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": "HTTP Error 403: Forbidden"
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R35",
+      "url": "https://openai.com/ko-KR/index/building-self-improving-tax-agents-with-codex/",
+      "canonical_url": "https://openai.com/ko-KR/index/building-self-improving-tax-agents-with-codex/",
+      "origin": "user",
+      "authority": "official-vendor",
+      "disposition": "retained-reference",
+      "reason": "Retained for optional context; no active rule depends on unreviewed claims.",
+      "review_status": "web-tool-body-reviewed",
+      "body_fetched": true,
+      "historical_provenance": {
+        "inventory": "inventory/references-addendum-20260913/sources.json",
+        "retrieved_at_utc": "2026-09-12T15:23:57.694918+00:00",
+        "status": "fetched",
+        "final_url": "https://openai.com/ko-KR/index/building-self-improving-tax-agents-with-codex/",
+        "snapshot_name": "R35.html",
+        "sha256": "a9fd0bc26d534175677282c85725727e1ce36ae909efcf27cad5faddc01ec02e",
+        "error": null
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R36",
+      "url": "https://x.com/F8Q75WZwaibw/status/2098517634023399444?s=46",
+      "canonical_url": "https://x.com/F8Q75WZwaibw/status/2098517634023399444",
+      "origin": "user",
+      "authority": "social-unverified",
+      "disposition": "unverified",
+      "reason": "Body not available in retained evidence; not used as authority.",
+      "review_status": "unverified",
+      "body_fetched": false,
+      "historical_provenance": {
+        "inventory": "inventory/references-addendum-20260913/sources.json",
+        "retrieved_at_utc": null,
+        "status": "reference-only",
+        "final_url": null,
+        "snapshot_name": null,
+        "sha256": null,
+        "error": "Web fetch returned 403 Forbidden; post content not reviewed."
+      },
+      "snapshot": null,
+      "applicable_files": [],
+      "monitor": false
+    },
+    {
+      "id": "R37",
+      "url": "https://learn.chatgpt.com/docs/app/settings",
+      "canonical_url": "https://learn.chatgpt.com/docs/app/settings",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Personalization section connects app custom instructions to personal AGENTS.md.",
+      "review_status": "relevant-sections-reviewed-2026-09-14",
+      "body_fetched": true,
+      "historical_provenance": null,
+      "snapshot": {
+        "path": "snapshots/R37.md",
+        "sha256": "2251bcdfaa2365c5d033c53449d7acc50def274e9023995bb45e2b67520c03fe",
+        "bytes": 4818,
+        "retrieved_at_utc": "2026-09-14T14:14:53.993345+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "global/AGENTS.md",
+        "docs/operations.md"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R38",
+      "url": "https://developers.openai.com/blog",
+      "canonical_url": "https://developers.openai.com/blog",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "monitor-only",
+      "reason": "Official developer article index; preserve first-party URLs, compare additions/edits and read relevant articles before policy adoption.",
+      "review_status": "index-only",
+      "body_fetched": false,
+      "snapshot": null,
+      "monitor": true,
+      "discovery": "html"
+    },
+    {
+      "id": "R39",
+      "url": "https://learn.chatgpt.com/docs/models",
+      "canonical_url": "https://learn.chatgpt.com/docs/models",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "GPT-6.1 Sol availability and task-dependent effort; client default is starting point.",
+      "review_status": "relevant-sections-reviewed-2026-10-01",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R39.md",
+        "sha256": "24661e0879ecb769e25a47f360c997434d24be9747169824b094f3da2ccea907",
+        "bytes": 17297,
+        "retrieved_at_utc": "2026-09-30T15:37:09.079039+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "monitor": true,
+      "applicable_files": [
+        "global/guides/model-operations.md",
+        "global/profiles/sol.config.toml"
+      ]
+    },
+    {
+      "id": "R40",
+      "url": "https://learn.chatgpt.com/docs/whats-new/devday-2026",
+      "canonical_url": "https://learn.chatgpt.com/docs/whats-new/devday-2026",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "monitor-only",
+      "reason": "DevDay changes reviewed; API-only, cloud and Pro 500 features do not become local requirements.",
+      "review_status": "relevant-sections-reviewed-2026-10-01",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R40.md",
+        "sha256": "8f64b801620af6f2e368b1993b148caf22f23b5890bf6ee23c593d1f578535a9",
+        "bytes": 7297,
+        "retrieved_at_utc": "2026-09-30T15:37:09.079039+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "monitor": true
+    },
+    {
+      "id": "R41",
+      "url": "https://api.github.com/repos/rtk-ai/rtk/releases/latest",
+      "canonical_url": "https://api.github.com/repos/rtk-ai/rtk/releases/latest",
+      "origin": "implementation",
+      "authority": "upstream-maintainer",
+      "disposition": "adopted",
+      "reason": "RTK 0.51.0 argv handling and release digests reviewed; explicit filtering only.",
+      "review_status": "relevant-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R41.json",
+        "sha256": "587fb8e4f17cb9aaaf13e66962c46a0603f0adf0387ac4f40ae5900e8720ec4c",
+        "bytes": 24658,
+        "retrieved_at_utc": "2026-10-05T03:53:01.067710+00:00",
+        "content_type": "application/json; charset=utf-8"
+      },
+      "monitor": true,
+      "latest_relevant_review": {
+        "date": "2026-10-07",
+        "retrieval": "upstream-release-api",
+        "status": "relevant-body-reviewed",
+        "claim": "Stable 0.51.0 and every pinned-platform digest match; preserve argv/exits and no unchanged reinstall.",
+        "scope": "Release notes and supported asset metadata only; original snapshot preserved"
+      }
+    },
+    {
+      "id": "R42",
+      "url": "https://learn.chatgpt.com/docs/hooks",
+      "canonical_url": "https://learn.chatgpt.com/docs/hooks",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "reference-only",
+      "reason": "Hook rewriting and exact-definition trust reviewed; no automatic hook installation.",
+      "review_status": "relevant-sections-reviewed-2026-10-01",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R42.md",
+        "sha256": "724881d81f1a9fdb35ea42d4851a11b1f6606bbc6e9d2d05c1e8c466fc25c630",
+        "bytes": 46965,
+        "retrieved_at_utc": "2026-09-30T15:37:09.079039+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "monitor": true,
+      "applicable_files": [
+        "global/AGENTS.md",
+        "global/guides/rtk.md",
+        "global/guides/official-source-workflow.md"
+      ],
+      "latest_relevant_review": {
+        "date": "2026-10-08",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "claim": "PostToolUse observes supported local outputs/nonzero shell exits; hosted/specialized paths and cloud orchestration limit coverage; hooks cannot undo completed effects.",
+        "scope": "Project error workflow; preserve historical snapshots and exact installed runtime boundaries"
+      }
+    },
+    {
+      "id": "R43",
+      "url": "https://raw.githubusercontent.com/openai/plugins/main/README.md",
+      "canonical_url": "https://github.com/openai/plugins",
+      "origin": "implementation",
+      "authority": "project-primary",
+      "disposition": "conditional",
+      "reason": "Current official Codex plugin examples; no automatic plugin installation.",
+      "review_status": "relevant-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R43.md",
+        "sha256": "b3681ebd15797bdee1d638c6520c7ba10a36e676760ea5c251530f53f843c852",
+        "bytes": 1283,
+        "retrieved_at_utc": "2026-10-05T03:53:01.335620+00:00",
+        "content_type": "text/plain; charset=utf-8"
+      },
+      "applicable_files": [
+        "docs/operations.md"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R44",
+      "url": "https://developers.openai.com/plugins/build/plugins.md",
+      "canonical_url": "https://developers.openai.com/plugins/build/plugins",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "conditional",
+      "reason": "Current official plugin packaging and skill-only plugin guidance; TRACE remains skill-only.",
+      "review_status": "relevant-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R44.md",
+        "sha256": "cc5b62094f9c8fcd910c6ae72fa58c63a13191abdc29fb45b19500e241f71460",
+        "bytes": 27956,
+        "retrieved_at_utc": "2026-10-05T03:53:01.384232+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "applicable_files": [
+        "docs/operations.md"
+      ],
+      "monitor": true
+    },
+    {
+      "id": "R45",
+      "url": "https://github.com/rtk-ai/rtk/blob/v0.50.0/hooks/codex/README.md",
+      "canonical_url": "https://github.com/rtk-ai/rtk/blob/v0.50.0/hooks/codex/README.md",
+      "origin": "user",
+      "authority": "upstream-maintainer",
+      "disposition": "reference-only",
+      "reason": "Historical host-local RTK 0.50.0 hook guidance from merged PR #8; preserve provenance, use the current pinned explicit runner and do not automatically install hooks.",
+      "review_status": "relevant-sections-reviewed-2026-09-30",
+      "body_fetched": true,
+      "snapshot": null,
+      "applicable_files": [
+        "global/AGENTS.md",
+        "global/guides/rtk.md"
+      ],
+      "monitor": false
+    },
+    {
+      "id": "R46",
+      "url": "https://learn.chatgpt.com/docs/automations.md",
+      "canonical_url": "https://learn.chatgpt.com/docs/automations",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Official local scheduling constraints; existing monitor only, keep host/app available and distinguish testable configuration from actual future runs.",
+      "review_status": "relevant-current-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R46.md",
+        "sha256": "1c64c21ee76020153dc2ec69aaab1f8fda39d2426e9f63732b8e9577d691f968",
+        "bytes": 18633,
+        "retrieved_at_utc": "2026-10-05T12:04:44.382806+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "monitor": true,
+      "latest_relevant_review": {
+        "date": "2026-10-07",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "sections": [
+          "Local scheduled tasks",
+          "Manage scheduled tasks"
+        ],
+        "claim": "Local files require host/app availability; saved prompts preserve recurring work; future executions are not guaranteed.",
+        "scope": "Relevant sections only; original snapshot bytes preserved"
+      },
+      "applicable_files": [
+        "docs/operations.md",
+        "global/guides/official-source-workflow.md"
+      ]
+    },
+    {
+      "id": "R47",
+      "url": "https://openai.com/news/rss.xml",
+      "canonical_url": "https://openai.com/news",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "monitor-only",
+      "reason": "Official published-news discovery feed; indexes are collection evidence, never proof of article semantics.",
+      "review_status": "collection-only",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": true,
+      "discovery": "rss"
+    },
+    {
+      "id": "R48",
+      "url": "https://learn.chatgpt.com/docs/whats-new.md",
+      "canonical_url": "https://learn.chatgpt.com/docs/whats-new",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "monitor-only",
+      "reason": "Official product-update index; check plan/client/host applicability before adoption, preserve selected model and no-API policy.",
+      "review_status": "relevant-current-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "snapshot": {
+        "path": "snapshots/R48.md",
+        "sha256": "ec27190487b37575192a4281d580ae66a2bce614a324865d976ecab692bcbe63",
+        "bytes": 60751,
+        "retrieved_at_utc": "2026-10-05T12:04:44.382806+00:00",
+        "content_type": "text/markdown; charset=utf-8"
+      },
+      "monitor": true,
+      "discovery": "markdown"
+    },
+    {
+      "id": "R49",
+      "url": "https://openai.com/index/practical-guide-building-gpt-6/",
+      "canonical_url": "https://openai.com/index/practical-guide-building-gpt-6/",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "October 2 guide: short relevant context, consistent task/skill boundaries, explicit completion and Codex effort selection. API price/caching controls are not translated into subscription savings or forced host settings.",
+      "review_status": "relevant-sections-reviewed-2026-10-05",
+      "body_fetched": true,
+      "retrieval": "Official page retrieved through web tool; direct urllib returned an access error. No exact raw-byte snapshot claimed. Rediscover through official news and retrieve readable original before future adoption.",
+      "snapshot": null,
+      "monitor": false,
+      "applicable_files": [
+        "global/guides/official-source-workflow.md",
+        "docs/operations.md"
+      ]
+    },
+    {
+      "id": "R50",
+      "url": "https://learn.chatgpt.com/docs/customization/overview",
+      "canonical_url": "https://learn.chatgpt.com/docs/customization/overview",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "snapshot": null,
+      "monitor": true,
+      "disposition": "adopted",
+      "reason": "Official support for concise scoped guidance, correction feedback and scheduled drift review; local private ledger and authority bounds are TRACE policy.",
+      "review_status": "relevant-sections-reviewed-2026-10-07",
+      "body_fetched": true,
+      "applicable_files": [
+        "global/guides/official-source-workflow.md",
+        "docs/operations.md"
+      ],
+      "latest_relevant_review": {
+        "date": "2026-10-07",
+        "retrieval": "official-web-page",
+        "status": "relevant-body-reviewed",
+        "sections": [
+          "AGENTS Guidance",
+          "When to update AGENTS.md"
+        ],
+        "scope": "No full-page or exact-byte snapshot claim"
+      }
+    },
+    {
+      "id": "R51",
+      "url": "https://learn.chatgpt.com/docs/computer-use",
+      "canonical_url": "https://learn.chatgpt.com/docs/computer-use",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Official native Windows foreground/setup constraints; preserve chosen model and permission boundaries",
+      "review_status": "relevant-sections-reviewed",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": true,
+      "last_reviewed": "2026-10-08",
+      "applicable_files": [
+        "global/skills/computer-use-workflow/SKILL.md",
+        "docs/computer-use-maintenance.md"
+      ]
+    },
+    {
+      "id": "R52",
+      "url": "https://learn.chatgpt.com/docs/browser",
+      "canonical_url": "https://learn.chatgpt.com/docs/browser",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Prefer built-in browser for local web UI; client capability is distinct from CLI and skill files",
+      "review_status": "relevant-sections-reviewed",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": true,
+      "last_reviewed": "2026-10-08",
+      "applicable_files": [
+        "global/skills/computer-use-workflow/SKILL.md",
+        "docs/computer-use-maintenance.md"
+      ]
+    },
+    {
+      "id": "R53",
+      "url": "https://learn.chatgpt.com/docs/chrome-extension",
+      "canonical_url": "https://learn.chatgpt.com/docs/chrome-extension",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Selected browser/profile connection, Manage state and bounded documented troubleshooting",
+      "review_status": "relevant-sections-reviewed",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": true,
+      "last_reviewed": "2026-10-08",
+      "applicable_files": [
+        "global/skills/computer-use-workflow/SKILL.md",
+        "docs/computer-use-maintenance.md"
+      ]
+    },
+    {
+      "id": "R54",
+      "url": "https://docs.python.org/3/library/http.server.html",
+      "canonical_url": "https://docs.python.org/3/library/http.server.html",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Standard-library HTTP handlers for an opt-in loopback viewer; unsuitable for public production hosting",
+      "review_status": "relevant-sections-reviewed",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": false,
+      "last_reviewed": "2026-10-08",
+      "applicable_files": [
+        "scripts/rtk_dashboard.py",
+        "templates/reports/rtk-efficiency.template.html",
+        "docs/rtk-live-dashboard.md"
+      ]
+    },
+    {
+      "id": "R55",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API",
+      "canonical_url": "https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API",
+      "origin": "implementation",
+      "authority": "official-vendor",
+      "disposition": "adopted",
+      "reason": "Suspend optional polling when the report document is hidden and resume when visible",
+      "review_status": "relevant-sections-reviewed",
+      "body_fetched": true,
+      "snapshot": null,
+      "monitor": false,
+      "last_reviewed": "2026-10-08",
+      "applicable_files": [
+        "scripts/rtk_dashboard.py",
+        "templates/reports/rtk-efficiency.template.html",
+        "docs/rtk-live-dashboard.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "skills": [
+    {
+      "name": "ponytail",
+      "repository": "dietrichgebert/ponytail",
+      "commit": "9cc65d03aa2da1db7121b912d03596409ee340b8",
+      "path": "skills/ponytail",
+      "files": {
+        "SKILL.md": "ba68ff26239c3c3b05b2a9a47ee0d9a6b93a69639a2555ec87a5d44bffaf2f0c"
+      },
+      "version": "5.1.0"
+    }
+  ],
+  "runtime": {
+    "codex_cli_reviewed": "0.162.1",
+    "codex_cli_policy": "preserve host runtime unless user approves; installed CLI validated separately",
+    "installer_requires": "Python 3.11+; standard library only"
+  },
+  "tools": {
+    "rtk": {
+      "version": "0.51.0",
+      "repository": "rtk-ai/rtk",
+      "release_url": "https://github.com/rtk-ai/rtk/releases/tag/v0.51.0",
+      "reviewed_at": "2026-10-07",
+      "integration": "explicit commands; no transparent hooks",
+      "assets": {
+        "rtk-aarch64-apple-darwin.tar.gz": {
+          "url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-aarch64-apple-darwin.tar.gz",
+          "sha256": "8817d8b71afc02ac8bf06eb24bcc41c306592ab735b68e8fee9db1ba0de7cb59"
+        },
+        "rtk-aarch64-unknown-linux-gnu.tar.gz": {
+          "url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "8d6d1aad9e69b42481eda7039507d1f7ee93698f87713cecd873d287c1931632"
+        },
+        "rtk-x86_64-apple-darwin.tar.gz": {
+          "url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-x86_64-apple-darwin.tar.gz",
+          "sha256": "bd39c8153f4147358360c7dc51665a8131cc9ee16f81f69a9402ffa500be3cc2"
+        },
+        "rtk-x86_64-pc-windows-msvc.zip": {
+          "url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-x86_64-pc-windows-msvc.zip",
+          "sha256": "1623e9b45d28b15122d69e7314776e1123a804224885ce07e7182fb40080f05c"
+        },
+        "rtk-x86_64-unknown-linux-musl.tar.gz": {
+          "url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "5028d3b19a8f0990d30fec9fbb07e32782bc5698e618fb1861aad8a9ccba4eb5"
+        }
+      }
+    }
+  }
+}
