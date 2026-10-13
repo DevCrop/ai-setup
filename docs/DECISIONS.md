@@ -2,6 +2,18 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — two Windows PCs; open questions settled
+
+### The setup targets two Windows PCs; macOS is out of scope
+- What: the user said on 2026-10-13 that this setup runs on two machines, both Windows PCs, and that the macOS run is dropped because it would take very long. BACKLOG M5 (the macOS run), D3 (Bash sandbox on macOS and Linux only) and the items that waited for the Mac run are closed.
+- The feature freeze (entry "Dashboard feature freeze kept until the Mac run") ends with it. The two frozen features are dropped, not built: the tools tab (the Codex tab and `bootstrap.py check` already show tools and setups) and the project search to depth 3 (no project deeper than the current search was missed). Deferred findings 6–10 of PR #91 that only matter on macOS or Linux (LaunchAgent PATH, `bootstrap.sh` installing git when present, the codex clone target on macOS/Linux) are dropped; the two Windows ones stay in BACKLOG section 8.
+- Kept: the macOS and Linux code paths (brew, the LaunchAgent, `bootstrap.sh`) and the linux CI job. They are untested on a real Mac and may break; removing them is a separate change with its own test fallout.
+- Undo: restore BACKLOG M5 and the frozen-feature rows from this commit's parent.
+
+### D1, D2, D3 and codex-setup#18, decided by Claude as the user delegated
+- The user asked on 2026-10-13 to settle the remaining questions as recommended. D1: `project-setup` still recommends no plugin (entry "`project-setup` still recommends no plugin" stands). D2: the chat-confirmation lines in `claude/CLAUDE.md` stay; they are the remaining guard for `rm`, `branch -D` and `stash drop`/`clear` (entry "Ask rules cover push only"). D3: dropped with macOS (above). DevCrop/codex-setup#18 (RTK backup and dated live view, closed unmerged) is dropped; the branch `codex/rtk-db-prevention-20261012` stays in that repo as a record.
+- Undo: reopen the question as a BACKLOG row.
+
 ## 2026-10-13 — one repository for Claude, Codex and AO: ai-setup
 
 ### claude-global becomes ai-setup and absorbs codex-setup (`codex/`) and the AO lane setup (`ao/`)
