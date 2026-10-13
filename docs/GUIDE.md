@@ -17,7 +17,7 @@ Run in order; each line says what proves it worked. Prerequisites are in section
 | 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
 | 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
 
-Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`. When a pin in `settings.json` moved to a newer version (the daily report says "update needed"), back up `~/.claude-mem` and run `claude plugin update <id>` in a new session; never when the installed version is newer than the pin.
+Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`. Pins move only through the weekly PR `chore: update pinned versions` (`.github/workflows/updates.yml`, Mondays and by hand; review and merge it like any PR). When a pin in `settings.json` moved to a newer version (the daily report says "update needed"), back up `~/.claude-mem` and run `claude plugin update <id>` in a new session; never when the installed version is newer than the pin. The same PR lists new releases of the unpinned tools (`docs/tool-versions.json`) with their `winget upgrade` command; run those on each PC yourself.
 
 ## claude-mem (per machine)
 
@@ -132,6 +132,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 - Model of the scheduled task: the app task has no model field, so it runs on the app default. The first manual run (2026-10-09) ran on Haiku by decision; the first automatic run showed `claude-sonnet-5-5`, but whether that came from a setting or the default is unknown. Set Opus explicitly in the app's Scheduled settings (Sonnet until 2026-10-12) and check the model shown in the run session. Set the task's permission mode to auto too.
 - Monthly: `/doctor` on `CLAUDE.md`, skills and agents; `/context` for the share of system and MCP tool definitions (switch off connectors you do not use, for example the Chrome and Browser tools); `/skill-doctor` for what each skill costs and how often it is used (skills doc; Claude Code 2.1.252 or newer, run in the terminal, not over Remote Control, and not available when feature-flag fetching is off); `/insights` for friction points across recent sessions (costs doc; it uses tokens from your plan).
 - After any change to permissions or hooks: `bash scripts/verify.sh --full` on every machine where RTK is installed.
+- Weekly (GitHub, no PC involved): `.github/workflows/updates.yml` runs `scripts/check-updates.py --write` and opens or updates the PR `chore: update pinned versions` from `bot/updates` when a plugin pin, the Codex Ponytail skill, RTK or a recorded tool version moved (DECISIONS "Pinned versions move by a weekly PR"). Preview by hand: `python3 scripts/check-updates.py` (report only).
 - Edit `claude/` in this repo, never `~/.claude` directly.
 
 ## Live dashboard
