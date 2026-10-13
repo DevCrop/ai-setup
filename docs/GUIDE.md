@@ -213,11 +213,11 @@ The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, 
 
 | ID | Where | Do | Expect | Last run |
 |---|---|---|---|---|
-| L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed. Also, with jq off the PATH, staging a secret-named file in a throwaway repo is blocked by secret-guard (CI skips this simulation on Git Bash) | — |
+| L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed. Also, with jq off the PATH, staging a secret-named file in a throwaway repo is blocked by secret-guard (CI skips this simulation on Git Bash) | Windows, 2026-10-13, claude 2.1.296, rtk 0.51.0: `verify.sh --live` 0 FAIL, 0 WARN; a second `apply.sh` replaces nothing (the `opus[1m]` revert is gone). The jq-off secret-guard simulation was not run |
 | L-2 | Mac | this guide's quick path from the start | 0 FAIL, only the expected WARN lines; `qa-statusline.sh` passes (BSD sed) | — |
 | L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
 | L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
-| L-5 | both | `bash scripts/qa-deny.sh` | all PASS (30 cases; with RTK installed it exercises the rewrite) | — |
+| L-5 | both | `bash scripts/qa-deny.sh` | all PASS (30 cases; with RTK installed it exercises the rewrite) | Windows, 2026-10-13, rtk 0.51.0 hook active: all 30 PASS. The first run failed every case as `no-call` because the claude login had expired; since #114 that shows as `error` with the CLI message |
 | L-6 | both | `qa-role-agents.sh <dir>` real mode, `qa-project-setup.sh <dir>`, one AO worker | still pass in auto mode; note any action the classifier skipped | Windows, 2026-10-12, AO part only: three Haiku workers in auto, no classifier skips (`docs/evidence.md`, "AO 로컬 QA"); the two scripts not run |
 | L-7 | both | `bash scripts/qa-ui.sh` | 80 checks pass; no backup tile; AUTO badge | — |
 | L-8 | both | in a session: stage a secret file; remove jq from PATH and stage again; remove jq and run `ls`; ask for `cat .env` | blocked; blocked; allowed; refused | — |
