@@ -35,7 +35,7 @@ Python 3.11+, Git, Docker Desktop/Compose(PHP 프로젝트만), 기존 프로젝
 
 ```powershell
 python -B setup.py register --id my-site --path 'C:\Users\name\Projects\my-site' --image my-site-web:latest --port 18901 --db-source-volume my-site_db_data
-python -B setup.py register --id portfolio --path 'D:\project\portfolio' --port 5173
+python -B setup.py register --id my-app --path 'D:\Projects\my-app' --port 5173
 python -B setup.py apply
 ```
 
