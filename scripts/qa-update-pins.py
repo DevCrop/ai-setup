@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Unit tests for scripts/check-updates.py. No network: a fake fetcher and a scratch repo per case.
-Usage: python3 scripts/qa-check-updates.py"""
+"""Unit tests for scripts/update-pins.py. No network: a fake fetcher and a scratch repo per case.
+Usage: python3 scripts/qa-update-pins.py"""
 import contextlib, hashlib, importlib.util, io, json, shutil, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-spec = importlib.util.spec_from_file_location("check_updates", HERE / "check-updates.py")
+spec = importlib.util.spec_from_file_location("update_pins", HERE / "update-pins.py")
 cu = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cu)
 

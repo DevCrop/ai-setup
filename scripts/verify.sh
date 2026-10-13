@@ -71,8 +71,8 @@ fi
 
 # 2. shell syntax
 syntax_ok=1
-for f in "$repo"/scripts/*.sh; do bash -n "$f" 2>/dev/null || { fail "bash -n failed: ${f#$repo/}"; syntax_ok=0; }; done
-[ "$syntax_ok" -eq 1 ] && pass "bash -n scripts/*.sh"
+for f in "$repo"/scripts/*.sh "$src"/hooks/*.sh "$src"/statusline.sh; do bash -n "$f" 2>/dev/null || { fail "bash -n failed: ${f#$repo/}"; syntax_ok=0; }; done
+[ "$syntax_ok" -eq 1 ] && pass "bash -n scripts/*.sh claude/hooks/*.sh claude/statusline.sh"
 
 # 3. every Bash deny/ask pattern has its rtk twin
 
@@ -173,11 +173,11 @@ case "$ask_ok" in
   0) fail "permissions.ask is missing or empty" ;;
   *) grep -q '"ask"' "$src/settings.json" && warn "permissions.ask present (not validated: needs jq or python3)" || fail "permissions.ask is missing" ;;
 esac
-# Weekly update PRs (decision 2026-10-13): updates.yml runs check-updates.py on a schedule and by hand.
+# Weekly update PRs (decision 2026-10-13): updates.yml runs update-pins.py on a schedule and by hand.
 upd="$repo/.github/workflows/updates.yml"
-[ -f "$upd" ] && grep -q '^  schedule:' "$upd" && grep -q '^  workflow_dispatch:' "$upd" && grep -q 'scripts/check-updates.py --write' "$upd" \
-  && pass "updates.yml runs check-updates.py weekly and by hand" \
-  || fail "updates.yml must exist with schedule and workflow_dispatch triggers and run scripts/check-updates.py --write"
+[ -f "$upd" ] && grep -q '^  schedule:' "$upd" && grep -q '^  workflow_dispatch:' "$upd" && grep -q 'scripts/update-pins.py --write' "$upd" \
+  && pass "updates.yml runs update-pins.py weekly and by hand" \
+  || fail "updates.yml must exist with schedule and workflow_dispatch triggers and run scripts/update-pins.py --write"
 
 # 5. global CLAUDE.md size (docs: target under 200 lines)
 lines="$(wc -l < "$src/CLAUDE.md" | tr -d ' ')"
@@ -343,6 +343,7 @@ EOF
   # 9b. config-changes.log (hooks/config-audit.sh): settings or skill changes recorded more than 2 minutes after the last apply.sh were
   #     made outside this repo. apply.sh itself triggers lines during a running session; the grace period skips those.
   clog="$dest/config-changes.log"
+  # one-time migration (apply.sh): a PC applied before the ai-setup rename has only .claude-global-manifest until its next apply.sh
   [ -f "$dest/.ai-setup-manifest" ] || [ ! -f "$dest/.claude-global-manifest" ] \
     || warn "only the manifest under its pre-rename name exists; run apply.sh (it moves it to .ai-setup-manifest)"
   if [ -f "$clog" ] && [ -f "$dest/.ai-setup-manifest" ]; then

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Local live dashboard for the global Claude setup. Read-only, stdlib only, 127.0.0.1 only.
+"""Local live dashboard for the global Claude setup. Stdlib only, 127.0.0.1 only. Every GET is read-only; the one write path is
+POST /api/fix, which runs a registered one-click fix (fixes.py) only on the targets the user confirmed, needs the per-start token,
+and logs each run to state/fix-log.jsonl.
 
 Run: python3 scripts/dashboard/server.py [--port 8787]
 Optional: PROJECT_DIRS or state/projects.txt lists projects; the project roots of scripts/toolreg.py (PROJECT_ROOTS > state/machine.json projectRoots > state/project-roots.txt > ~/Projects) are parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
@@ -270,7 +272,7 @@ def mem_health(now=None):
     try:
         st = json.loads((mem / "settings.json").read_text(encoding="utf-8"))
         on = str(st.get("CLAUDE_MEM_REDACT_ENABLED", "")).lower() == "true"
-        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else MemRedactOn.label() + " 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/review-claude-mem.md]", "" if on else "mem-redact-on"))
+        out.append(("claude-mem", "비밀 마스킹(redact)", "ok" if on else "warn", "켜짐" if on else "꺼짐 (CLAUDE_MEM_REDACT_ENABLED)", "" if on else MemRedactOn.label() + " 의 CLAUDE_MEM_REDACT_ENABLED 를 \"true\" 로 [출처: docs/reviews/claude-mem.md]", "" if on else "mem-redact-on"))
     except Exception:
         pass
     return out

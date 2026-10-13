@@ -15,7 +15,7 @@ update=0
 [ "${1:-}" = "--update" ] && update=1
 
 command -v curl >/dev/null 2>&1 || { echo "curl not found" >&2; exit 2; }
-mkdir -p "$cache"
+[ "$update" -eq 0 ] || mkdir -p "$cache"  # without --update nothing is written, not even the cache directory
 tmp="$(mktemp "${TMPDIR:-/tmp}/docs-watch.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 
