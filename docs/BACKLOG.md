@@ -36,7 +36,7 @@ None open (D1-D3 settled on 2026-10-13, DECISIONS "two Windows PCs").
 Codex setup (moving into `codex/` of this repository, DECISIONS 2026-10-13 "one repository"):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- Codex v1.3.3 subagent models: applied to `~/.codex` on 2026-10-13 (`apply --adopt-existing`, then `verify` pass and a second `apply` unchanged). In a live `codex exec` the same day the default subagent ran `gpt-6.1-sol` medium as intended, but the `explorer` rollout recorded `gpt-6.1-sol` (effort high), not the `gpt-6-luna` in `codex/global/agents/explorer.toml`. Find out why (the parent named it, a fallback, or the agent file not loaded) before calling it done.
+- Codex v1.3.3 subagent models: applied to `~/.codex` on 2026-10-13 (`apply --adopt-existing`, then `verify` pass and a second `apply` unchanged). `explorer` moved from `gpt-6-luna` to `gpt-6.1-sol` on 2026-10-13 (decision 004). A live `codex exec` that day recorded Sol for `explorer` while the file still named Luna, so the custom agent file may not be loaded: after `setup.py apply`, confirm in a live run that `explorer` follows the custom file (effort high, sandbox read-only, its developer instructions); the model alone no longer tells it from the built-in one.
 - After the local folder moves to `Projects\ai-setup`: re-render the Codex 08:00 routine with `codex/scripts/render_heartbeat.py` (its prompt holds the checkout path), run `bootstrap.py check --write`, then archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
 
 ## 7. Measure
