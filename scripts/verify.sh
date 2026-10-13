@@ -286,6 +286,7 @@ if [ "$live" -eq 1 ]; then
     if [ "$item" = "settings.json" ]; then
       if ! command -v jq >/dev/null 2>&1; then skip "settings.json comparison (needs jq)"; continue; fi
       if ! jq -e 'type == "object"' "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is empty or not a JSON object (run: bash scripts/apply.sh)"; continue; fi
+      if ! jq -e '(.top | type) == "array" and (.permissions | type) == "array"' "$repo/scripts/owned-keys.json" >/dev/null 2>&1; then fail "scripts/owned-keys.json is missing or malformed"; continue; fi
       owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" --slurpfile o "$repo/scripts/owned-keys.json" '
         def own_top: $o[0].top; def own_perm: $o[0].permissions;  # the keys apply.sh owns, one list for both scripts
         $l[0] as $l | $r[0] as $r

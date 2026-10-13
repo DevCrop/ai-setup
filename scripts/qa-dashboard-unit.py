@@ -516,8 +516,8 @@ try:
     (tmp / "Projects" / "fromhome").mkdir(parents=True)
     listed = [p.name for p in projects.discover_projects(proot, tmp / "no-logs")]
     check(listed == ["fromhome"], "discover_projects(): ~/Projects is the default root, as in bootstrap", listed)
-    shutil.rmtree(tmp / "Projects")
 finally:
+    shutil.rmtree(tmp / "Projects", ignore_errors=True)
     if old_pr is not None:
         os.environ["PROJECT_ROOTS"] = old_pr
 
@@ -593,6 +593,9 @@ src = {f.name: (Path(__file__).resolve().parent / "dashboard" / f.name).read_tex
 direct = [n for n, t in src.items() if n != "procs.py" and "shutil.which(" in t]
 check(direct == [], "dashboard modules look tools up through procs.which, not shutil.which", direct)
 check(procs.which is procs.toolreg.which and "def which" not in src["procs.py"], "procs.which is toolreg.which (one implementation)")
+# toolreg.detect/run_version start a process without the dashboard's no-console spawn, and qa-spawn-guard only scans dashboard/
+unguarded = [n for n, t in src.items() if "toolreg.detect" in t or "run_version" in t]
+check(unguarded == [], "dashboard modules do not call toolreg.detect or run_version (they spawn without the no-console guard)", unguarded)
 
 # ---- BACKLOG T5: the RTK update reads its winget id from tools.json and compares versions with toolreg ----
 _sh.which = lambda n, *a, **k: "/x/winget" if n == "winget" else real_which(n, *a, **k)
@@ -602,8 +605,8 @@ try:
           "rtk-update: the winget id comes from tools.json", fixes.RtkUpdate.installer())
 finally:
     _sh.which = real_which
-check([fixes.RtkUpdate.older(a, b) for a, b in [("rtk 0.9.10", "v0.10.0"), ("rtk 0.32.0", "v0.32.0"), ("rtk 1.0.0", "v0.32.0"), ("", "v1.0.0"), ("rtk 1.0.0", None)]]
-      == [True, False, False, None, None], "rtk-update: older() compares numerically and is None when a version cannot be read")
+check([fixes.RtkUpdate.older(a, b) for a, b in [("rtk 0.9.10", "v0.10.0"), ("rtk 0.32.0", "v0.32.0"), ("rtk 1.0.0", "v0.32.0"), ("", "v1.0.0"), ("rtk 1.0.0", None), ("error 2", "v1.0.0")]]
+      == [True, False, False, None, None, None], "rtk-update: older() compares numerically and is None when a version cannot be read")
 
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

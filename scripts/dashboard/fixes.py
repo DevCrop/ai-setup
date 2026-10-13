@@ -92,8 +92,9 @@ class RtkUpdate(Fix):
     @staticmethod
     def older(cur, latest):
         """True when the installed version is below the latest release, False when not, None when either cannot be read."""
+        # only a dotted version counts: toolreg.parse_version falls back to any bare number, which an error text can contain
         a, b = toolreg.parse_version(cur), toolreg.parse_version(latest)
-        return None if not a or not b else not toolreg.version_ok(a, b)
+        return None if not a or not b or "." not in a or "." not in b else not toolreg.version_ok(a, b)
 
     @staticmethod
     def latest():
