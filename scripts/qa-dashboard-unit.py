@@ -508,16 +508,20 @@ proot = tmp / "c13repo"
 mroot = tmp / "c13roots"
 (mroot / "fromjson").mkdir(parents=True)
 (proot / "state" / "machine.json").write_text(json.dumps({"projectRoots": [str(mroot)]}), encoding="utf-8")
+# its own home: on a case-insensitive disk (Windows) tmp/Projects is the same folder as the fixtures in tmp/projects
+chome = tmp / "c13home"
 old_pr = os.environ.pop("PROJECT_ROOTS", None)
+old_home = os.environ["HOME"], os.environ["USERPROFILE"]
 try:
     listed = [p.name for p in projects.discover_projects(proot, tmp / "no-logs")]
     check(listed == ["fromjson"], "discover_projects(): machine.json projectRoots is read when there is no project-roots.txt", listed)
     (proot / "state" / "machine.json").unlink()
-    (tmp / "Projects" / "fromhome").mkdir(parents=True)
+    (chome / "Projects" / "fromhome").mkdir(parents=True)
+    os.environ["HOME"] = os.environ["USERPROFILE"] = str(chome)
     listed = [p.name for p in projects.discover_projects(proot, tmp / "no-logs")]
     check(listed == ["fromhome"], "discover_projects(): ~/Projects is the default root, as in bootstrap", listed)
 finally:
-    shutil.rmtree(tmp / "Projects", ignore_errors=True)
+    os.environ["HOME"], os.environ["USERPROFILE"] = old_home
     if old_pr is not None:
         os.environ["PROJECT_ROOTS"] = old_pr
 
