@@ -5,7 +5,7 @@
 # result classifier offline.
 # Runs in a throwaway git repo with no remote. Blocked commands never execute and
 # the allowed ones are harmless. Needs the claude CLI and uses the haiku model.
-# Works on macOS bash and Git Bash on Windows (no python or jq needed).
+# Works in Git Bash on Windows (no python or jq needed).
 set -u
 
 repo="$(cd "$(dirname "$0")/.." && pwd -W 2>/dev/null || pwd)"  # pwd -W: native Windows path for claude.exe (Git Bash)

@@ -17,7 +17,7 @@ src="$(printf '%s' "$input" | jq -r 'select(type == "object" and (.source | type
 [ -n "$src" ] || exit 0
 path="$(printf '%s' "$input" | jq -r '.file_path // "" | tostring' | tr -d '\t\r\n')"
 if [ -n "$path" ]; then
-  # Compare in one form: Git Bash gets C:\... from Claude Code and /c/... in $HOME; case is folded for Windows and macOS.
+  # Compare in one form: Git Bash gets C:\... from Claude Code and /c/... in $HOME; case is folded for Windows.
   norm() { case "$1" in *\\*|?:*) command -v cygpath >/dev/null && { cygpath -u "$1"; return; } ;; esac; printf '%s' "$1"; }
   p="$(norm "$path" | tr '[:upper:]' '[:lower:]')"
   c="$(norm "$cfg" | tr '[:upper:]' '[:lower:]')"

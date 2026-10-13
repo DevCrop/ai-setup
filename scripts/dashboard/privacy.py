@@ -34,7 +34,7 @@ _SEPARATORS = re.compile(r"[\\/]")
 
 
 def base_name(path):
-    """Last path component for both separator styles (a Windows path read on macOS or Linux stays a base name)."""
+    """Last path component for both separator styles (a Windows path read on Linux, as in CI, stays a base name)."""
     return _SEPARATORS.split(str(path).rstrip("\\/"))[-1]
 
 

@@ -94,7 +94,7 @@ if "--update-golden" in sys.argv:
 want = json.loads(golden_path.read_text(encoding="utf-8")) if golden_path.is_file() else {}
 bad = [k for k in sorted(set(got) | set(want)) if got.get(k) != want.get(k)]
 check(not bad, f"project checks match the golden file on {len(fx)} fixture projects x 2 (rtk on / off)", ", ".join(bad[:5]) or "golden file missing: run with --update-golden")
-# Windows and default macOS disks ignore case: "makefile" then names the same file as "Makefile" and its targets must not be counted twice.
+# Windows disks ignore case: "makefile" then names the same file as "Makefile" and its targets must not be counted twice.
 _is_file, _read_text = Path.is_file, Path.read_text
 mf = fx["scripts_unmentioned"]
 Path.is_file = lambda self: True if self.name == "makefile" and (self.parent / "Makefile").exists() else _is_file(self)
@@ -537,7 +537,7 @@ finally:
 check(not any("host" in p or ":" in p.replace(str(tmp), "") for p in seen), "rule_hooks(): UNC, absolute and drive paths are not passed to exists()", seen)
 check(len(got) == 1 and "(2" in got[0]["what"] and any(p.endswith("pre+commit@v2.sh") for p in seen), "rule_hooks(): relative missing scripts count, also names with + and @", got)
 
-# ---- BACKLOG C14: on Windows a binary in the dashboard's current folder is never taken for a tool (codex, ao, rtk, winget, brew) ----
+# ---- BACKLOG C14: on Windows a binary in the dashboard's current folder is never taken for a tool (codex, ao, rtk, winget) ----
 import procs, shutil as _sh
 here = tmp / "cwdbin"; here.mkdir(exist_ok=True)
 fake = here / "rtk"

@@ -84,11 +84,11 @@ jobs:
           env -u CLAUDE_CONFIG_DIR HOME="$h" bash scripts/apply.sh
           HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" bash scripts/qa-dashboard.sh
 
-  # codex/ is the Codex setup (TRACE), moved from DevCrop/codex-setup with its own CI kept as it was.
+  # codex/ is the Codex setup (TRACE), moved from DevCrop/codex-setup with its own CI, minus the macos runner (macOS dropped 2026-10-13).
   codex:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         python: ['3.11', '3.14']
     runs-on: ${{ matrix.os }}
     defaults:

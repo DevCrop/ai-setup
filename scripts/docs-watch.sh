@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prints which official Claude Code docs pages changed since the last --update run,
 # with a short line diff of each. Read-only except for the local cache in reports/
-# (gitignored), and only when --update is passed. Needs curl. Works on macOS bash and
+# (gitignored), and only when --update is passed. Needs curl. Works in
 # Git Bash on Windows.
 set -eu
 

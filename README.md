@@ -28,11 +28,11 @@ Then open http://127.0.0.1:8787 (it should answer 200). Open a new Claude Code s
 | # | What | How you check it |
 |---|---|---|
 | 1 | Claude Code 2.1.295 or newer, logged in (`claude auth login`). Credentials are never in this repo | `claude --version`; `bash scripts/qa-deny.sh` fails its CLI cases when logged out (seen 2026-10-12) |
-| 2 | `git`, `jq` (also needed by the status line), `node` 22+, `python` or `python3`, `gh`; `rtk` recommended (`winget install rtk-ai.rtk`, `brew install rtk`) | `python3 scripts/bootstrap.py check` ends with `missing required: none` |
+| 2 | `git`, `jq` (also needed by the status line), `node` 22+, `python` or `python3`, `gh`; `rtk` recommended (`winget install rtk-ai.rtk`) | `python3 scripts/bootstrap.py check` ends with `missing required: none` |
 | 3 | Plugins: `ponytail@ponytail` (always on) and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh` | `claude plugin list`; the script prints `OK` |
 | 4 | Scheduled task `daily-claude-update`: create it in the Claude app from `claude/scheduled-tasks/daily-claude-update/SKILL.md` (replace `<repo>` with this clone's path). In the app's Scheduled settings pick **Opus** and permission mode **auto**: no script or tool can set either | run it once; `reports/YYYY-MM-DD.md` appears; the run session shows the model |
 | 5 | Project folder for the dashboard: `state/project-roots.txt` (one folder per line, or env `PROJECT_ROOTS`; differs per machine and is gitignored) | the dashboard project list shows your projects. It lists one level below each root: with the `<client>/<stage>/<name>` layout, list the stage folders, not the work root |
-| 6 | Dashboard autostart (optional): `python3 scripts/bootstrap.py autostart` (Windows Startup `.vbs` with pythonw, macOS LaunchAgent; shows the file and asks first); delete the file to undo | after a reboot http://127.0.0.1:8787 answers |
+| 6 | Dashboard autostart (optional): `python3 scripts/bootstrap.py autostart` (Windows Startup `.vbs` with pythonw; shows the file and asks first); delete the file to undo | after a reboot http://127.0.0.1:8787 answers |
 | 7 | Leave `desktop-commander@synced` disabled and VS Code `claudeCode.initialPermissionMode` unset | `verify.sh --live` has no WARN for `desktop-commander`; the VS Code setting is checked by looking at it, no script reads it |
 
 Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it is committed.
@@ -80,7 +80,7 @@ Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewr
 - `claude/hooks/compact-context.sh`, `claude/hooks/config-audit.sh` — SessionStart (compact) hook that re-injects the project's handoff note, and ConfigChange hook that logs edits to `~/.claude` for `verify.sh --live` (never block)
 - `claude/routines/`, `claude/scheduled-tasks/` — daily update routine and the scheduled task body
 - `docs/` — `GUIDE.md` (start here), `DECISIONS.md`, `BACKLOG.md` (open work), `evidence.md` (Korean originals kept verbatim), `codex-alignment.md`, `review-claude-mem.md`
-- `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py` (+ `bootstrap.sh`, `bootstrap.ps1` for a bare machine) — tool registry and the machine setup entry point
+- `tools.json`, `scripts/toolreg.py`, `scripts/bootstrap.py` (+ `bootstrap.ps1` for a bare machine) — tool registry and the machine setup entry point
 - `scripts/apply.sh`, `verify.sh`, `docs-watch.sh`, `setup-claude-mem.sh`, `bench.sh` — apply, read-only checks, docs diff for the routine, claude-mem settings, benchmark harness
 - `scripts/qa-*.sh` — QA suites (hooks, deny rules, dashboard API and UI, role agents, project setup, statusline)
 - `scripts/dashboard/` — local dashboard (`server.py` + `ui/` ES modules), `http://127.0.0.1:8787`
@@ -90,11 +90,11 @@ Runtime data (credentials, session history, auto-memory, plugins, caches) is nev
 
 ## How `apply.sh` behaves
 
-Needs `jq`; run in macOS bash or Git Bash. It copies `CLAUDE.md`, `RTK.md`, `settings.json`, `statusline.sh`, `agents/`, `hooks/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). `settings.json` is merged: keys this repo owns (permissions, `autoMode`, hooks, status line, marketplaces, `skillOverrides`) take the repo value; keys that exist only on the machine are kept and reported; files an earlier apply copied and the repo no longer has are removed. There is no backup: to go back, check out the older commit and run `apply.sh` again. On Windows Git Bash `$HOME` must equal `%USERPROFILE%`, otherwise set `CLAUDE_CONFIG_DIR`.
+Needs `jq`; run in Git Bash. It copies `CLAUDE.md`, `RTK.md`, `settings.json`, `statusline.sh`, `agents/`, `hooks/`, `routines/` and the listed `skills/*` into `~/.claude/` (or `CLAUDE_CONFIG_DIR`). `settings.json` is merged: keys this repo owns (permissions, `autoMode`, hooks, status line, marketplaces, `skillOverrides`) take the repo value; keys that exist only on the machine are kept and reported; files an earlier apply copied and the repo no longer has are removed. There is no backup: to go back, check out the older commit and run `apply.sh` again. On Windows Git Bash `$HOME` must equal `%USERPROFILE%`, otherwise set `CLAUDE_CONFIG_DIR`.
 
 ## Status
 
 - **Windows, first machine:** applied and checked 2026-10-10 and 2026-10-11 (PRs up to #69). A real `claude -p` session in `bypassPermissions` with RTK on had `git add -A` blocked by the secret-guard hook (2026-10-10).
 - **Windows, second machine (fresh clone of `main`, 2026-10-12, PRs up to #88):** `verify.sh --live` 0 FAIL, 0 WARN; `qa-deny.sh` all 26 cases pass after `claude` login; `qa-dashboard.sh` and `qa-ui.sh` `failures: 0`; role-agent QA run, python-launcher fix in #83, scenario fixes in #86 and #87; benchmark single vs subagents vs AO, 3 runs each, all hidden tests 100% (results in the dashboard panel "같은 과제 비교"; `reports/bench/` is not committed).
 - **Not recorded elsewhere:** the second-machine results above are from the operator's runs and are not in `docs/evidence.md`; the "Last run" column of the local test checklist in `docs/GUIDE.md` is still empty.
-- **Not run:** macOS (bash 3.2, BSD tools), a reboot test of the dashboard autostart, Opus/auto mode of the scheduled task (set by hand in the app).
+- **Not run:** a reboot test of the dashboard autostart, Opus/auto mode of the scheduled task (set by hand in the app).
