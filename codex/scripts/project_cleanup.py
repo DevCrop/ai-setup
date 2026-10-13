@@ -92,14 +92,14 @@ def process_busy(root):
             commands = [r.get('CommandLine') or '' for r in rows]
             ambiguous = any((r.get('Name') or '').casefold() in ('node.exe', 'php.exe', 'python.exe', 'python3.exe', 'bun.exe')
                             and not any(s in (r.get('CommandLine') or '').replace('\\', '/').casefold()
-                                        for s in ('/.codex/', '/trace-setup/', '/codex-setup/', '/@openai/codex/')) for r in rows)
+                                        for s in ('/.codex/', '/trace-setup/', '/codex-setup/', '/ai-setup/codex/', '/@openai/codex/')) for r in rows)
         else:
             result = subprocess.run(['ps', '-axo', 'pid=,args='], capture_output=True, timeout=15, check=True)
             commands = [line.split(None, 1)[1] for line in result.stdout.decode(errors='replace').splitlines()
                         if len(line.split(None, 1)) == 2
                         and int(line.split(None, 1)[0]) not in (os.getpid(), os.getppid())]
             ambiguous = any(Path(c.split()[0]).name in ('node', 'php', 'python', 'python3', 'bun')
-                            and not any(s in c for s in ('/.codex/', '/TRACE-Setup/', '/codex-setup/', '/@openai/codex/'))
+                            and not any(s in c for s in ('/.codex/', '/TRACE-Setup/', '/codex-setup/', '/ai-setup/codex/', '/@openai/codex/'))
                             for c in commands if c.split())
         needle = str(root).replace('\\', '/').casefold()
         if any(needle in c.replace('\\', '/').casefold() for c in commands):

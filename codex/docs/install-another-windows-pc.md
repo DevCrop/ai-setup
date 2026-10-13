@@ -1,5 +1,7 @@
 # 다른 Windows PC에 동일한 글로벌 셋업 적용하기
 
+> 2026-10-13부터 이 셋업은 [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup)의 `codex/` 폴더다(DevCrop/codex-setup에서 히스토리째 옮김). 아래의 codex-setup clone·`cd` 단계 대신 `git clone https://github.com/DevCrop/ai-setup` 후 `ai-setup/codex`에서 명령을 실행한다. 아래 브랜치·태그 고정 절차는 그 시점 기록이다.
+
 2026-10-08 기준 `codex/global-setup-handoff-20261008` 브랜치용 상세 안내다.
 설정 이유는 [인수인계 문서](setup-handoff-20261008.md), 실행 경계는
 [운영 계약](operations.md)을 함께 읽는다. 아래 명령은 단계별로 실행하며

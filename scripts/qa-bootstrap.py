@@ -84,6 +84,25 @@ bare = dict(ENTRY, setup=dict(ENTRY["setup"], candidates=["${REPO_PARENT}/absent
 d, src, tried = toolreg.find_checkout(bare, {}, toks, repo)
 check(d is None and tried and tried[-1][0] == "${REPO_PARENT}/absent", "checkout: none found lists what was tried")
 
+# ---- inRepo: a folder of this repo; the old clone's overrides are reported, never used or recorded ----
+inrepo = mkcheckout(repo / "codexlike")
+IN = dict(ENTRY, setup=dict(ENTRY["setup"], inRepo=True, candidates=["${REPO}/codexlike"]))
+(repo / "state" / "qa-dir.txt").write_text(str(legacy) + "\n", encoding="utf-8")
+os.environ["QA_DIR"] = str(envd)
+r = toolreg.detect(IN, {"checkout": {"qa": str(mach)}}, toks, repo)
+del os.environ["QA_DIR"]
+(repo / "state" / "qa-dir.txt").unlink()
+check(r["setup"]["checkout"] == str(inrepo) and r["setup"]["tried"] == ["${REPO}/codexlike"], "inRepo: env, machine.json and legacy file are not tried", json.dumps(r["setup"]))
+check(r["setup"]["ignored"] == ["QA_DIR", "machine.json checkout.qa", "state/qa-dir.txt"], "inRepo: each set override is reported as ignored", r["setup"]["ignored"])
+rr = {"items": [r], "projectRoots": [], "projectRootsSource": "default", "missingRequired": []}
+check("qa" not in bootstrap.found_values(rr)["checkout"], "inRepo: --write does not record the in-repo checkout", bootstrap.found_values(rr))
+check(any("WARN ignored" in x and "QA_DIR" in x for x in bootstrap.lines(rr)), "inRepo: check prints the ignored overrides", bootstrap.lines(rr))
+gone = toolreg.detect(dict(IN, setup=dict(IN["setup"], candidates=["${REPO}/absent"])), {}, toks, repo)
+rg = {"items": [gone], "projectRoots": [], "projectRootsSource": "default", "missingRequired": []}
+check(not any("; clone " in x for x in bootstrap.lines(rg)) and toolreg.detect(IN, {}, toks, repo)["setup"]["ignored"] == [], "inRepo: a missing folder is not offered as a clone; nothing set means nothing ignored")
+said = []
+check(bootstrap.cmd_clone(rg, {"qa": IN}, ask=lambda q: said.append(q) or False, run=lambda c: 1, toks=toks) == 0 and not said, "inRepo: clone never nests this repo into itself")
+
 # ---- binaries ----
 r = toolreg.detect(ENTRY, {}, toks, repo)
 check(not r["found"] and not r["versionOk"] and r["install"], "detect: missing binary is not ok and has an install hint")

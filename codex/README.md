@@ -1,5 +1,7 @@
 # TRACE Setup v1.3.3
 
+Since 2026-10-13 this is the `codex/` folder of [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup) (moved from DevCrop/codex-setup with its history). Get it with `git clone https://github.com/DevCrop/ai-setup` and run the commands below from `ai-setup/codex`; `python scripts/bootstrap.py check` in ai-setup finds it there.
+
 Portable Codex personal instructions, optional profiles, pinned Ponytail,
 RTK and ownership-based deployment. Python 3.11+ and Git are required. Use ChatGPT subscription login on each host. No API key and no
 50/200-run model benchmark are required.

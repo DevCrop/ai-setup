@@ -187,6 +187,8 @@ def checkout_candidates(entry, machine, toks, repo=REPO):
     """(where it came from, path) in the order they are tried."""
     s = entry.get("setup") or {}
     out = []
+    if s.get("inRepo"):
+        return [(tpl, p) for tpl in s.get("candidates", []) for p in [expand(tpl, toks)] if p is not None]
     if s.get("env") and os.environ.get(s["env"]):
         out.append((s["env"], Path(os.environ[s["env"]]).expanduser()))
     mc = _mget(machine, "checkout").get(entry["id"])
@@ -200,6 +202,20 @@ def checkout_candidates(entry, machine, toks, repo=REPO):
         p = expand(tpl, toks)
         if p is not None:
             out.append((tpl, p))
+    return out
+
+
+def ignored_overrides(entry, machine, repo=REPO):
+    """For an inRepo setup: the overrides that are set but not used (they named the old separate clone)."""
+    s = entry.get("setup") or {}
+    if not s.get("inRepo"):
+        return []
+    out = [s["env"]] if s.get("env") and os.environ.get(s["env"]) else []
+    mc = _mget(machine, "checkout").get(entry["id"])
+    if isinstance(mc, str) and mc:
+        out.append("machine.json checkout." + entry["id"])
+    if s.get("legacy") and first_line(repo / s["legacy"]):
+        out.append(s["legacy"])
     return out
 
 
@@ -287,7 +303,8 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
         d, source, tried = find_checkout(entry, machine, toks, repo)
         out["setup"] = {"repo": entry["setup"]["repo"], "checkout": str(d) if d else None, "source": source,
                         "fromEnv": bool(source) and source == entry["setup"].get("env"),
-                        "tried": [s for s, _ in tried], "parser": entry["setup"].get("parser")}
+                        "tried": [s for s, _ in tried], "parser": entry["setup"].get("parser"),
+                        "inRepo": bool(entry["setup"].get("inRepo")), "ignored": ignored_overrides(entry, machine, repo)}
     return out
 
 
