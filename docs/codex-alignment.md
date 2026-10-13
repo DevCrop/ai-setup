@@ -47,7 +47,7 @@ The reviewer reads the project `AGENTS.md` and `~/.codex/AGENTS.md`. It never re
 2. **UTF-8.** The Codex agreement says "Use UTF-8 for text" (`global/AGENTS.md`); it gives no reason. Claude has no such rule and no recorded problem. Add one only after a failure is seen.
 3. **Codex review quota.** The ChatGPT Codex GitHub review bot reported "usage limits for code reviews" on PR #74 (2026-10-12). Not checked: whether AO's Codex reviewer (the Codex CLI) draws on the same quota.
 
-## Asks for the Codex side (codex-setup is maintained by Codex; this repo does not change it)
+## Asks for the Codex side (until the move into `codex/`; after it, one agent writes at a time, DECISIONS 2026-10-13 "one repository")
 Open (2026-10-12):
 - Project path rule: add the line from `claude/CLAUDE.md` (Working method, "Projects live under a per-machine work root ...") to `global/AGENTS.md`, so both agents find the project the same way. To be raised with Codex from the Windows PC after the TRACE fix.
 - Not compared yet: the handoff note rule (`claude/CLAUDE.md`, Context and handoff; Claude also posts it on the work's own PR) against Codex's handoff guidance.
