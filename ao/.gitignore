@@ -1,4 +1,3 @@
 projects.json
 __pycache__/
 *.pyc
-.qa-fixture/

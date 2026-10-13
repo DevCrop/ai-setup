@@ -1,5 +1,7 @@
 # Maintenance and RTK evidence boundaries
 
+The Archify rows are superseded by Decision 003 (Archify removed).
+
 Reviewed 2026-10-05.  TRACE is a user-designed configuration assembled from official
 capabilities; OpenAI does not publish or endorse this complete setup.
 

@@ -1,7 +1,7 @@
 // DOM and SVG primitives. Text goes in through textContent only (no innerHTML), so data from the server can never become markup.
 export const $ = (id) => document.getElementById(id);
 export const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-export const NS = "http://www.w3.org/2000/svg";
+const NS = "http://www.w3.org/2000/svg";
 export const sv = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
 export const SN = (tag, attrs, text) => { const e = sv(tag, attrs || {}); if (text != null) e.textContent = text; return e; };
 

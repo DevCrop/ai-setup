@@ -1,7 +1,6 @@
 """Offline release integrity checks; does not call any model."""
 import hashlib
 import json
-from pathlib import Path
 import re
 import tomllib
 

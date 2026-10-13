@@ -125,7 +125,7 @@ export const arrow = () => el("span", "arrow");
 
 // Bar chart built once and then updated in place so bars, gridlines and the end label animate to new values.
 // The viewBox is the host's real pixel size, so the chart fills the width at any size (rebuild it when the host is resized or shown).
-export class BarChart extends Component {
+class BarChart extends Component {
   constructor(host, n, aria, ticks, tip) {
     super(); this.host = host; this.n = n; this.aria = aria; this.ticks = ticks; this.tip = tip;
     this.vals = []; this.labels = []; this.unit = "";

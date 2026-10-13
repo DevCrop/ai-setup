@@ -5,7 +5,7 @@ import { Badge, Panel, Note, Tiles, mk } from "./components.js";
 const usd = (x) => (x < 0.1 ? "$" + x.toFixed(4) : "$" + x.toFixed(2));
 const SHORT = (m) => m.replace(/^claude-/, "");
 
-export const KIND_LABEL = { read: "캐시 읽기", write: "캐시 쓰기", output: "출력", input: "입력" };
+const KIND_LABEL = { read: "캐시 읽기", write: "캐시 쓰기", output: "출력", input: "입력" };
 
 // One stacked bar of the cost kinds, each segment's width its share of the total. Exported for the bench panel.
 export function splitBar(split) {

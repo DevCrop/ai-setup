@@ -4,7 +4,7 @@ import { el, sv, SN, ico, hms } from "./dom.js";
 
 let DID = 0;
 // marker ids are per document, so every diagram gets its own copy (hidden views keep their SVGs)
-export function wrapDiagram(svg) {
+function wrapDiagram(svg) {
   const u = "-" + (++DID);
   svg.querySelectorAll("marker").forEach((m) => { m.id += u; });
   svg.querySelectorAll("[marker-end]").forEach((e) => e.setAttribute("marker-end", e.getAttribute("marker-end").replace(/\)$/, u + ")")));
@@ -21,7 +21,7 @@ function addMarkers(svg) {
 
 // One edge in a flow diagram. kind: call (solid accent), ret (dashed grey), edge (thin grey). Edges move (dashes travel along the line) unless tone is "off".
 // tone: ok / warn / bad recolor and speed the flow; "off" is a static line for a missing or inactive link.
-export function flowEdge(tag, kind, tone, attrs) {
+function flowEdge(tag, kind, tone, attrs) {
   return SN(tag, { ...attrs, class: kind + " flow-anim" + (tone ? " flow-" + tone : "") + (tone === "off" ? " flow-still" : ""), "marker-end": "url(#" + (kind === "call" ? "ah-call" : kind === "ret" ? "ah-ret" : "ah-edge") + ")" });
 }
 

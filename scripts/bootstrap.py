@@ -228,9 +228,8 @@ def cmd_verify(r, entries, capture=capture):
     return 1 if bad else 0
 
 
-def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executable, appdata=None, home=None):
+def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executable, appdata=None):
     """(file to write, its bytes, how it is undone) for this system, or (None, reason, None)."""
-    home = Path(home or Path.home())
     if platform.startswith("win"):
         pyw = Path(python).with_name("pythonw.exe")
         if not pyw.exists():

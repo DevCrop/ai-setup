@@ -214,10 +214,6 @@ is_literal_secret = projects_mod.is_literal_secret
 literal_secret_count = projects_mod.literal_secret_count
 
 
-def project_dirs():
-    return projects_mod.project_dirs(ROOT, PROJECTS)
-
-
 def discover_projects(limit=30):
     return projects_mod.discover_projects(ROOT, PROJECTS, limit)
 

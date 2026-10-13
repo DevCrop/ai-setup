@@ -1,6 +1,6 @@
 """One-click fixes. A fix is a class with a preview and a run; only classes registered in a FixRegistry can ever run.
 To add a fix: subclass Fix, give it an id, register an instance in server.py. Nothing else changes."""
-import json, os, re, shutil, subprocess, threading, urllib.request
+import json, re, shutil, subprocess, threading, urllib.request
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
