@@ -141,7 +141,7 @@ Habits: `/clear` between unrelated tasks; after two failed corrections on one is
 
 - Code: Python modules in `scripts/dashboard/` (`procs.py` is the only place a process starts, hidden on Windows), UI as ES modules in `scripts/dashboard/ui/` (a screen is a `Tab` subclass in `ui/tabs/`, built from `ui/components.js`).
 - Codex setup tab: shows what the Codex global setup (TRACE, [`codex/`](../codex/README.md)) reports about itself: `setup.py verify` and `setup.py plan` (both read-only) and `codex --version`. It never runs apply or rollback; those stay with Codex. The checkout is `codex/` in this repo only; `TRACE_DIR`, `state/trace-dir.txt` and `checkout.codex` in `state/machine.json` named the old separate clone, are not read, and `bootstrap.py check` warns while they are set. The Codex CLI is `CODEX_BIN` or `codex` on PATH. TRACE needs Python 3.11+.
-- Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths. `state/project-roots.txt` or `PROJECT_ROOTS` (paths joined by the OS path separator) name parent folders whose direct sub-folders are all listed (one level, never a drive root). A project root is the "work root" of the global path rule; with the `<client>/<stage>/<name>` layout, list the stage folders until the deeper search lands (frozen until the Mac run, `docs/DECISIONS.md`). `machine.json` `projectRoots` is not read by the dashboard yet.
+- Project list: `state/projects.txt` or `PROJECT_DIRS` (one path per line); with neither, it uses folders recorded in session logs, skipping temp and worktree paths. `state/project-roots.txt` or `PROJECT_ROOTS` (paths joined by the OS path separator) name parent folders whose direct sub-folders are all listed (one level, never a drive root). A project root is the "work root" of the global path rule; with the `<client>/<stage>/<name>` layout, list the stage folders (a deeper search was dropped, `docs/DECISIONS.md` "two Windows PCs"). `machine.json` `projectRoots` is not read by the dashboard yet.
 - Autostart is a per-machine choice, not in the repo. Windows: a `.vbs` in the Startup folder that runs `pythonw scripts/dashboard/server.py` hidden (step 5 of section 1b). macOS and Linux: not tried; any login-time launcher works.
 - Checks: `bash scripts/qa-dashboard.sh` (API, security, static files), `bash scripts/qa-ui.sh` (headless Chrome: every tab, three widths, palette, dialogs, flow lines, live update, offline and recovery; needs node 22+).
 - Not measured: macOS and Linux runs, and sessions that run on another machine.
@@ -207,14 +207,14 @@ Limits: three runs per arm is a small sample. Wall time is first to last transcr
 - **Processes named `--chrome-native-host`** belong to Chrome; leave them.
 - **`~/.claude` must never be committed**: `.credentials*`, `.claude.json`, `history.jsonl` are gitignored and blocked by `secret-guard`.
 
-## Local test checklist (not run yet: needs Windows and Mac)
+## Local test checklist (the two Windows PCs)
 
-The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, a real `claude` 2.1.296, headless Chromium). These need your machines; write the result next to each line (`machine, date, result`).
+The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, a real `claude` 2.1.296, headless Chromium). These need your machines; write the result next to each line (`machine, date, result`). `both` in the Where column means both Windows PCs.
 
 | ID | Where | Do | Expect | Last run |
 |---|---|---|---|---|
 | L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed. Also, with jq off the PATH, staging a secret-named file in a throwaway repo is blocked by secret-guard (CI skips this simulation on Git Bash) | Windows, 2026-10-13, claude 2.1.296, rtk 0.51.0: `verify.sh --live` 0 FAIL, 0 WARN; a second `apply.sh` replaces nothing (the `opus[1m]` revert is gone). The jq-off secret-guard simulation was not run |
-| L-2 | Mac | this guide's quick path from the start | 0 FAIL, only the expected WARN lines; `qa-statusline.sh` passes (BSD sed) | — |
+| L-2 | Mac | dropped: macOS is out of scope (`docs/DECISIONS.md` "two Windows PCs") | — | — |
 | L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
 | L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
 | L-5 | both | `bash scripts/qa-deny.sh` | all PASS (30 cases; with RTK installed it exercises the rewrite) | Windows, 2026-10-13, rtk 0.51.0 hook active: all 30 PASS. The first run failed every case as `no-call` because the claude login had expired; since #114 that shows as `error` with the CLI message |
