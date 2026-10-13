@@ -9,9 +9,9 @@ They are kept apart on purpose:
 
 This page lists where the two personal layers agree, where they differ, and which differences are deliberate.
 
-Compared on 2026-10-12:
+Dated snapshot, compared on 2026-10-12 and not re-run since (the Codex side has moved on; read the tables as of that date):
 - Claude side: `claude/CLAUDE.md`, `claude/RTK.md`, `claude/skills/orchestrate/SKILL.md`.
-- Codex side: `global/AGENTS.md` and `global/guides/*.md` in codex-setup at `c297240` (v1.2.4). The tables are pinned there; `global/guides/official-source-workflow.md` and `global/guides/rtk.md` changed by v1.3.2 and were not re-compared.
+- Codex side (snapshot): `global/AGENTS.md` and `global/guides/*.md` in the former DevCrop/codex-setup repository at `c297240` (v1.2.4), before the move into `codex/` (now v1.3.3). The tables are pinned there; `global/guides/official-source-workflow.md` and `global/guides/rtk.md` changed by v1.3.2 and were not re-compared.
 
 ## Same intent (keep both as they are)
 | Rule | Claude (`claude/CLAUDE.md`) | Codex (`global/AGENTS.md`) |

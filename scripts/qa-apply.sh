@@ -87,7 +87,7 @@ out="$(apply)"
   && printf '%s' "$out" | grep -q "removed from settings.json" && pass "6 removed-keys are deleted and reported" || bad "6 removed-keys ($out)"
 
 # 6b. the repo owns a key by being the source: a repo without permissions.allow deletes the live one (scratch copy of the repo)
-r2="$base/repo2"; mkdir -p "$r2/scripts" "$r2/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$r2/scripts/"; cp -R "$repo/claude/." "$r2/claude/"
+r2="$base/repo2"; mkdir -p "$r2/scripts" "$r2/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$repo/scripts/owned-keys.json" "$r2/scripts/"; cp -R "$repo/claude/." "$r2/claude/"
 jq 'del(.permissions.allow) | del(.skillOverrides)' "$repo/claude/settings.json" > "$r2/claude/settings.json"
 newcfg; apply >/dev/null; jq '.permissions.allow=["Bash(*)"] | .skillOverrides={"x":"y"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$r2/scripts/apply.sh" >/dev/null 2>&1
@@ -111,7 +111,7 @@ done
 pass "6d JSON that is not an object is refused with exit 1 and nothing written (four shapes)"
 
 # 6e. a repo item that is missing is found before anything is written
-r3="$base/repo3"; mkdir -p "$r3/scripts" "$r3/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$r3/scripts/"; cp -R "$repo/claude/." "$r3/claude/"; rm "$r3/claude/statusline.sh"
+r3="$base/repo3"; mkdir -p "$r3/scripts" "$r3/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$repo/scripts/owned-keys.json" "$r3/scripts/"; cp -R "$repo/claude/." "$r3/claude/"; rm "$r3/claude/statusline.sh"
 newcfg; mkdir -p "$cfg"; echo '{"keep":"me"}' > "$cfg/settings.json"; cp "$cfg/settings.json" "$base/b6e"
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$r3/scripts/apply.sh" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && cmp -s "$base/b6e" "$cfg/settings.json" && [ ! -e "$cfg/CLAUDE.md" ] && pass "6e missing repo item: exit 2 before anything is written" || bad "6e preflight (rc=$rc; $out)"

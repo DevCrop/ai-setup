@@ -2,6 +2,20 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — leftovers of the old layout removed
+
+### `bootstrap.py clone`, the `${DOCUMENTS}` and `${REPO_PARENT}` tokens and the Sonnet dashboard tier are gone
+- What: `bootstrap.py` has no `clone` subcommand (the `claude` setup is this repo, `${REPO}`, and `codex` is `inRepo`, so it had nothing left to clone). `tools.json` paths use `${HOME}`, `${LOCALAPPDATA}` and `${REPO}` only; `documents_dir()` and the unused `detect_all()` were removed from `scripts/toolreg.py`. The routing diagram has no Sonnet tier (old logs are still priced by `usage.py`). The efficiency hint states the Opus/Haiku lanes and quotes no numbers until BACKLOG R2 measures them. This narrows entries "One hub, one registry" and "Installs only what is missing": their token and subcommand lists, and what they say about `clone`, are older than this entry.
+- Undo: restore from git history; a tool outside this repo would need `clone` and a token for its parent folder again.
+
+## 2026-10-13 — short, plain replies
+
+### Built-in Concise output style, plus plain-language lines in `claude/CLAUDE.md`
+- What: `claude/settings.json` sets `"outputStyle": "Concise"` (built-in, Claude Code 2.1.237 or newer; the name is case-sensitive). `claude/CLAUDE.md` Communication adds three lines: plain words with technical terms explained, tables and long lists only when asked or comparing three or more items, at most one question at the end.
+- Why: the user found replies long and hard to read. The output-styles page names Concise for when "Default responses are longer than you want"; it leads with the result and drops narration and recaps, but does not ask for plain words, fewer tables or fewer questions, so the CLAUDE.md lines add only those (they do not repeat what Concise already says, and they also reach subagents, which output styles do not). Completion reports still keep the conditions and what was not verified (Working method). Errors, failing tests, security warnings and destructive-action confirmations stay full length (the same page). The third-party `caveman` skill was considered and not adopted: it saves tokens with fragment prose, which reads harder.
+- Limits: an output style is an instruction, not a guarantee; it does not change the replies of subagents other than a fork (they run their own system prompt). Not measured.
+- Check: `scripts/verify.sh` asserts `outputStyle == "Concise"`. Undo: remove the key, the three lines and the check. Source: https://code.claude.com/docs/en/output-styles (read 2026-10-13).
+
 ## 2026-10-13 — one secret list
 
 ### The Read deny rules, the hard_deny text and `secret-guard` name the same secret files
@@ -128,9 +142,9 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: put back the ask rules `git branch -D *`, `git stash drop *`, `git stash clear *`, `rm *`, `git restore *`, `find * -delete*`, `shred *` with their `rtk ` twins, drop the `shred` deny rules, and restore the removed `qa-deny.sh` cases.
 
 ### `permissions.disableBypassPermissionsMode: "disable"`
-- What: bypass mode cannot be selected in sessions that read `~/.claude/settings.json` from this repo. `apply.sh` and `verify.sh` own the key (`own_perm`), and `verify.sh` asserts it.
+- What: bypass mode cannot be selected in sessions that read `~/.claude/settings.json` from this repo. `apply.sh` and `verify.sh` own the key (`scripts/owned-keys.json`), and `verify.sh` asserts it.
 - Why: the auto decision (2026-10-11) was a convention; the permissions doc says a user "can set it in their own settings to lock themselves out of bypass mode". Bypass stays for isolated containers and VMs that do not run `apply.sh` (`docs/GUIDE.md`, Permission mode).
-- Undo: remove the key from `claude/settings.json` and the `verify.sh` assertion, but keep it in the three `own_perm` lists (`apply.sh` merge and report, `verify.sh --live`): that is what makes `apply.sh` delete the live value. Removing it from `own_perm` too, or applying from an older commit, leaves the lock live; then list `["permissions","disableBypassPermissionsMode"]` in `scripts/removed-keys.json`.
+- Undo: remove the key from `claude/settings.json` and the `verify.sh` assertion, but keep it in the `permissions` list of `scripts/owned-keys.json` (read by the `apply.sh` merge and report and by `verify.sh --live`): that is what makes `apply.sh` delete the live value. Removing it from that list too, or applying from an older commit, leaves the lock live; then list `["permissions","disableBypassPermissionsMode"]` in `scripts/removed-keys.json`.
 
 ## 2026-10-12 — project path rule and handoff on the PR
 
@@ -168,7 +182,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ## 2026-10-12 — AO reviewer lane
 
 ### AO reviewer lane is Codex `gpt-6.1-sol`; Claude keeps the worker lanes
-- Why: the reviewer should not share the author's vendor and blind spots ("the author does not verify its own output"), and one Codex lane keeps routing simple (Claude already has Haiku and Opus, and Sonnet until 2026-10-12). `gpt-6.1-sol` is the Codex catalog's "workhorse model for coding"; `gpt-6-astra` (frontier) and `gpt-6-luna` (easier tasks) can be added later if a measured need appears. Effort: the model default is `low` for `gpt-6.1-sol` (`models.json`); since 2026-10-13 every pass runs with `ao review trigger --effort high` (entry "Codex reviewer posts through a gh login").
+- Why: the reviewer should not share the author's vendor and blind spots ("the author does not verify its own output"), and one Codex lane keeps routing simple (Claude already has Haiku and Opus, and Sonnet until 2026-10-12). `gpt-6.1-sol` is the Codex catalog's "workhorse model for coding"; the setup uses only Opus and Haiku on Claude and Sol on Codex (user choice 2026-10-13). Effort: the model default is `low` for `gpt-6.1-sol` (`models.json`); since 2026-10-13 every pass runs with `ao review trigger --effort high` (entry "Codex reviewer posts through a gh login").
 - Where: per machine, in each AO project's config (`reviewers[].harness = "codex"`, `agentConfig.model`), not in this repository. The `orchestrate` skill and `docs/GUIDE.md` say how. Sources in `docs/evidence.md` ("AO Codex 리뷰어 레인").
 - Verified 2026-10-12 on Windows, AO 0.13.7 (`docs/evidence.md`, "AO 로컬 QA"): five Codex review runs on three PRs used `gpt-6.1-sol` (Codex session logs) and found three real defects that the workers' passing tests missed. The logs show effort `high`, not the `low` default above; AO passed no effort, so it likely comes from `model_reasoning_effort` in that machine's `~/.codex/config.toml` (not confirmed). Codex could not post to GitHub (`gh` not authenticated in its environment) and no finding reached a worker by itself; the link between the two is not checked. Send `ao review ls --json` findings with `ao send`.
 - Codex as an AO worker, measured 2026-10-13 (evidence "AO 로컬 QA"): `rm` ran without approval (no per-command deny or ask layer), and `git commit` failed because the worktree's `.git` lies outside the sandbox's write roots. This supports keeping Claude in the worker lane.

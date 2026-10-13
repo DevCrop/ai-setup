@@ -8,6 +8,7 @@
     }
   },
   "advisorModel": "opus",
+  "outputStyle": "Concise",
   "agentPushNotifEnabled": true,
   "autoCompactWindow": 400000,
   "promptCacheTtl": "1h",

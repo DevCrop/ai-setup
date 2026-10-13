@@ -26,7 +26,7 @@ assert server.FIXES.preview("mem-redact-on")["targets"] == []                   
 # rtk-update: runs only the fixed installer command, only for the confirmed target, and never the real one in this test
 seen = []
 class P:  returncode = 0
-rtk = server.RTK
+rtk = server.FIXES._fixes["rtk-update"]
 rtk.latest = lambda: "v99.0.0"; server.CACHE.drop("rtk_latest")
 rtk.installer = lambda: ["fake-installer", "--x"]
 rtk.runner = type("R", (), {"run": staticmethod(lambda cmd, timeout=60: "rtk 1.0.0"), "spawn": staticmethod(lambda cmd, timeout=60, cwd=None: (seen.append(cmd), P())[1])})

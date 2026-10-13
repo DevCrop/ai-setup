@@ -23,7 +23,7 @@ def api(method, path, body=None):
         return json.load(response) if response.status != 204 else None
 
 
-# Role lanes (claude-global docs/DECISIONS.md, 2026-10-12 and 2026-10-13): Claude workers on Haiku in auto mode, a Claude orchestrator
+# Role lanes (docs/DECISIONS.md, 2026-10-12 and 2026-10-13): Claude workers on Haiku in auto mode, a Claude orchestrator
 # on Opus, and Codex as the PR reviewer so the reviewer is a different vendor from the author. Codex as a worker ran `rm` without approval
 # and could not commit (2026-10-13), so it is never the worker. Full model IDs: AO 0.13.7 rejects aliases such as `haiku`
 # (UNSUPPORTED_MODEL). Update the IDs here when the models change. Reviewer effort is also passed per pass (`ao review trigger --effort high`)

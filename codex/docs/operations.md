@@ -307,8 +307,8 @@ per project, separate from semantic-review evidence in `routine-review.json`.
 
 ## RTK lifecycle
 
-`versions.lock.json` pins release assets for supported Windows, macOS and Linux
-architectures. `tools.py install-rtk` verifies the release SHA-256, extracts only the
+`versions.lock.json` pins release assets for Windows x64 (the two supported PCs)
+and Linux (CI only); other platform assets in a release are ignored. `tools.py install-rtk` verifies the release SHA-256, extracts only the
 binary and checks its version before replacing an owned installation. One previous
 binary is retained outside active paths; user-modified copies conflict. `tools.py
 verify`, `tools.py rollback-rtk` and `tools.py uninstall-rtk` check ownership.
@@ -350,6 +350,6 @@ resolution, verification, side effects/restore, evidence and last verified date.
 Do not universalize historical workarounds or record authentication parameters.
 Only project-specific incidents belong in the project.
 
-Check C-only Windows, different checkout/home drives, Unicode and spaces, OneDrive paths, execution outside checkout, custom CODEX_HOME, missing/read-only paths and links/junctions. Also verify native macOS/Linux install, repeat install, conflict and rollback behavior before declaring those platforms tested. Simulated paths do not establish native OS support.
+Check C-only Windows, different checkout/home drives, Unicode and spaces, OneDrive paths, execution outside checkout, custom CODEX_HOME, missing/read-only paths and links/junctions. Only Windows is a supported host; Linux runs in CI only, and its install, repeat install, conflict and rollback behavior is not native host support. Simulated paths do not establish native OS support.
 
 Sources: [Configuration and paths](https://learn.chatgpt.com/docs/config-file/config-advanced), [Authentication](https://learn.chatgpt.com/docs/auth), [App settings](https://learn.chatgpt.com/docs/app/settings).

@@ -95,21 +95,8 @@ def write_machine(found, repo=REPO):
     return m
 
 
-def documents_dir():
-    """The user's Documents folder. On Windows it is a known folder that may be moved (OneDrive, another drive), so ask the shell."""
-    if os.name == "nt":
-        try:
-            import ctypes
-            buf = ctypes.create_unicode_buffer(260)
-            if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0 and buf.value:  # 5 = CSIDL_PERSONAL
-                return Path(buf.value)
-        except (OSError, AttributeError):
-            pass
-    return Path.home() / "Documents"
-
-
 def tokens(repo=REPO):
-    t = {"HOME": str(Path.home()), "DOCUMENTS": str(documents_dir()), "REPO": str(repo), "REPO_PARENT": str(repo.parent)}
+    t = {"HOME": str(Path.home()), "REPO": str(repo)}
     if os.environ.get("LOCALAPPDATA"):
         t["LOCALAPPDATA"] = os.environ["LOCALAPPDATA"]
     return t
@@ -298,8 +285,3 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
                         "tried": [s for s, _ in tried], "parser": entry["setup"].get("parser"),
                         "inRepo": bool(entry["setup"].get("inRepo")), "ignored": ignored_overrides(entry, machine, repo)}
     return out
-
-
-def detect_all(repo=REPO, spawn=None):
-    machine, toks = load_machine(repo), tokens(repo)
-    return [detect(e, machine, toks, repo, spawn) for e in load_registry(repo)]

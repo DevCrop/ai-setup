@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Status line: the original one-line summary, then a prompt-cache countdown line.
-# Fields: https://code.claude.com/docs/en/statusline#prompt-cache-fields (Claude Code 2.1.251+).
+# Fields: https://code.claude.com/docs/en/statusline#prompt-cache-fields.
 # The cache line is empty (and not printed) until prompt_cache exists or when caching is not observed.
 input="$(cat)"
 

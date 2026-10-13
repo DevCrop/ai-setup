@@ -1,12 +1,12 @@
 """One-click fixes. A fix is a class with a preview and a run; only classes registered in a FixRegistry can ever run.
 To add a fix: subclass Fix, give it an id, register an instance in server.py. Nothing else changes."""
-import json, os, re, shutil, subprocess, threading, urllib.request
+import json, shutil, subprocess, threading, urllib.request
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 
 from fsutil import mem_dir
-from procs import which
+from procs import toolreg, which
 
 
 class Fix(ABC):
@@ -90,9 +90,11 @@ class RtkUpdate(Fix):
         self.runner, self.cache = runner, cache
 
     @staticmethod
-    def parse_version(text):
-        m = re.search(r"(\d+)\.(\d+)\.(\d+)", text or "")
-        return tuple(int(x) for x in m.groups()) if m else None
+    def older(cur, latest):
+        """True when the installed version is below the latest release, False when not, None when either cannot be read."""
+        # only a dotted version counts: toolreg.parse_version falls back to any bare number, which an error text can contain
+        a, b = toolreg.parse_version(cur), toolreg.parse_version(latest)
+        return None if not a or not b or "." not in a or "." not in b else not toolreg.version_ok(a, b)
 
     @staticmethod
     def latest():
@@ -105,16 +107,17 @@ class RtkUpdate(Fix):
 
     @staticmethod
     def installer():
-        """Update command for this machine: winget. None when it does not exist."""
-        if which("winget"):
-            return ["winget", "upgrade", "--id", "rtk-ai.rtk", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
+        """Update command for this machine: winget, with the package id from tools.json (the rtk entry) and no prompts (pythonw has no console).
+        None when winget or the id is missing."""
+        wid = next(((e.get("install") or {}).get("winget") for e in toolreg.load_registry() if e.get("id") == "rtk"), None)
+        if wid and which("winget"):
+            return ["winget", "upgrade", "--id", wid, "--silent", "--accept-package-agreements", "--accept-source-agreements"]
         return None
 
     def preview(self):
         cmd = self.installer()
         cur, latest = self.runner.run(["rtk", "--version"], timeout=10).strip(), self.cache.get("rtk_latest", 3600, self.latest)
-        a, b = self.parse_version(cur), self.parse_version(latest)
-        due = bool(cmd and a and b and a < b)
+        due = bool(cmd and self.older(cur, latest))
         return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
 
     def run(self, targets):

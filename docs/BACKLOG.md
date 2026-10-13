@@ -6,8 +6,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 | # | Do | Done when |
 |---|---|---|
-| M2 | Claude app, Scheduled settings of `daily-claude-update`: model **Opus** (decision 2026-10-12) and permission mode **auto** | GUIDE L-10; the run session shows `claude-opus-5-5` |
-| M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto, and the "Diagrams: Archify ..." line is removed (Archify is gone since 2026-10-13) | matches `claude/CLAUDE.md` (Safety, Tools) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
 | M6 | Move the local folder `Projects\claude-global` to `Projects\ai-setup` (the repo rename, DECISIONS 2026-10-13; postponed that day because `Move-Item` failed with the folder in use). Reboot, open no Claude app, editor or terminal, then in a new PowerShell: stop python/pythonw/bash whose command line has `Projects\claude-global`, `Move-Item`, `python scripts\bootstrap.py autostart`, start the dashboard `.vbs`. Then change every `Projects\claude-global` path in the `daily-claude-update` scheduled task (5 in its body) to the new folder; the task was set back to the old path. Then start a new Claude session there for T4 | the folder opens as `Projects\ai-setup`, the dashboard answers on 127.0.0.1:8787, the scheduled task names only the new path |
 
@@ -17,9 +15,7 @@ None open (S5 and S7 closed on 2026-10-13, DECISIONS "one secret list" and "Thir
 
 ## 3. Correctness
 
-| # | Where | Problem | Done when |
-|---|---|---|---|
-| C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |
+None open (C13 closed on 2026-10-13: the dashboard reads project roots through `toolreg.project_roots()`).
 
 ## 4. Tests and CI
 
@@ -33,10 +29,10 @@ None open (D1-D3 settled on 2026-10-13, DECISIONS "two Windows PCs").
 
 ## 6. Waiting on something outside this repo
 
-Codex setup (moving into `codex/` of this repository, DECISIONS 2026-10-13 "one repository"):
+Codex setup (now in `codex/` of this repository; the move is done, DECISIONS 2026-10-13 "one repository"):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- Codex v1.3.3 subagent models: applied to `~/.codex` on 2026-10-13 (`apply --adopt-existing`, then `verify` pass and a second `apply` unchanged). In a live `codex exec` the same day the default subagent ran `gpt-6.1-sol` medium as intended, but the `explorer` rollout recorded `gpt-6.1-sol` (effort high), not the `gpt-6-luna` in `codex/global/agents/explorer.toml`. Find out why (the parent named it, a fallback, or the agent file not loaded) before calling it done.
+- Codex v1.3.3 subagent models: applied to `~/.codex` on 2026-10-13 (`apply --adopt-existing`, then `verify` pass and a second `apply` unchanged). `explorer` runs on `gpt-6.1-sol` (decision 004). A live `codex exec` that day did not use the model the file then named, so the custom agent file may not be loaded: after `setup.py apply`, confirm in a live run that `explorer` follows the custom file (effort high, sandbox read-only, its developer instructions); the model alone no longer tells it from the built-in one.
 - After the local folder moves to `Projects\ai-setup`: re-render the Codex 08:00 routine with `codex/scripts/render_heartbeat.py` (its prompt holds the checkout path), run `bootstrap.py check --write`, then archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
 
 ## 7. Measure
@@ -44,7 +40,7 @@ Codex setup (moving into `codex/` of this repository, DECISIONS 2026-10-13 "one 
 | # | What | When and how |
 |---|---|---|
 | R1 | Prompt cache TTL trial (DECISIONS 2026-10-11, PR #46) | due 2026-10-14 to 10-18: `/usage` Behavior flags and Attribution; drop `subagentPromptCacheTtl` if short subagents dominate |
-| R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls in the main thread and in Haiku executors, which inherit the advisor and read the "consult it before done" rule (advisor doc) |
+| R2 | Cost and quality of the new model lanes, and advisor cost with Opus main | `bash scripts/bench.sh`, `QA_AGENT_MODEL` runs of `qa-role-agents.sh` (mind the effort caveat in DECISIONS "Model lanes"); count advisor calls in the main thread and in Haiku executors, which inherit the advisor and read the "consult it before done" rule (advisor doc); then put the measured numbers in the efficiency hint (`scripts/dashboard/efficiency.py`, `ModelEfficiency`) |
 | R3 | `autoCompactWindow` 400000, AO numbers, Codex review quality against a Claude reviewer (the first Codex run is done: evidence "AO 로컬 QA", 2026-10-12) | DECISIONS "Cache reads are shown as their own cost" (Open) and "AO reviewer lane" (Not verified) |
 
 ## 8. Known limits (no action unless they bite)

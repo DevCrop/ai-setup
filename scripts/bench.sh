@@ -51,8 +51,8 @@ case "$cmd" in
       echo "BENCH_SETTINGS=$settings: harness test only, not a baseline" >&2
     fi
     mkdir -p "$work" && work="$(cd "$work" && pwd)" || exit 2
-    to="$(command -v timeout || command -v gtimeout || true)"  # without one, runs have no time limit
-    [ -n "$to" ] || echo "no timeout/gtimeout: runs have no 30-minute limit" >&2
+    to="$(command -v timeout || true)"  # without one, runs have no time limit
+    [ -n "$to" ] || echo "no timeout: runs have no 30-minute limit" >&2
     for r in $(seq 1 "$reps"); do
       d="$(fresh "$arm" "$r")" || exit 1; m="$(marker_of "$d")"
       echo "== $arm r$r ($d)"

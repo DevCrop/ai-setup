@@ -129,6 +129,10 @@ if command -v jq >/dev/null 2>&1; then
   jq -e '.model == "opus[1m]" and .modelSettings["claude-opus-5-5"].effortLevel == "medium"' "$src/settings.json" >/dev/null 2>&1 \
     && pass "main model is opus[1m] at medium effort" \
     || fail "settings.json model must be opus[1m] with modelSettings.claude-opus-5-5.effortLevel medium"
+  # Reply style (decision 2026-10-13): the built-in Concise output style; the name is case-sensitive.
+  jq -e '.outputStyle == "Concise"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "outputStyle is Concise" \
+    || fail "settings.json outputStyle must be Concise (case-sensitive)"
   jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
     && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
     || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
@@ -282,9 +286,9 @@ if [ "$live" -eq 1 ]; then
     if [ "$item" = "settings.json" ]; then
       if ! command -v jq >/dev/null 2>&1; then skip "settings.json comparison (needs jq)"; continue; fi
       if ! jq -e 'type == "object"' "$dest/settings.json" >/dev/null 2>&1; then fail "$dest/settings.json is empty or not a JSON object (run: bash scripts/apply.sh)"; continue; fi
-      owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" '
-        def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
-        def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
+      if ! jq -e '(.top | type) == "array" and (.permissions | type) == "array"' "$repo/scripts/owned-keys.json" >/dev/null 2>&1; then fail "scripts/owned-keys.json is missing or malformed"; continue; fi
+      owned_diff="$(jq -n -r --slurpfile l "$dest/settings.json" --slurpfile r "$src/settings.json" --slurpfile o "$repo/scripts/owned-keys.json" '
+        def own_top: $o[0].top; def own_perm: $o[0].permissions;  # the keys apply.sh owns, one list for both scripts
         $l[0] as $l | $r[0] as $r
         | ([own_top[] as $k | select($l[$k] != $r[$k]) | $k]
            + [own_perm[] as $k | select((($l.permissions // {})[$k]) != (($r.permissions // {})[$k])) | "permissions." + $k]

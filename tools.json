@@ -1,5 +1,5 @@
 {
-  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${DOCUMENTS} ${LOCALAPPDATA} ${REPO} ${REPO_PARENT}; never a path inside one user's home. Per-machine values go in state/machine.json. A setup with \"inRepo\": true is a folder of this repo: only its candidates are used, and its env, machine.json checkout and legacy file are reported as ignored (they named the old separate clone). Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; URLs answer HTTP 200).",
+  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${LOCALAPPDATA} ${REPO}; never a path inside one user's home. Per-machine values go in state/machine.json. A setup with \"inRepo\": true is a folder of this repo: only its candidates are used, and its env, machine.json checkout and legacy file are reported as ignored (they named the old separate clone). Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; URLs answer HTTP 200).",
   "tools": [
     {"id": "git", "label": "Git", "kind": "dep", "required": true, "bin": ["git"], "version": ["--version"],
      "install": {"winget": "Git.Git"}},

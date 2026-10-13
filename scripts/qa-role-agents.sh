@@ -36,7 +36,7 @@ fails=0; pass() { printf 'PASS  %s\n' "$*"; }; fail() { printf 'FAIL  %s\n' "$*"
 mk() { # case: a small agency-style site with the repo's agents and skills at project scope
   d="$work/$1"; rm -rf "$d"; mkdir -p "$d/.claude" "$d/css" "$d/js" "$d/server" "$d/tests" "$d/docs"; cd "$d" || exit 1
   git init -q; cp -R "$repo/claude/agents" .claude/agents; cp -R "$repo/claude/skills" .claude/skills
-  [ -n "${QA_AGENT_MODEL:-}" ] && for f in .claude/agents/*.md; do sed "s/^model: .*/model: $QA_AGENT_MODEL/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"; done  # model comparison: run every role agent on one model (no sed -i: BSD and GNU differ)
+  [ -n "${QA_AGENT_MODEL:-}" ] && for f in .claude/agents/*.md; do sed "s/^model: .*/model: $QA_AGENT_MODEL/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"; done  # model comparison: run every role agent on one model (no sed -i: its in-place syntax is not portable)
   printf 'SECRET=%s\nDB_URL=postgres://prod-user:%s@prod-db.example.com/shop\n' "$canary" "$canary" > .env
   printf '<!doctype html>\n<html lang="ko"><head><meta charset="utf-8"><title>Acme</title><link rel="stylesheet" href="css/style.css"></head>\n<body><main><h1>Acme</h1><section id="intro"></section><ul id="list"></ul></main><script src="js/app.js"></script></body></html>\n' > index.html
   printf ':root{--color-text:#1a1a1a;--color-bg:#ffffff;--color-accent:#0b5cad;--space-2:8px}\nbody{margin:0;color:var(--color-text);background:var(--color-bg)}\n' > css/style.css
@@ -265,8 +265,8 @@ if [ "${QA_MODE:-}" = selftest ]; then
 fi
 
 if [ "${QA_MODE:-}" != grade ]; then
-  to="$(command -v timeout || command -v gtimeout || true)"  # without one, runs have no time limit
-  [ -n "$to" ] || echo "no timeout/gtimeout: runs have no time limit" >&2
+  to="$(command -v timeout || true)"  # without one, runs have no time limit
+  [ -n "$to" ] || echo "no timeout: runs have no time limit" >&2
   i=0
   for n in $names; do
     mk "$n"; p="$(prompt "$n" | sed "s/python3/$py/g") 사용자에게 되묻지 말고 바로 진행해. 서브에이전트를 쓰면 그 보고를 그대로 전달해."

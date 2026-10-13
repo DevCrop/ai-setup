@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """One entry point to set up a machine from tools.json. Standard library only.
 
-Usage: python scripts/bootstrap.py [check|install|clone|apply|verify|autostart] [--write] [--json]
+Usage: python scripts/bootstrap.py [check|install|apply|verify|autostart] [--write] [--json]
   check      read-only (default): every dependency and tool, its version, its setup checkout, the project roots,
              and the install command for anything missing. Exit 1 when a required item is missing or too old.
     --write  also record what was found in state/machine.json (values already there are kept).
     --json   print the result as JSON instead of lines.
   install    for each missing item: show the winget command, ask y/N, run it. Installed items are skipped, never upgraded.
-  clone      for each tool whose setup checkout is missing: ask, then git clone it to the first candidate path.
   apply      for each tool with a setup checkout: show its plan (or dry run), ask, then run that tool's own apply.
   verify     run every setup's own verify and summarize. Read-only.
   autostart  write the dashboard login launcher (Windows Startup .vbs) after showing it and asking.
@@ -55,7 +54,7 @@ def lines(r):
         s = i.get("setup")
         if s:
             out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"]
-                                        else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; clone " + s["repo"])))
+                                        else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; git clone " + s["repo"] + ", then check --write")))
             if s.get("ignored"):
                 out.append("       WARN ignored (the folder is part of this repo now; remove them): " + ", ".join(s["ignored"]))
     out.append("projects  " + (", ".join(r["projectRoots"]) or "none") + " [" + r["projectRootsSource"] + "]")
@@ -182,39 +181,6 @@ def cmd_install(r, entries, ask=ask, run=run, platform=sys.platform):
     return 1 if bad else 0
 
 
-def clone_target(entry, toks):
-    for tpl in entry["setup"].get("candidates", []):
-        p = toolreg.expand(tpl, toks)
-        if p is not None:
-            return p
-    return None
-
-
-def cmd_clone(r, entries, ask=ask, run=run, toks=None):
-    toks = toolreg.tokens() if toks is None else toks
-    todo = [i for i in r["items"] if i.get("setup") and not i["setup"]["checkout"] and not i["disabled"] and not i["setup"].get("inRepo")]  # an inRepo folder comes with this repo; cloning would nest the whole repo
-    if not todo:
-        print("nothing to clone")
-        return 0
-    bad = 0
-    for i in todo:
-        target = clone_target(entries[i["id"]], toks)
-        if target is None:
-            print("%s: no candidate path on this system" % i["id"])
-            bad += 1
-            continue
-        if target.exists() and (not target.is_dir() or any(target.iterdir())):
-            print("%s: %s exists (a file or a folder that is not empty); set its path in state/machine.json (checkout.%s) instead" % (i["id"], target, i["id"]))
-            bad += 1
-            continue
-        if ask("clone %s into %s ?" % (i["setup"]["repo"], target)):
-            target.parent.mkdir(parents=True, exist_ok=True)
-            bad += run(["git", "clone", i["setup"]["repo"], str(target)]) != 0
-        else:
-            bad += 1
-    return 1 if bad else 0
-
-
 def cmd_apply(r, entries, ask=ask, run=run, capture=capture):
     todo = [i for i in r["items"] if i.get("setup") and i["setup"]["checkout"] and not i["disabled"] and entries[i["id"]]["setup"].get("apply")]
     bad = 0
@@ -237,7 +203,7 @@ def cmd_apply(r, entries, ask=ask, run=run, capture=capture):
         else:
             bad += 1
     if not todo:
-        print("no setup checkout found; run: python scripts/bootstrap.py clone")
+        print("no setup checkout found; run: python scripts/bootstrap.py check")
         return 1
     return 1 if bad else 0
 
@@ -262,9 +228,8 @@ def cmd_verify(r, entries, capture=capture):
     return 1 if bad else 0
 
 
-def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executable, appdata=None, home=None):
+def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executable, appdata=None):
     """(file to write, its bytes, how it is undone) for this system, or (None, reason, None)."""
-    home = Path(home or Path.home())
     if platform.startswith("win"):
         pyw = Path(python).with_name("pythonw.exe")
         if not pyw.exists():
@@ -307,7 +272,7 @@ def cmd_autostart(ask=ask, plan=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "clone", "apply", "verify", "autostart"])
+    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "apply", "verify", "autostart"])
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
@@ -315,7 +280,7 @@ def main(argv=None):
         return cmd_autostart()
     r = collect()
     if a.command != "check":
-        return {"install": cmd_install, "clone": cmd_clone, "apply": cmd_apply, "verify": cmd_verify}[a.command](r, entries_by_id())
+        return {"install": cmd_install, "apply": cmd_apply, "verify": cmd_verify}[a.command](r, entries_by_id())
     if a.write:
         try:
             toolreg.write_machine(found_values(r))

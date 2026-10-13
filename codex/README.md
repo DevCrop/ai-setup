@@ -29,7 +29,7 @@ remain independent. No startup task, hook or public web service is installed.
 The [v1.3.2 skills/profile fix](docs/release-1.3.2.md) moves bundled skills to
 `~/.agents/skills` and reports conflicting legacy profiles without editing them.
 The [v1.3.3 subagent defaults](docs/release-1.3.3.md) set spawned agents to GPT-6.1 Sol
-medium and add a read-only `explorer` agent on GPT-6 Luna high.
+medium and add a read-only `explorer` agent on GPT-6.1 Sol high (decision 004).
 
 ## Install
 

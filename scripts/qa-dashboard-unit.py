@@ -14,6 +14,7 @@ os.environ["CLAUDE_CONFIG_DIR"] = str(cfg)
 os.environ["HOME"] = os.environ["USERPROFILE"] = str(tmp)
 sys.path.insert(0, str(Path(__file__).resolve().parent / "dashboard"))
 import server
+import projects
 from cache import TtlCache
 
 fails = []
@@ -86,7 +87,7 @@ fx = fixtures(tmp / "projects")
 for mode in ("rtk", "nortk"):
     shutil.which = (lambda n, *a, **k: "/usr/bin/rtk" if n == "rtk" else real_which(n, *a, **k)) if mode == "rtk" else (lambda n, *a, **k: None if n == "rtk" else real_which(n, *a, **k))
     for name, d in fx.items():
-        got[f"{name}|{mode}"] = server.project_setup(d)
+        got[f"{name}|{mode}"] = projects.project_setup(d, server.spawn)
 shutil.which = real_which
 if "--update-golden" in sys.argv:
     golden_path.write_text(json.dumps(got, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -100,10 +101,10 @@ mf = fx["scripts_unmentioned"]
 Path.is_file = lambda self: True if self.name == "makefile" and (self.parent / "Makefile").exists() else _is_file(self)
 Path.read_text = lambda self, *a, **k: _read_text(self.parent / "Makefile" if self.name == "makefile" else self, *a, **k)
 try:
-    ci_disk = server.project_setup(mf)
+    ci_disk = projects.project_setup(mf, server.spawn)
 finally:
     Path.is_file, Path.read_text = _is_file, _read_text
-check(ci_disk == server.project_setup(mf), "project checks do not change on a case-insensitive disk (Makefile counted once)")
+check(ci_disk == projects.project_setup(mf, server.spawn), "project checks do not change on a case-insensitive disk (Makefile counted once)")
 check(sum(len(v.get("checks", [])) for v in got.values()) > 100 and len({c["what"].split(" (")[0] for v in got.values() for c in v.get("checks", [])}) >= 20,
       "the fixtures reach at least 20 different findings (the golden file is not trivially empty)")
 
@@ -159,16 +160,16 @@ secret_cases = [
     ("MODE", "production-mode-xyz", False), ("max_tokens", "123456789012", False), ("API_KEY", 123456789012345, False),
 ]
 for k, v, want in secret_cases:
-    check(server.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {str(v)[:20]!r}) is {want}")
+    check(projects.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {str(v)[:20]!r}) is {want}")
 for k, v, want in [("Authorization", "Bearer $TOKEN", False), ("Cookie", "session=abcdefghijklmnop", True), ("passwd", "hunter2hunter2", True),
                    ("Signature", "abcdefghijklmnop", True), ("url", "postgres://u:p4ssw0rd@h/db", True), ("url", "https://h/mcp?api_key=abcdefghij1234", True),
                    ("url", "https://mcp.example.com/v1", False), ("note", "uses ${HOME}/x and more text", False)]:
-    check(server.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {v[:24]!r}) is {want}")
-check(server.literal_secret_count({"s": {"args": ["--token", "abcdefghijklmnop"]}}) == 1 and server.literal_secret_count({"s": {"args": ["--token=abcdefghijklmnop"]}}) == 1
-      and server.literal_secret_count({"s": {"args": ["--port", "8080", "x"]}}) == 0 and server.literal_secret_count({"s": {"url": "https://u:pw12345678@h/x"}}) == 1,
+    check(projects.is_literal_secret(k, v) is want, f"is_literal_secret({k!r}, {v[:24]!r}) is {want}")
+check(projects.literal_secret_count({"s": {"args": ["--token", "abcdefghijklmnop"]}}) == 1 and projects.literal_secret_count({"s": {"args": ["--token=abcdefghijklmnop"]}}) == 1
+      and projects.literal_secret_count({"s": {"args": ["--port", "8080", "x"]}}) == 0 and projects.literal_secret_count({"s": {"url": "https://u:pw12345678@h/x"}}) == 1,
       "literal_secret_count() also reads url and --flag arguments")
 servers = {"a": {"headers": {"Authorization": "Bearer abcdefghijklmnop1234"}, "env": {"OK": "${X}", "SECRET_X": "abcdefghijklmnop"}}, "b": "oops", "c": {"env": []}}
-check(server.literal_secret_count(servers) == 2 and server.literal_secret_count(None) == 0, "literal_secret_count over headers and env, odd shapes tolerated")
+check(projects.literal_secret_count(servers) == 2 and projects.literal_secret_count(None) == 0, "literal_secret_count over headers and env, odd shapes tolerated")
 
 # ---- TtlCache ----
 c = TtlCache()
@@ -322,7 +323,7 @@ os.environ["CODEX_BIN"] = str(tmp / "no-such-codex")
 check(cx.codex_cli() == {"found": False, "version": None}, "codex: CODEX_BIN naming a missing file is reported as not found")
 os.environ.pop("CODEX_BIN", None)
 real_find = cx.find
-cx.find = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+cx.find = lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
 s = cx.state()
 check(s["available"] is False and s.get("failed") is True and "RuntimeError" in s["reason"], "codex: an unexpected error becomes a reason on screen, not an endless 'loading'", s)
 cx.find = real_find
@@ -501,6 +502,29 @@ server.H.timeout = old_to
 check(old_to == 10, "the request handler bounds socket reads (timeout 10 s)", old_to)
 httpd2.shutdown()
 
+# ---- BACKLOG C13: the dashboard reads project roots as bootstrap does (toolreg.project_roots: env > machine.json > txt > ~/Projects) ----
+proot = tmp / "c13repo"
+(proot / "state").mkdir(parents=True)
+mroot = tmp / "c13roots"
+(mroot / "fromjson").mkdir(parents=True)
+(proot / "state" / "machine.json").write_text(json.dumps({"projectRoots": [str(mroot)]}), encoding="utf-8")
+# its own home: on a case-insensitive disk (Windows) tmp/Projects is the same folder as the fixtures in tmp/projects
+chome = tmp / "c13home"
+old_pr = os.environ.pop("PROJECT_ROOTS", None)
+old_home = os.environ["HOME"], os.environ["USERPROFILE"]
+try:
+    listed = [p.name for p in projects.discover_projects(proot, tmp / "no-logs")]
+    check(listed == ["fromjson"], "discover_projects(): machine.json projectRoots is read when there is no project-roots.txt", listed)
+    (proot / "state" / "machine.json").unlink()
+    (chome / "Projects" / "fromhome").mkdir(parents=True)
+    os.environ["HOME"] = os.environ["USERPROFILE"] = str(chome)
+    listed = [p.name for p in projects.discover_projects(proot, tmp / "no-logs")]
+    check(listed == ["fromhome"], "discover_projects(): ~/Projects is the default root, as in bootstrap", listed)
+finally:
+    os.environ["HOME"], os.environ["USERPROFILE"] = old_home
+    if old_pr is not None:
+        os.environ["PROJECT_ROOTS"] = old_pr
+
 # ---- BACKLOG C10: MemRedactOn offers nothing when its settings file is missing or broken, and names the real file ----
 import fixes
 memd = tmp / "memdir"
@@ -521,7 +545,7 @@ check(res["ok"] and json.loads((memd / "settings.json").read_text(encoding="utf-
 del os.environ["CLAUDE_MEM_DIR"]
 
 # ---- BACKLOG S6: a hook path that is absolute, UNC or a drive path never reaches the filesystem ----
-import projects, pathlib, types
+import pathlib, types
 seen = []
 real_exists = pathlib.Path.exists
 pathlib.Path.exists = lambda self, *a, **k: (seen.append(str(self)), real_exists(self, *a, **k))[1]
@@ -544,7 +568,7 @@ fake = here / "rtk"
 fake.write_text("", encoding="utf-8"); fake.chmod(0o755)
 real_which, oldcwd, oldpath = _sh.which, os.getcwd(), os.environ.get("PATH", "")
 os.chdir(here)
-procs.shutil.which = lambda n, *a, **k: str(fake) if n == "rtk" else real_which(n, *a, **k)
+_sh.which = lambda n, *a, **k: str(fake) if n == "rtk" else real_which(n, *a, **k)
 try:
     check(procs.which("rtk", windows=True) is None, "procs.which: a hit in the current folder (not on PATH) is refused on Windows")
     check(procs.which("rtk", windows=False) == str(fake), "procs.which: POSIX keeps shutil.which")
@@ -558,20 +582,35 @@ try:
     check(procs.resolve(["/x/y/tool", "a"], windows=True) == ["/x/y/tool", "a"], "procs.resolve: a command with a path is left alone")
     os.environ["PATH"] = oldpath
     # shutil.which is faked for the full path too: on Windows an extension-less file is not executable, and this checks procs' rule only
-    procs.shutil.which = lambda n, *a, **k: str(fake) if n in ("rtk", str(fake)) else real_which(n, *a, **k)
+    _sh.which = lambda n, *a, **k: str(fake) if n in ("rtk", str(fake)) else real_which(n, *a, **k)
     check(procs.which(str(fake), windows=True) == str(fake), "procs.which: an explicit path in the current folder is honoured")
     other = tmp / "pathbin"; other.mkdir(exist_ok=True); good = other / "rtk"; good.write_text("", encoding="utf-8"); good.chmod(0o755)
     os.environ["PATH"] = str(other) + os.pathsep + oldpath
-    procs.shutil.which = lambda n, *a, path=None, **k: (str(good) if path == str(other) else None) if path is not None else (str(fake) if n == "rtk" else real_which(n, *a, **k))
+    _sh.which = lambda n, *a, path=None, **k: (str(good) if path == str(other) else None) if path is not None else (str(fake) if n == "rtk" else real_which(n, *a, **k))
     check(procs.which("rtk", windows=True) == str(good), "procs.which: a copy further down PATH is used when the current-folder hit is refused")
 finally:
     os.environ["PATH"] = oldpath
-    procs.shutil.which = real_which
+    _sh.which = real_which
     os.chdir(oldcwd)
 import ast
 src = {f.name: (Path(__file__).resolve().parent / "dashboard" / f.name).read_text(encoding="utf-8") for f in (Path(__file__).resolve().parent / "dashboard").glob("*.py")}
 direct = [n for n, t in src.items() if n != "procs.py" and "shutil.which(" in t]
 check(direct == [], "dashboard modules look tools up through procs.which, not shutil.which", direct)
+check(procs.which is procs.toolreg.which and "def which" not in src["procs.py"], "procs.which is toolreg.which (one implementation)")
+# toolreg.detect/run_version start a process without the dashboard's no-console spawn, and qa-spawn-guard only scans dashboard/
+unguarded = [n for n, t in src.items() if "toolreg.detect" in t or "run_version" in t]
+check(unguarded == [], "dashboard modules do not call toolreg.detect or run_version (they spawn without the no-console guard)", unguarded)
+
+# ---- BACKLOG T5: the RTK update reads its winget id from tools.json and compares versions with toolreg ----
+_sh.which = lambda n, *a, **k: "/x/winget" if n == "winget" else real_which(n, *a, **k)
+try:
+    wid = next(e["install"]["winget"] for e in procs.toolreg.load_registry() if e["id"] == "rtk")
+    check(fixes.RtkUpdate.installer() == ["winget", "upgrade", "--id", wid, "--silent", "--accept-package-agreements", "--accept-source-agreements"],
+          "rtk-update: the winget id comes from tools.json", fixes.RtkUpdate.installer())
+finally:
+    _sh.which = real_which
+check([fixes.RtkUpdate.older(a, b) for a, b in [("rtk 0.9.10", "v0.10.0"), ("rtk 0.32.0", "v0.32.0"), ("rtk 1.0.0", "v0.32.0"), ("", "v1.0.0"), ("rtk 1.0.0", None), ("error 2", "v1.0.0")]]
+      == [True, False, False, None, None, None], "rtk-update: older() compares numerically and is None when a version cannot be read")
 
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

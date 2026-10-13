@@ -38,7 +38,7 @@ export class ProjectTable {
   }
 }
 
-export function aoText(s) {
+function aoText(s) {
   const a = s.ao || {}; if (!a.available) return "ao CLI를 찾지 못했습니다 (AO_BIN으로 경로를 지정할 수 있습니다).";
   const head = "daemon " + ((a.daemon || {}).state || "?") + " · port " + ((a.daemon || {}).port || "?") + " · uptime " + ((a.daemon || {}).uptime || "?") + " · projects " + (a.projects || []).join(", ") + "\n\n";
   return head + (a.sessions || []).map((x) => [x.id, x.role, x.status + "/" + x.activity, x.branch || "-",

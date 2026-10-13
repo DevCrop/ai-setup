@@ -2,7 +2,7 @@
 """Local live dashboard for the global Claude setup. Read-only, stdlib only, 127.0.0.1 only.
 
 Run: python3 scripts/dashboard/server.py [--port 8787]
-Optional: PROJECT_DIRS or state/projects.txt lists projects; PROJECT_ROOTS or state/project-roots.txt lists parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
+Optional: PROJECT_DIRS or state/projects.txt lists projects; the project roots of scripts/toolreg.py (PROJECT_ROOTS > state/machine.json projectRoots > state/project-roots.txt > ~/Projects) are parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
 Reads: git history, gh PR list, scripts/verify.sh --live, reports/*.md, claude/settings.json, the AO daemon (ao status, session ls, review ls; read-only),
 the Codex setup checks (TRACE setup.py verify and plan, codex --version; read-only, see codex.py),
 and the tool-call names and timestamps of the newest session log in ~/.claude/projects.
@@ -209,23 +209,7 @@ def session_events(limit=120):
     return {"session": f.stem[:8], "mtime": datetime.fromtimestamp(mt, timezone.utc).isoformat(), "events": events[-limit:]}
 
 
-# ---- projects (the checks themselves live in projects.py; these keep the old names and read the module's paths at call time) ----
-is_literal_secret = projects_mod.is_literal_secret
-literal_secret_count = projects_mod.literal_secret_count
-
-
-def project_dirs():
-    return projects_mod.project_dirs(ROOT, PROJECTS)
-
-
-def discover_projects(limit=30):
-    return projects_mod.discover_projects(ROOT, PROJECTS, limit)
-
-
-def project_setup(d):
-    return projects_mod.project_setup(d, spawn)
-
-
+# ---- projects (the checks themselves live in projects.py; this reads the module's paths at call time) ----
 def projects():
     return projects_mod.collect(ROOT, PROJECTS, spawn)
 
@@ -338,10 +322,10 @@ def tools_version_health():
         return []
     cur = run(["rtk", "--version"], timeout=10).strip()
     latest = cached("rtk_latest", 3600, RtkUpdate.latest, slow=True)
-    a, b = RtkUpdate.parse_version(cur), RtkUpdate.parse_version(latest)
-    if not a or not b:
+    older = RtkUpdate.older(cur, latest)
+    if older is None:
         return [("도구", "RTK 버전", "ok", f"{cur or '?'} · 최신 버전 확인 못 함")]
-    if a >= b:
+    if not older:
         return [("도구", "RTK 버전", "ok", f"{cur} (최신)")]
     fixable = RtkUpdate.installer() is not None
     return [("도구", "RTK 버전", "warn", f"{cur} → 최신 {latest}", "업데이트: " + " ".join(RtkUpdate.installer() or ["수동 설치"]) + " [출처: 설치 방식(winget) 확인함, 릴리스 노트는 안 읽음]", "rtk-update" if fixable else "")]
@@ -362,7 +346,7 @@ TOKEN = secrets.token_urlsafe(24)  # per start; a foreign page cannot read it (n
 FIXLOG = ROOT / "state" / "fix-log.jsonl"
 FIXES = FixRegistry()  # only fixes registered here can ever run
 FIXES.register(MemRedactOn())
-RTK = FIXES.register(RtkUpdate(RUNNER, CACHE))
+FIXES.register(RtkUpdate(RUNNER, CACHE))
 
 
 def fix_log_write(fid, targets, res):

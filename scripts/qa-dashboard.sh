@@ -54,7 +54,7 @@ ad="$(mktemp -d "$repo/.qa-ad.XXXXXX")"; ad="$(cd "$ad" && pwd -W 2>/dev/null ||
 printf '{"cwd":"%s"}
 ' "$ad/work/app" > "$ad/cfg/projects/p1/s.jsonl"
 # shellcheck disable=SC1007  # PROJECT_ROOTS= is an intentional empty value
-r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.insert(0,sys.argv[1]);import server;print([p.name for p in server.discover_projects()])" "$repo/scripts/dashboard")"
+r="$(PROJECT_ROOTS= CLAUDE_CONFIG_DIR="$ad/cfg" "$py" -c "import sys;sys.path.insert(0,sys.argv[1]);import server,projects;print([p.name for p in projects.discover_projects(server.ROOT, server.PROJECTS)])" "$repo/scripts/dashboard")"
 [ "$r" = "['app']" ] && pass "project auto-detect finds the session cwd" || bad "project auto-detect gave: $r"
 rm -rf "$ad"
 # fix endpoint: no token, wrong token, foreign Origin and foreign Host are all refused; the allow-list logic passes its unit checks

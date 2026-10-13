@@ -1,0 +1,4 @@
+{
+  "top": ["autoMode", "hooks", "statusLine", "extraKnownMarketplaces", "skillOverrides"],
+  "permissions": ["defaultMode", "disableBypassPermissionsMode", "deny", "ask", "allow"]
+}

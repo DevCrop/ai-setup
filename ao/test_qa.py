@@ -70,7 +70,7 @@ class BudgetTests(unittest.TestCase):
 
 
 class LaneTests(unittest.TestCase):
-    """New projects get the decided lanes (claude-global DECISIONS 2026-10-12/13): Claude worker on Haiku in auto mode,
+    """New projects get the decided lanes (docs/DECISIONS.md 2026-10-12/13): Claude worker on Haiku in auto mode,
     Claude orchestrator on Opus, Codex reviewer on gpt-6.1-sol at high effort. Full model IDs: AO 0.13.7 rejects aliases."""
 
     def run_apply(self, existing_config=None, lanes=False):
