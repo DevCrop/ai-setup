@@ -11,7 +11,7 @@ Paths: the report goes to <repo>/reports/YYYY-MM-DD.md and the per-machine basel
 
 Hard limits:
 - Do not edit anything under the Claude config directory (CLAUDE_CONFIG_DIR or ~/.claude). Exception: the Ponytail hooks write their own `.ponytail-active` flag there; that is not an edit by this task.
-- Do not run npm install, winget, brew, or rtk init.
+- Do not run npm install, winget, or rtk init.
 - Do not git push or commit. Leave changes unstaged.
 - Do not apply proposed config changes. Only propose them in the report, as a diff.
 - Write only <repo>/reports/ and <repo>/state/last-seen.json.

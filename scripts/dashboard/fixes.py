@@ -105,11 +105,9 @@ class RtkUpdate(Fix):
 
     @staticmethod
     def installer():
-        """Update command for this machine: winget on Windows, brew on macOS. None when neither exists."""
+        """Update command for this machine: winget. None when it does not exist."""
         if which("winget"):
             return ["winget", "upgrade", "--id", "rtk-ai.rtk", "--silent", "--accept-package-agreements", "--accept-source-agreements"]
-        if which("brew"):
-            return ["brew", "upgrade", "rtk"]
         return None
 
     def preview(self):
@@ -122,7 +120,7 @@ class RtkUpdate(Fix):
     def run(self, targets):
         cmd = self.installer()
         if not cmd:
-            return {"ok": False, "msg": "설치 관리자(winget 또는 brew)를 찾을 수 없습니다."}
+            return {"ok": False, "msg": "설치 관리자(winget)를 찾을 수 없습니다."}
         try:
             p = self.runner.spawn(cmd, timeout=300)
         except (OSError, subprocess.TimeoutExpired) as e:

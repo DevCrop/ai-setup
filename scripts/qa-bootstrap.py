@@ -31,7 +31,7 @@ def mkcheckout(d):
 
 
 ENTRY = {"id": "qa", "label": "QA", "kind": "tool", "required": True, "bin": ["no-such-bin-qa-xyz"], "env": "QA_BIN",
-         "version": ["--version"], "min": "3.0", "install": {"winget": "QA.Tool", "brew": "qatool", "url": "https://example.invalid"},
+         "version": ["--version"], "min": "3.0", "install": {"winget": "QA.Tool", "url": "https://example.invalid"},
          "setup": {"repo": "https://example.invalid/qa", "env": "QA_DIR", "legacy": "state/qa-dir.txt",
                    "candidates": ["${DOCUMENTS}/글로벌 셋업/qa", "${REPO_PARENT}/qa"], "marker": ["scripts/setup.py", "manifest.json"]}}
 toks = {"HOME": str(tmp), "DOCUMENTS": str(tmp / "docs"), "REPO": str(repo), "REPO_PARENT": str(tmp)}
@@ -52,8 +52,6 @@ check(not toolreg.version_ok(None, "3.11") and toolreg.version_ok(None, None), "
 
 # ---- install command per platform ----
 check(toolreg.install_command(ENTRY, "win32") == "winget install --id QA.Tool --exact --no-upgrade", "install: winget on Windows, never upgrades")
-check(toolreg.install_command(ENTRY, "darwin") == "env HOMEBREW_NO_INSTALL_UPGRADE=1 brew install qatool", "install: brew on macOS, never upgrades")
-check(toolreg.install_command({"install": {"cask": "c", "brew": "b"}}, "darwin") == "env HOMEBREW_NO_INSTALL_UPGRADE=1 brew install --cask c", "install: cask wins on macOS")
 check(toolreg.install_command(ENTRY, "linux").endswith("https://example.invalid"), "install: URL elsewhere")
 check(toolreg.install_command({"id": "x"}, "win32") is None, "install: nothing known")
 
@@ -321,8 +319,6 @@ ran.clear()
 rc = bootstrap.cmd_install({"items": [item("c", found=True, required=True, versionOk=False, version="18.0", min_="22")]}, ents, ask=yes, run=fake_run(0), platform="win32")
 check(rc == 1 and ran == [], "install: a required item that is too old is reported, not upgraded, and exits 1")
 check(toolreg.upgrade_command({"install": {"winget": "A.B"}}, "win32") == "winget upgrade --id A.B --exact"
-      and toolreg.upgrade_command({"install": {"cask": "c", "brew": "b"}}, "darwin") == "brew upgrade --cask c"
-      and toolreg.upgrade_command({"install": {"brew": "b"}}, "darwin") == "brew upgrade b"
       and toolreg.upgrade_command({"install": {"url": "u"}}, "win32") == "공식 안내: u", "upgrade_command: an upgrade, not the no-upgrade install")
 import io, contextlib
 buf = io.StringIO()
@@ -396,11 +392,7 @@ _, data, _ = bootstrap.autostart_plan("win32", repo=Path("C:/작업/ai-setup"), 
 check(data[:2] == b"\xff\xfe" and "작업" in data.decode("utf-16"), "autostart: a non-ASCII path is written as UTF-16 with BOM (WSH reads that)")
 path, why, _ = bootstrap.autostart_plan("win32", repo=Path("C:/r"), python=str(tmp / "nopy" / "python.exe"), appdata=str(tmp / "ad"))
 check(path is None and "pythonw" in why, "autostart: no pythonw is refused")
-path, data, _ = bootstrap.autostart_plan("darwin", repo=Path("/r/ai-setup"), python="/usr/bin/python3", home=str(tmp))
-import plistlib
-pl = plistlib.loads(data)
-check(path == tmp / "Library/LaunchAgents/com.ai-setup.dashboard.plist" and pl["RunAtLoad"] and pl["ProgramArguments"][1].endswith("server.py"), "autostart: macOS LaunchAgent plist")
-check(bootstrap.autostart_plan("linux")[0] is None, "autostart: other systems are told how to start it by hand")
+check(bootstrap.autostart_plan("linux")[0] is None and bootstrap.autostart_plan("darwin")[0] is None, "autostart: other systems are told how to start it by hand")
 target = tmp / "as" / "x.vbs"
 check(bootstrap.cmd_autostart(ask=no, plan=(target, b"new", "u")) == 1 and not target.exists(), "autostart: declining writes nothing")
 check(bootstrap.cmd_autostart(ask=yes, plan=(target, b"new", "u")) == 0 and target.read_bytes() == b"new", "autostart: confirmed write")

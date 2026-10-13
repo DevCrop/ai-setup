@@ -240,7 +240,7 @@ def rule_verification(ctx):
             names += list((json.loads((d / fn).read_text(encoding="utf-8")).get("scripts") or {}).keys())
         except Exception:
             pass
-    for mk in ("Makefile", "makefile"):  # first hit only: on a case-insensitive disk (Windows, macOS) both spellings are the same file
+    for mk in ("Makefile", "makefile"):  # first hit only: on a case-insensitive disk (Windows) both spellings are the same file
         if (d / mk).is_file():
             names += re.findall(r"^([A-Za-z0-9_.-]+):", (d / mk).read_text(encoding="utf-8", errors="replace"), re.M)
             break

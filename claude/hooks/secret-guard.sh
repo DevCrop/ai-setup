@@ -51,7 +51,7 @@ if [[ "$tn" =~ $mcpre ]] || { [ "$odd" = 1 ] && printf '%s' "$input" | grep -Eq 
 fi
 # Cheap gate on the raw input: JSON escapes for newline, return and tab become spaces first (else "\ngit" reads as "ngit"), then quotes and
 # backslashes are removed (g''it and g\it are git). No git word, nothing to check. The word is matched in any case: a case-insensitive file
-# system (macOS, Windows) runs GIT or Git.exe as git.
+# system (Windows) runs GIT or Git.exe as git.
 gate="$(printf '%s' "$input" | sed 's/\\[nrt]/ /g' | tr -d "\"'\\\\")"
 # $'...' (ANSI-C quoting, $'\x67it') can hide the word, so it also passes the gate and is decoded below.
 gitword='(^|[^[:alnum:]_])git([^[:alnum:]_-]|$)'
@@ -136,7 +136,7 @@ while IFS= read -r seg; do
     continue
   fi
   genv=()
-  # git in any case, with or without .exe (Git Bash); the case pattern keeps bash 3.2 (stock macOS) working
+  # git in any case, with or without .exe (Git Bash)
   while [ "$#" -gt 0 ]; do
     case "${1##*/}" in [Gg][Ii][Tt]|[Gg][Ii][Tt].[Ee][Xx][Ee]) break ;; esac
     case "$1" in GIT_DIR=|GIT_WORK_TREE=) ;; GIT_DIR=*|GIT_WORK_TREE=*) genv+=("$1") ;; esac

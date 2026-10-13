@@ -6,15 +6,15 @@ Usage: python scripts/bootstrap.py [check|install|clone|apply|verify|autostart] 
              and the install command for anything missing. Exit 1 when a required item is missing or too old.
     --write  also record what was found in state/machine.json (values already there are kept).
     --json   print the result as JSON instead of lines.
-  install    for each missing item: show the winget/brew command, ask y/N, run it. Installed items are skipped, never upgraded.
+  install    for each missing item: show the winget command, ask y/N, run it. Installed items are skipped, never upgraded.
   clone      for each tool whose setup checkout is missing: ask, then git clone it to the first candidate path.
   apply      for each tool with a setup checkout: show its plan (or dry run), ask, then run that tool's own apply.
   verify     run every setup's own verify and summarize. Read-only.
-  autostart  write the dashboard login launcher (Windows Startup .vbs, macOS LaunchAgent) after showing it and asking.
+  autostart  write the dashboard login launcher (Windows Startup .vbs) after showing it and asking.
 Everything that writes asks first on the terminal and refuses when stdin is not a terminal (CI, pipes).
 Exit codes: 0 ok, 1 something missing, failed or declined, 2 state/machine.json is broken (--write refused), 3 crash.
 """
-import argparse, json, os, plistlib, subprocess, sys
+import argparse, json, os, subprocess, sys
 from collections import Counter
 from pathlib import Path
 
@@ -281,10 +281,6 @@ def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executab
         except UnicodeEncodeError:  # WSH reads a non-ASCII script only as UTF-16 with a BOM
             data = text.encode("utf-16")
         return Path(appdata) / "Microsoft/Windows/Start Menu/Programs/Startup/claude-dashboard.vbs", data, "delete the file"
-    if platform == "darwin":
-        data = plistlib.dumps({"Label": "com.ai-setup.dashboard", "ProgramArguments": [python, str(Path(repo) / "scripts/dashboard/server.py")],
-                               "WorkingDirectory": str(repo), "RunAtLoad": True})
-        return home / "Library/LaunchAgents/com.ai-setup.dashboard.plist", data, "delete the file (and launchctl unload it)"
     return None, "no autostart support for %s; start python3 scripts/dashboard/server.py from your login session" % platform, None
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply the managed files from claude/ into the Claude config directory.
-# Works on macOS bash 3.2 and Git Bash on Windows. Needs jq. Never touches credentials, projects/, sessions/, plugins/ or any other
+# Works in Git Bash on Windows (and bash on the linux CI runner). Needs jq. Never touches credentials, projects/, sessions/, plugins/ or any other
 # runtime data. There is no backup: git is the history. To go back, check out the older commit and run this script again.
 #
 # settings.json is merged key by key, not replaced:
@@ -28,7 +28,7 @@ dest="${dest%/}"
 # Skills are listed one by one: skills from other sources live in the same directory.
 items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks routines skills/orchestrate skills/project-setup skills/spec-writing skills/design-spec skills/ui-baseline"
 
-command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). macOS: brew install jq   Windows: winget install jqlang.jq" >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). Windows: winget install jqlang.jq" >&2; exit 2; }
 [ -f "$repo/scripts/removed-keys.json" ] || { echo "apply: scripts/removed-keys.json is missing" >&2; exit 2; }
 missing=""
 for item in $items; do [ -e "$src/$item" ] || missing="$missing $item"; done
@@ -172,5 +172,5 @@ cp "$tmp/new.list" "$manifest.new" && mv "$manifest.new" "$manifest"
 
 if ! command -v rtk >/dev/null 2>&1; then
   echo "warning: rtk not found in PATH. settings.json hooks it; Bash still runs, RTK filtering is off." >&2
-  echo "  macOS: brew install rtk    Windows: winget install rtk-ai.rtk" >&2
+  echo "  Windows: winget install rtk-ai.rtk" >&2
 fi

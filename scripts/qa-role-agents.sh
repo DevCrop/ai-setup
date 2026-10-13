@@ -265,7 +265,7 @@ if [ "${QA_MODE:-}" = selftest ]; then
 fi
 
 if [ "${QA_MODE:-}" != grade ]; then
-  to="$(command -v timeout || command -v gtimeout || true)"  # stock macOS has neither: runs then have no time limit
+  to="$(command -v timeout || command -v gtimeout || true)"  # without one, runs have no time limit
   [ -n "$to" ] || echo "no timeout/gtimeout: runs have no time limit" >&2
   i=0
   for n in $names; do

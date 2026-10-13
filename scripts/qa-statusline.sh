@@ -7,7 +7,7 @@ now="$(date +%s)"
 fail=0
 
 # $1 name, $2 prompt_cache JSON (or empty), $3 expected substring ("" means no second line)
-esc="$(printf '\033')"  # BSD sed (macOS) does not understand \x1b
+esc="$(printf '\033')"  # portable: not every sed understands \x1b
 run() {
   local pc="" out
   [ -n "$2" ] && pc=", \"prompt_cache\": $2"

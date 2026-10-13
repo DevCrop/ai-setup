@@ -94,7 +94,7 @@ if "--update-golden" in sys.argv:
 want = json.loads(golden_path.read_text(encoding="utf-8")) if golden_path.is_file() else {}
 bad = [k for k in sorted(set(got) | set(want)) if got.get(k) != want.get(k)]
 check(not bad, f"project checks match the golden file on {len(fx)} fixture projects x 2 (rtk on / off)", ", ".join(bad[:5]) or "golden file missing: run with --update-golden")
-# Windows and default macOS disks ignore case: "makefile" then names the same file as "Makefile" and its targets must not be counted twice.
+# Windows disks ignore case: "makefile" then names the same file as "Makefile" and its targets must not be counted twice.
 _is_file, _read_text = Path.is_file, Path.read_text
 mf = fx["scripts_unmentioned"]
 Path.is_file = lambda self: True if self.name == "makefile" and (self.parent / "Makefile").exists() else _is_file(self)

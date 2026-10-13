@@ -9,7 +9,7 @@ py=""; for c in python3 python; do "$c" -c "" >/dev/null 2>&1 && { py="$(command
 [ -n "$py" ] || { echo "needs a working python (python3 or python)" >&2; exit 2; }
 export PROJECT_DIRS="${PROJECT_DIRS:-$repo}"  # the project-dialog checks need one project even on a machine with no session logs
 chrome="${CHROME_BIN:-}"
-for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" "$(command -v google-chrome)" "$(command -v google-chrome-stable)" "$(command -v chromium)" "$(command -v chromium-browser)"; do
+for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" "$(command -v google-chrome)" "$(command -v google-chrome-stable)" "$(command -v chromium)" "$(command -v chromium-browser)"; do
   [ -z "$chrome" ] && [ -n "$c" ] && [ -x "$c" ] && chrome="$c"
 done
 [ -n "$chrome" ] || { echo "FAIL  no Chrome or Edge found (set CHROME_BIN)"; exit 1; }

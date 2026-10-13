@@ -256,11 +256,6 @@ def install_argv(entry, platform=sys.platform):
     i = entry.get("install") or {}
     if platform.startswith("win") and i.get("winget"):
         return ["winget", "install", "--id", i["winget"], "--exact", "--no-upgrade"]
-    # without this, brew install upgrades a formula or cask that is installed but outdated
-    if platform == "darwin" and i.get("cask"):
-        return ["env", "HOMEBREW_NO_INSTALL_UPGRADE=1", "brew", "install", "--cask", i["cask"]]
-    if platform == "darwin" and i.get("brew"):
-        return ["env", "HOMEBREW_NO_INSTALL_UPGRADE=1", "brew", "install", i["brew"]]
     return None
 
 
@@ -269,10 +264,6 @@ def upgrade_command(entry, platform=sys.platform):
     i = entry.get("install") or {}
     if platform.startswith("win") and i.get("winget"):
         return "winget upgrade --id %s --exact" % i["winget"]
-    if platform == "darwin" and i.get("cask"):
-        return "brew upgrade --cask " + i["cask"]
-    if platform == "darwin" and i.get("brew"):
-        return "brew upgrade " + i["brew"]
     return ("공식 안내: " + i["url"]) if i.get("url") else None
 
 

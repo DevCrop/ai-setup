@@ -3,7 +3,7 @@
 # Usage: bash scripts/verify.sh [--live] [--full]
 #   --live  compare the applied files in the Claude config directory with claude/, check tools and the Ponytail plugin
 #   --full  also run scripts/qa-deny.sh (needs the claude CLI and uses the haiku model)
-# Exit code 1 when any FAIL is printed. WARN is informational. Works on macOS bash and Git Bash on Windows.
+# Exit code 1 when any FAIL is printed. WARN is informational. Works in Git Bash on Windows.
 set -u
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
