@@ -294,7 +294,7 @@ body:not(.loaded) .kpis:empty::before { min-height: 86px; } body:not(.loaded) .p
 .lane { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: var(--sp-4); display: grid; gap: var(--sp-2); align-content: start; }
 .lane h3 { margin: 0; font-size: var(--t-md); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .lane .tag { font-size: var(--t-xs); color: var(--faint); }
-.lane.opus { border-top: 3px solid var(--accent); } .lane.sonnet { border-top: 3px solid var(--muted); } .lane.haiku { border-top: 3px solid var(--ok); } .lane.other { border-top: 3px solid var(--faint); }
+.lane.opus { border-top: 3px solid var(--accent); } .lane.haiku { border-top: 3px solid var(--ok); } .lane.other { border-top: 3px solid var(--faint); }
 
 /* log card, code viewer, step list */
 .logcard { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-4); display: grid; gap: var(--sp-3); background: var(--panel); }
@@ -355,7 +355,7 @@ body:not(.loaded) .kpis:empty::before { min-height: 86px; } body:not(.loaded) .p
 .dia .ftab { fill: var(--accent-soft); stroke: var(--accent); }
 .dia .note-t { fill: var(--muted); font-size: 11.5px; }
 .dia .tier { fill: var(--bg); stroke: var(--line); }
-.dia .t-opus { stroke: var(--accent); } .dia .t-sonnet { stroke: var(--muted); } .dia .t-haiku { stroke: var(--ok); }
+.dia .t-opus { stroke: var(--accent); } .dia .t-haiku { stroke: var(--ok); }
 .dia .edge { stroke: var(--faint); stroke-width: 1.2; fill: none; }
 .dia .edge.inh { stroke-dasharray: 5 4; stroke: var(--accent); }
 /* flow edges: dashes travel along the line in the direction of the arrow. State sets color and speed; "off" stays still. */

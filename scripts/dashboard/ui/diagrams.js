@@ -88,8 +88,8 @@ export class DelegationStates extends Component {
 export class RoutingDiagram extends Component {
   constructor(ctx) { super(); this.ctx = ctx; }
   render() {
-    const r = this.ctx.inv.routing, tiers = [["opus", "Opus", []], ["sonnet", "Sonnet", []], ["haiku", "Haiku", []], ["other", "상속·기타", []]];
-    const put = (name, model, eff) => { const k = /opus/i.test(model) ? 0 : /sonnet/i.test(model) ? 1 : /haiku/i.test(model) ? 2 : 3; tiers[k][2].push([name, eff]); };
+    const r = this.ctx.inv.routing, tiers = [["opus", "Opus", []], ["haiku", "Haiku", []], ["other", "상속·기타", []]];
+    const put = (name, model, eff) => { const k = /opus/i.test(model) ? 0 : /haiku/i.test(model) ? 1 : 2; tiers[k][2].push([name, eff]); };
     put("advisor", r.advisor || "?", "검토·조언");
     r.agents.forEach((a) => put(a.name, a.model, a.effort));
     const shown = tiers.filter((t) => t[2].length), W = 980, CW = 128, per = 4, X = 384;

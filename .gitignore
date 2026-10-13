@@ -1,27 +1,16 @@
-# Credentials and auth (never commit)
+# Credentials and auth (never commit; docs/GUIDE.md "Troubleshooting" names these as safeguards)
 .credentials*
 .env*
-mcp-needs-auth-cache.json
 .claude.json
 
 # Personal session state
 .claude/handoff.md
 settings.local.json
 history.jsonl
-active-projects.json
-stats-cache.json
 
-# Auto-generated and ephemeral
-projects/
-sessions/
-session-env/
-shell-snapshots/
-backups/
-cache/
-plugins/
+# Per-machine values and reports (never commit)
 reports/
 state/
-ide/
 *.lock
 
 # OS and editor

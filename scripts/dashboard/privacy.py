@@ -10,7 +10,7 @@ from pathlib import Path
 
 # Programs that are shown by name. A script or tool that is not here becomes "other" (a local script name can be a customer's name).
 KNOWN_PROGRAMS = frozenset("""
-git gh npm npx pnpm yarn bun deno node python python3 pip pip3 bash sh zsh pwsh powershell cmd rtk winget brew apt apt-get
+git gh npm npx pnpm yarn bun deno node python python3 pip pip3 bash sh zsh pwsh powershell cmd rtk winget apt apt-get
 ls cat cd cp mv rm mkdir rmdir touch grep rg find sed awk curl wget jq head tail sort uniq wc echo printf diff tar zip unzip
 chmod chown ps kill sleep docker docker-compose make cargo go ruby php composer java mvn gradle dotnet code claude ao ssh scp
 rsync tee xargs env export pwd date which command test true false timeout time sudo tree stat file du df open less more nl

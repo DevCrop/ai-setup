@@ -265,8 +265,8 @@ if [ "${QA_MODE:-}" = selftest ]; then
 fi
 
 if [ "${QA_MODE:-}" != grade ]; then
-  to="$(command -v timeout || command -v gtimeout || true)"  # without one, runs have no time limit
-  [ -n "$to" ] || echo "no timeout/gtimeout: runs have no time limit" >&2
+  to="$(command -v timeout || true)"  # without one, runs have no time limit
+  [ -n "$to" ] || echo "no timeout: runs have no time limit" >&2
   i=0
   for n in $names; do
     mk "$n"; p="$(prompt "$n" | sed "s/python3/$py/g") 사용자에게 되묻지 말고 바로 진행해. 서브에이전트를 쓰면 그 보고를 그대로 전달해."

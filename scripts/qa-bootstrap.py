@@ -33,13 +33,12 @@ def mkcheckout(d):
 ENTRY = {"id": "qa", "label": "QA", "kind": "tool", "required": True, "bin": ["no-such-bin-qa-xyz"], "env": "QA_BIN",
          "version": ["--version"], "min": "3.0", "install": {"winget": "QA.Tool", "url": "https://example.invalid"},
          "setup": {"repo": "https://example.invalid/qa", "env": "QA_DIR", "legacy": "state/qa-dir.txt",
-                   "candidates": ["${DOCUMENTS}/글로벌 셋업/qa", "${REPO_PARENT}/qa"], "marker": ["scripts/setup.py", "manifest.json"]}}
-toks = {"HOME": str(tmp), "DOCUMENTS": str(tmp / "docs"), "REPO": str(repo), "REPO_PARENT": str(tmp)}
+                   "candidates": ["${HOME}/글로벌 셋업/qa", "${HOME}/qa"], "marker": ["scripts/setup.py", "manifest.json"]}}
+toks = {"HOME": str(tmp), "REPO": str(repo)}
 
 # ---- tokens ----
-check(toolreg.expand("${REPO_PARENT}/x", toks) == tmp / "x", "expand: known token")
+check(toolreg.expand("${HOME}/x", toks) == tmp / "x", "expand: known token")
 check(toolreg.expand("${LOCALAPPDATA}/x", toks) is None, "expand: a token this machine lacks drops the candidate")
-check(toolreg.documents_dir().name != "", "documents_dir returns a folder name")
 
 # ---- versions ----
 check(toolreg.parse_version("git version 2.55.0.windows.4") == "2.55.0", "parse_version: git")
@@ -56,12 +55,12 @@ check(toolreg.install_command(ENTRY, "linux").endswith("https://example.invalid"
 check(toolreg.install_command({"id": "x"}, "win32") is None, "install: nothing known")
 
 # ---- checkout precedence: env > machine.json > legacy file > candidates ----
-cand = mkcheckout(tmp / "docs" / "글로벌 셋업" / "qa")
+cand = mkcheckout(tmp / "글로벌 셋업" / "qa")
 legacy = mkcheckout(tmp / "legacy-qa")
 mach = mkcheckout(tmp / "machine-qa")
 envd = mkcheckout(tmp / "env-qa")
 d, src, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
-check(d == cand and src.startswith("${DOCUMENTS}"), "checkout: candidate with a non-ASCII path", f"{d} {src}")
+check(d == cand and src.startswith("${HOME}/글로벌"), "checkout: candidate with a non-ASCII path", f"{d} {src}")
 (repo / "state" / "qa-dir.txt").write_text(str(legacy) + "\n", encoding="utf-8")
 d, src, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
 check(d == legacy and src == "state/qa-dir.txt", "checkout: legacy file beats candidates", f"{d} {src}")
@@ -78,9 +77,9 @@ del os.environ["QA_DIR"]
 d, _, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
 check(d == cand, "checkout: a UTF-16 legacy file is not read as a path", f"{d}")
 (repo / "state" / "qa-dir.txt").unlink()
-bare = dict(ENTRY, setup=dict(ENTRY["setup"], candidates=["${REPO_PARENT}/absent"]))
+bare = dict(ENTRY, setup=dict(ENTRY["setup"], candidates=["${HOME}/absent"]))
 d, src, tried = toolreg.find_checkout(bare, {}, toks, repo)
-check(d is None and tried and tried[-1][0] == "${REPO_PARENT}/absent", "checkout: none found lists what was tried")
+check(d is None and tried and tried[-1][0] == "${HOME}/absent", "checkout: none found lists what was tried")
 
 # ---- inRepo: a folder of this repo; the old clone's overrides are reported, never used or recorded ----
 inrepo = mkcheckout(repo / "codexlike")
@@ -98,8 +97,6 @@ check(any("WARN ignored" in x and "QA_DIR" in x for x in bootstrap.lines(rr)), "
 gone = toolreg.detect(dict(IN, setup=dict(IN["setup"], candidates=["${REPO}/absent"])), {}, toks, repo)
 rg = {"items": [gone], "projectRoots": [], "projectRootsSource": "default", "missingRequired": []}
 check(not any("; clone " in x for x in bootstrap.lines(rg)) and toolreg.detect(IN, {}, toks, repo)["setup"]["ignored"] == [], "inRepo: a missing folder is not offered as a clone; nothing set means nothing ignored")
-said = []
-check(bootstrap.cmd_clone(rg, {"qa": IN}, ask=lambda q: said.append(q) or False, run=lambda c: 1, toks=toks) == 0 and not said, "inRepo: clone never nests this repo into itself")
 
 # ---- binaries ----
 r = toolreg.detect(ENTRY, {}, toks, repo)
@@ -287,7 +284,7 @@ try:
 except ValueError:
     check((repo / "state" / "machine.json").read_text(encoding="utf-8") == "[]", "write_machine: refuses a file that is valid JSON but not an object")
 
-# ---- install / clone / apply / verify / autostart with fake ask and run (nothing is installed or written outside tmp) ----
+# ---- install / apply / verify / autostart with fake ask and run (nothing is installed or written outside tmp) ----
 def item(id_, found=False, required=False, disabled=False, setup=None, label=None, versionOk=True, version=None, min_=None):
     return {"id": id_, "label": label or id_, "found": found, "required": required, "disabled": disabled, "install": None,
             "versionOk": versionOk, "version": version, "min": min_, **({"setup": setup} if setup else {})}
@@ -328,22 +325,6 @@ check("upgrade by hand: winget upgrade --id C.C --exact" in buf.getvalue(), "ins
 rc = bootstrap.cmd_install({"items": [item("c", found=True, versionOk=False, version="1", min_="2")]}, ents, ask=yes, run=fake_run(0), platform="win32")
 check(rc == 0 and ran == [], "install: an optional item that is too old is reported only")
 
-cl_ent = {"id": "s", "setup": {"repo": "https://example.invalid/s", "candidates": ["${LOCALAPPDATA}/no", "${REPO_PARENT}/clone-s"]}}
-ran.clear()
-rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "https://example.invalid/s"})]}, {"s": cl_ent}, ask=yes, run=fake_run(0), toks=toks)
-check(rc == 0 and ran and ran[0][0] == ["git", "clone", "https://example.invalid/s", str(tmp / "clone-s")], "clone: first usable candidate, git clone", str(ran))
-(tmp / "clone-s").mkdir(exist_ok=True)
-(tmp / "clone-s" / "x").write_text("x", encoding="utf-8")
-ran.clear()
-rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": cl_ent}, ask=yes, run=fake_run(0), toks=toks)
-check(rc == 1 and ran == [], "clone: never into a non-empty folder")
-(tmp / "clone-f").write_text("x", encoding="utf-8")
-cl_f = {"id": "s", "setup": {"repo": "r", "candidates": ["${REPO_PARENT}/clone-f"]}}
-rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": cl_f}, ask=yes, run=fake_run(0), toks=toks)
-check(rc == 1 and ran == [], "clone: a file at the target path is refused, not a crash")
-rc = bootstrap.cmd_clone({"items": [item("s", setup={"checkout": None, "repo": "r"})]}, {"s": {"id": "s", "setup": {"repo": "r", "candidates": ["${REPO_PARENT}/clone-new"]}}}, ask=no, run=fake_run(0), toks=toks)
-check(rc == 1 and ran == [], "clone: declining exits 1")
-
 PLAN = json.dumps([{"path": "a", "action": "keep"}, {"path": "b", "action": "write"}])
 check(bootstrap.summarize("trace", 0, PLAN, "")[:2] == ["plan: keep 1, write 1", "  write b"], "summarize: TRACE plan counts and changes")
 check(bootstrap.summarize("trace", 1, json.dumps({"status": "fail", "errors": ["e1"]}), "")[0] == "verify: fail, 1 errors", "summarize: TRACE verify")
@@ -371,7 +352,7 @@ check(rc == 1, "apply: a failing apply exits 1")
 ran.clear()
 rc = bootstrap.cmd_apply(r, {"t": tr}, ask=yes, run=fake_run(0), capture=fake_capture(PLAN, 3))
 check(rc == 1 and ran == [], "apply: a failed plan is not applied and exits 1")
-check(bootstrap.cmd_apply({"items": [item("t", setup={"checkout": None, "repo": "r"})]}, {"t": tr}, ask=yes, run=fake_run(0)) == 1, "apply: no checkout exits 1 and points to clone")
+check(bootstrap.cmd_apply({"items": [item("t", setup={"checkout": None, "repo": "r"})]}, {"t": tr}, ask=yes, run=fake_run(0)) == 1, "apply: no checkout exits 1")
 rc = bootstrap.cmd_verify(r, {"t": tr}, capture=fake_capture(json.dumps({"status": "pass", "errors": []}), 0))
 check(rc == 0, "verify: TRACE pass")
 rc = bootstrap.cmd_verify(r, {"t": tr}, capture=fake_capture(json.dumps({"status": "fail", "errors": ["x"]}), 1))
@@ -392,7 +373,7 @@ _, data, _ = bootstrap.autostart_plan("win32", repo=Path("C:/작업/ai-setup"), 
 check(data[:2] == b"\xff\xfe" and "작업" in data.decode("utf-16"), "autostart: a non-ASCII path is written as UTF-16 with BOM (WSH reads that)")
 path, why, _ = bootstrap.autostart_plan("win32", repo=Path("C:/r"), python=str(tmp / "nopy" / "python.exe"), appdata=str(tmp / "ad"))
 check(path is None and "pythonw" in why, "autostart: no pythonw is refused")
-check(bootstrap.autostart_plan("linux")[0] is None and bootstrap.autostart_plan("darwin")[0] is None, "autostart: other systems are told how to start it by hand")
+check(bootstrap.autostart_plan("linux")[0] is None, "autostart: other systems are told how to start it by hand")
 target = tmp / "as" / "x.vbs"
 check(bootstrap.cmd_autostart(ask=no, plan=(target, b"new", "u")) == 1 and not target.exists(), "autostart: declining writes nothing")
 check(bootstrap.cmd_autostart(ask=yes, plan=(target, b"new", "u")) == 0 and target.read_bytes() == b"new", "autostart: confirmed write")

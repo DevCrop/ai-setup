@@ -1,6 +1,6 @@
 # Windows entry for a new machine. Installs Git and Python 3.11+ with winget only when missing (asks y/N first),
 # then runs scripts/bootstrap.py with the same arguments. Run it without changing the machine's execution policy:
-#   powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1 [check|install|clone|apply|verify|autostart]
+#   powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1 [check|install|apply|verify|autostart]
 $ErrorActionPreference = 'Stop'
 
 function Test-Python {
