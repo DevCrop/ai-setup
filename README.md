@@ -84,7 +84,7 @@ Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewr
 - `scripts/apply.sh`, `verify.sh`, `docs-watch.sh`, `setup-claude-mem.sh`, `bench.sh` — apply, read-only checks, docs diff for the routine, claude-mem settings, benchmark harness
 - `scripts/qa-*.sh` — QA suites (hooks, deny rules, dashboard API and UI, role agents, project setup, statusline)
 - `scripts/dashboard/` — local dashboard (`server.py` + `ui/` ES modules), `http://127.0.0.1:8787`
-- `state/`, `reports/` — per-machine values (`state/machine.json` from `bootstrap.py check --write`, legacy `project-roots.txt`, `trace-dir.txt`), the daily routine's baseline (`state/last-seen.json`) and reports (gitignored)
+- `state/`, `reports/` — per-machine values (`state/machine.json` from `bootstrap.py check --write`, legacy `project-roots.txt`; `trace-dir.txt` is no longer read), the daily routine's baseline (`state/last-seen.json`) and reports (gitignored)
 
 Runtime data (credentials, session history, auto-memory, plugins, caches) is never stored here. See `.gitignore`. Scope: local machines only; cloud sessions read the project's own `.claude/`, not `~/.claude/`.
 

@@ -54,7 +54,10 @@ def lines(r):
         out.append("%s %-7s %-10s %s%s" % (status(i), i["id"], ver, where, need))
         s = i.get("setup")
         if s:
-            out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"] else "not found; tried " + " > ".join(s["tried"]) + "; clone " + s["repo"]))
+            out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"]
+                                        else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; clone " + s["repo"])))
+            if s.get("ignored"):
+                out.append("       WARN ignored (the folder is part of this repo now; remove them): " + ", ".join(s["ignored"]))
     out.append("projects  " + (", ".join(r["projectRoots"]) or "none") + " [" + r["projectRootsSource"] + "]")
     out.append("missing required: " + (", ".join(r["missingRequired"]) or "none"))
     for p in r.get("machineProblems", []):
@@ -65,7 +68,7 @@ def lines(r):
 def found_values(r):
     """What --write records: what was found by search or a legacy file. A value from an env var is for that shell only and is not kept."""
     co = {i["id"]: i["setup"]["checkout"] for i in r["items"]
-          if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("fromEnv")}
+          if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("fromEnv") and not i["setup"].get("inRepo")}
     out = {"checkout": co}
     # the legacy file is migrated; the default (~/Projects when it exists) is not written: an empty list recorded once would hide
     # ~/Projects for good after it is created
@@ -189,7 +192,7 @@ def clone_target(entry, toks):
 
 def cmd_clone(r, entries, ask=ask, run=run, toks=None):
     toks = toolreg.tokens() if toks is None else toks
-    todo = [i for i in r["items"] if i.get("setup") and not i["setup"]["checkout"] and not i["disabled"]]
+    todo = [i for i in r["items"] if i.get("setup") and not i["setup"]["checkout"] and not i["disabled"] and not i["setup"].get("inRepo")]  # an inRepo folder comes with this repo; cloning would nest the whole repo
     if not todo:
         print("nothing to clone")
         return 0

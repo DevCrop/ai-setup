@@ -1,9 +1,9 @@
-"""Codex global setup (TRACE, github.com/DevCrop/codex-setup), read-only.
+"""Codex global setup (TRACE, the codex/ folder of this repo), read-only.
 
 The dashboard does not judge the Codex setup; it shows what TRACE's own checks say. It runs `setup.py verify` and `setup.py plan`
 (both read files only; apply/rollback stay in Codex) and `codex --version`. `setup.py doctor` is not run: it starts the Codex CLI
 itself, outside spawn(), which would open a console window under pythonw.
-Where the TRACE checkout is: TRACE_DIR, else the first line of state/trace-dir.txt, else codex-setup next to this repo or in the home folder.
+The TRACE checkout is codex/ in this repo only, as tools.json says (inRepo); TRACE_DIR and state/trace-dir.txt named the old separate clone and are not read.
 """
 import json, os, sys
 from collections import Counter
@@ -26,14 +26,6 @@ def manifest_version(d):
     return v if isinstance(v, str) else None
 
 
-def first_line(p):
-    """A BOM is dropped; a file in another encoding (UTF-16 from PowerShell 5.1, cp949) gives a path that is simply not found."""
-    try:
-        return p.read_text(encoding="utf-8-sig", errors="replace").strip().splitlines()[0].strip()
-    except (OSError, IndexError):
-        return ""
-
-
 def str_list(v):
     return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
 
@@ -48,14 +40,7 @@ class CodexSetup:
 
     def candidates(self):
         """(where it came from, path) in the order they are tried."""
-        out = []
-        if os.environ.get("TRACE_DIR"):
-            out.append(("TRACE_DIR", Path(os.environ["TRACE_DIR"]).expanduser()))
-        line = first_line(self.root / "state" / "trace-dir.txt")
-        if line:
-            out.append(("state/trace-dir.txt", Path(line).expanduser()))
-        out += [("이 레포 옆", self.root.parent / "codex-setup"), ("홈 폴더", Path.home() / "codex-setup")]
-        return out
+        return [("이 레포의 codex/", self.root / "codex")]
 
     def find(self):
         for source, d in self.candidates():

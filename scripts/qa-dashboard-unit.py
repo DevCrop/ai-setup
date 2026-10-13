@@ -271,15 +271,14 @@ check([e["target"] for e in ev["events"] if e["kind"] == "tool"] == ["", "a.txt"
       "session_events(): odd lines skipped, nothing but tool name, time and base name/safe command in any event", ev)
 check(server.newest_file([tmp / "gone.jsonl", logdir / "s.jsonl"]) == logdir / "s.jsonl" and server.newest_file([]) is None, "newest_file(): a file that vanished does not raise")
 
-# ---- Codex setup (TRACE): found by TRACE_DIR / state file / default places, its verify and plan shown as reported ----
+# ---- Codex setup (TRACE): codex/ in this repo only, its verify and plan shown as reported ----
 import codex
-os.environ.pop("TRACE_DIR", None)
-croot = tmp / "croot" / "ai-setup"
+croot = tmp / "c root" / "ai-setup"  # a space in the path, as on Windows user folders
 croot.mkdir(parents=True)
 cx = codex.CodexSetup(server.RUNNER, croot)
 s = cx.state()
-check(s["available"] is False and s["tried"] == ["이 레포 옆", "홈 폴더"] and "codex" in s, "codex: no TRACE checkout -> not available, lists where it looked", s)
-trace = tmp / "trace dir"  # a space in the path, as on Windows user folders
+check(s["available"] is False and s["tried"] == ["이 레포의 codex/"] and "codex" in s, "codex: no codex/ folder -> not available, lists where it looked", s)
+trace = croot / "codex"
 (trace / "scripts").mkdir(parents=True)
 (trace / "manifest.json").write_text(json.dumps({"version": "9.9.9", "files": []}), encoding="utf-8")
 stub = trace / "scripts" / "setup.py"
@@ -289,22 +288,26 @@ def stub_says(verify, plan):
                     "print(json.dumps(out)); sys.exit(0 if not isinstance(out, dict) or out.get('status') == 'pass' else 1)\n" % (verify, plan), encoding="utf-8")
 stub_says({"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "unmanaged_skill_findings": ["skills/mine/SKILL.md"], "limit": "files only"},
           [{"path": "AGENTS.md", "action": "conflict", "before": "a", "after": "b"}, {"path": "guides/rtk.md", "action": "write"}, {"path": "sol.config.toml", "action": "keep"}])
+other = tmp / "old codex-setup"
+(other / "scripts").mkdir(parents=True)
+(other / "manifest.json").write_text(json.dumps({"version": "0.0.1"}), encoding="utf-8")
+(other / "scripts" / "setup.py").write_text("", encoding="utf-8")
 (croot / "state").mkdir()
-(croot / "state" / "trace-dir.txt").write_text(str(trace) + "\n", encoding="utf-8")
+(croot / "state" / "trace-dir.txt").write_text(str(other) + "\n", encoding="utf-8")
+os.environ["TRACE_DIR"] = str(other)
 s = cx.state()
-check(s["available"] and s["source"] == "state/trace-dir.txt" and s["version"] == "9.9.9", "codex: state/trace-dir.txt points at the checkout", s)
+check(s["available"] and s["source"] == "이 레포의 codex/" and s["version"] == "9.9.9", "codex: TRACE_DIR and state/trace-dir.txt naming an old clone are not read; codex/ is used", s)
+os.environ.pop("TRACE_DIR", None)
 check(s["verify"] == {"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "errorCount": 2, "unmanaged": ["skills/mine/SKILL.md"], "limit": "files only"} and s["verifyError"] == "",
       "codex: a failed verify (exit 1 with JSON) is shown as TRACE reported it, not as an error", s)
 check(s["plan"] == {"counts": {"conflict": 1, "write": 1, "keep": 1}, "changes": [{"path": "AGENTS.md", "action": "conflict"}, {"path": "guides/rtk.md", "action": "write"}], "changeCount": 2}
       and "before" not in json.dumps(s["plan"]), "codex: plan counts every action, lists only changes, drops hashes", s)
-os.environ["TRACE_DIR"] = str(trace)
 stub_says("Interrupted transaction requires recovery", [])
 s = cx.state()
-check(s["source"] == "TRACE_DIR" and s["verify"] is None and s["verifyError"] == "Interrupted transaction requires recovery" and s["plan"]["changeCount"] == 0,
-      "codex: TRACE_DIR wins; a setup.py error shows its message, an empty plan shows no changes", s)
+check(s["verify"] is None and s["verifyError"] == "Interrupted transaction requires recovery" and s["plan"]["changeCount"] == 0,
+      "codex: a setup.py error shows its message, an empty plan shows no changes", s)
 s = codex.CodexSetup(server.RUNNER, croot, py_version=(3, 10)).state()
 check(s["available"] and "verify" not in s and "3.11" in s["error"], "codex: Python older than 3.11 is reported, setup.py is not run", s)
-os.environ["TRACE_DIR"] = str(trace)
 stub_says({"status": "pass", "errors": 5, "unmanaged_skill_findings": "abc"}, [{"path": 1, "action": "write"}, {"path": "x", "action": "constructor"}, "junk"])
 s = cx.state()
 check(s["verify"]["errors"] == [] and s["verify"]["unmanaged"] == [] and s["plan"] == {"counts": {"constructor": 1}, "changes": [{"path": "x", "action": "constructor"}], "changeCount": 1},
@@ -315,11 +318,6 @@ check(s["verify"] is None and s["verifyError"] == "exit 0, JSON 아님" and s["p
 stub.write_text("print('[' * 100000)\n", encoding="utf-8")
 s = cx.state()
 check(s["verify"] is None and s["verifyError"], "codex: deeply nested output does not raise out of state()", s.get("verifyError"))
-os.environ.pop("TRACE_DIR", None)
-(croot / "state" / "trace-dir.txt").write_text(str(trace), encoding="utf-16")
-check(cx.state()["available"] is False, "codex: a UTF-16 trace-dir.txt (PowerShell 5.1) means not found, not a crash")
-(croot / "state" / "trace-dir.txt").write_text("\ufeff" + str(trace), encoding="utf-8")
-check(cx.state().get("source") == "state/trace-dir.txt", "codex: a UTF-8 BOM in trace-dir.txt is ignored")
 os.environ["CODEX_BIN"] = str(tmp / "no-such-codex")
 check(cx.codex_cli() == {"found": False, "version": None}, "codex: CODEX_BIN naming a missing file is reported as not found")
 os.environ.pop("CODEX_BIN", None)

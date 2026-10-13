@@ -6,10 +6,10 @@ import { Badge, Panel, Note, Grid2, KeyValue, Command, Tiles, DocLink, mk } from
 const ACTION = { keep: ["ok", "유지"], write: ["warn", "쓰기"], remove: ["warn", "삭제"], conflict: ["bad", "충돌"] };
 const action = (a) => Object.hasOwn(ACTION, a) ? ACTION[a] : ["", a]; // own keys only: "constructor" is a plain label
 const actionBadge = (a) => { const t = action(a); return mk(Badge, t[0], t[1]); };
-const REPO = "https://github.com/DevCrop/codex-setup";
-const repoLink = () => { const d = el("div"); d.append(mk(DocLink, REPO, "codex-setup")); return d; }; // a bare chip would stretch across the panel
+const REPO = "https://github.com/DevCrop/ai-setup/tree/main/codex";
+const repoLink = () => { const d = el("div"); d.append(mk(DocLink, REPO, "ai-setup/codex")); return d; }; // a bare chip would stretch across the panel
 const commands = () => mk(Panel, "적용은 Codex 쪽에서", "이 화면은 읽기 전용",
-  mk(Note, "TRACE 체크아웃에서 실행합니다. apply 전에 plan을 먼저 봅니다."),
+  mk(Note, "이 레포의 codex/ 폴더에서 실행합니다. apply 전에 plan을 먼저 봅니다."),
   mk(Command, "python -B scripts/setup.py plan"), mk(Command, "python -B scripts/setup.py apply"), mk(Command, "python -B scripts/setup.py verify"),
   repoLink());
 
@@ -29,8 +29,8 @@ export class CodexTab extends Tab {
       v.replaceChildren(
         mk(Tiles, [["TRACE", "없음", "warn"], cliTile]),
         mk(Panel, c.reason || "TRACE 체크아웃을 찾지 못했습니다", (c.tried || []).length ? "찾은 순서: " + c.tried.join(" → ") : "",
-          mk(Note, "Codex 글로벌 셋업 레포(codex-setup)를 클론한 경로를 알려주면 이 화면이 그 레포의 점검 결과를 보여줍니다."),
-          mk(Command, "TRACE_DIR=<codex-setup 경로>  또는  state/trace-dir.txt 첫 줄에 경로"),
+          mk(Note, "Codex 셋업은 이 레포의 codex/ 폴더입니다. 폴더가 없으면 이 레포를 최신으로 받습니다."),
+          mk(Command, "git pull"),
           repoLink()));
       return;
     }

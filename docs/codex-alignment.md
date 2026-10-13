@@ -1,6 +1,6 @@
 # Claude and Codex setups side by side
 
-This repo (`claude/`, applied to `~/.claude`) and [DevCrop/codex-setup](https://github.com/DevCrop/codex-setup) (TRACE v1.3.2, applied to `~/.codex`; its bundled skills go to `~/.agents/skills`) are two global setups on the same machines. Each tool loads only its own files, so nothing is shared automatically.
+This repo (`claude/`, applied to `~/.claude`) and `codex/` (TRACE v1.3.3, moved here from DevCrop/codex-setup on 2026-10-13, applied to `~/.codex`; its bundled skills go to `~/.agents/skills`) are two global setups on the same machines. Each tool loads only its own files, so nothing is shared automatically.
 
 They are kept apart on purpose:
 - Each file follows its own vendor's official docs.
