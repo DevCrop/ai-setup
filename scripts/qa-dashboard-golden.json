@@ -1888,7 +1888,7 @@
     "act": "add",
     "fix": "각 Bash 규칙에 'Bash(rtk ...)' 쌍을 추가합니다 (/project-setup 7단계).",
     "level": "bad",
-    "src": "claude-global",
+    "src": "ai-setup",
     "what": "rtk 쌍이 없는 Bash 규칙 (deny 1개, ask 1개, allow 1개)",
     "why": "RTK가 git ...을 rtk git ...으로 바꾼 뒤 권한 규칙을 평가합니다. 쌍이 없으면 deny가 우회되고 allow가 적용되지 않습니다."
    }
@@ -2240,7 +2240,7 @@
     "act": "add",
     "fix": "각 Bash 규칙에 'Bash(rtk ...)' 쌍을 추가합니다 (/project-setup 7단계).",
     "level": "warn",
-    "src": "claude-global",
+    "src": "ai-setup",
     "what": "rtk 쌍이 없는 Bash 규칙 (allow 4개)",
     "why": "RTK가 git ...을 rtk git ...으로 바꾼 뒤 권한 규칙을 평가합니다. 쌍이 없으면 deny가 우회되고 allow가 적용되지 않습니다."
    }

@@ -1,4 +1,4 @@
-# claude-global
+# ai-setup
 
 Source of truth for the global Claude Code setup. `claude/` is copied into `~/.claude` by `bash scripts/apply.sh`. Edit `claude/`, never `~/.claude` directly.
 

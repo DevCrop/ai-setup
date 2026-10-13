@@ -17,7 +17,7 @@
     {"id": "claude", "label": "Claude Code", "kind": "tool", "required": true, "bin": ["claude"], "env": "CLAUDE_BIN", "version": ["--version"], "min": "2.1.295",
      "home": {"env": "CLAUDE_CONFIG_DIR", "default": "${HOME}/.claude"},
      "install": {"winget": "Anthropic.ClaudeCode", "url": "https://code.claude.com/docs/en/setup"},
-     "setup": {"repo": "https://github.com/DevCrop/claude-global", "candidates": ["${REPO}"], "marker": ["scripts/apply.sh", "claude/CLAUDE.md"],
+     "setup": {"repo": "https://github.com/DevCrop/ai-setup", "candidates": ["${REPO}"], "marker": ["scripts/apply.sh", "claude/CLAUDE.md"],
                "plan": ["bash", "scripts/apply.sh", "--dry-run"], "apply": ["bash", "scripts/apply.sh"], "verify": ["bash", "scripts/verify.sh", "--live"], "parser": "lines"}},
     {"id": "codex", "label": "Codex", "kind": "tool", "required": false, "bin": ["codex"], "env": "CODEX_BIN", "version": ["--version"],
      "home": {"env": "CODEX_HOME", "default": "${HOME}/.codex"},
