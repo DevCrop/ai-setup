@@ -10,6 +10,8 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto, and the "Diagrams: Archify ..." line is removed (Archify is gone since 2026-10-13) | matches `claude/CLAUDE.md` (Safety, Tools) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
 | M5 | The macOS run (GUIDE L-2). It lifts the feature freeze and unblocks the macOS items in section 6 | GUIDE L-2 passes |
+| M6 | Move the local folder `Projects\claude-global` to `Projects\ai-setup` (ai-setup step 5; postponed on 2026-10-13 because `Move-Item` failed with the folder in use). Reboot, open no Claude app, editor or terminal, then in a new PowerShell: stop python/pythonw/bash whose command line has `Projects\claude-global`, `Move-Item`, `python scripts\bootstrap.py autostart`, start the dashboard `.vbs`. Then point the four paths in the `daily-claude-update` scheduled task at the new folder (the task was set back to the old path) | the folder opens as `Projects\ai-setup`, the dashboard answers on 127.0.0.1:8787, the scheduled task names the new path |
+| M7 | ai-setup step 6, full QA in a new session at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, dashboard Codex tab shows `codex/`, `codex/` `setup.py verify`, `ao/` unittest, an AO standalone worker deny test then `ao stop`, one run of the scheduled task. Needs M6 | every check passes; GUIDE "Last run" cells filled |
 
 ## 2. Security (first)
 
