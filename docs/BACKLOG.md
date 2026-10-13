@@ -20,8 +20,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 ## 3. Correctness
 
-Bug fixes do not wait for the dashboard freeze, which covers new features only (DECISIONS 2026-10-11 "Dashboard structure").
-
 | # | Where | Problem | Done when |
 |---|---|---|---|
 | C12 | `scripts/dashboard/efficiency.py:160` | the efficiency hint names `qa` and `reviewer` (now Opus) as candidates to lower to Haiku and cites "Sonnet 76%": wrong since the 2026-10-12 lanes, not only stale | rewritten from the R2 measurement (text only, no new feature) |

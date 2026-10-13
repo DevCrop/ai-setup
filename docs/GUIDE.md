@@ -207,9 +207,9 @@ Limits: three runs per arm is a small sample. Wall time is first to last transcr
 - **Processes named `--chrome-native-host`** belong to Chrome; leave them.
 - **`~/.claude` must never be committed**: `.credentials*`, `.claude.json`, `history.jsonl` are gitignored and blocked by `secret-guard`.
 
-## Local test checklist (not run yet: needs Windows and Mac)
+## Local test checklist (the two Windows PCs)
 
-The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, a real `claude` 2.1.296, headless Chromium). These need your machines; write the result next to each line (`machine, date, result`).
+The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, a real `claude` 2.1.296, headless Chromium). These need your machines; write the result next to each line (`machine, date, result`). `both` in the Where column means both Windows PCs.
 
 | ID | Where | Do | Expect | Last run |
 |---|---|---|---|---|
