@@ -129,15 +129,9 @@ and [Codex best practices](https://learn.chatgpt.com/guides/best-practices).
    policy below, executed only by `project_cleanup.py prune`. Recommend the smallest checks for other candidates;
    execute them during approved implementation. Missing paths and failed collection
    stay unknown/failed, not healthy. An offline host cannot guarantee scheduled execution.
-6. Run `python -B scripts/check_closure.py`. Verify actual owned file/config
-   integrity, then compare checkout, installed policy,
-   reviewed CLI/RTK and latest GitHub release versions. Inspect the existing PR's
-   final-head checks and immutable tag/artifact identity when publication differs.
-   A merged PR, prepared package and installed policy are separate from a published
-   release. The current published tag/commit and GitHub ZIP digest must match
-   private `release-verification.json`; a stale/missing receipt requires a fresh
-   download and disposable-root install/repeat/removal/restore validation. Missing
-   GitHub access is unknown, never successful publication.
+6. Verify actual owned file/config integrity with `setup.py verify`. Since
+   2026-10-13 this setup is `codex/` in DevCrop/ai-setup, which publishes no
+   releases; `check_closure.py` and its release comparison were retired.
    For a registered project with no recorded substantive review, perform one scoped
    initial instruction/configuration/acceptance-contract review even when its
    content fingerprint is unchanged. Do not equate collection or a dirty file list

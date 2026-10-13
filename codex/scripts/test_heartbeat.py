@@ -17,7 +17,7 @@ class HeartbeatTests(unittest.TestCase):
                        'approved_on':'2026-10-05','automation_id':'trace','host_identity':'first-host'}},
                       host_identity='first-host')
         self.assertIn('Human-approved on 2026-10-05',prompt)
-        self.assertIn('check_closure.py',prompt)
+        self.assertNotIn('check_closure.py',prompt)
         self.assertIn('does not authorize future GitHub publication',prompt)
         self.assertNotIn('{{authorization}}',prompt)
 
