@@ -14,6 +14,6 @@ If two tasks share unsettled interfaces or write ownership, settle the contract 
 
 Current local Codex releases spawn after a direct request or applicable project/skill instruction; Ultra can proactively delegate when supported. The enable setting alone is not a guarantee of proactive delegation. A global preference cannot override a higher-priority host requirement for an explicit delegation request.
 
-Use at most two concurrent children by default and do not recursively delegate unless requested. Preserve inherited model and effort unless the user requests an override. Give each child non-overlapping ownership; do not duplicate its work. Validate returned evidence during integration. If delegation is prohibited or unavailable, continue directly.
+Use at most two concurrent children by default and do not recursively delegate unless requested. Child model and effort come from the TRACE agents default (GPT-6.1 Sol medium) or the `explorer` agent (GPT-6 Luna high, read-only search); keep them unless the user requests an override. Give each child non-overlapping ownership; do not duplicate its work. Validate returned evidence during integration. If delegation is prohibited or unavailable, continue directly.
 
 Source: [OpenAI subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents).

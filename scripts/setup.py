@@ -115,7 +115,7 @@ def patch_agents(raw, updates):
     agents = parsed.get("agents", {})
     if not isinstance(agents, dict):
         raise ValueError("agents must be a TOML table")
-    # Only manage these two keys; preserve all other settings verbatim.
+    # Only manage the manifest's agent_settings keys; preserve all other settings verbatim.
     match = re.search(r"(?m)^\[agents\][ \t]*(?:#.*)?$", text)
     if not match:
         if agents:
