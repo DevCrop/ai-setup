@@ -4,12 +4,12 @@
     {
       "name": "ponytail",
       "repository": "dietrichgebert/ponytail",
-      "commit": "9cc65d03aa2da1db7121b912d03596409ee340b8",
+      "commit": "2961b52fc1fe6a5a87c7a959a79512e5c2f3ffe5",
       "path": "skills/ponytail",
       "files": {
         "SKILL.md": "ba68ff26239c3c3b05b2a9a47ee0d9a6b93a69639a2555ec87a5d44bffaf2f0c"
       },
-      "version": "5.1.0"
+      "version": "5.2.0"
     }
   ],
   "runtime": {
