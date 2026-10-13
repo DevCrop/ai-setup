@@ -10,8 +10,7 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 | M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto, and the "Diagrams: Archify ..." line is removed (Archify is gone since 2026-10-13) | matches `claude/CLAUDE.md` (Safety, Tools) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
 | M5 | The macOS run (GUIDE L-2). It lifts the feature freeze and unblocks the macOS items in section 6 | GUIDE L-2 passes |
-| M6 | Move the local folder `Projects\claude-global` to `Projects\ai-setup` (ai-setup step 5; postponed on 2026-10-13 because `Move-Item` failed with the folder in use). Reboot, open no Claude app, editor or terminal, then in a new PowerShell: stop python/pythonw/bash whose command line has `Projects\claude-global`, `Move-Item`, `python scripts\bootstrap.py autostart`, start the dashboard `.vbs`. Then point the four paths in the `daily-claude-update` scheduled task at the new folder (the task was set back to the old path) | the folder opens as `Projects\ai-setup`, the dashboard answers on 127.0.0.1:8787, the scheduled task names the new path |
-| M7 | ai-setup step 6, full QA in a new session at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, dashboard Codex tab shows `codex/`, `codex/` `setup.py verify`, `ao/` unittest, an AO standalone worker deny test then `ao stop`, one run of the scheduled task. Needs M6 | every check passes; GUIDE "Last run" cells filled |
+| M6 | Move the local folder `Projects\claude-global` to `Projects\ai-setup` (the repo rename, DECISIONS 2026-10-13; postponed that day because `Move-Item` failed with the folder in use). Reboot, open no Claude app, editor or terminal, then in a new PowerShell: stop python/pythonw/bash whose command line has `Projects\claude-global`, `Move-Item`, `python scripts\bootstrap.py autostart`, start the dashboard `.vbs`. Then change every `Projects\claude-global` path in the `daily-claude-update` scheduled task (5 in its body) to the new folder; the task was set back to the old path. Then start a new Claude session there for T4 | the folder opens as `Projects\ai-setup`, the dashboard answers on 127.0.0.1:8787, the scheduled task names only the new path |
 
 ## 2. Security (first)
 
@@ -30,7 +29,9 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 
 ## 4. Tests and CI
 
-None open (T1-T3 closed).
+| # | Where | What | Done when |
+|---|---|---|---|
+| T4 | the whole repo, after M6 | full check at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (a blocked `rm -rf` in a temporary repo with no remote, then `ao stop`), one manual run of the scheduled task | every check passes; GUIDE "Last run" cells filled |
 
 ## 5. Decisions waiting for you
 
