@@ -537,7 +537,7 @@ finally:
 check(not any("host" in p or ":" in p.replace(str(tmp), "") for p in seen), "rule_hooks(): UNC, absolute and drive paths are not passed to exists()", seen)
 check(len(got) == 1 and "(2" in got[0]["what"] and any(p.endswith("pre+commit@v2.sh") for p in seen), "rule_hooks(): relative missing scripts count, also names with + and @", got)
 
-# ---- BACKLOG C14: on Windows a binary in the dashboard's current folder is never taken for a tool (codex, ao, rtk, winget, brew) ----
+# ---- BACKLOG C14: on Windows a binary in the dashboard's current folder is never taken for a tool (codex, ao, rtk, winget) ----
 import procs, shutil as _sh
 here = tmp / "cwdbin"; here.mkdir(exist_ok=True)
 fake = here / "rtk"

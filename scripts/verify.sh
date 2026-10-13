@@ -383,7 +383,7 @@ EOF
     # The ponytail entry only: from its line up to the next plugin id, so a neighbour's status is not read.
     block="$(printf '%s\n' "$pl" | awk '/ponytail@ponytail/ {f=1; print; next} f && /[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+/ {exit} f {print}' | head -n 8)"
     if [ -z "$block" ]; then
-      fail "plugin ponytail@ponytail is not installed (claude plugin marketplace add DietrichGebert/ponytail; claude plugin install ponytail@ponytail)"
+      fail "plugin ponytail@ponytail is not installed (open one session so the pinned marketplace registers, then claude plugin install ponytail@ponytail)"
     elif printf '%s' "$block" | grep -qi 'disabled'; then
       fail "plugin ponytail@ponytail is installed but disabled"
       printf '%s\n' "$block" | sed 's/^/        /'
