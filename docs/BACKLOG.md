@@ -31,7 +31,7 @@ Bug fixes do not wait for the dashboard freeze, which covers new features only (
 
 | # | Where | What | Done when |
 |---|---|---|---|
-| T4 | the whole repo, after M6 | full check at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (a blocked `rm -rf` in a temporary repo with no remote, then `ao stop`), one manual run of the scheduled task | every check passes; GUIDE "Last run" cells filled |
+| T4 | the whole repo, after M6 | full check at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (from a temporary repo with no remote, `rm -rf ~/__qa_nonexistent__` must be blocked, as in `qa-deny.sh`; then `ao stop`), one manual run of the scheduled task | every check passes; GUIDE "Last run" cells filled |
 
 ## 5. Decisions waiting for you
 
