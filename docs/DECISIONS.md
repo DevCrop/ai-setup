@@ -2,6 +2,18 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — last legacy shims removed
+
+### Setup checkouts have no env or legacy-file override, and no "ignored" warning
+- What: the `codex` setup in `tools.json` has no `env` (`TRACE_DIR`) or `legacy` (`state/trace-dir.txt`) key. `scripts/toolreg.py` lost the env and legacy-file branches of `checkout_candidates()`, `first_line()`, `ignored_overrides()` and the `ignored`/`fromEnv` fields of `detect()`; `bootstrap.py check` no longer prints `WARN ignored`. A setup checkout now comes from `state/machine.json` then the registry candidates; an `inRepo` setup uses only its candidates. `state/project-roots.txt` is still read for project roots. `codex/scripts/project_cleanup.py` no longer treats processes under `trace-setup/`, `TRACE-Setup/` or `codex-setup/` as Codex tooling, so such a process makes the busy check unknown (nothing is pruned), never "not busy".
+- Why: those keys existed only so a warning could say they were ignored; no setup in `tools.json` used them otherwise.
+- Undo: restore the keys and the code from git history.
+
+### The apply manifest is `~/.claude/.ai-setup-manifest`
+- What: `scripts/apply.sh` records the files it copied in `.ai-setup-manifest`. A manifest under the pre-rename name is moved to the new name once, when the new one does not exist (a dry run only reports `would rename`); when both exist the new one is used and the old one is left alone. `verify.sh --live` reads the new name and warns "run apply.sh" while only the old one exists. `apply.sh` is checked by case 13 in `scripts/qa-apply.sh`; the `verify.sh` warning has no test.
+- Why: the old name predates the ai-setup rename.
+- Undo: set `manifest` back to the old name in `apply.sh` and `verify.sh` and drop the migration block (a machine already migrated then has no manifest until its next apply, so stale files from before are not removed).
+
 ## 2026-10-13 — leftovers of the old layout removed
 
 ### `bootstrap.py clone`, the `${DOCUMENTS}` and `${REPO_PARENT}` tokens and the Sonnet dashboard tier are gone

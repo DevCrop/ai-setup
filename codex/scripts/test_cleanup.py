@@ -1,10 +1,13 @@
 from datetime import timedelta
+import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
+import project_cleanup
 from project_cleanup import acknowledge, artifact_info, parse_date, prune, register, scan, timestamp
 from setup import read_json, save_json
 
@@ -149,6 +152,35 @@ class CleanupTests(unittest.TestCase):
         os.mkfifo(self.root/'node_modules/pipe')
         with self.assertRaisesRegex(ValueError, 'Special'):
             artifact_info(self.root, 'node_modules', deep=True)
+
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX process listing')
+    def test_interpreter_outside_known_codex_paths_is_unknown(self):
+        def ps(args):
+            out = ''.join('%d %s\n' % (900000001 + i, c) for i, c in enumerate(args)).encode()
+            return mock.patch.object(project_cleanup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, out, b''))
+        with ps(['python3 /home/u/ai-setup/codex/scripts/setup.py verify', 'node /home/u/.codex/bin/x.js']):
+            self.assertIs(project_cleanup.process_busy(self.root), False)
+        # the old separate-checkout names are no longer trusted: such a process makes the answer unknown, so nothing is pruned
+        for old in ('python3 /home/u/codex-setup/scripts/setup.py', 'python3 /home/u/TRACE-Setup/scripts/setup.py'):
+            with ps([old]):
+                self.assertIsNone(project_cleanup.process_busy(self.root))
+        with ps(['python3 %s/x.py' % self.root]):
+            self.assertIs(project_cleanup.process_busy(self.root), True)
+
+    @unittest.skipIf(os.name != 'nt', 'Windows process listing (Get-CimInstance JSON)')
+    def test_interpreter_outside_known_codex_paths_is_unknown_windows(self):
+        def cim(rows):
+            out = json.dumps([{'ProcessId': 900000001 + i, 'Name': n, 'CommandLine': c} for i, (n, c) in enumerate(rows)]).encode()
+            return mock.patch.object(project_cleanup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, out, b''))
+        with cim([('python.exe', r'python C:\Users\u\Projects\ai-setup\codex\scripts\setup.py verify'),
+                  ('node.exe', r'node C:\Users\u\.codex\bin\x.js')]):
+            self.assertIs(project_cleanup.process_busy(self.root), False)
+        for old in (r'python C:\Users\u\Documents\codex-setup\scripts\setup.py', r'python C:\Users\u\trace-setup\scripts\setup.py'):
+            with cim([('python.exe', old)]):
+                self.assertIsNone(project_cleanup.process_busy(self.root))
+        with cim([('python.exe', 'python %s\\x.py' % self.root)]):
+            self.assertIs(project_cleanup.process_busy(self.root), True)
 
 
 if __name__ == '__main__':

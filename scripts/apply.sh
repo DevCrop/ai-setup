@@ -10,8 +10,9 @@
 #   - every other key present in the repo (model, effortLevel, ...) takes the repo value;
 #   - keys that only exist on the machine (env, a plugin enabled by "claude plugin install", app settings) are kept and reported;
 #   - scripts/removed-keys.json lists keys that are deleted from the live file.
-# Files in the managed folders are tracked in $dest/.claude-global-manifest: a file this script copied earlier and the repo no longer
-# has is deleted; a file that never came from this repo is kept and reported.
+# Files in the managed folders are tracked in $dest/.ai-setup-manifest: a file this script copied earlier and the repo no longer
+# has is deleted; a file that never came from this repo is kept and reported. A manifest under the name used before the ai-setup
+# rename is moved to the new name once, when the new one does not exist yet.
 # --dry-run writes nothing: it prints what would be written, replaced in settings.json and removed, then exits 0.
 set -eu
 dry=0
@@ -87,7 +88,10 @@ for item in $items; do
   if [ -d "$src/$item" ]; then (cd "$src" && find "$item" -type f) >> "$tmp/new.list"; else echo "$item" >> "$tmp/new.list"; fi
 done
 sort -o "$tmp/new.list" "$tmp/new.list"
-manifest="$dest/.claude-global-manifest"  # shortcut: keeps the pre-rename file name so machines applied before the ai-setup rename keep their record; rename with a migration if it ever matters
+manifest="$dest/.ai-setup-manifest"
+old_manifest="$dest/.claude-global-manifest"  # the name before the ai-setup rename: moved to $manifest once (below), never written
+manifest_in="$manifest"  # the file the stale-file check reads; the old one in a dry run that would move it
+if [ -f "$old_manifest" ] && [ ! -e "$manifest" ]; then migrate=1; manifest_in="$old_manifest"; else migrate=0; fi
 managed() { for it in $items; do case "$1" in "$it"|"$it"/*) return 0 ;; esac; done; return 1; }
 # A path from the manifest is deleted only when it stays inside $dest: no ".." component, no symlinked directory on the way (rm would
 # follow it out of the config directory), and the last component is a regular file or a link (a link is removed, never followed).
@@ -115,8 +119,9 @@ if [ "$dry" = 1 ]; then
     fi
   done
   sed 's/^/settings.json: /' "$tmp/report.txt"
-  if [ -f "$manifest" ]; then
-    grep -vxFf "$tmp/new.list" "$manifest" | while IFS= read -r p; do
+  [ "$migrate" = 1 ] && echo "would rename: ${old_manifest##*/} -> ${manifest##*/}"
+  if [ -f "$manifest_in" ]; then
+    grep -vxFf "$tmp/new.list" "$manifest_in" | while IFS= read -r p; do
       [ -n "$p" ] || continue
       case "$p" in /*) continue ;; esac
       [ "$p" = settings.json ] && continue
@@ -126,6 +131,12 @@ if [ "$dry" = 1 ]; then
   fi
   echo "dry run: nothing was written"
   exit 0
+fi
+
+# ---- manifest rename (once) ----
+if [ "$migrate" = 1 ]; then
+  mv "$old_manifest" "$manifest"
+  echo "renamed: ${old_manifest##*/} -> ${manifest##*/}"
 fi
 
 # ---- copy ----

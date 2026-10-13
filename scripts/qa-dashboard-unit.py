@@ -289,16 +289,8 @@ def stub_says(verify, plan):
                     "print(json.dumps(out)); sys.exit(0 if not isinstance(out, dict) or out.get('status') == 'pass' else 1)\n" % (verify, plan), encoding="utf-8")
 stub_says({"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "unmanaged_skill_findings": ["skills/mine/SKILL.md"], "limit": "files only"},
           [{"path": "AGENTS.md", "action": "conflict", "before": "a", "after": "b"}, {"path": "guides/rtk.md", "action": "write"}, {"path": "sol.config.toml", "action": "keep"}])
-other = tmp / "old codex-setup"
-(other / "scripts").mkdir(parents=True)
-(other / "manifest.json").write_text(json.dumps({"version": "0.0.1"}), encoding="utf-8")
-(other / "scripts" / "setup.py").write_text("", encoding="utf-8")
-(croot / "state").mkdir()
-(croot / "state" / "trace-dir.txt").write_text(str(other) + "\n", encoding="utf-8")
-os.environ["TRACE_DIR"] = str(other)
 s = cx.state()
-check(s["available"] and s["source"] == "이 레포의 codex/" and s["version"] == "9.9.9", "codex: TRACE_DIR and state/trace-dir.txt naming an old clone are not read; codex/ is used", s)
-os.environ.pop("TRACE_DIR", None)
+check(s["available"] and s["source"] == "이 레포의 codex/" and s["version"] == "9.9.9", "codex: the codex/ folder of this repo is used", s)
 check(s["verify"] == {"status": "fail", "errors": ["AGENTS.md", "ownership-hash:guides/rtk.md"], "errorCount": 2, "unmanaged": ["skills/mine/SKILL.md"], "limit": "files only"} and s["verifyError"] == "",
       "codex: a failed verify (exit 1 with JSON) is shown as TRACE reported it, not as an error", s)
 check(s["plan"] == {"counts": {"conflict": 1, "write": 1, "keep": 1}, "changes": [{"path": "AGENTS.md", "action": "conflict"}, {"path": "guides/rtk.md", "action": "write"}], "changeCount": 2}

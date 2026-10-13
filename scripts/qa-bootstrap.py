@@ -19,7 +19,7 @@ def check(ok, name, detail=""):
 tmp = Path(tempfile.mkdtemp(prefix="boot-unit-"))
 repo = tmp / "repo"
 (repo / "state").mkdir(parents=True)
-for k in ("QA_BIN", "QA_DIR", "PROJECT_ROOTS"):
+for k in ("QA_BIN", "PROJECT_ROOTS"):
     os.environ.pop(k, None)
 
 
@@ -32,7 +32,7 @@ def mkcheckout(d):
 
 ENTRY = {"id": "qa", "label": "QA", "kind": "tool", "required": True, "bin": ["no-such-bin-qa-xyz"], "env": "QA_BIN",
          "version": ["--version"], "min": "3.0", "install": {"winget": "QA.Tool", "url": "https://example.invalid"},
-         "setup": {"repo": "https://example.invalid/qa", "env": "QA_DIR", "legacy": "state/qa-dir.txt",
+         "setup": {"repo": "https://example.invalid/qa",
                    "candidates": ["${HOME}/글로벌 셋업/qa", "${HOME}/qa"], "marker": ["scripts/setup.py", "manifest.json"]}}
 toks = {"HOME": str(tmp), "REPO": str(repo)}
 
@@ -54,49 +54,31 @@ check(toolreg.install_command(ENTRY, "win32") == "winget install --id QA.Tool --
 check(toolreg.install_command(ENTRY, "linux").endswith("https://example.invalid"), "install: URL elsewhere")
 check(toolreg.install_command({"id": "x"}, "win32") is None, "install: nothing known")
 
-# ---- checkout precedence: env > machine.json > legacy file > candidates ----
+# ---- checkout precedence: machine.json > candidates ----
 cand = mkcheckout(tmp / "글로벌 셋업" / "qa")
-legacy = mkcheckout(tmp / "legacy-qa")
 mach = mkcheckout(tmp / "machine-qa")
-envd = mkcheckout(tmp / "env-qa")
 d, src, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
 check(d == cand and src.startswith("${HOME}/글로벌"), "checkout: candidate with a non-ASCII path", f"{d} {src}")
-(repo / "state" / "qa-dir.txt").write_text(str(legacy) + "\n", encoding="utf-8")
-d, src, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
-check(d == legacy and src == "state/qa-dir.txt", "checkout: legacy file beats candidates", f"{d} {src}")
 d, src, _ = toolreg.find_checkout(ENTRY, {"checkout": {"qa": str(mach)}}, toks, repo)
-check(d == mach and src == "machine.json", "checkout: machine.json beats legacy file", f"{d} {src}")
-os.environ["QA_DIR"] = str(envd)
-d, src, _ = toolreg.find_checkout(ENTRY, {"checkout": {"qa": str(mach)}}, toks, repo)
-check(d == envd and src == "QA_DIR", "checkout: env var beats machine.json", f"{d} {src}")
-os.environ["QA_DIR"] = str(tmp / "nowhere")
-d, src, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
-check(d == legacy, "checkout: an env var naming no checkout falls through to the next source", f"{d}")
-del os.environ["QA_DIR"]
-(repo / "state" / "qa-dir.txt").write_text(str(legacy), encoding="utf-16")
-d, _, _ = toolreg.find_checkout(ENTRY, {}, toks, repo)
-check(d == cand, "checkout: a UTF-16 legacy file is not read as a path", f"{d}")
-(repo / "state" / "qa-dir.txt").unlink()
+check(d == mach and src == "machine.json", "checkout: machine.json beats candidates", f"{d} {src}")
+d, src, _ = toolreg.find_checkout(ENTRY, {"checkout": {"qa": str(tmp / "nowhere")}}, toks, repo)
+check(d == cand, "checkout: a machine.json path naming no checkout falls through to the candidates", f"{d}")
 bare = dict(ENTRY, setup=dict(ENTRY["setup"], candidates=["${HOME}/absent"]))
 d, src, tried = toolreg.find_checkout(bare, {}, toks, repo)
 check(d is None and tried and tried[-1][0] == "${HOME}/absent", "checkout: none found lists what was tried")
 
-# ---- inRepo: a folder of this repo; the old clone's overrides are reported, never used or recorded ----
+# ---- inRepo: a folder of this repo; only its candidates are used, never recorded ----
 inrepo = mkcheckout(repo / "codexlike")
 IN = dict(ENTRY, setup=dict(ENTRY["setup"], inRepo=True, candidates=["${REPO}/codexlike"]))
-(repo / "state" / "qa-dir.txt").write_text(str(legacy) + "\n", encoding="utf-8")
-os.environ["QA_DIR"] = str(envd)
 r = toolreg.detect(IN, {"checkout": {"qa": str(mach)}}, toks, repo)
-del os.environ["QA_DIR"]
-(repo / "state" / "qa-dir.txt").unlink()
-check(r["setup"]["checkout"] == str(inrepo) and r["setup"]["tried"] == ["${REPO}/codexlike"], "inRepo: env, machine.json and legacy file are not tried", json.dumps(r["setup"]))
-check(r["setup"]["ignored"] == ["QA_DIR", "machine.json checkout.qa", "state/qa-dir.txt"], "inRepo: each set override is reported as ignored", r["setup"]["ignored"])
+check(r["setup"]["checkout"] == str(inrepo) and r["setup"]["tried"] == ["${REPO}/codexlike"], "inRepo: machine.json is not tried", json.dumps(r["setup"]))
+check("ignored" not in r["setup"] and "fromEnv" not in r["setup"], "inRepo: detect has no ignored-override or fromEnv fields", json.dumps(r["setup"]))
 rr = {"items": [r], "projectRoots": [], "projectRootsSource": "default", "missingRequired": []}
 check("qa" not in bootstrap.found_values(rr)["checkout"], "inRepo: --write does not record the in-repo checkout", bootstrap.found_values(rr))
-check(any("WARN ignored" in x and "QA_DIR" in x for x in bootstrap.lines(rr)), "inRepo: check prints the ignored overrides", bootstrap.lines(rr))
+check(not any("WARN ignored" in x for x in bootstrap.lines(rr)), "inRepo: check prints no ignored-override warning", bootstrap.lines(rr))
 gone = toolreg.detect(dict(IN, setup=dict(IN["setup"], candidates=["${REPO}/absent"])), {}, toks, repo)
 rg = {"items": [gone], "projectRoots": [], "projectRootsSource": "default", "missingRequired": []}
-check(not any("; clone " in x for x in bootstrap.lines(rg)) and toolreg.detect(IN, {}, toks, repo)["setup"]["ignored"] == [], "inRepo: a missing folder is not offered as a clone; nothing set means nothing ignored")
+check(not any("; clone " in x for x in bootstrap.lines(rg)), "inRepo: a missing folder is not offered as a clone")
 
 # ---- binaries ----
 r = toolreg.detect(ENTRY, {}, toks, repo)
@@ -248,13 +230,10 @@ out = bootstrap.lines({"items": [dict(toolreg.detect(ENTRY, {}, toks, repo))], "
 check(out[0].startswith("MISS qa") and "install: " in out[0], "bootstrap.lines: missing required prints MISS and the install command", out[0])
 check(out[-1] == "missing required: qa", "bootstrap.lines: summary names what is missing")
 fv = bootstrap.found_values({"items": [{"id": "a", "setup": {"checkout": "P", "source": "${REPO}"}}, {"id": "b", "setup": {"checkout": "Q", "source": "machine.json"}},
-                                      {"id": "c", "setup": {"checkout": "S", "source": "QA_DIR", "fromEnv": True}}], "projectRoots": ["R"], "projectRootsSource": "default"})
-check(fv == {"checkout": {"a": "P"}}, "bootstrap.found_values: keeps searched values, not machine.json, env or default ones", json.dumps(fv))
+                                      {"id": "c", "setup": {"checkout": "S", "source": "${REPO}/c", "inRepo": True}}], "projectRoots": ["R"], "projectRootsSource": "default"})
+check(fv == {"checkout": {"a": "P"}}, "bootstrap.found_values: keeps searched values, not machine.json, inRepo or default ones", json.dumps(fv))
 fv = bootstrap.found_values({"items": [], "projectRoots": ["R"], "projectRootsSource": "PROJECT_ROOTS"})
 check("projectRoots" not in fv, "bootstrap.found_values: project roots from an env var are not recorded")
-os.environ["QA_DIR"] = str(envd)
-check(toolreg.detect(ENTRY, {}, toks, repo)["setup"]["fromEnv"], "detect: a checkout from the env var is marked fromEnv")
-del os.environ["QA_DIR"]
 # two PATH names both exist: the first is a stub that prints no version (like the Windows Store python3), the second answers
 bindir = tmp / "bin"
 bindir.mkdir()
