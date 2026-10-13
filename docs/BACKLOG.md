@@ -45,10 +45,11 @@ On the macOS run (M5):
 - Frozen features (DECISIONS 2026-10-12 "Dashboard feature freeze kept until the Mac run"): the tools tab, and the project search to depth 3.
 - Deferred findings 6–10 of PR #91 (same entry): LaunchAgent PATH, `bootstrap.sh` installing git when present, the `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS and Linux.
 
-On the Codex side (codex-setup is maintained by Codex, `docs/codex-alignment.md`):
+Codex setup (moving into `codex/` of this repository, DECISIONS 2026-10-13 "one repository"):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high) is not applied to `~/.codex` (TRACE 1.2.5). PR #21 removed Archify and is merged (`7e4a3e1`, DECISIONS 2026-10-13 "Archify removed"); #20 now conflicts with main: rebase it, then plan/apply/verify and check the child models in a live `codex exec`.
+- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high): conflict resolved by merging main and renumbering its decision to 004; after merge, apply it to `~/.codex` (`plan --adopt-existing` first: today's `verify` fails with 17 errors) and check the child models in a live `codex exec`.
+- Port DevCrop/codex-setup#18 (RTK backup and dated live view, closed unmerged on 2026-10-13; branch `codex/rtk-db-prevention-20261012` kept) to `codex/` as a new PR, or drop it.
 
 ## 7. Measure
 
