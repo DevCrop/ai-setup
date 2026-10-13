@@ -10,6 +10,18 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Accepted differences: `.claude.json` and `history.jsonl` stay commit-only (kept readable for inspecting Claude's own config and history); `~/.ssh/**` and the other `~/` rules stay Read-only (they are outside any repository). Accepted over-blocks on reading: `*.key` also matches Keynote documents, `*credentials*.json` also matches `credentials.example.json` and `*.schema.json` (the `.example` exception does not apply because the name ends in `.json`), and `secrets.yaml` also matches Helm chart templates and SOPS-encrypted files; ask the user to open such a file.
 - Check: the S5 block in `scripts/qa-hooks.sh` (sample names in all three lists, every Read glob named in hard_deny). Undo: remove the rules and the block in one PR.
 
+## 2026-10-13 — two Windows PCs; open questions settled
+
+### The setup targets two Windows PCs; macOS is out of scope
+- What: the user said on 2026-10-13 that this setup runs on two machines, both Windows PCs, and that the macOS run is dropped because it would take very long. BACKLOG M5 (the macOS run), D3 (Bash sandbox on macOS and Linux only) and the items that waited for the Mac run are closed.
+- Decided by Claude as the user delegated (the user asked on 2026-10-13 to "reform on your own" whatever else is of little use): the feature freeze (entry "Dashboard feature freeze kept until the Mac run") ends with the dropped Mac run. The two frozen features are dropped, not built: the tools tab (the Codex tab shows TRACE and the Codex CLI, and `bootstrap.py check` lists every tool, version and setup) and the project search to depth 3 (no measured need for it). Deferred findings 6–10 of PR #91 that only matter on macOS or Linux (LaunchAgent PATH, `bootstrap.sh` installing git when present, the codex clone target on macOS/Linux) are dropped; the two Windows ones stay in BACKLOG section 8.
+- Kept: the macOS and Linux code paths (brew, the LaunchAgent, `bootstrap.sh`) and the linux CI job. They are untested on a real Mac and may break; removing them is a separate change with its own test fallout.
+- Undo: restore BACKLOG M5, the frozen-feature rows and the README and GUIDE lines from main before PR #120 (`eceba1b`).
+
+### D1, D2, D3 and codex-setup#18, decided by Claude as the user delegated
+- The user asked on 2026-10-13 to settle the remaining questions as recommended. D1: `project-setup` still recommends no plugin (entry "`project-setup` still recommends no plugin" stands). D2: the chat-confirmation lines in `claude/CLAUDE.md` stay; they are the remaining guard for `rm`, `branch -D` and `stash drop`/`clear` (entry "Ask rules cover push only"). D3: dropped with macOS (above). DevCrop/codex-setup#18 (RTK backup and dated live view, closed unmerged) is dropped; the branch `codex/rtk-db-prevention-20261012` stays in that repo as a record.
+- Undo: reopen the question as a BACKLOG row.
+
 ## 2026-10-13 — one repository for Claude, Codex and AO: ai-setup
 
 ### claude-global becomes ai-setup and absorbs codex-setup (`codex/`) and the AO lane setup (`ao/`)
@@ -17,7 +29,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Ownership: the rule "codex-setup is maintained by Codex; this repo does not change it" is replaced by "one agent writes at a time": whoever works on `codex/` (Claude or Codex) does it while the other is stopped, through the same branch, reviewer and CI flow.
 - Freeze: the Mac-run feature freeze (entry "Dashboard feature freeze kept until the Mac run") does not cover this move; it is a structure change, not a new feature.
 - Why: the user's reason (2026-10-13, in the session): the work is one global setup plus AO settings, yet the Codex part had to be done in a separate Codex session under the old rule. AO does not read the setup repository: its Claude Code workers load `~/.claude` and its Codex reviewer `~/.codex` (AO v0.13.7 source `backend/internal/adapters/agent/codex/codex.go` falls back to `~/.codex` without `CODEX_HOME`, `backend/internal/adapters/agent/claudecode/claudecode.go`, `chatdriver/claudeacp/driver.go`, the bundled `claude-agent-acp` 0.70.0 `settingSources: ["user","project","local"]`, and the 2026-10-12 worker transcripts under `~/.claude/projects`), so only the applied outputs matter and the move does not change AO behaviour. `codex/scripts/setup.py` resolves its root from its own file and stores no source path in its ownership record, so it keeps working under `codex/`.
-- Closed on the way: DevCrop/codex-setup#18 (RTK backup and dated live view) was closed unmerged before the move; its branch `codex/rtk-db-prevention-20261012` is kept (BACKLOG).
+- Closed on the way: DevCrop/codex-setup#18 (RTK backup and dated live view) was closed unmerged before the move; its branch `codex/rtk-db-prevention-20261012` is kept as a record (port dropped 2026-10-13, entry "D1, D2, D3 and codex-setup#18").
 - Undo: un-archive the old repositories if they were archived, remove `codex/` and `ao/`, rename this one back to `claude-global`, and restore the "maintained by Codex" wording in `docs/codex-alignment.md` and the BACKLOG section heading.
 
 ## 2026-10-13 — Codex reviewer posts through a gh login; model is spelled opus[1m]
@@ -90,7 +102,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: add `isolation: worktree` to the file-changing agents and drop the condition in step 5.
 
 ### `project-setup` still recommends no plugin (code intelligence plugins not proposed)
-- The best-practices and costs pages suggest code intelligence plugins for typed languages. `project-setup` step 9 says "do not install or recommend any plugin", and the plugin pinning decision (entry "Third-party plugins are pinned through an own marketplace") is pending. Proposing one is a decision for the user, not part of this change.
+- The best-practices and costs pages suggest code intelligence plugins for typed languages. `project-setup` step 9 says "do not install or recommend any plugin", and the plugin pinning decision (entry "Third-party plugins are pinned to a commit in an inline marketplace") covers only Ponytail and claude-mem. Proposing one is a decision for the user, not part of this change.
 
 ## 2026-10-12 — session hooks and the settings schema
 
@@ -125,7 +137,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### The project is found from the cwd by its marks, never from a fixed path
 - What: `claude/CLAUDE.md` (Working method): projects live under a per-machine work root as `<client>/<stage>/<date or name>`; the project is the nearest folder at or above the cwd with `.git`, `CLAUDE.md`, `AGENTS.md` or `.claude`, searching no higher than the work root or the home folder, which are never projects. The marks are the dashboard's (`scripts/dashboard/projects.py`); the work root is what the dashboard and `bootstrap.py` call a project root.
 - Why: project folders sit one to three levels deep and the root differs per machine; `~/.claude` would otherwise make the home folder a project.
-- Not yet: the same line in codex-setup `global/AGENTS.md` (an ask for the Codex side, `docs/codex-alignment.md`), and the dashboard project search to depth 3 (frozen, entry below).
+- Not yet: the same line in codex-setup `global/AGENTS.md` (an ask for the Codex side, `docs/codex-alignment.md`), and the dashboard project search to depth 3 (dropped 2026-10-13, entry "The setup targets two Windows PCs").
 - Undo: remove the line from `claude/CLAUDE.md` and this entry.
 
 ### The handoff note is also posted on the work's own open PR (standing approval)
@@ -147,7 +159,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Checked: `scripts/qa-bootstrap.py` (CI, linux and windows) and `scripts/qa-apply.sh` case 11, the dry run writes nothing (runs in CI through `verify.sh`). Not checked: a real winget or brew install, macOS. Sources for the flags are in commit `ded49bd`.
 - Undo: drop `--no-upgrade` and `HOMEBREW_NO_INSTALL_UPGRADE=1` in `toolreg.install_argv` and the `ask()` gate in `bootstrap.py`, with their qa-bootstrap cases.
 
-### Dashboard feature freeze kept until the Mac run
+### Dashboard feature freeze kept until the Mac run (replaced 2026-10-13, entry "The setup targets two Windows PCs")
 - What: the tools tab and the project search to depth 3 (PR3 of the plan) wait for the macOS run.
 - Why: the 2026-10-11 "Dashboard structure" entry freezes features until that run, and it has not happened yet.
 - Also waiting for that run: deferred review findings 6–10 of PR #91 (LaunchAgent PATH, `bootstrap.sh` installing git when present, `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS/Linux).
@@ -202,10 +214,15 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Guard: `verify.sh` fails when `settings.json` enables it and warns (`--live`) while it is installed; `scripts/removed-keys.json` deletes the key on apply.
 - Undo: drop the guard and re-enable per project.
 
-### Third-party plugins are pinned through an own marketplace (pending)
-- Why: Ponytail and claude-mem are personal GitHub repositories outside the official marketplace; an unpinned upstream push would run code on every machine. Plan: fork them, publish `DevCrop/claude-plugins` with `sha`-pinned plugin sources, point `extraKnownMarketplaces` at it.
-- Status: waits for the forks; until then `settings.json` still names the upstream marketplaces, and the `autoMode.environment` line says so ("plugins come from the marketplaces already listed"). When the pinned marketplace exists, change that line, `extraKnownMarketplaces` and `enabledPlugins` in the same PR. The `soft_deny` rule already blocks plugin installs unless the user names them.
-
+### Third-party plugins are pinned to a commit in an inline marketplace
+- What (2026-10-13, BACKLOG S7; the user asked to pin both plugins at the latest version instead of each machine taking upstream's newest): `extraKnownMarketplaces` declares `ponytail` and `thedotmack` as `settings` (inline) marketplaces, each with one plugin whose source carries the latest release tag as `ref` and its full commit as `sha`: Ponytail `url` source, `v5.2.0`; claude-mem `git-subdir` source (`plugin/`), `v13.37.0`. The keys and plugin ids do not change, so `enabledPlugins` and installed data stay.
+- Why: an unpinned upstream push ran code on every machine at the next install or update. Forks plus an own `DevCrop/claude-plugins` marketplace (the earlier plan) are not needed: the inline catalog pins the same way with no repository to keep.
+- Sources: `url` and `git-subdir` with `https://` URLs, not `github` or `owner/repo` shorthand: in a rehearsal on 2026-10-13 (Claude Code 2.1.296, empty `CLAUDE_CONFIG_DIR`) those two cloned over SSH and failed without a GitHub host key, while the https URLs installed both plugins at the pinned commit. Changing the source of an installed marketplace kept both plugins and their data folder (a marker file in `plugins/data/claude-mem-thedotmack` survived).
+- Existing installs: `claude plugin update` replaces a plugin when the version it computes differs from the installed one, higher or lower (docs `plugins/loading`, "Versions and updates"; in the rehearsal it printed "already at the latest version" for an install of the same version string at another commit). So an install older than the pin needs one `claude plugin update <id>` after `apply.sh` (back up `~/.claude-mem` first); an install of the same version at another commit stays as it is; an install newer than the pin must not be updated (it would move claude-mem back). The daily routine tells the three apart.
+- Upgrades: the daily routine reports a newer release tag; it never edits the pin. To upgrade, change `ref` and `sha` in `claude/settings.json` in a PR, apply, then `claude plugin update <id>`. Never move claude-mem to an older version (it migrates its database); back up `~/.claude-mem` before an upgrade.
+- shortcut: an upstream force-push or a deleted repository breaks fresh installs of the pinned commit (installed copies keep working); fork the repository then and point the `url` at the fork.
+- Limits: `claude plugin marketplace add` cannot register an inline marketplace; Claude Code registers it when a session starts, so a new machine opens one session after `apply.sh` before `claude plugin install`. A plugin cache path longer than the Windows path limit fails (claude-mem has deep test fixtures; it failed under a long scratch folder); `~/.claude` is short enough.
+- Undo: put the `github` sources back in `extraKnownMarketplaces` and the old `autoMode.environment` line, and revert the GUIDE install steps, the daily routine step and the `verify.sh` hint from this PR.
 ### `apply.sh` merges `settings.json` and keeps no backup
 - Why: whole-file replacement fought the app (theme, `enableWorkflows`, `agentPushNotifEnabled`, plugin entries): repeated "keep key X from being deleted" commits within two days (0eae5f6, 106c52e, 21f4cea, 04218ce). Now this repo owns `permissions.{defaultMode,disableBypassPermissionsMode,deny,ask,allow}` (the lock since 2026-10-12), `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides`, the fields it sets inside `modelSettings` entries (since 2026-10-12) and every other key it sets; machine-only keys are kept and reported; `scripts/removed-keys.json` deletes listed keys (today: the Superpowers plugin entry and `skipDangerousModePermissionPrompt`, which `verify.sh` also asserts absent); a manifest removes files the repo dropped (files of an item dropped from the copy list are only reported, since 2026-10-13) and never deletes through a symlink or outside the config directory.
 - No backup: git is the history. Rollback is "check out the older commit, apply again". Owned keys (`permissions.*`, `autoMode`, `hooks`, `statusLine`, `extraKnownMarketplaces`, `skillOverrides`) and tracked files return exactly, as long as the older commit's `apply.sh` owns them: a key that only a newer `apply.sh` owns (the bypass lock) stays live: add it to `removed-keys.json` in that checkout before applying, or undo in a forward PR. Other keys do not go back: a key the repo set (`model`, `theme`, the cache TTLs, ...) keeps its live value when the older commit lacks it, unless `scripts/removed-keys.json` lists it; so do plugins enabled since and machine-only keys.
@@ -246,7 +263,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - `Read` deny does not stop `grep -r`. The Bash-using agents are told to exclude `.env*` and credential files and not to print them; effect not proven (rare event). The auto-mode `hard_deny` adds a second layer.
 
 ### Dashboard structure
-- One process entry (`procs.py`), `TtlCache`, `Fix`/`FixRegistry`, `Source` list, ES-module UI with a `Tab` per screen. Feature freeze until the 2026-10-11 refactor and the Mac run are finished.
+- One process entry (`procs.py`), `TtlCache`, `Fix`/`FixRegistry`, `Source` list, ES-module UI with a `Tab` per screen. Feature freeze until the 2026-10-11 refactor and the Mac run are finished (ended 2026-10-13, entry "The setup targets two Windows PCs").
 
 ## 2026-10-10
 
