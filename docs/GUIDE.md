@@ -11,21 +11,20 @@ Run in order; each line says what proves it worked. Prerequisites are in section
 | 1 | `git clone https://github.com/DevCrop/ai-setup.git && cd ai-setup` | `git log -1` prints a commit |
 | 1b | `python3 scripts/bootstrap.py check --write` (a bare machine: `powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1 check` or `bash scripts/bootstrap.sh check`, which first install Git and Python if missing). Then, as needed: `bootstrap.py install` (missing tools via winget/brew), `clone` (missing setup repos; the Codex setup is `codex/` in this repo and is never cloned), `apply` (each setup's own plan, then apply; Claude's plan is `apply.sh --dry-run`), `verify`, `autostart` (dashboard at login). Each step that writes shows what it will do and asks y/N; without a terminal it refuses | `check` ends with `missing required: none`; `verify` prints PASS per setup. `--write` records the found setup checkouts, except a folder of this repo such as `codex/` (and migrates `state/project-roots.txt`; the `~/Projects` default is not written, and an empty `"projectRoots": []` left by an older `--write` should be deleted by hand) in `state/machine.json` |
 | 2 | `bash scripts/apply.sh` | prints `applied: ...` and, when the machine differs, what it replaced, kept or removed |
-| 3 | `claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
-| 4 | claude-mem (below): `claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
+| 3 | Open one Claude Code session and exit (it registers the pinned marketplaces from `settings.json`; `claude plugin marketplace add` cannot), then `claude plugin install ponytail@ponytail` | `claude plugin list` shows ponytail enabled |
+| 4 | claude-mem (below): `claude plugin install claude-mem@thedotmack`, open one Claude Code session, then `bash scripts/setup-claude-mem.sh` | script prints `OK` |
 | 5 | `bash scripts/verify.sh --live` | `0 FAIL` (a FAIL on `ponytail` means step 3 was skipped or went to another `CLAUDE_CONFIG_DIR`). On a first run these WARN lines are expected: no `.ponytail-active` yet (written by the first new session), no scheduled task yet (manual steps), `rtk` missing if you skipped it, and `config changed outside this repo` if a session was open while a plugin was installed more than 2 minutes after apply |
 | 6 | `python3 scripts/dashboard/server.py` (optional) | http://127.0.0.1:8787 loads |
 | 7 | `bash scripts/qa-ui.sh && bash scripts/qa-dashboard.sh` (optional, needs node 22+ and Chrome or Edge) | both end with `failures: 0` |
 
-Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`.
+Update later: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`. When a pin in `settings.json` moved to a newer version (the daily report says "update needed"), back up `~/.claude-mem` and run `claude plugin update <id>` in a new session; never when the installed version is newer than the pin.
 
 ## claude-mem (per machine)
 
 claude-mem keeps a local memory database in `~/.claude-mem`. The plugin entry is in `claude/settings.json` (so `apply.sh` enables it), but the plugin files and its own settings are per machine and are not in this repo.
 
-1. Install the plugin (the official marketplace does not carry it; `thedotmack` is the author's marketplace, a third party):
+1. Install the plugin (the official marketplace does not carry it; `thedotmack` is an inline marketplace in `settings.json` pinned to one upstream commit, DECISIONS "Third-party plugins are pinned"; a session must have started once after `apply.sh` so it is registered):
    ```
-   claude plugin marketplace add thedotmack/claude-mem
    claude plugin install claude-mem@thedotmack
    ```
    Do not use `npx claude-mem install` on Windows: `bun install` failed there with `spawn EINVAL` and left a half install.
@@ -71,7 +70,7 @@ Done when every command prints a value (`rtk`, `node`, `gh` may be missing; the 
 ```
 git pull
 bash scripts/apply.sh            # needs jq; merges settings.json, copies the items listed in apply.sh
-claude plugin marketplace add DietrichGebert/ponytail
+claude                           # open one session and exit: it registers the pinned marketplaces
 claude plugin install ponytail@ponytail
 ```
 
@@ -216,7 +215,7 @@ The refactor of 2026-10-11 was verified in a Linux container (CI-style scripts, 
 | L-1 | Windows | `claude --version`, `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live` | 2.1.295+; 0 FAIL; the apply report lists replaced/kept/removed keys; stale files removed. Also, with jq off the PATH, staging a secret-named file in a throwaway repo is blocked by secret-guard (CI skips this simulation on Git Bash) | Windows, 2026-10-13, claude 2.1.296, rtk 0.51.0: `verify.sh --live` 0 FAIL, 0 WARN; a second `apply.sh` replaces nothing (the `opus[1m]` revert is gone). The jq-off secret-guard simulation was not run |
 | L-2 | Mac | dropped: macOS is out of scope (`docs/DECISIONS.md` "two Windows PCs") | — | — |
 | L-3 | both | new session; `claude auto-mode config`; `claude auto-mode critique` | session starts in auto; output holds the DevCrop environment and both custom rules; read the critique | — |
-| L-4 | both | step 1 of section 1b; later, the plugin pinning change | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
+| L-4 | both | step 1 of section 1b; the plugin pinning change (after a fresh install, `gitCommitSha` in `installed_plugins.json` equals the `sha` in `settings.json`) | `claude plugin list` has no Superpowers; claude-mem worker answers on :37777 | — |
 | L-5 | both | `bash scripts/qa-deny.sh` | all PASS (30 cases; with RTK installed it exercises the rewrite) | Windows, 2026-10-13, rtk 0.51.0 hook active: all 30 PASS. The first run failed every case as `no-call` because the claude login had expired; since #114 that shows as `error` with the CLI message |
 | L-6 | both | `qa-role-agents.sh <dir>` real mode, `qa-project-setup.sh <dir>`, one AO worker | still pass in auto mode; note any action the classifier skipped | Windows, 2026-10-12, AO part only: three Haiku workers in auto, no classifier skips (`docs/evidence.md`, "AO 로컬 QA"); the two scripts not run |
 | L-7 | both | `bash scripts/qa-ui.sh` | 80 checks pass; no backup tile; AUTO badge | — |
