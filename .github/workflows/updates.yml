@@ -3,34 +3,37 @@ name: updates
 # Weekly update PR (decision 2026-10-13, docs/DECISIONS.md "Pinned versions move by a weekly PR"): moves the pins in
 # claude/settings.json and codex/versions.lock.json to the newest upstream releases and records the newest release of the
 # unpinned tools in docs/tool-versions.json. Nothing is installed anywhere; changes land only when the PR is reviewed and merged.
+# Job `check` reads upstream with a read-only token; job `pr` copies only the allowed paths from its artifact and writes.
 on:
   schedule:
     - cron: "47 0 * * 1"  # Mondays 00:47 UTC (09:47 KST)
   workflow_dispatch:
 
-permissions:
-  contents: write       # push the bot/updates branch
-  pull-requests: write  # open or update the PR
-  actions: write        # dispatch check.yml on bot/updates
+permissions: {}  # each job sets its own
 
 concurrency:
   group: updates
   cancel-in-progress: false
 
 jobs:
-  updates:
+  check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      rc: ${{ steps.check.outputs.rc }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Check upstream releases and move the pins
         id: check
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}  # read-only here; only for the GitHub API rate limit
         run: |
           rc=0
           python3 scripts/check-updates.py --write > "$RUNNER_TEMP/report.md" || rc=$?
@@ -40,12 +43,56 @@ jobs:
             0|2) echo "rc=$rc" >> "$GITHUB_OUTPUT" ;;  # 2 = a source failed: reported, the others were still written
             *) exit "$rc" ;;
           esac
-      - name: Open or update the PR on bot/updates
+          mkdir -p "$RUNNER_TEMP/out/tree"
+          cp "$RUNNER_TEMP/report.md" "$RUNNER_TEMP/out/report.md"
+          git ls-files -z -m -o --exclude-standard -- claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json \
+            | xargs -0 -r cp --parents -t "$RUNNER_TEMP/out/tree"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: updates
+          path: ${{ runner.temp }}/out
+          include-hidden-files: true
+          retention-days: 7
+
+  pr:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # push the bot/updates branch
+      pull-requests: write  # open, update or close the PR
+      actions: write        # dispatch check.yml on bot/updates
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: updates
+          path: ${{ runner.temp }}/updates
+      - name: Open, update or close the PR on bot/updates
         env:
           GH_TOKEN: ${{ github.token }}
+          IN: ${{ runner.temp }}/updates
         run: |
-          git add -A claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json
-          if git diff --cached --quiet; then echo "No pin or recorded version changed."; exit 0; fi
+          # Only the paths check-updates.py may change are taken from the artifact; anything else in it is ignored.
+          for p in claude/settings.json codex/versions.lock.json docs/tool-versions.json; do
+            if [ -f "$IN/tree/$p" ]; then cp "$IN/tree/$p" "$p"; fi
+          done
+          if [ -d "$IN/tree/codex/vendor" ]; then
+            mkdir -p codex/vendor
+            cp -R "$IN/tree/codex/vendor/." codex/vendor/
+          fi
+          paths=(claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json)
+          git add -A "${paths[@]}"
+          pr="$(gh pr list --head bot/updates --base main --state open --json number --jq '.[0].number // empty')"
+          if git diff --cached --quiet; then
+            echo "No pin or recorded version changed."
+            # An open bot PR whose files now equal main's has nothing left to merge.
+            if [ -n "$pr" ] && git fetch -q --depth=1 origin bot/updates && git diff --quiet HEAD FETCH_HEAD -- "${paths[@]}"; then
+              gh pr close "$pr" --comment "No change left; closed by updates.yml."
+            fi
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C bot/updates
@@ -53,11 +100,10 @@ jobs:
           # Only this workflow writes bot/updates, so replacing it each week loses nothing.
           git push --force origin bot/updates
           {
-            cat "$RUNNER_TEMP/report.md"
+            cat "$IN/report.md"
             echo
             echo "Opened by \`.github/workflows/updates.yml\` (run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Nothing was installed on any PC. Review, wait for \`check\`, then merge."
           } > "$RUNNER_TEMP/body.md"
-          pr="$(gh pr list --head bot/updates --base main --state open --json number --jq '.[0].number // empty')"
           if [ -n "$pr" ]; then
             gh pr edit "$pr" --body-file "$RUNNER_TEMP/body.md"
           else
@@ -66,7 +112,7 @@ jobs:
           # A push or PR made with GITHUB_TOKEN starts no other workflow; workflow_dispatch is the exception, so run check.yml here.
           gh workflow run check.yml --ref bot/updates
       - name: Fail the run when a source failed
-        if: steps.check.outputs.rc == '2'
+        if: needs.check.outputs.rc == '2'
         run: |
-          echo "::error::At least one upstream source failed; see the report above (the PR, if any, has the same list)."
+          echo "::error::At least one upstream source failed; see the report in the check job's log or summary (the PR, if any, has the same list)."
           exit 1

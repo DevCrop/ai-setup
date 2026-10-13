@@ -7,8 +7,11 @@ Pinned items:
   claude/settings.json extraKnownMarketplaces  plugin `ref` (release tag) and `sha` (its commit), newest tag from git ls-remote
   codex/versions.lock.json skills              commit, version, vendored files (codex/vendor/<name>/) and their sha256
   codex/versions.lock.json tools.rtk           version, release_url, reviewed_at, and url + sha256 of each asset already locked
+                                               (each needs a sha256 release digest equal to the downloaded bytes)
 A plugin and a Codex skill with the same name (Ponytail) move together to the same tag, or not at all.
 Unpinned tools: docs/tool-versions.json records the newest release seen (version, date); a change lists in the PR.
+Python is the newest patch of the minor that tools.json's winget id installs. A version that is not a plain
+version string is a failed source.
 
 Usage: python3 scripts/check-updates.py [--write] [--root DIR]
 Exit: 0 every source answered; 2 at least one source failed (the others are still reported and, with --write, written); 1 crash.
@@ -28,6 +31,8 @@ from pathlib import Path, PurePosixPath
 REPO = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 GITHUB_API = "https://api.github.com/repos/"
+SEEN_VERSION = re.compile(r"[0-9][0-9A-Za-z.+-]{0,40}")
+SEEN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 # Unpinned tools: id -> (label, kind, where). The order is the order in docs/tool-versions.json and the report.
 SEEN = {
@@ -140,6 +145,11 @@ def dump(data):
     return (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+def plain(value):
+    """An upstream string quoted in the report (the PR body): characters outside [0-9A-Za-z.+_-] become '?'."""
+    return "'" + re.sub(r"[^0-9A-Za-z.+_-]", "?", str(value)[:60]) + "'"
+
+
 def short(sha):
     return (sha or "")[:7]
 
@@ -242,30 +252,21 @@ class Run:
             rel = self.net.json(f"{GITHUB_API}{rtk['repository']}/releases/latest")
             tag = rel.get("tag_name", "")
             if not semver(tag) or not tag.startswith("v") or rel.get("draft") or rel.get("prerelease"):
-                raise ValueError(f"latest release {tag!r} is not a stable vX.Y.Z")
+                raise ValueError(f"latest release {plain(tag)} is not a stable vX.Y.Z")
             if semver(tag) <= semver(cur):
                 self.pin(label, cur, tag, "up to date" if semver(tag) == semver(cur) else "newer than upstream; left as is")
                 return
-            by_name = {}
-            for a in rel.get("assets", []):
-                by_name.setdefault(a.get("name"), []).append(a)
-            assets = {}
-            for name in rtk["assets"]:  # only the platforms already locked
-                found = by_name.get(name, [])
-                url = f"https://github.com/{rtk['repository']}/releases/download/{tag}/{name}"
-                if len(found) != 1 or found[0].get("browser_download_url") != url:
-                    raise ValueError(f"{tag} has no single asset {name} at the expected URL")
-                digest = sha256(self.net.bytes(url))
-                if found[0].get("digest") and found[0]["digest"] != "sha256:" + digest:
-                    raise ValueError(f"{name}: downloaded sha256 differs from the release digest")
-                assets[name] = {"url": url, "sha256": digest}
-            # Same rules as the Codex side (codex/scripts/tools.py release_plan): stable tag, every locked platform, newer.
+            # The Codex side's rules on the release as GitHub returned it (codex/scripts/tools.py release_plan): stable tag,
+            # newer, and every locked platform present once at the expected URL with a sha256 release digest; it raises otherwise.
             sys.path.insert(0, str(REPO / "codex" / "scripts"))
             from tools import release_plan
-            plan = release_plan({**rel, "assets": [{"name": n, "digest": "sha256:" + a["sha256"], "browser_download_url": a["url"]}
-                                                   for n, a in assets.items()]}, rtk)
-            if plan["status"] != "candidate" or plan["assets"] != assets:
+            plan = release_plan(rel, rtk)
+            if plan["status"] != "candidate":
                 raise ValueError(f"release_plan says {plan['status']}")
+            assets = plan["assets"]  # only the platforms already locked
+            for name, a in assets.items():
+                if sha256(self.net.bytes(a["url"])) != a["sha256"]:
+                    raise ValueError(f"{name}: downloaded sha256 differs from the release digest")
         except Exception as exc:
             self.error(label, exc)
             self.pin(label, cur, "?", "source failed")
@@ -278,10 +279,10 @@ class Run:
         rel = self.net.json(f"{GITHUB_API}{repo}/releases/latest")
         version = re.sub(r"^[^0-9]*", "", rel.get("tag_name") or "")
         if not version:
-            raise ValueError(f"tag {rel.get('tag_name')!r} has no version")
+            raise ValueError(f"tag {plain(rel.get('tag_name'))} has no version")
         return version, (rel.get("published_at") or "")[:10] or None
 
-    def fetch_seen(self, kind, where):
+    def fetch_seen(self, kind, where, winget_id=None):
         if kind == "github":
             return self.github_latest(where)
         if kind == "npm":
@@ -293,7 +294,15 @@ class Run:
             best = max(lts, key=lambda r: semver(r["version"]))
             return best["version"].lstrip("v"), best.get("date")
         if kind == "python":
-            stable = [r for r in self.net.json(where) if r.get("stable") and semver(r.get("version"))]
+            # winget id Python.Python.3.13 installs only 3.13.x, so record the newest patch of that minor, not the newest 3.x.
+            m = re.fullmatch(r"Python\.Python\.3\.(\d+)", winget_id or "")
+            if not m:
+                raise ValueError(f"tools.json has no Python.Python.3.N winget id (got {winget_id!r})")
+            minor = int(m.group(1))
+            stable = [r for r in self.net.json(where)
+                      if r.get("stable") and semver(r.get("version")) and semver(r["version"])[:2] == (3, minor)]
+            if not stable:
+                raise ValueError(f"no stable 3.{minor}.x in the manifest")
             best = max(stable, key=lambda r: semver(r["version"]))
             date = None
             tag = (best.get("release_url") or "").rsplit("/", 1)[-1]
@@ -310,7 +319,12 @@ class Run:
         for tid, (label, kind, where) in SEEN.items():
             old = tools.get(tid) or {}
             try:
-                version, date = self.fetch_seen(kind, where)
+                version, date = self.fetch_seen(kind, where, winget.get(tid))
+                # Both go into docs/tool-versions.json and the PR body's Markdown table, so only plain values pass.
+                if not isinstance(version, str) or not SEEN_VERSION.fullmatch(version):
+                    raise ValueError(f"unexpected version string {plain(version)}")
+                if not (isinstance(date, str) and SEEN_DATE.fullmatch(date)):
+                    date = None
             except Exception as exc:
                 self.error(label, exc)
                 self.seen.append((label, old.get("version"), "?", None, "source failed", winget.get(tid)))

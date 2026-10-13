@@ -57,10 +57,11 @@ def make_repo(pt_plugin=("v5.2.0", A), pt_skill=("5.2.0", A), cm=("v13.37.0", B)
                               "assets": {n: {"url": f"{RTK_DL}v{rtk}/{n}", "sha256": "0" * 64} for n in LOCKED}}}}
     (root / "codex/versions.lock.json").write_bytes(cu.dump(lock))
     (root / "tools.json").write_text(json.dumps({"tools": [{"id": "git", "install": {"winget": "Git.Git"}},
+                                                            {"id": "python", "install": {"winget": "Python.Python.3.13"}},
                                                             {"id": "ao", "install": {"url": "x"}}]}), encoding="utf-8")
     seen = {"_doc": "d", "tools": {"git": {"label": "Git for Windows", "version": "2.50.0.windows.1", "date": "2026-09-01",
                                            "source": "git-for-windows/git"},
-                                   "python": {"label": "Python", "version": "3.15.0", "date": "2026-10-01",
+                                   "python": {"label": "Python", "version": "3.13.12", "date": "2026-10-01",
                                               "source": cu.SEEN["python"][2]}}}
     (root / "docs/tool-versions.json").write_bytes(cu.dump(seen))
     return root
@@ -117,7 +118,10 @@ def seen_sources(git_tag="v2.51.0.windows.1"):
                                                {"version": "v22.30.0", "date": "2026-09-01", "lts": "Jod"}]
     j[cu.SEEN["python"][2]] = [{"version": "3.16.0-alpha.1", "stable": False},
                                {"version": "3.15.0", "stable": True, "release_url": "https://github.com/actions/python-versions/releases/tag/3.15.0-1"},
-                               {"version": "3.14.9", "stable": True}]
+                               {"version": "3.14.9", "stable": True},
+                               {"version": "3.13.12", "stable": True, "release_url": "https://github.com/actions/python-versions/releases/tag/3.13.12-1"},
+                               {"version": "3.13.13-rc.1", "stable": False},
+                               {"version": "3.13.9", "stable": True}]
     return j
 
 
@@ -283,12 +287,64 @@ check(tv["codex"]["version"] == "0.170.0" and tv["jq"]["version"] == "1.8.1" and
 check(tv["claude"] == {"label": "Claude Code", "version": "2.1.296", "date": "2026-10-09", "source": "@anthropic-ai/claude-code"},
       "seen: Claude Code from npm latest with its publish date", tv["claude"])
 check(tv["node"]["version"] == "24.21.0" and tv["node"]["date"] == "2026-09-07", "seen: Node.js newest LTS, not Current", tv["node"])
-check(tv["python"]["version"] == "3.15.0" and tv["python"]["date"] == "2026-10-01",
-      "seen: Python newest stable; a date found earlier is kept when the lookup has none", tv["python"])
+check(tv["python"]["version"] == "3.13.12" and tv["python"]["date"] == "2026-10-01",
+      "seen: Python newest patch of the minor tools.json's winget id installs (3.13, not 3.15); "
+      "a date found earlier is kept when the lookup has none", tv["python"])
+root = make_repo()
+tj = json.loads((root / "tools.json").read_text(encoding="utf-8"))
+tj["tools"] = [t for t in tj["tools"] if t["id"] != "python"]
+(root / "tools.json").write_text(json.dumps(tj), encoding="utf-8")
+r = run(root, full_fake())
+tv = json.loads((root / "docs/tool-versions.json").read_text(encoding="utf-8"))["tools"]
+check(tv["python"]["version"] == "3.13.12" and any("Python" in e and "winget" in e for e in r.errors),
+      "seen: no Python.Python.3.N winget id in tools.json is a failed source, the record is kept", r.errors)
 rep = r.report(True)
 check("Git for Windows 2.51.0.windows.1: `winget upgrade --id Git.Git --exact`" in rep, "seen: a new release lists its winget upgrade line", rep)
 check("Agent Orchestrator 1.2.3" not in rep.split("New releases to install")[1].split("\n\n")[0],
       "seen: a first record is not listed as an upgrade")
+
+# ---- unpinned tools: version and date strings are validated before they reach the file or the PR body ----
+root = make_repo()
+j = seen_sources(git_tag="v2.52.0 | [x](https://evil) |")
+j.update(gh("cli/cli", "v2.80.0\n## injected"))
+j["https://registry.npmjs.org/@anthropic-ai/claude-code"] = {"dist-tags": {"latest": "<b>2.1.297</b>"}, "time": {}}
+j.update(gh("jqlang/jq", "jq-1.8.2", date="|x|2026-10"))
+j[RTK_API] = rtk_release()
+r = run(root, full_fake(json_=j))
+tv = json.loads((root / "docs/tool-versions.json").read_text(encoding="utf-8"))["tools"]
+rep = r.report(True)
+check(tv["git"]["version"] == "2.50.0.windows.1" and "gh" not in tv and "claude" not in tv,
+      "seen: an unexpected version string is not written", (tv.get("git"), tv.get("gh"), tv.get("claude")))
+check(sum(any(e.startswith(lbl + ":") for e in r.errors) for lbl in ("Git for Windows", "GitHub CLI", "Claude Code")) == 3,
+      "seen: each unexpected version string is a failed source", r.errors)
+check("](https://evil)" not in rep and "\n## injected" not in rep and "<b>" not in rep and "| [x]" not in rep,
+      "seen: a rejected version string reaches the report without its markup", rep)
+check(tv["jq"]["version"] == "1.8.2" and tv["jq"]["date"] is None, "seen: a malformed date is dropped, the version kept", tv["jq"])
+with contextlib.redirect_stdout(io.StringIO()):
+    rc = cu.main(["--root", str(make_repo())], net=full_fake(json_=j))
+check(rc == 2, "seen: a rejected version string exits 2", rc)
+
+# ---- RTK: every locked asset needs its release digest ----
+root = make_repo()
+r = run(root, full_fake(json_={**seen_sources(), RTK_API: rtk_release(digest=False)}))
+check(lock(root)["tools"]["rtk"]["version"] == "0.51.0" and any(e.startswith("RTK") for e in r.errors),
+      "rtk: a release without asset digests is refused and reported", r.errors)
+root = make_repo()
+nodig = rtk_release()
+del nodig["assets"][1]["digest"]
+net = full_fake(json_={**seen_sources(), RTK_API: nodig})
+r = run(root, net)
+check(lock(root)["tools"]["rtk"]["version"] == "0.51.0" and any(e.startswith("RTK") for e in r.errors),
+      "rtk: one locked asset without a digest refuses the whole move", r.errors)
+root = make_repo()
+odd = rtk_release()
+odd["assets"][0]["digest"] = "sha512:" + h(LOCKED[0].encode())
+r = run(root, full_fake(json_={**seen_sources(), RTK_API: odd}))
+check(lock(root)["tools"]["rtk"]["version"] == "0.51.0" and any(e.startswith("RTK") for e in r.errors),
+      "rtk: a digest that is not sha256 is refused", r.errors)
+with contextlib.redirect_stdout(io.StringIO()):
+    rc = cu.main(["--root", str(make_repo())], net=full_fake(json_={**seen_sources(), RTK_API: rtk_release(digest=False)}))
+check(rc == 2, "rtk: a missing digest exits 2", rc)
 
 for d in scratch:
     shutil.rmtree(d, ignore_errors=True)
