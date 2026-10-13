@@ -30,6 +30,6 @@
      "paths": ["${LOCALAPPDATA}/Programs/agent-orchestrator/resources/daemon/ao.exe"],
      "home": {"default": "${HOME}/.ao"},
      "install": {"url": "https://github.com/OrchestratorInc/agent-orchestrator"},
-     "note": "Setup and project registration live in the private repo DevCrop/ao-work-history (setup/setup.py)."}
+     "note": "Setup and project registration: ao/setup.py, run by hand (needs the AO app running; docs/GUIDE.md)."}
   ]
 }
