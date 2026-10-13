@@ -10,8 +10,6 @@ import sys
 def state_location(home):
     if os.name == 'nt':
         base = Path(os.environ.get('LOCALAPPDATA', Path.home()/'AppData/Local'))
-    elif sys.platform == 'darwin':
-        base = Path.home()/'Library/Application Support'
     else:
         base = Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state'))
     return base/'TRACE-Setup'/hashlib.sha256(str(home).encode()).hexdigest()[:16]
@@ -54,8 +52,6 @@ def main():
     binary = state/'tools/rtk'/('rtk.exe' if os.name=='nt' else 'rtk')
     for p in [binary, *binary.parents]:
         if p.is_symlink() or (p.exists() and getattr(p.lstat(),'st_file_attributes',0)&0x400):
-            if sys.platform=='darwin' and str(p) in ('/var','/tmp') and p.resolve()==Path('/private')/p.name:
-                continue
             raise ValueError('Linked runtime path refused')
     if str(binary)!=record['path'] or hashlib.sha256(binary.read_bytes()).hexdigest()!=record['sha256']:
         raise ValueError('RTK ownership mismatch')

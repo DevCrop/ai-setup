@@ -30,7 +30,7 @@ def release_plan(release, lock):
     assets = {}
     for asset in release.get('assets', []):
         name = asset.get('name')
-        if name not in lock['assets']:
+        if name not in lock['assets']:  # platforms the lock does not pin are ignored
             continue
         digest = asset.get('digest', '') or ''
         url = f'https://github.com/rtk-ai/rtk/releases/download/{tag}/{name}'
@@ -72,7 +72,7 @@ def plan_update(state, lock=None):
 def target_name(system=None, machine=None):
     system, machine = system or platform.system(), (machine or platform.machine()).lower()
     arch = {'amd64': 'x86_64', 'x86_64': 'x86_64', 'arm64': 'aarch64', 'aarch64': 'aarch64'}.get(machine)
-    suffix = {'Windows': 'pc-windows-msvc.zip', 'Darwin': 'apple-darwin.tar.gz',
+    suffix = {'Windows': 'pc-windows-msvc.zip',
               'Linux': 'unknown-linux-musl.tar.gz' if arch == 'x86_64' else 'unknown-linux-gnu.tar.gz'}.get(system)
     if not arch or not suffix or (system == 'Windows' and arch != 'x86_64'):
         raise ValueError('Unsupported RTK platform')

@@ -46,9 +46,6 @@ def root_path(value):
     if not root.is_dir() or root == Path(root.anchor) or root == Path.home():
         raise ValueError('An existing project directory is required')
     for ancestor in [root, *root.parents]:
-        if sys.platform == 'darwin' and str(ancestor) in ('/var', '/tmp'):
-            if ancestor.resolve() == Path('/private') / ancestor.name:
-                continue
         if linked(ancestor):
             raise ValueError('Linked project root/ancestor refused')
     return root

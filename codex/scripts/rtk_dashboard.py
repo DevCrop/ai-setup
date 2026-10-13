@@ -30,10 +30,6 @@ def safe_file(path):
     for ancestor in (path, *path.parents):
         if ancestor.is_symlink() or (ancestor.exists() and
                 getattr(ancestor.lstat(), 'st_file_attributes', 0) & 0x400):
-            # Supported macOS system-directory aliases, as in the existing runner.
-            if sys.platform == 'darwin' and str(ancestor) in ('/var', '/tmp') and \
-                    ancestor.resolve() == Path('/private') / ancestor.name:
-                continue
             raise ValueError('Linked report/runtime path refused')
     return path
 

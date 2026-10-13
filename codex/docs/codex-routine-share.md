@@ -167,13 +167,11 @@ flowchart LR
 
 ## 6. 다른 PC에 전달·적용하기
 
-저장소: <https://github.com/DevCrop/codex-setup>
+> 2026-10-13부터 이 셋업은 [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup)의 `codex/` 폴더다(DevCrop/codex-setup에서 히스토리째 옮김). `git clone https://github.com/DevCrop/ai-setup` 후 `ai-setup/codex`에서 명령을 실행한다. 이전 `codex/global-setup-handoff-20261008` 브랜치는 그 시점 기록이다.
 
-공개 인수인계 브랜치: `codex/global-setup-handoff-20261008`
-
-- [다른 Windows PC 상세 설치 안내](https://github.com/DevCrop/codex-setup/blob/codex/global-setup-handoff-20261008/docs/install-another-windows-pc.md)
-- [인수인계와 검증 범위](https://github.com/DevCrop/codex-setup/blob/codex/global-setup-handoff-20261008/docs/setup-handoff-20261008.md)
-- [운영 계약](https://github.com/DevCrop/codex-setup/blob/codex/global-setup-handoff-20261008/docs/operations.md)
+- [다른 Windows PC 상세 설치 안내](install-another-windows-pc.md)
+- [인수인계와 검증 범위](setup-handoff-20261008.md)
+- [운영 계약](operations.md)
 
 **검토한 브랜치의 실제 커밋과 PR 검사 결과를 먼저 확인한다.**
 이 문서가 포함된 최신 커밋의 규칙을 plan/apply/verify로 적용한다.

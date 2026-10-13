@@ -15,7 +15,7 @@ from setup import read_json, save_json
 
 class ToolTests(unittest.TestCase):
     def release_fixture(self, version='0.51.0'):
-        names = ['rtk-x86_64-pc-windows-msvc.zip', 'rtk-aarch64-apple-darwin.tar.gz']
+        names = ['rtk-x86_64-pc-windows-msvc.zip', 'rtk-x86_64-unknown-linux-musl.tar.gz']
         assets = [{'name': name, 'digest': 'sha256:' + 'a'*64,
                    'browser_download_url': f'https://github.com/rtk-ai/rtk/releases/download/v{version}/{name}'}
                   for name in names]
@@ -33,6 +33,22 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(candidate['status'], 'candidate')
         self.assertTrue(candidate['requires_semantic_review'])
         self.assertEqual(json.dumps(lock, sort_keys=True), before)
+
+    def test_release_plan_ignores_unsupported_platform_assets(self):
+        for version, status in [('0.51.0', 'unchanged'), ('0.52.0', 'candidate')]:
+            release, _ = self.release_fixture(version)
+            _, lock = self.release_fixture()
+            name = 'rtk-aarch64-apple-darwin.tar.gz'
+            release['assets'].append({'name': name, 'digest': 'sha256:' + 'b'*64,
+                'browser_download_url': f'https://github.com/rtk-ai/rtk/releases/download/v{version}/{name}'})
+            with self.subTest(version=version):
+                plan = release_plan(release, lock)
+                self.assertEqual(plan['status'], status)
+                self.assertNotIn(name, plan.get('assets', {}))
+        release, lock = self.release_fixture()
+        release['assets'] = release['assets'][:1]
+        with self.assertRaises(ValueError):
+            release_plan(release, lock)
 
     def test_release_plan_rejects_unstable_and_defers_older(self):
         release, lock = self.release_fixture()
@@ -157,10 +173,10 @@ class ToolTests(unittest.TestCase):
             self.assertEqual(runtime_env(project)['npm_config_offline'], 'true')
     def test_platforms_and_bad_archive(self):
         self.assertIn('windows', target_name('Windows', 'AMD64'))
-        self.assertIn('aarch64-apple', target_name('Darwin', 'arm64'))
         self.assertIn('linux-musl', target_name('Linux', 'x86_64'))
-        with self.assertRaises(ValueError):
-            target_name('Windows', 'arm64')
+        for system, machine in [('Windows', 'arm64'), ('Darwin', 'arm64'), ('Darwin', 'x86_64')]:
+            with self.subTest(system=system, machine=machine), self.assertRaises(ValueError):
+                target_name(system, machine)
         with self.assertRaises(Exception):
             extract(b'not an archive', 'rtk.zip')
 
