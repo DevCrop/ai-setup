@@ -97,7 +97,7 @@ class RtkUpdate(Fix):
     @staticmethod
     def latest():
         try:
-            req = urllib.request.Request("https://api.github.com/repos/rtk-ai/rtk/releases/latest", headers={"User-Agent": "claude-global-dashboard"})
+            req = urllib.request.Request("https://api.github.com/repos/rtk-ai/rtk/releases/latest", headers={"User-Agent": "ai-setup-dashboard"})
             with urllib.request.urlopen(req, timeout=5) as r:
                 return json.load(r).get("tag_name")
         except Exception:

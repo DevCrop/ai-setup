@@ -274,7 +274,7 @@ check(server.newest_file([tmp / "gone.jsonl", logdir / "s.jsonl"]) == logdir / "
 # ---- Codex setup (TRACE): found by TRACE_DIR / state file / default places, its verify and plan shown as reported ----
 import codex
 os.environ.pop("TRACE_DIR", None)
-croot = tmp / "croot" / "claude-global"
+croot = tmp / "croot" / "ai-setup"
 croot.mkdir(parents=True)
 cx = codex.CodexSetup(server.RUNNER, croot)
 s = cx.state()

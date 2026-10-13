@@ -269,7 +269,7 @@ def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executab
         appdata = appdata or os.environ.get("APPDATA")
         if not appdata:
             return None, "APPDATA is not set", None
-        text = ("' Starts the claude-global dashboard hidden at login. Delete this file to turn autostart off. Written by scripts/bootstrap.py autostart.\r\n"
+        text = ("' Starts the ai-setup dashboard hidden at login. Delete this file to turn autostart off. Written by scripts/bootstrap.py autostart.\r\n"
                 'Set sh = CreateObject("WScript.Shell")\r\n'
                 'sh.CurrentDirectory = "%s"\r\n'
                 'sh.Run """%s"" scripts\\dashboard\\server.py", 0, False\r\n') % (repo, pyw)
@@ -279,9 +279,9 @@ def autostart_plan(platform=sys.platform, repo=toolreg.REPO, python=sys.executab
             data = text.encode("utf-16")
         return Path(appdata) / "Microsoft/Windows/Start Menu/Programs/Startup/claude-dashboard.vbs", data, "delete the file"
     if platform == "darwin":
-        data = plistlib.dumps({"Label": "com.claude-global.dashboard", "ProgramArguments": [python, str(Path(repo) / "scripts/dashboard/server.py")],
+        data = plistlib.dumps({"Label": "com.ai-setup.dashboard", "ProgramArguments": [python, str(Path(repo) / "scripts/dashboard/server.py")],
                                "WorkingDirectory": str(repo), "RunAtLoad": True})
-        return home / "Library/LaunchAgents/com.claude-global.dashboard.plist", data, "delete the file (and launchctl unload it)"
+        return home / "Library/LaunchAgents/com.ai-setup.dashboard.plist", data, "delete the file (and launchctl unload it)"
     return None, "no autostart support for %s; start python3 scripts/dashboard/server.py from your login session" % platform, None
 
 

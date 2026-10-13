@@ -262,7 +262,7 @@ def rule_container(ctx):
 
 def rule_rtk_twins(ctx):
     d, f, al, cl, perm, text, cfg, local = ctx.d, ctx.f, ctx.al, ctx.cl, ctx.perm, ctx.text, ctx.cfg, ctx.local
-    # rtk twins: this machine's global setup evaluates permission rules on the rtk-rewritten command (claude-global CLAUDE.md)
+    # rtk twins: this machine's global setup evaluates permission rules on the rtk-rewritten command (ai-setup CLAUDE.md)
     if which("rtk"):
         miss = {}
         for kind in ("deny", "ask", "allow"):
@@ -272,7 +272,7 @@ def rule_rtk_twins(ctx):
             if n:
                 miss[kind] = n
         if miss:
-            yield finding("add", "bad" if "deny" in miss else "warn", "rtk 쌍이 없는 Bash 규칙 (" + ", ".join("%s %d개" % kv for kv in miss.items()) + ")", "RTK가 git ...을 rtk git ...으로 바꾼 뒤 권한 규칙을 평가합니다. 쌍이 없으면 deny가 우회되고 allow가 적용되지 않습니다.", "각 Bash 규칙에 'Bash(rtk ...)' 쌍을 추가합니다 (/project-setup 7단계).", "claude-global")
+            yield finding("add", "bad" if "deny" in miss else "warn", "rtk 쌍이 없는 Bash 규칙 (" + ", ".join("%s %d개" % kv for kv in miss.items()) + ")", "RTK가 git ...을 rtk git ...으로 바꾼 뒤 권한 규칙을 평가합니다. 쌍이 없으면 deny가 우회되고 allow가 적용되지 않습니다.", "각 Bash 규칙에 'Bash(rtk ...)' 쌍을 추가합니다 (/project-setup 7단계).", "ai-setup")
 
 
 def rule_mcp(ctx):

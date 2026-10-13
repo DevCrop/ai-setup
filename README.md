@@ -1,4 +1,4 @@
-# claude-global
+# ai-setup
 
 Source of truth for the global Claude Code setup (`~/.claude` on each machine). Edit `claude/` here, never `~/.claude` directly; `bash scripts/apply.sh` copies it over.
 
@@ -16,7 +16,7 @@ After `git pull` (and `apply.sh`), restart the dashboard if it runs, so it reads
 
 ```powershell
 Get-NetTCPConnection -LocalPort 8787 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
-Start-Process pythonw -ArgumentList 'scripts\dashboard\server.py' -WindowStyle Hidden -WorkingDirectory C:\path\to\claude-global
+Start-Process pythonw -ArgumentList 'scripts\dashboard\server.py' -WindowStyle Hidden -WorkingDirectory C:\path\to\ai-setup
 ```
 
 Then open http://127.0.0.1:8787 (it should answer 200). Open a new Claude Code session too: running sessions do not pick up changed settings or plugins.

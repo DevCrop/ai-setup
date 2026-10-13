@@ -88,7 +88,7 @@ for item in $items; do
   if [ -d "$src/$item" ]; then (cd "$src" && find "$item" -type f) >> "$tmp/new.list"; else echo "$item" >> "$tmp/new.list"; fi
 done
 sort -o "$tmp/new.list" "$tmp/new.list"
-manifest="$dest/.claude-global-manifest"
+manifest="$dest/.claude-global-manifest"  # shortcut: keeps the pre-rename file name so machines applied before the ai-setup rename keep their record; rename with a migration if it ever matters
 managed() { for it in $items; do case "$1" in "$it"|"$it"/*) return 0 ;; esac; done; return 1; }
 # A path from the manifest is deleted only when it stays inside $dest: no ".." component, no symlinked directory on the way (rm would
 # follow it out of the config directory), and the last component is a regular file or a link (a link is removed, never followed).

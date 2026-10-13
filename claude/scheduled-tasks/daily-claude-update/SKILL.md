@@ -3,7 +3,7 @@ name: daily-claude-update
 description: Daily check of Claude Code, RTK and Anthropic releases, changes to the official docs this setup depends on, setup health and tool health; writes a report with proposals. Never edits the Claude config directory, installs, commits or pushes.
 ---
 
-Reference copy of the scheduled task body. Replace `<repo>` with the absolute path of this machine's claude-global clone before using it.
+Reference copy of the scheduled task body. Replace `<repo>` with the absolute path of this machine's ai-setup clone before using it.
 
 Run the daily update routine defined in <repo>/claude/routines/daily-update.md. That file is the single source of truth for the steps and the output format; follow it exactly and do not rely on a copy of the steps anywhere else. Because the task reads the file from the clone, a `git pull` is enough to update the steps; only this pointer body needs re-pasting into the app when it changes.
 

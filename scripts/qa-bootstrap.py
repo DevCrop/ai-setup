@@ -371,16 +371,16 @@ sys.stdin = saved
 pyw = tmp / "py" / "pythonw.exe"
 pyw.parent.mkdir()
 pyw.write_text("", encoding="utf-8")
-path, data, undo = bootstrap.autostart_plan("win32", repo=Path("C:/r/claude-global"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
+path, data, undo = bootstrap.autostart_plan("win32", repo=Path("C:/r/ai-setup"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
 check(path == tmp / "ad" / "Microsoft/Windows/Start Menu/Programs/Startup/claude-dashboard.vbs" and str(pyw).encode() in data and data.startswith(b"'"), "autostart: Windows .vbs in Startup with pythonw")
-_, data, _ = bootstrap.autostart_plan("win32", repo=Path("C:/작업/claude-global"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
+_, data, _ = bootstrap.autostart_plan("win32", repo=Path("C:/작업/ai-setup"), python=str(pyw.with_name("python.exe")), appdata=str(tmp / "ad"))
 check(data[:2] == b"\xff\xfe" and "작업" in data.decode("utf-16"), "autostart: a non-ASCII path is written as UTF-16 with BOM (WSH reads that)")
 path, why, _ = bootstrap.autostart_plan("win32", repo=Path("C:/r"), python=str(tmp / "nopy" / "python.exe"), appdata=str(tmp / "ad"))
 check(path is None and "pythonw" in why, "autostart: no pythonw is refused")
-path, data, _ = bootstrap.autostart_plan("darwin", repo=Path("/r/claude-global"), python="/usr/bin/python3", home=str(tmp))
+path, data, _ = bootstrap.autostart_plan("darwin", repo=Path("/r/ai-setup"), python="/usr/bin/python3", home=str(tmp))
 import plistlib
 pl = plistlib.loads(data)
-check(path == tmp / "Library/LaunchAgents/com.claude-global.dashboard.plist" and pl["RunAtLoad"] and pl["ProgramArguments"][1].endswith("server.py"), "autostart: macOS LaunchAgent plist")
+check(path == tmp / "Library/LaunchAgents/com.ai-setup.dashboard.plist" and pl["RunAtLoad"] and pl["ProgramArguments"][1].endswith("server.py"), "autostart: macOS LaunchAgent plist")
 check(bootstrap.autostart_plan("linux")[0] is None, "autostart: other systems are told how to start it by hand")
 target = tmp / "as" / "x.vbs"
 check(bootstrap.cmd_autostart(ask=no, plan=(target, b"new", "u")) == 1 and not target.exists(), "autostart: declining writes nothing")
