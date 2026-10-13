@@ -54,7 +54,7 @@ def lines(r):
         s = i.get("setup")
         if s:
             out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"]
-                                        else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; clone " + s["repo"])))
+                                        else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; git clone " + s["repo"] + ", then check --write")))
             if s.get("ignored"):
                 out.append("       WARN ignored (the folder is part of this repo now; remove them): " + ", ".join(s["ignored"]))
     out.append("projects  " + (", ".join(r["projectRoots"]) or "none") + " [" + r["projectRootsSource"] + "]")

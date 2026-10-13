@@ -5,7 +5,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ## 2026-10-13 — leftovers of the old layout removed
 
 ### `bootstrap.py clone`, the `${DOCUMENTS}` and `${REPO_PARENT}` tokens and the Sonnet dashboard tier are gone
-- What: `bootstrap.py` has no `clone` subcommand (the `claude` setup is this repo, `${REPO}`, and `codex` is `inRepo`, so it had nothing left to clone). `tools.json` paths use `${HOME}`, `${LOCALAPPDATA}` and `${REPO}` only; `documents_dir()` and the unused `detect_all()` were removed from `scripts/toolreg.py`. The routing diagram has no Sonnet tier (old logs are still priced by `usage.py`). The efficiency hint states the Opus/Haiku lanes and quotes no numbers until BACKLOG R2 measures them. This narrows entry "One hub, one registry": its token list and subcommand list are older than this entry.
+- What: `bootstrap.py` has no `clone` subcommand (the `claude` setup is this repo, `${REPO}`, and `codex` is `inRepo`, so it had nothing left to clone). `tools.json` paths use `${HOME}`, `${LOCALAPPDATA}` and `${REPO}` only; `documents_dir()` and the unused `detect_all()` were removed from `scripts/toolreg.py`. The routing diagram has no Sonnet tier (old logs are still priced by `usage.py`). The efficiency hint states the Opus/Haiku lanes and quotes no numbers until BACKLOG R2 measures them. This narrows entries "One hub, one registry" and "Installs only what is missing": their token and subcommand lists, and what they say about `clone`, are older than this entry.
 - Undo: restore from git history; a tool outside this repo would need `clone` and a token for its parent folder again.
 
 ## 2026-10-13 — short, plain replies
