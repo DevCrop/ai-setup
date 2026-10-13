@@ -47,7 +47,8 @@ jobs:
           esac
           mkdir -p "$RUNNER_TEMP/out/tree"
           cp "$RUNNER_TEMP/report.md" "$RUNNER_TEMP/out/report.md"
-          git ls-files -z -m -o --exclude-standard -- claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json \
+          # No --exclude-standard: a vendored upstream file must travel even if its name matches .gitignore.
+          git ls-files -z -m -o -- claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json \
             | xargs -0 -r cp --parents -t "$RUNNER_TEMP/out/tree"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
@@ -86,7 +87,7 @@ jobs:
             cp -R "$IN/tree/codex/vendor/." codex/vendor/
           fi
           paths=(claude/settings.json codex/versions.lock.json codex/vendor docs/tool-versions.json)
-          git add -A "${paths[@]}"
+          git add -A -f "${paths[@]}"  # -f: these four paths are copied from the artifact only, never ignored files of their own
           pr="$(gh pr list --head bot/updates --base main --state open --json number --jq '.[0].number // empty')"
           if git diff --cached --quiet; then
             echo "No pin or recorded version changed."

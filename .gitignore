@@ -19,7 +19,7 @@ id_dsa*
 *.jks
 *.keystore
 *credentials*.json
-.aws/credentials
+**/.aws/credentials
 .npmrc
 .netrc
 .pypirc
@@ -29,6 +29,13 @@ id_dsa*
 *.tfstate
 secrets.yaml
 secrets.yml
+# Example and template copies are not secrets (secret-guard lets them through too)
+!*.example
+!*.example.*
+!*.sample
+!*.sample.*
+!*.template
+!*.template.*
 
 # Personal session state
 .claude/worktrees/

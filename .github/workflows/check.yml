@@ -78,7 +78,7 @@ jobs:
           $bad = 0
           foreach ($f in $files) {
             $tokens = $null; $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath $f).Path, [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) { $bad++; foreach ($e in $errors) { Write-Host "::error file=$f,line=$($e.Extent.StartLineNumber)::$($e.Message)" } }
             else { Write-Host "OK  $f" }
           }
