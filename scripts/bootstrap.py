@@ -55,8 +55,6 @@ def lines(r):
         if s:
             out.append("       setup " + (s["checkout"] + " [" + s["source"] + "]" if s["checkout"]
                                         else "not found; tried " + " > ".join(s["tried"]) + ("; this checkout of " + s["repo"] + " lacks it" if s.get("inRepo") else "; git clone " + s["repo"] + ", then check --write")))
-            if s.get("ignored"):
-                out.append("       WARN ignored (the folder is part of this repo now; remove them): " + ", ".join(s["ignored"]))
     out.append("projects  " + (", ".join(r["projectRoots"]) or "none") + " [" + r["projectRootsSource"] + "]")
     out.append("missing required: " + (", ".join(r["missingRequired"]) or "none"))
     for p in r.get("machineProblems", []):
@@ -65,9 +63,10 @@ def lines(r):
 
 
 def found_values(r):
-    """What --write records: what was found by search or a legacy file. A value from an env var is for that shell only and is not kept."""
+    """What --write records: a checkout found by search, and project roots from the legacy file. A value from an env var is for that
+    shell only and is not kept."""
     co = {i["id"]: i["setup"]["checkout"] for i in r["items"]
-          if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("fromEnv") and not i["setup"].get("inRepo")}
+          if i.get("setup") and i["setup"]["checkout"] and i["setup"]["source"] != "machine.json" and not i["setup"].get("inRepo")}
     out = {"checkout": co}
     # the legacy file is migrated; the default (~/Projects when it exists) is not written: an empty list recorded once would hide
     # ~/Projects for good after it is created

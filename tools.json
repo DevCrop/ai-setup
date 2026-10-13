@@ -1,5 +1,5 @@
 {
-  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${LOCALAPPDATA} ${REPO}; never a path inside one user's home. Per-machine values go in state/machine.json. A setup with \"inRepo\": true is a folder of this repo: only its candidates are used, and its env, machine.json checkout and legacy file are reported as ignored (they named the old separate clone). Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; URLs answer HTTP 200).",
+  "_doc": "Tool registry read by scripts/toolreg.py (bootstrap and dashboard). Add a tool by adding one entry. Paths use tokens ${HOME} ${LOCALAPPDATA} ${REPO}; never a path inside one user's home. Per-machine values go in state/machine.json. A setup with \"inRepo\": true is a folder of this repo: only its candidates are used (machine.json checkout is not read). Install ids and URLs were checked on 2026-10-12 (winget show --id <id> --exact; URLs answer HTTP 200).",
   "tools": [
     {"id": "git", "label": "Git", "kind": "dep", "required": true, "bin": ["git"], "version": ["--version"],
      "install": {"winget": "Git.Git"}},
@@ -22,7 +22,7 @@
     {"id": "codex", "label": "Codex", "kind": "tool", "required": false, "bin": ["codex"], "env": "CODEX_BIN", "version": ["--version"],
      "home": {"env": "CODEX_HOME", "default": "${HOME}/.codex"},
      "install": {"winget": "OpenAI.Codex", "url": "https://github.com/openai/codex"},
-     "setup": {"repo": "https://github.com/DevCrop/ai-setup", "inRepo": true, "env": "TRACE_DIR", "legacy": "state/trace-dir.txt",
+     "setup": {"repo": "https://github.com/DevCrop/ai-setup", "inRepo": true,
                "candidates": ["${REPO}/codex"],
                "marker": ["scripts/setup.py", "manifest.json"], "python": true,
                "plan": ["scripts/setup.py", "plan"], "apply": ["scripts/setup.py", "apply"], "verify": ["scripts/setup.py", "verify"], "parser": "trace"}},

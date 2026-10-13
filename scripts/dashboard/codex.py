@@ -4,7 +4,7 @@ The dashboard does not judge the Codex setup; it shows what TRACE's own checks s
 (both read files only; apply/rollback stay in Codex) and `codex --version`. `setup.py doctor` is not run: it starts the Codex CLI
 itself, outside spawn(), which would open a console window under pythonw.
 The TRACE checkout, its marker files and the minimum Python come from tools.json (the codex and python entries) through toolreg. The checkout
-is codex/ in this repo only (inRepo); TRACE_DIR and state/trace-dir.txt named the old separate clone and are not read.
+is codex/ in this repo only (inRepo).
 """
 import json, os, sys
 from collections import Counter

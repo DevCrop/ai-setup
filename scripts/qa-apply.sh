@@ -26,23 +26,23 @@ sorted() { jq -S . "$1"; }
 
 # 1. fresh machine: everything is applied and settings.json equals the repo
 newcfg; out="$(apply)"
-[ -f "$cfg/hooks/secret-guard.sh" ] && [ -f "$cfg/agents/reviewer.md" ] && [ -f "$cfg/.claude-global-manifest" ] \
+[ -f "$cfg/hooks/secret-guard.sh" ] && [ -f "$cfg/agents/reviewer.md" ] && [ -f "$cfg/.ai-setup-manifest" ] \
   && [ "$(sorted "$cfg/settings.json")" = "$(sorted "$repo/claude/settings.json")" ] \
   && pass "1 fresh install: files, manifest and settings equal the repo" || bad "1 fresh install ($out)"
 if ! printf '%s' "$out" | grep -qi "backup"; then pass "1 no backup is made"; else bad "1 apply mentions a backup"; fi
 ls -d "$base"/s1/*backup* "$base"/s1/.claude-backup* >/dev/null 2>&1 && bad "1 a backup directory exists" || pass "1 no backup directory exists"
 
 # 2. second run changes nothing and reports nothing to fix
-cp "$cfg/settings.json" "$base/before.json"; cp "$cfg/.claude-global-manifest" "$base/before.manifest"
+cp "$cfg/settings.json" "$base/before.json"; cp "$cfg/.ai-setup-manifest" "$base/before.manifest"
 out="$(apply)"
-cmp -s "$base/before.json" "$cfg/settings.json" && cmp -s "$base/before.manifest" "$cfg/.claude-global-manifest" \
+cmp -s "$base/before.json" "$cfg/settings.json" && cmp -s "$base/before.manifest" "$cfg/.ai-setup-manifest" \
   && ! printf '%s' "$out" | grep -qE "^(settings.json: |removed|kept)" && pass "2 second run is idempotent and quiet" || bad "2 second run changed something: $out"
 
 # 3. stale file from an earlier apply is removed; a user file and a tampered manifest line are not
 mkdir -p "$base/outside" "$cfg/projects" "$base/s$n/outside"; echo keep > "$base/outside/victim"; echo keep > "$base/s$n/outside/victim2"; echo keep > "$cfg/projects/x.jsonl"
 echo y > "$cfg/agents/old-agent.md"; echo y > "$cfg/agents/mine.md"
 # manifest lines that must never delete anything: parent traversal, an absolute path, and a real file outside the managed items
-{ cat "$cfg/.claude-global-manifest"; echo "agents/old-agent.md"; echo "../outside/victim"; echo "agents/../../outside/victim2"; echo "/etc/hostname"; echo "projects/x.jsonl"; } > "$base/m"; cp "$base/m" "$cfg/.claude-global-manifest"
+{ cat "$cfg/.ai-setup-manifest"; echo "agents/old-agent.md"; echo "../outside/victim"; echo "agents/../../outside/victim2"; echo "/etc/hostname"; echo "projects/x.jsonl"; } > "$base/m"; cp "$base/m" "$cfg/.ai-setup-manifest"
 out="$(apply)"
 [ ! -e "$cfg/agents/old-agent.md" ] && [ -e "$cfg/agents/mine.md" ] && [ -e "$base/outside/victim" ] && [ -e "$base/s$n/outside/victim2" ] && [ -e "$cfg/projects/x.jsonl" ] \
   && printf '%s' "$out" | grep -q "kept (not from this repo): agents/mine.md" \
@@ -52,13 +52,13 @@ out="$(apply)"
 # 3b. a symlinked directory inside a managed folder is never followed out of the config dir, and a directory line in the manifest is skipped
 newcfg; apply >/dev/null; mkdir -p "$base/out/dir"; echo keep > "$base/out/victim"; echo keep > "$base/out/dir/inner"
 ln -s "$base/out" "$cfg/agents/linkdir"; mkdir -p "$cfg/agents/realdir"; echo y > "$cfg/agents/stale.md"
-{ cat "$cfg/.claude-global-manifest"; echo "agents/linkdir/victim"; echo "agents/linkdir/dir/inner"; echo "agents/realdir"; echo "agents/stale.md"; } > "$base/m"; cp "$base/m" "$cfg/.claude-global-manifest"
+{ cat "$cfg/.ai-setup-manifest"; echo "agents/linkdir/victim"; echo "agents/linkdir/dir/inner"; echo "agents/realdir"; echo "agents/stale.md"; } > "$base/m"; cp "$base/m" "$cfg/.ai-setup-manifest"
 out="$(apply)"; rc=$?
-[ -e "$base/out/victim" ] && [ -e "$base/out/dir/inner" ] && [ -d "$cfg/agents/realdir" ] && [ ! -e "$cfg/agents/stale.md" ] && [ -f "$cfg/.claude-global-manifest" ] \
+[ -e "$base/out/victim" ] && [ -e "$base/out/dir/inner" ] && [ -d "$cfg/agents/realdir" ] && [ ! -e "$cfg/agents/stale.md" ] && [ -f "$cfg/.ai-setup-manifest" ] \
   && pass "3b symlinked dir not followed, directory line skipped, later stale file still removed" || bad "3b symlink/directory handling ($out)"
 
 # 3c. a manifest line naming settings.json (merged, not copied) never deletes the live settings
-newcfg; apply >/dev/null; echo settings.json >> "$cfg/.claude-global-manifest"
+newcfg; apply >/dev/null; echo settings.json >> "$cfg/.ai-setup-manifest"
 out="$(apply)"
 [ -s "$cfg/settings.json" ] && ! printf '%s' "$out" | grep -q "removed.*settings.json" \
   && pass "3c settings.json in the manifest is never removed" || bad "3c settings.json removed ($out)"
@@ -199,20 +199,20 @@ newcfg; out="$(dryrun || true)"
   && pass "11 dry run on a fresh machine: nothing written, every item reported" || bad "11 dry run fresh ($out)"
 apply >/dev/null; out="$(dryrun)"
 ! printf '%s' "$out" | grep -q "^would " && pass "11 dry run after apply: everything unchanged" || bad "11 dry run after apply ($out)"
-echo changed >> "$cfg/agents/reviewer.md"; echo stale > "$cfg/hooks/old.sh"; echo hooks/old.sh >> "$cfg/.claude-global-manifest"; cp "$cfg/agents/reviewer.md" "$base/b11"
+echo changed >> "$cfg/agents/reviewer.md"; echo stale > "$cfg/hooks/old.sh"; echo hooks/old.sh >> "$cfg/.ai-setup-manifest"; cp "$cfg/agents/reviewer.md" "$base/b11"
 echo '{"theme":"light"}' > "$base/live.json"; jq -s '.[0] * .[1]' "$cfg/settings.json" "$base/live.json" > "$base/set11" && cp "$base/set11" "$cfg/settings.json"
-cp "$cfg/.claude-global-manifest" "$base/m11"
+cp "$cfg/.ai-setup-manifest" "$base/m11"
 out="$(dryrun)"
 printf '%s' "$out" | grep -q "^would write: agents (1 files)" && printf '%s' "$out" | grep -q "^would remove (no longer in the repo): hooks/old.sh" \
   && cmp -s "$base/b11" "$cfg/agents/reviewer.md" && [ -f "$cfg/hooks/old.sh" ] && pass "11 dry run: names a changed file and a stale one, touches neither" || bad "11 dry run drift ($out)"
-cmp -s "$base/set11" "$cfg/settings.json" && cmp -s "$base/m11" "$cfg/.claude-global-manifest" \
+cmp -s "$base/set11" "$cfg/settings.json" && cmp -s "$base/m11" "$cfg/.ai-setup-manifest" \
   && pass "11 dry run: settings.json with a changed key and the manifest are byte for byte unchanged" || bad "11 dry run touched settings.json or the manifest"
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" --bogus 2>&1)"; rc=$?
 [ "$rc" = 2 ] && pass "11 unknown argument: exit 2" || bad "11 unknown argument (rc=$rc)"
 
 # 12. a skill dropped from the copy list: its files are reported (dry run and apply) and kept, and stay listed until removed by hand
 newcfg; apply >/dev/null
-mkdir -p "$cfg/skills/oldskill"; echo old > "$cfg/skills/oldskill/SKILL.md"; echo skills/oldskill/SKILL.md >> "$cfg/.claude-global-manifest"
+mkdir -p "$cfg/skills/oldskill"; echo old > "$cfg/skills/oldskill/SKILL.md"; echo skills/oldskill/SKILL.md >> "$cfg/.ai-setup-manifest"
 out="$(dryrun)"
 printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.md" && pass "12 dry run names a file of a dropped skill" || bad "12 dry run dropped skill ($out)"
 out="$(apply)"
@@ -221,7 +221,23 @@ printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.
 out="$(apply)"
 printf '%s' "$out" | grep -q "dropped from the copy list.*skills/oldskill/SKILL.md" && pass "12 the report repeats until the file is removed" || bad "12 second apply ($out)"
 rm "$cfg/skills/oldskill/SKILL.md"; out="$(apply)"
-! printf '%s' "$out" | grep -q "oldskill" && ! grep -q oldskill "$cfg/.claude-global-manifest" && pass "12 once removed by hand it leaves the manifest" || bad "12 after removal ($out)"
+! printf '%s' "$out" | grep -q "oldskill" && ! grep -q oldskill "$cfg/.ai-setup-manifest" && pass "12 once removed by hand it leaves the manifest" || bad "12 after removal ($out)"
+
+# 13. a manifest under the pre-rename name is moved once: the dry run only reports it, apply renames it and still removes stale files
+old=".claude-global-manifest"  # the name apply.sh migrates from
+newcfg; apply >/dev/null; cp "$cfg/.ai-setup-manifest" "$base/m13"
+echo y > "$cfg/agents/stale13.md"; { cat "$base/m13"; echo agents/stale13.md; } > "$cfg/$old"; rm "$cfg/.ai-setup-manifest"; cp "$cfg/$old" "$base/o13"
+out="$(dryrun)"
+printf '%s' "$out" | grep -q "^would rename: $old -> .ai-setup-manifest" && printf '%s' "$out" | grep -q "^would remove (no longer in the repo): agents/stale13.md" \
+  && cmp -s "$base/o13" "$cfg/$old" && [ ! -e "$cfg/.ai-setup-manifest" ] && [ -f "$cfg/agents/stale13.md" ] \
+  && pass "13 dry run reports the rename and reads the old manifest, writes nothing" || bad "13 dry run migration ($out)"
+out="$(apply)"
+[ ! -e "$cfg/$old" ] && cmp -s "$base/m13" "$cfg/.ai-setup-manifest" && [ ! -e "$cfg/agents/stale13.md" ] \
+  && printf '%s' "$out" | grep -q "^renamed: $old -> .ai-setup-manifest" && printf '%s' "$out" | grep -q "^removed (no longer in the repo): agents/stale13.md" \
+  && pass "13 apply moves the old manifest to the new name and still removes stale files" || bad "13 migration ($out)"
+echo agents/x.md > "$cfg/$old"; out="$(apply)"
+[ "$(cat "$cfg/$old")" = agents/x.md ] && cmp -s "$base/m13" "$cfg/.ai-setup-manifest" && ! printf '%s' "$out" | grep -q "renamed" \
+  && pass "13 when both exist the new manifest wins and the old one is left alone" || bad "13 both manifests ($out)"
 
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

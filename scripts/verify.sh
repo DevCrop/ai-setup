@@ -334,8 +334,10 @@ EOF
   # 9b. config-changes.log (hooks/config-audit.sh): settings or skill changes recorded more than 2 minutes after the last apply.sh were
   #     made outside this repo. apply.sh itself triggers lines during a running session; the grace period skips those.
   clog="$dest/config-changes.log"
-  if [ -f "$clog" ] && [ -f "$dest/.claude-global-manifest" ]; then
-    applied_at="$(date -r "$dest/.claude-global-manifest" +%s 2>/dev/null || echo 0)"
+  [ -f "$dest/.ai-setup-manifest" ] || [ ! -f "$dest/.claude-global-manifest" ] \
+    || warn "only the manifest under its pre-rename name exists; run apply.sh (it moves it to .ai-setup-manifest)"
+  if [ -f "$clog" ] && [ -f "$dest/.ai-setup-manifest" ]; then
+    applied_at="$(date -r "$dest/.ai-setup-manifest" +%s 2>/dev/null || echo 0)"
     later="$(awk -F '\t' -v t="$applied_at" '$1 ~ /^[0-9]+$/ && $1 > t + 120 {print $2 " " $3 " " $4}' "$clog" | tail -n 3)"
     if [ -n "$later" ]; then
       warn "config changed outside this repo after the last apply.sh (last 3 from $clog; move wanted changes into claude/, then apply):"

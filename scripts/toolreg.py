@@ -1,8 +1,8 @@
 """Tool registry (tools.json) and per-machine settings (state/machine.json), shared by bootstrap.py and the dashboard.
 
 Read-only: finds tools, versions, setup checkouts and project roots. Nothing here installs or writes, except write_machine().
-Precedence for every per-machine value: environment variable > state/machine.json > legacy state/*.txt file > registry candidates;
-a setup marked inRepo (a folder of this repo) uses only its candidates.
+Precedence for a binary: environment variable > state/machine.json > PATH > registry paths. For a setup checkout: state/machine.json >
+registry candidates; a setup marked inRepo (a folder of this repo) uses only its candidates. Project roots also read state/project-roots.txt.
 Files are read and written as UTF-8 on purpose: candidate paths hold non-ASCII names and the Windows default code page is not UTF-8.
 """
 import json, os, re, shutil, subprocess, sys
@@ -163,47 +163,19 @@ def is_checkout(d, markers):
     return d is not None and d.is_dir() and all((d / m).exists() for m in markers)
 
 
-def first_line(p):
-    """A BOM is dropped; a file in another encoding (UTF-16 from PowerShell 5.1) gives a path that is simply not found."""
-    try:
-        return p.read_text(encoding="utf-8-sig", errors="replace").strip().splitlines()[0].strip()
-    except (OSError, IndexError):
-        return ""
-
-
 def checkout_candidates(entry, machine, toks, repo=REPO):
-    """(where it came from, path) in the order they are tried."""
+    """(where it came from, path) in the order they are tried: machine.json, then the registry candidates.
+    A setup marked inRepo (a folder of this repo) uses only its candidates."""
     s = entry.get("setup") or {}
     out = []
-    if s.get("inRepo"):
-        return [(tpl, p) for tpl in s.get("candidates", []) for p in [expand(tpl, toks)] if p is not None]
-    if s.get("env") and os.environ.get(s["env"]):
-        out.append((s["env"], Path(os.environ[s["env"]]).expanduser()))
-    mc = _mget(machine, "checkout").get(entry["id"])
-    if isinstance(mc, str) and mc:
-        out.append(("machine.json", Path(mc).expanduser()))
-    if s.get("legacy"):
-        line = first_line(repo / s["legacy"])
-        if line:
-            out.append((s["legacy"], Path(line).expanduser()))
+    if not s.get("inRepo"):
+        mc = _mget(machine, "checkout").get(entry["id"])
+        if isinstance(mc, str) and mc:
+            out.append(("machine.json", Path(mc).expanduser()))
     for tpl in s.get("candidates", []):
         p = expand(tpl, toks)
         if p is not None:
             out.append((tpl, p))
-    return out
-
-
-def ignored_overrides(entry, machine, repo=REPO):
-    """For an inRepo setup: the overrides that are set but not used (they named the old separate clone)."""
-    s = entry.get("setup") or {}
-    if not s.get("inRepo"):
-        return []
-    out = [s["env"]] if s.get("env") and os.environ.get(s["env"]) else []
-    mc = _mget(machine, "checkout").get(entry["id"])
-    if isinstance(mc, str) and mc:
-        out.append("machine.json checkout." + entry["id"])
-    if s.get("legacy") and first_line(repo / s["legacy"]):
-        out.append(s["legacy"])
     return out
 
 
@@ -281,7 +253,6 @@ def detect(entry, machine=None, toks=None, repo=REPO, spawn=None):
     if entry.get("setup"):
         d, source, tried = find_checkout(entry, machine, toks, repo)
         out["setup"] = {"repo": entry["setup"]["repo"], "checkout": str(d) if d else None, "source": source,
-                        "fromEnv": bool(source) and source == entry["setup"].get("env"),
                         "tried": [s for s, _ in tried], "parser": entry["setup"].get("parser"),
-                        "inRepo": bool(entry["setup"].get("inRepo")), "ignored": ignored_overrides(entry, machine, repo)}
+                        "inRepo": bool(entry["setup"].get("inRepo"))}
     return out
