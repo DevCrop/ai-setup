@@ -48,7 +48,7 @@ On the macOS run (M5):
 Codex setup (moving into `codex/` of this repository, DECISIONS 2026-10-13 "one repository"):
 - The project path line in codex-setup `global/AGENTS.md` (DECISIONS "The project is found from the cwd", "Not yet").
 - The handoff note rule, not yet compared with Codex's handoff guidance (`docs/codex-alignment.md`, "Not compared yet").
-- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high): conflict resolved by merging main and renumbering its decision to 004; after merge, apply it to `~/.codex` (`plan --adopt-existing` first: today's `verify` fails with 17 errors) and check the child models in a live `codex exec`.
+- codex-setup v1.3.3 (DevCrop/codex-setup PR #20: subagents `gpt-6.1-sol` medium, read-only `explorer` on `gpt-6-luna` high): merged on 2026-10-13 (`06f56db`; main merged in, its decision renumbered to 004). Apply it to `~/.codex` (`plan --adopt-existing` first: on 2026-10-13 `verify` from codex-setup `7e4a3e1` failed with 17 errors; this row was added after the header's 2026-10-12 check) and check the child models in a live `codex exec`.
 - Port DevCrop/codex-setup#18 (RTK backup and dated live view, closed unmerged on 2026-10-13; branch `codex/rtk-db-prevention-20261012` kept) to `codex/` as a new PR, or drop it.
 
 ## 7. Measure
