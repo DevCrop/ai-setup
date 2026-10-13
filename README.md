@@ -47,7 +47,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 | Do the session hooks work? | `bash scripts/qa-hooks-session.sh` (compact-context and config-audit; no model calls; pass a mutated copy of `claude/hooks/` the same way) |
 | Is the dashboard healthy? | `bash scripts/qa-dashboard.sh` (API, security) and `bash scripts/qa-ui.sh` (headless Chrome, every tab); both end with `failures: 0` |
 | Do the role agents route and refuse correctly? | `bash scripts/qa-role-agents.sh <work-dir> [case]` (costs tokens; `QA_MODE=selftest` is free) |
-| What changed upstream (Claude Code, RTK, docs)? | `reports/YYYY-MM-DD.md`, written by the daily routine |
+| What changed upstream (Claude Code, RTK, docs)? | `reports/YYYY-MM-DD.md`, written by the daily routine; pin moves and new tool releases arrive as the weekly PR `chore: update pinned versions` (`python3 scripts/check-updates.py` previews it) |
 | Which tools are used and what do they save? | dashboard tab "도구 효율" (every number is labelled measured, estimated or unavailable) |
 | Single vs subagents vs AO, same task | `bash scripts/bench.sh run <work> single 3` (and `subagents 3`; AO arm in docs/GUIDE.md), then `bench.sh report <work>`; the dashboard panel "같은 과제 비교" reads `reports/bench/latest.json` |
 | Is claude-mem working? | `curl -s http://127.0.0.1:37777/api/health` and the dashboard panel "도구 점검" |
