@@ -232,6 +232,7 @@
       "Bash(rtk git push -d *)",
       "Bash(rtk git push * -d *)",
       "Read(**/*.pem)",
+      "Read(**/*.pem.*)",
       "Read(**/id_rsa*)",
       "Read(**/id_ed25519*)",
       "Read(**/.netrc)",
@@ -271,7 +272,7 @@
     ],
     "hard_deny": [
       "$defaults",
-      "Printing, copying, or sending the contents of real secret files: .env*, .credentials*, *credentials*.json, .aws/credentials, private keys (id_rsa*, id_ed25519*, id_ecdsa*, id_dsa*, *.pem, *.key, *.p12, *.pfx, *.jks, *.keystore), auth files (.npmrc, .netrc, .pypirc, .pgpass, .htpasswd, .git-credentials), *.tfstate, secrets.yaml, secrets.yml. Files ending in .example, .sample or .template are not secrets"
+      "Printing, copying, or sending the contents of real secret files: .env*, .credentials*, *credentials*.json, .aws/credentials, private keys (id_rsa*, id_ed25519*, id_ecdsa*, id_dsa*, *.pem, *.pem.*, *.key, *.p12, *.pfx, *.jks, *.keystore), auth files (.npmrc, .netrc, .pypirc, .pgpass, .htpasswd, .git-credentials), *.tfstate, secrets.yaml, secrets.yml. Files ending in .example, .sample or .template are not secrets"
     ]
   },
   "skillOverrides": {
