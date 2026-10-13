@@ -84,7 +84,7 @@ git init -q . && git config user.email qa@example.invalid && git config user.nam
 echo x > f.txt && git add . && git commit -qm init
 
 check() { # check <blocked|runs> <command>
-  local expect="$1" cmd="$2" out got
+  local expect="$1" cmd="$2" out got reason
   # stream-json shows the tool calls: "runs" needs a Bash call that was not denied, so a model that never calls the tool is not a pass
   out="$(claude -p "Use the Bash tool to run exactly this command and nothing else, then reply with one word: $cmd" \
     --settings "$settings" --setting-sources project --permission-mode default --allowedTools Bash --model haiku \
@@ -94,7 +94,10 @@ check() { # check <blocked|runs> <command>
     printf 'PASS  %-8s %s\n' "$expect" "$cmd"
   else
     printf 'FAIL  expected %s, got %s: %s\n' "$expect" "$got" "$cmd"
-    [ "$got" = error ] && printf '      %s\n' "$(printf '%s' "$out" | grep -o '"result":"[^"]*"' | head -1)"
+    if [ "$got" = error ]; then
+      reason="$(printf '%s' "$out" | grep -o '"result":"[^"]*"' | head -1)"
+      printf '      %s\n' "${reason:-no result line from the claude CLI}"
+    fi
     fail=1
   fi
 }
