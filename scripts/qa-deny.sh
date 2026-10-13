@@ -17,6 +17,7 @@ classify() { # stream-json output -> error | blocked | runs | no-call
   if ! printf '%s' "$1" | grep -q '"type":"result"'; then echo error
   elif ! printf '%s' "$1" | grep -q '"permission_denials":\[\]'; then echo blocked
   elif printf '%s' "$1" | grep -Eq '"type":"tool_use"[^}]*"name":"Bash"|"name":"Bash"[^}]*"type":"tool_use"'; then echo runs
+  elif printf '%s' "$1" | grep -q '"is_error":true'; then echo error  # e.g. an expired login: the model was never asked
   else echo no-call
   fi
 }
@@ -30,8 +31,10 @@ $r")"
   c4="$(classify 'garbage')"
   c5="$(classify "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t\",\"name\":\"Bash\",\"input\":{\"command\":\"rm -rf x\"}}]}}
 {\"type\":\"result\",\"permission_denials\":[{\"tool_name\":\"Bash\"}]}")"  # a Bash call that was denied
-  [ "$c1 $c2 $c3 $c4 $c5" = "runs no-call blocked error blocked" ] && { echo "PASS  classify: runs, no-call, blocked, error, denied call"; exit 0; }
-  echo "FAIL  classify gave: $c1 $c2 $c3 $c4 $c5"; exit 1
+  c6="$(classify '{"type":"assistant","message":{"model":"<synthetic>","content":[{"type":"text","text":"Failed to authenticate: OAuth session expired and could not be refreshed"}]}}
+{"type":"result","subtype":"success","is_error":true,"result":"Failed to authenticate: OAuth session expired and could not be refreshed","permission_denials":[]}')"  # expired login: no model call at all
+  [ "$c1 $c2 $c3 $c4 $c5 $c6" = "runs no-call blocked error blocked error" ] && { echo "PASS  classify: runs, no-call, blocked, error, denied call, failed login"; exit 0; }
+  echo "FAIL  classify gave: $c1 $c2 $c3 $c4 $c5 $c6"; exit 1
 fi
 
 # Static check, no CLI needed: every Bash deny or ask pattern needs an `rtk `-prefixed twin
@@ -91,6 +94,7 @@ check() { # check <blocked|runs> <command>
     printf 'PASS  %-8s %s\n' "$expect" "$cmd"
   else
     printf 'FAIL  expected %s, got %s: %s\n' "$expect" "$got" "$cmd"
+    [ "$got" = error ] && printf '      %s\n' "$(printf '%s' "$out" | grep -o '"result":"[^"]*"' | head -1)"
     fail=1
   fi
 }
