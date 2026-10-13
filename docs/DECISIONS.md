@@ -2,6 +2,14 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — one secret list
+
+### The Read deny rules, the hard_deny text and `secret-guard` name the same secret files
+- What: every file name `secret-guard.sh` `is_secret()` blocks from a commit also has a `Read(**/...)` deny rule in `claude/settings.json`, and the `autoMode.hard_deny` text names each of those rules (BACKLOG S5, settled as the user delegated on 2026-10-13). New Read rules: `*credentials*.json` (replaces `credentials.json`), `id_ecdsa*`, `id_dsa*`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `.pypirc`, `.pgpass`, `.htpasswd`, `.git-credentials`, `*.tfstate`, `secrets.yaml`, `secrets.yml`, `.aws/credentials`.
+- Why: the three lists disagreed, for example `*.key` could be read but not committed.
+- Accepted differences: `.claude.json` and `history.jsonl` stay commit-only (kept readable for inspecting Claude's own config and history); `~/.ssh/**` and the other `~/` rules stay Read-only (they are outside any repository). `*.key` also blocks reading non-secret files with that extension.
+- Check: the S5 block in `scripts/qa-hooks.sh` (sample names in all three lists, every Read glob named in hard_deny). Undo: remove the rules and the block in one PR.
+
 ## 2026-10-13 — one repository for Claude, Codex and AO: ai-setup
 
 ### claude-global becomes ai-setup and absorbs codex-setup (`codex/`) and the AO lane setup (`ao/`)
