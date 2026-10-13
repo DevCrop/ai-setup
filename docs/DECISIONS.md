@@ -2,6 +2,14 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — short, plain replies
+
+### Built-in Concise output style, plus plain-language lines in `claude/CLAUDE.md`
+- What: `claude/settings.json` sets `"outputStyle": "Concise"` (built-in, Claude Code 2.1.237 or newer; the name is case-sensitive). `claude/CLAUDE.md` Communication adds three lines: answer first in 1-3 short sentences in plain words, tables and long lists only when asked or comparing three or more items, at most one question at the end.
+- Why: the user found replies long and hard to read. The output-styles page names Concise for "responses longer than you want"; it shortens replies but does not ask for plain words, so the CLAUDE.md lines add that. Errors, failing tests, security warnings and destructive-action confirmations stay full length (the same page). The third-party `caveman` skill was considered and not adopted: it saves tokens with fragment prose, which reads harder.
+- Limits: an output style is an instruction, not a guarantee; it does not change subagents' replies (they run their own system prompt). Not measured.
+- Check: `scripts/verify.sh` asserts `outputStyle == "Concise"`. Undo: remove the key, the three lines and the check. Source: https://code.claude.com/docs/en/output-styles (read 2026-10-13).
+
 ## 2026-10-13 — one secret list
 
 ### The Read deny rules, the hard_deny text and `secret-guard` name the same secret files

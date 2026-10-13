@@ -129,6 +129,10 @@ if command -v jq >/dev/null 2>&1; then
   jq -e '.model == "opus[1m]" and .modelSettings["claude-opus-5-5"].effortLevel == "medium"' "$src/settings.json" >/dev/null 2>&1 \
     && pass "main model is opus[1m] at medium effort" \
     || fail "settings.json model must be opus[1m] with modelSettings.claude-opus-5-5.effortLevel medium"
+  # Reply style (decision 2026-10-13): the built-in Concise output style; the name is case-sensitive.
+  jq -e '.outputStyle == "Concise"' "$src/settings.json" >/dev/null 2>&1 \
+    && pass "outputStyle is Concise" \
+    || fail "settings.json outputStyle must be Concise (case-sensitive)"
   jq -e '(.skipDangerousModePermissionPrompt == null) and (.permissions.disableAutoMode == null) and (.disableAutoMode == null)' "$src/settings.json" >/dev/null 2>&1 \
     && pass "no skipDangerousModePermissionPrompt and no disableAutoMode" \
     || fail "settings.json sets skipDangerousModePermissionPrompt or disableAutoMode"
