@@ -15,16 +15,13 @@ None open (S5 and S7 closed on 2026-10-13, DECISIONS "one secret list" and "Thir
 
 ## 3. Correctness
 
-| # | Where | What | Done when |
-|---|---|---|---|
-| C13 | `scripts/dashboard/projects.py:79` | project roots come only from `PROJECT_ROOTS` or `state/project-roots.txt`, ignoring `machine.json` `projectRoots` and the `~/Projects` default that `toolreg.project_roots()` uses, so after `bootstrap.py check --write` migrates the txt the dashboard can lose roots | the dashboard uses `toolreg.project_roots()`, with a test |
+None open (C13 closed on 2026-10-13: the dashboard reads project roots through `toolreg.project_roots()`).
 
 ## 4. Tests and CI
 
 | # | Where | What | Done when |
 |---|---|---|---|
 | T4 | the whole repo, after M6 | full check at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (from a temporary repo with no remote, `rm -rf ~/__qa_nonexistent__` must be blocked, as in `qa-deny.sh`; then `ao stop`), one manual run of the scheduled task | every check passes; GUIDE "Last run" cells filled |
-| T5 | cleanup: duplicated helpers | `procs.which` vs `toolreg.which`; the own_top/own_perm lists in `apply.sh` (twice) and `verify.sh`; `fixes.py` hard-coded RTK winget id and `parse_version` vs `tools.json`/`toolreg`; `dashboard/codex.py` `MIN_PY`/markers vs `tools.json`; `server.py` old-name aliases used only by tests | each has one source |
 
 ## 5. Decisions waiting for you
 

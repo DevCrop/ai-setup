@@ -3,19 +3,20 @@
 The dashboard does not judge the Codex setup; it shows what TRACE's own checks say. It runs `setup.py verify` and `setup.py plan`
 (both read files only; apply/rollback stay in Codex) and `codex --version`. `setup.py doctor` is not run: it starts the Codex CLI
 itself, outside spawn(), which would open a console window under pythonw.
-The TRACE checkout is codex/ in this repo only, as tools.json says (inRepo); TRACE_DIR and state/trace-dir.txt named the old separate clone and are not read.
+The TRACE checkout, its marker files and the minimum Python come from tools.json (the codex and python entries) through toolreg. The checkout
+is codex/ in this repo only (inRepo); TRACE_DIR and state/trace-dir.txt named the old separate clone and are not read.
 """
 import json, os, sys
 from collections import Counter
 from pathlib import Path
-from procs import which
+from procs import toolreg, which
 
-MIN_PY = (3, 11)  # TRACE needs tomllib
 MAX_ITEMS = 40
 
 
-def is_checkout(d):
-    return d is not None and (d / "scripts" / "setup.py").is_file() and (d / "manifest.json").is_file()
+def label(tpl):
+    """A checkout candidate as the tab shows it: ${REPO}/codex -> 이 레포의 codex/."""
+    return "이 레포의 %s/" % tpl[len("${REPO}/"):] if tpl.startswith("${REPO}/") else tpl
 
 
 def manifest_version(d):
@@ -38,15 +39,10 @@ class CodexSetup:
     def __init__(self, runner, root, python=sys.executable, py_version=sys.version_info[:2]):
         self.runner, self.root, self.python, self.py_version = runner, Path(root), python, py_version
 
-    def candidates(self):
-        """(where it came from, path) in the order they are tried."""
-        return [("이 레포의 codex/", self.root / "codex")]
-
-    def find(self):
-        for source, d in self.candidates():
-            if is_checkout(d):
-                return source, d
-        return None, None
+    def find(self, entry):
+        """(where it was found or None, the checkout or None, where it looked), as tools.json describes the codex setup."""
+        d, source, tried = toolreg.find_checkout(entry, {}, toolreg.tokens(self.root), self.root)
+        return (label(source) if source else None), d, [label(s) for s, _ in tried]
 
     def setup_json(self, d, command):
         """(parsed JSON or None, error text). Exit code 1 with JSON on stdout is a result (a failed verify, a conflict), not an error."""
@@ -95,13 +91,15 @@ class CodexSetup:
             return {"available": False, "failed": True, "codex": {}, "codexHome": "", "reason": "점검 중 오류: " + type(e).__name__, "tried": []}
 
     def _state(self):
-        source, d = self.find()
+        reg = {e["id"]: e for e in toolreg.load_registry()}
+        source, d, tried = self.find(reg["codex"])
         base = {"available": False, "codex": self.codex_cli(), "codexHome": "CODEX_HOME" if os.environ.get("CODEX_HOME") else "~/.codex"}
         if d is None:
-            return {**base, "reason": "TRACE 체크아웃을 찾지 못했습니다", "tried": [s for s, _ in self.candidates()]}
+            return {**base, "reason": "TRACE 체크아웃을 찾지 못했습니다", "tried": tried}
         base.update({"available": True, "source": source, "version": manifest_version(d)})
-        if self.py_version < MIN_PY:
-            return {**base, "error": "Python %d.%d: TRACE는 3.11 이상이 필요합니다" % self.py_version}
+        need = reg["python"].get("min")  # TRACE needs tomllib
+        if not toolreg.version_ok("%d.%d" % self.py_version, need):
+            return {**base, "error": "Python %d.%d: TRACE는 %s 이상이 필요합니다" % (*self.py_version, need)}
         v, verr = self.setup_json(d, "verify")
         p, perr = self.setup_json(d, "plan")
         return {**base, "verify": self.verify_view(v), "verifyError": verr, "plan": self.plan_view(p), "planError": perr}

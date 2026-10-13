@@ -9,7 +9,7 @@ import json, os, re
 from pathlib import Path, PureWindowsPath
 
 from fsutil import newest_file
-from procs import which
+from procs import toolreg, which
 
 SECRET_KEY = re.compile(r"authorization|token|secret|passw(or)?d|pwd|apikey|accesskey|privatekey|credential|cookie|signature", re.I)
 SECRET_VALUE = re.compile(r"Bearer\s+\S{16,}|sk-\S{16,}|gh[pousr]_\S+|github_pat_\S+|xox\S-\S+|AKIA[0-9A-Z]{12,}|AIza\S{20,}|eyJ[A-Za-z0-9_-]{20,}"
@@ -76,12 +76,7 @@ def discover_projects(root, projects_dir, limit=30):
             pass
     found = {str(c): c for c in cwds}
     marks = (".git", "CLAUDE.md", "AGENTS.md", ".claude")
-    rf = root / "state" / "project-roots.txt"  # per-machine folders that hold projects, one path per line (or PROJECT_ROOTS)
-    try:
-        lines = os.environ["PROJECT_ROOTS"].split(os.pathsep) if "PROJECT_ROOTS" in os.environ else rf.read_text(encoding="utf-8-sig", errors="replace").splitlines() if rf.is_file() else []
-    except OSError:
-        lines = []
-    roots = [Path(l.strip()) for l in lines if l.strip() and not l.startswith("#")]
+    roots, _ = toolreg.project_roots(toolreg.load_machine(root), toolreg.tokens(root), root)  # per-machine folders that hold projects, as bootstrap reads them
     for parent in {c.parent for c in cwds if c.parent != c.parent.parent} | {r for r in roots if r != r.parent}:  # one level only, never a drive root
         try:
             for sub in parent.iterdir():

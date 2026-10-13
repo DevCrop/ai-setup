@@ -142,9 +142,9 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: put back the ask rules `git branch -D *`, `git stash drop *`, `git stash clear *`, `rm *`, `git restore *`, `find * -delete*`, `shred *` with their `rtk ` twins, drop the `shred` deny rules, and restore the removed `qa-deny.sh` cases.
 
 ### `permissions.disableBypassPermissionsMode: "disable"`
-- What: bypass mode cannot be selected in sessions that read `~/.claude/settings.json` from this repo. `apply.sh` and `verify.sh` own the key (`own_perm`), and `verify.sh` asserts it.
+- What: bypass mode cannot be selected in sessions that read `~/.claude/settings.json` from this repo. `apply.sh` and `verify.sh` own the key (`scripts/owned-keys.json`), and `verify.sh` asserts it.
 - Why: the auto decision (2026-10-11) was a convention; the permissions doc says a user "can set it in their own settings to lock themselves out of bypass mode". Bypass stays for isolated containers and VMs that do not run `apply.sh` (`docs/GUIDE.md`, Permission mode).
-- Undo: remove the key from `claude/settings.json` and the `verify.sh` assertion, but keep it in the three `own_perm` lists (`apply.sh` merge and report, `verify.sh --live`): that is what makes `apply.sh` delete the live value. Removing it from `own_perm` too, or applying from an older commit, leaves the lock live; then list `["permissions","disableBypassPermissionsMode"]` in `scripts/removed-keys.json`.
+- Undo: remove the key from `claude/settings.json` and the `verify.sh` assertion, but keep it in the `permissions` list of `scripts/owned-keys.json` (read by the `apply.sh` merge and report and by `verify.sh --live`): that is what makes `apply.sh` delete the live value. Removing it from that list too, or applying from an older commit, leaves the lock live; then list `["permissions","disableBypassPermissionsMode"]` in `scripts/removed-keys.json`.
 
 ## 2026-10-12 — project path rule and handoff on the PR
 

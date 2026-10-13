@@ -4,10 +4,9 @@
 # runtime data. There is no backup: git is the history. To go back, check out the older commit and run this script again.
 #
 # settings.json is merged key by key, not replaced:
-#   - this repo owns permissions.{defaultMode,disableBypassPermissionsMode,deny,ask,allow}, autoMode, hooks, statusLine,
-#     extraKnownMarketplaces and skillOverrides: the live value is replaced by the repo value (a key the repo lacks is deleted), so a
-#     rule added by hand on a machine cannot stay; of modelSettings only the fields the repo sets are owned (levels saved for other
-#     models and other fields of the same entry stay);
+#   - this repo owns the keys in scripts/owned-keys.json (top-level keys and permissions.* keys; verify.sh --live reads the same file):
+#     the live value is replaced by the repo value (a key the repo lacks is deleted), so a rule added by hand on a machine cannot stay;
+#     of modelSettings only the fields the repo sets are owned (levels saved for other models and other fields of the same entry stay);
 #   - every other key present in the repo (model, effortLevel, ...) takes the repo value;
 #   - keys that only exist on the machine (env, a plugin enabled by "claude plugin install", app settings) are kept and reported;
 #   - scripts/removed-keys.json lists keys that are deleted from the live file.
@@ -30,6 +29,8 @@ items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks routines skills
 
 command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). Windows: winget install jqlang.jq" >&2; exit 2; }
 [ -f "$repo/scripts/removed-keys.json" ] || { echo "apply: scripts/removed-keys.json is missing" >&2; exit 2; }
+jq -e '(.top | type) == "array" and (.permissions | type) == "array"' "$repo/scripts/owned-keys.json" >/dev/null 2>&1 \
+  || { echo "apply: scripts/owned-keys.json is missing or has no top/permissions lists" >&2; exit 2; }
 missing=""
 for item in $items; do [ -e "$src/$item" ] || missing="$missing $item"; done
 [ -z "$missing" ] || { echo "apply: the repo has no claude/{$missing }; nothing was changed." >&2; exit 2; }
@@ -46,9 +47,8 @@ trap 'rm -rf "$tmp"' EXIT
 
 # ---- settings.json ----
 if [ -s "$live" ]; then cp "$live" "$tmp/live.json"; else echo '{}' > "$tmp/live.json"; fi
-jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '
-  def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
-  def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
+jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" --slurpfile o "$repo/scripts/owned-keys.json" '
+  def own_top: $o[0].top; def own_perm: $o[0].permissions;
   $l[0] as $l | $r[0] as $r | $x[0] as $x
   # a live value of the wrong type (permissions: ["x"]) would make the merge fail; it is replaced like a hand edit
   | ($l | .permissions |= (if type == "object" then . else {} end) | .enabledPlugins |= (if type == "object" then . else {} end)
@@ -59,9 +59,8 @@ jq -n --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpf
   | reduce $x[] as $p (.; delpaths([$p]))' > "$tmp/merged.json"
 
 # What the merge kept, replaced and removed (reported, never silent).
-jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" '
-  def own_top: ["autoMode","hooks","statusLine","extraKnownMarketplaces","skillOverrides"];
-  def own_perm: ["defaultMode","disableBypassPermissionsMode","deny","ask","allow"];
+jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slurpfile x "$repo/scripts/removed-keys.json" --slurpfile o "$repo/scripts/owned-keys.json" '
+  def own_top: $o[0].top; def own_perm: $o[0].permissions;
   $l[0] as $l | $r[0] as $r | $x[0] as $x
   | ([("permissions", "enabledPlugins", "modelSettings") as $k | select(($l | has($k)) and ($l[$k] | type) != "object") | $k + " (was not an object)"]) as $bad
   | ($l | .permissions |= (if type == "object" then . else {} end) | .enabledPlugins |= (if type == "object" then . else {} end)

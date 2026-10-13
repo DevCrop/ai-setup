@@ -1,31 +1,14 @@
 """The only place the dashboard starts a process (scripts/qa-spawn-guard.py fails on any other).
 pythonw has no console, so a console child (bash, git, gh, rtk) would open its own window on every refresh unless it is hidden."""
-import os, shutil, subprocess
+import os, subprocess, sys
 from pathlib import Path
 
+_SCRIPTS = str(Path(__file__).resolve().parent.parent)  # toolreg.py (tools.json, machine.json) is shared with bootstrap.py
+if _SCRIPTS not in sys.path:
+    sys.path.append(_SCRIPTS)
+import toolreg  # noqa: E402  dashboard modules take it from here: `from procs import toolreg`
 
-def which(name, windows=None):
-    """shutil.which, except on Windows a bare name found in the current folder (not on PATH) is skipped in favour of the next copy on
-    PATH, or None: Windows searches the current folder first, so a stray binary there would be run. Explicit paths pass unchanged."""
-    w = shutil.which(name)
-    if windows is None:
-        windows = os.name == "nt"
-    if not w or not windows or os.sep in name or "/" in name:  # only a bare name makes Windows search the current folder
-        return w
-    try:
-        cwd = Path.cwd().resolve()
-        if Path(w).resolve().parent != cwd:
-            return w
-        dirs = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
-        if any(Path(p).resolve() == cwd for p in dirs):
-            return w  # the current folder is on PATH on purpose
-        for p in dirs:  # a good copy further down PATH still counts (shutil.which(path=...) would add the cwd again, so ask per entry)
-            r = shutil.which(name, path=p)
-            if r and Path(r).resolve().parent != cwd:
-                return r
-    except OSError:
-        return w
-    return None
+which = toolreg.which  # one implementation (the Windows current-folder rule); dashboard modules call it as procs.which
 
 
 def resolve(cmd, windows=None):
