@@ -1,7 +1,8 @@
 """Tool registry (tools.json) and per-machine settings (state/machine.json), shared by bootstrap.py and the dashboard.
 
 Read-only: finds tools, versions, setup checkouts and project roots. Nothing here installs or writes, except write_machine().
-Precedence for every per-machine value: environment variable > state/machine.json > legacy state/*.txt file > registry candidates.
+Precedence for every per-machine value: environment variable > state/machine.json > legacy state/*.txt file > registry candidates;
+a setup marked inRepo (a folder of this repo) uses only its candidates.
 Files are read and written as UTF-8 on purpose: candidate paths hold non-ASCII names and the Windows default code page is not UTF-8.
 """
 import json, os, re, shutil, subprocess, sys
