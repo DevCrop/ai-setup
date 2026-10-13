@@ -2,6 +2,18 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — two Windows PCs; open questions settled
+
+### The setup targets two Windows PCs; macOS is out of scope
+- What: the user said on 2026-10-13 that this setup runs on two machines, both Windows PCs, and that the macOS run is dropped because it would take very long. BACKLOG M5 (the macOS run), D3 (Bash sandbox on macOS and Linux only) and the items that waited for the Mac run are closed.
+- Decided by Claude as the user delegated (the user asked on 2026-10-13 to "reform on your own" whatever else is of little use): the feature freeze (entry "Dashboard feature freeze kept until the Mac run") ends with the dropped Mac run. The two frozen features are dropped, not built: the tools tab (the Codex tab shows TRACE and the Codex CLI, and `bootstrap.py check` lists every tool, version and setup) and the project search to depth 3 (no measured need for it). Deferred findings 6–10 of PR #91 that only matter on macOS or Linux (LaunchAgent PATH, `bootstrap.sh` installing git when present, the codex clone target on macOS/Linux) are dropped; the two Windows ones stay in BACKLOG section 8.
+- Kept: the macOS and Linux code paths (brew, the LaunchAgent, `bootstrap.sh`) and the linux CI job. They are untested on a real Mac and may break; removing them is a separate change with its own test fallout.
+- Undo: restore BACKLOG M5, the frozen-feature rows and the README and GUIDE lines from main before PR #120 (`eceba1b`).
+
+### D1, D2, D3 and codex-setup#18, decided by Claude as the user delegated
+- The user asked on 2026-10-13 to settle the remaining questions as recommended. D1: `project-setup` still recommends no plugin (entry "`project-setup` still recommends no plugin" stands). D2: the chat-confirmation lines in `claude/CLAUDE.md` stay; they are the remaining guard for `rm`, `branch -D` and `stash drop`/`clear` (entry "Ask rules cover push only"). D3: dropped with macOS (above). DevCrop/codex-setup#18 (RTK backup and dated live view, closed unmerged) is dropped; the branch `codex/rtk-db-prevention-20261012` stays in that repo as a record.
+- Undo: reopen the question as a BACKLOG row.
+
 ## 2026-10-13 — one repository for Claude, Codex and AO: ai-setup
 
 ### claude-global becomes ai-setup and absorbs codex-setup (`codex/`) and the AO lane setup (`ao/`)
@@ -9,7 +21,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Ownership: the rule "codex-setup is maintained by Codex; this repo does not change it" is replaced by "one agent writes at a time": whoever works on `codex/` (Claude or Codex) does it while the other is stopped, through the same branch, reviewer and CI flow.
 - Freeze: the Mac-run feature freeze (entry "Dashboard feature freeze kept until the Mac run") does not cover this move; it is a structure change, not a new feature.
 - Why: the user's reason (2026-10-13, in the session): the work is one global setup plus AO settings, yet the Codex part had to be done in a separate Codex session under the old rule. AO does not read the setup repository: its Claude Code workers load `~/.claude` and its Codex reviewer `~/.codex` (AO v0.13.7 source `backend/internal/adapters/agent/codex/codex.go` falls back to `~/.codex` without `CODEX_HOME`, `backend/internal/adapters/agent/claudecode/claudecode.go`, `chatdriver/claudeacp/driver.go`, the bundled `claude-agent-acp` 0.70.0 `settingSources: ["user","project","local"]`, and the 2026-10-12 worker transcripts under `~/.claude/projects`), so only the applied outputs matter and the move does not change AO behaviour. `codex/scripts/setup.py` resolves its root from its own file and stores no source path in its ownership record, so it keeps working under `codex/`.
-- Closed on the way: DevCrop/codex-setup#18 (RTK backup and dated live view) was closed unmerged before the move; its branch `codex/rtk-db-prevention-20261012` is kept (BACKLOG).
+- Closed on the way: DevCrop/codex-setup#18 (RTK backup and dated live view) was closed unmerged before the move; its branch `codex/rtk-db-prevention-20261012` is kept as a record (port dropped 2026-10-13, entry "D1, D2, D3 and codex-setup#18").
 - Undo: un-archive the old repositories if they were archived, remove `codex/` and `ao/`, rename this one back to `claude-global`, and restore the "maintained by Codex" wording in `docs/codex-alignment.md` and the BACKLOG section heading.
 
 ## 2026-10-13 — Codex reviewer posts through a gh login; model is spelled opus[1m]
@@ -117,7 +129,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 ### The project is found from the cwd by its marks, never from a fixed path
 - What: `claude/CLAUDE.md` (Working method): projects live under a per-machine work root as `<client>/<stage>/<date or name>`; the project is the nearest folder at or above the cwd with `.git`, `CLAUDE.md`, `AGENTS.md` or `.claude`, searching no higher than the work root or the home folder, which are never projects. The marks are the dashboard's (`scripts/dashboard/projects.py`); the work root is what the dashboard and `bootstrap.py` call a project root.
 - Why: project folders sit one to three levels deep and the root differs per machine; `~/.claude` would otherwise make the home folder a project.
-- Not yet: the same line in codex-setup `global/AGENTS.md` (an ask for the Codex side, `docs/codex-alignment.md`), and the dashboard project search to depth 3 (frozen, entry below).
+- Not yet: the same line in codex-setup `global/AGENTS.md` (an ask for the Codex side, `docs/codex-alignment.md`), and the dashboard project search to depth 3 (dropped 2026-10-13, entry "The setup targets two Windows PCs").
 - Undo: remove the line from `claude/CLAUDE.md` and this entry.
 
 ### The handoff note is also posted on the work's own open PR (standing approval)
@@ -139,7 +151,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Checked: `scripts/qa-bootstrap.py` (CI, linux and windows) and `scripts/qa-apply.sh` case 11, the dry run writes nothing (runs in CI through `verify.sh`). Not checked: a real winget or brew install, macOS. Sources for the flags are in commit `ded49bd`.
 - Undo: drop `--no-upgrade` and `HOMEBREW_NO_INSTALL_UPGRADE=1` in `toolreg.install_argv` and the `ask()` gate in `bootstrap.py`, with their qa-bootstrap cases.
 
-### Dashboard feature freeze kept until the Mac run
+### Dashboard feature freeze kept until the Mac run (replaced 2026-10-13, entry "The setup targets two Windows PCs")
 - What: the tools tab and the project search to depth 3 (PR3 of the plan) wait for the macOS run.
 - Why: the 2026-10-11 "Dashboard structure" entry freezes features until that run, and it has not happened yet.
 - Also waiting for that run: deferred review findings 6–10 of PR #91 (LaunchAgent PATH, `bootstrap.sh` installing git when present, `bootstrap.ps1` terminal check, the "read-only" wording of `verify`, the codex clone target on macOS/Linux).
@@ -242,7 +254,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - `Read` deny does not stop `grep -r`. The Bash-using agents are told to exclude `.env*` and credential files and not to print them; effect not proven (rare event). The auto-mode `hard_deny` adds a second layer.
 
 ### Dashboard structure
-- One process entry (`procs.py`), `TtlCache`, `Fix`/`FixRegistry`, `Source` list, ES-module UI with a `Tab` per screen. Feature freeze until the 2026-10-11 refactor and the Mac run are finished.
+- One process entry (`procs.py`), `TtlCache`, `Fix`/`FixRegistry`, `Source` list, ES-module UI with a `Tab` per screen. Feature freeze until the 2026-10-11 refactor and the Mac run are finished (ended 2026-10-13, entry "The setup targets two Windows PCs").
 
 ## 2026-10-10
 
