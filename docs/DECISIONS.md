@@ -10,7 +10,7 @@ One entry per decision that still shapes this setup: the choice, why, and how to
 - Undo: restore the keys and the code from git history.
 
 ### The apply manifest is `~/.claude/.ai-setup-manifest`
-- What: `scripts/apply.sh` records the files it copied in `.ai-setup-manifest`. A manifest under the pre-rename name is moved to the new name once, when the new one does not exist (a dry run only reports `would rename`); when both exist the new one is used and the old one is left alone. `verify.sh --live` reads the new name and warns "run apply.sh" while only the old one exists. Checked by case 13 in `scripts/qa-apply.sh`.
+- What: `scripts/apply.sh` records the files it copied in `.ai-setup-manifest`. A manifest under the pre-rename name is moved to the new name once, when the new one does not exist (a dry run only reports `would rename`); when both exist the new one is used and the old one is left alone. `verify.sh --live` reads the new name and warns "run apply.sh" while only the old one exists. `apply.sh` is checked by case 13 in `scripts/qa-apply.sh`; the `verify.sh` warning has no test.
 - Why: the old name predates the ai-setup rename.
 - Undo: set `manifest` back to the old name in `apply.sh` and `verify.sh` and drop the migration block (a machine already migrated then has no manifest until its next apply, so stale files from before are not removed).
 

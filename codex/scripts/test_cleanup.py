@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -165,6 +166,20 @@ class CleanupTests(unittest.TestCase):
             with ps([old]):
                 self.assertIsNone(project_cleanup.process_busy(self.root))
         with ps(['python3 %s/x.py' % self.root]):
+            self.assertIs(project_cleanup.process_busy(self.root), True)
+
+    @unittest.skipIf(os.name != 'nt', 'Windows process listing (Get-CimInstance JSON)')
+    def test_interpreter_outside_known_codex_paths_is_unknown_windows(self):
+        def cim(rows):
+            out = json.dumps([{'ProcessId': 900000001 + i, 'Name': n, 'CommandLine': c} for i, (n, c) in enumerate(rows)]).encode()
+            return mock.patch.object(project_cleanup.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, out, b''))
+        with cim([('python.exe', r'python C:\Users\u\Projects\ai-setup\codex\scripts\setup.py verify'),
+                  ('node.exe', r'node C:\Users\u\.codex\bin\x.js')]):
+            self.assertIs(project_cleanup.process_busy(self.root), False)
+        for old in (r'python C:\Users\u\Documents\codex-setup\scripts\setup.py', r'python C:\Users\u\trace-setup\scripts\setup.py'):
+            with cim([('python.exe', old)]):
+                self.assertIsNone(project_cleanup.process_busy(self.root))
+        with cim([('python.exe', 'python %s\\x.py' % self.root)]):
             self.assertIs(project_cleanup.process_busy(self.root), True)
 
 
