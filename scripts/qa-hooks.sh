@@ -278,8 +278,9 @@ hard=" $(jq -r '.autoMode.hard_deny | join(" ")' "$settings" | sed -e 's/[(),]/ 
 for n in .env .env.production .credentials.json credentials.json gcp-credentials.json k.pem k.pem.bak server.key id_rsa id_ed25519 id_ecdsa id_dsa \
          .npmrc .netrc .pypirc .pgpass .htpasswd .git-credentials a.p12 a.pfx a.jks a.keystore x.tfstate secrets.yaml secrets.yml .aws/credentials; do
   is_secret "$n" || { echo "FAIL S5 is_secret misses $n"; fail=$((fail+1)); }
+  m=0
   # shellcheck disable=SC2053  # $g is a glob on purpose: it is the deny rule's pattern
-  m=0; while IFS= read -r g; do [ -n "$g" ] && [[ "$n" == $g ]] && m=1; done <<< "$globs"
+  while IFS= read -r g; do [ -n "$g" ] && [[ "$n" == $g ]] && m=1; done <<< "$globs"
   [ "$m" = 1 ] && echo "PASS S5 $n in all lists" || { echo "FAIL S5 no Read(**/...) deny rule matches $n"; fail=$((fail+1)); }
 done
 while IFS= read -r g; do
