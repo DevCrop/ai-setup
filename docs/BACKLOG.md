@@ -13,9 +13,7 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 ## 2. Security (first)
 
-| # | Where | Problem | Done when |
-|---|---|---|---|
-| S5 | `settings.json` deny, `autoMode.hard_deny`, `secret-guard` `is_secret` | three secret lists disagree, for example `*.key` is readable (some differences are accepted over-blocks in DECISIONS) | one list, or each remaining difference recorded as a decision |
+None open (S5 and S7 closed on 2026-10-13, DECISIONS "one secret list" and "Third-party plugins are pinned").
 
 ## 3. Correctness
 
