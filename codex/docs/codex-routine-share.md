@@ -218,7 +218,6 @@ python -B scripts/check_updates.py
 python -B scripts/setup.py verify
 python -B scripts/tools.py verify
 python -B scripts/project_cleanup.py scan
-python -B scripts/check_closure.py
 ```
 
 이는 체크아웃·등록된 범위의 점검이며 전체 드라이브 조사나 의존성 삭제 명령이 아니다.

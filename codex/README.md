@@ -98,7 +98,6 @@ python -B scripts/tools.py plan-rtk-update
 python -B scripts/tools.py run git status
 python -B scripts/project_cleanup.py register --id NAME --path PATH --auto
 python -B scripts/project_cleanup.py scan
-python -B scripts/check_closure.py
 ```
 
 RTK uses pinned, SHA-256-verified platform assets in private host state; no hook,

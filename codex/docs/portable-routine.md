@@ -138,7 +138,6 @@ python -B scripts/setup.py verify
 python -B scripts/tools.py verify
 python -B scripts/tools.py plan-rtk-update
 python -B scripts/project_cleanup.py scan
-python -B scripts/check_closure.py
 ```
 
 수집 성공, 본문 검토, 로컬 적용, 실제 검증, 커밋, 브랜치 게시, PR, 공개 릴리스는
