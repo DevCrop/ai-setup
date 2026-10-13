@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 0 * * 1"  # Mondays 00:17 UTC (09:17 KST): catches breakage from runner, Python or tool updates between PRs
+  workflow_dispatch:
 
 concurrency:
   group: check-${{ github.ref }}

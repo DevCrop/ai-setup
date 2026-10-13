@@ -58,7 +58,7 @@ Each machine keeps its own `reports/`, `state/` and claude-mem data; none of it 
 
 1. Branch from `main`, edit `claude/` or `scripts/`, run the check that matches the change (table above).
 2. Open a PR. A separate reviewer subagent checks it against written criteria; the author does not verify its own work.
-3. CI must be green on linux and windows. Then merge (Claude merges once CI is green and the reviewer has no open findings).
+3. CI must be green on linux and windows (it also runs every Monday, and by hand from the Actions tab). Then merge (Claude merges once CI is green and the reviewer has no open findings).
 4. Every machine: `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`.
 
 Rules that bite: every Bash deny pattern needs an `rtk `-prefixed twin (RTK rewrites `git ...` before permission rules run); `claude/CLAUDE.md` stays under 200 lines; never commit `reports/`, `state/`, credentials or `.env*`.

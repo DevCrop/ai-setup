@@ -2,6 +2,13 @@
 
 One entry per decision that still shapes this setup: the choice, why, and how to undo it. Newest first. Long measurements and the original wording are in `docs/evidence.md` (Korean, verbatim); the runbook is `docs/GUIDE.md`. Change a decision in a PR that updates this file, the setting and the check in `scripts/verify.sh` together.
 
+## 2026-10-13 — weekly CI
+
+### `check.yml` also runs every Monday and by hand
+- What: `.github/workflows/check.yml` has a `schedule` trigger (Mondays 00:17 UTC, 09:17 KST) and `workflow_dispatch`, besides push to `main` and pull requests. The jobs are unchanged.
+- Why: the user chose GitHub automation that runs the existing checks between PRs, so a change in the runner image, Python or a pinned tool shows up within a week. In a public repository GitHub disables a schedule after 60 days without repository activity (GitHub docs, "Disabling and enabling a workflow"); re-enable it from the Actions tab. Who is notified of a failed scheduled run follows the account's Actions notification settings (not verified here).
+- Check: `scripts/verify.sh` fails when either trigger is missing. Undo: remove the two triggers and that check.
+
 ## 2026-10-13 — last legacy shims removed
 
 ### Setup checkouts have no env or legacy-file override, and no "ignored" warning
