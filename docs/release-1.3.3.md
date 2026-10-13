@@ -10,6 +10,8 @@
   커스텀 에이전트, `gpt-6-luna` / `high`. 같은 이름의 기본 explorer를 대체한다.
   사용자 소유 `agents/explorer.toml`이 이미 있으면 plan이 conflict로 멈추므로, 내용을
   확인해 옮기거나 지운 뒤 다시 plan한다.
+- Archify 제거([Decision 003](decisions/003-remove-archify.md), #21)도 이 버전에 포함된다.
+  v1.3.2 호스트에서 plan하면 Archify 소유 사본을 회수하는 변경이 함께 나온다.
 - 근거: [Models](https://learn.chatgpt.com/docs/models),
   [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents),
   2026-10-12 확인. 측정한 순위가 아니다.
@@ -20,7 +22,7 @@
 - `python -B scripts/validate_repo.py`: pass.
 - 빈 상태에서 v1.3.3 plan/apply/verify/rollback: verify pass, rollback 뒤
   `config.toml` SHA-256 동일, `agents/` 제거됨.
-- v1.3.2 적용 상태에서 v1.3.3 plan: 변경 4개(`agents/explorer.toml`, `config.toml`,
+- v1.3.2 적용 상태에서 v1.3.3 plan(#21 병합 전 측정, Archify 회수는 포함되지 않음): 변경 4개(`agents/explorer.toml`, `config.toml`,
   두 가이드). apply·verify pass, rollback 뒤 `config.toml` 해시가 v1.3.2 상태와
   같고 v1.3.2 verify pass.
 
