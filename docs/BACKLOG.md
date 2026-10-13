@@ -6,7 +6,6 @@ Open work, by priority. Each row names where it is and what proves it done; dele
 
 | # | Do | Done when |
 |---|---|---|
-| M1 | GUIDE local checks L-1 / L-2, then L-5 (`bash scripts/qa-deny.sh`, also run by `verify.sh --live --full`: 30 live cases) | `0 FAIL`; it is the first run with the real RTK hook |
 | M2 | Claude app, Scheduled settings of `daily-claude-update`: model **Opus** (decision 2026-10-12) and permission mode **auto** | GUIDE L-10; the run session shows `claude-opus-5-5` |
 | M3 | claude.ai personal preferences: "Permission mode is bypassPermissions by default" becomes auto, and the "Diagrams: Archify ..." line is removed (Archify is gone since 2026-10-13) | matches `claude/CLAUDE.md` (Safety, Tools) |
 | M4 | GUIDE L-13 (`/compact` with a handoff note; `/config` versus an editor change) | result recorded in GUIDE's "Last run" column, including whether `/config` fires ConfigChange |
