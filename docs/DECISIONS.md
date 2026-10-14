@@ -189,6 +189,12 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 - The desktop app writes it; setting it in the repo keeps it the same on every machine instead of reporting it as machine-only. The key is not in the public docs (`docs/evidence.md`).
 - Undo: remove the key; `apply.sh` then keeps the app's value as a machine-only key.
 
+### Idle compaction keeps its default (on); the repo does not set `idleCompaction`
+- What: Claude Code 2.1.299 compacts a terminal conversation of 200K+ tokens that has been idle about 54 minutes. The switch is `"idleCompaction": false` in settings.json, the threshold is `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`. `claude/settings.json` sets neither, so the default applies.
+- Why: the feature only runs after a long idle stop on a large conversation, which is the case the `autoCompactWindow` and handoff-note rules already cover. No measurement shows it hurts, and turning it off would need a measurement first.
+- How checked: the 2.1.299 entry of the official changelog (code.claude.com/docs/en/changelog) lists the key and the env var. The settings reference page (code.claude.com/docs/en/settings) does not list `idleCompaction` as of 2026-10-14, so the key is confirmed by the changelog only.
+- Undo: to turn it off, add `"idleCompaction": false` to `claude/settings.json` in a PR; the key is not set in the repo now, so nothing else changes.
+
 ### Settings notes (facts that explain the values in `claude/settings.json`)
 - `effortLevel: high` does not apply to the Opus 5.5 main model (model-config: Opus 5.5 reads `modelSettings`, set to medium); it applies to older models. A level picked with `/effort` and Enter is reset by the next `apply.sh`; pick with `s` for one session.
 - `autoCompactWindow: 400000`: compaction at 400K tokens instead of about 967K on a 1M-token model. The reason is the best-practices advice that a full context degrades quality; the value is not measured. Raise it toward 600000 if compaction is too frequent. Precedence: env `CLAUDE_CODE_AUTO_COMPACT_WINDOW` > `--autocompact` > `/autocompact` (stored per model in `modelSettings`; `apply.sh` keeps every field there except the ones the repo sets) > this key.
