@@ -421,7 +421,7 @@ EOF
   task="$dest/scheduled-tasks/daily-claude-update/SKILL.md"
   # The file outlives a deleted task, so a PASS here proves the body, not that the task is scheduled.
   if [ -f "$task" ]; then
-    if grep -Eq '[A-Za-z]:[\\/]|/(Users|home)/' "$task"; then
+    if grep -Eq '(^|[^A-Za-z])[A-Za-z]:[\\/]|/(Users|home)/|~/' "$task"; then
       warn "scheduled task body names an absolute path, which goes stale when the clone moves (re-paste claude/scheduled-tasks/daily-claude-update/SKILL.md and set the task's folder instead)"
     elif grep -q 'claude/routines/daily-update.md' "$task"; then
       pass "scheduled task file points at claude/routines/daily-update.md (the app's task list shows whether it is scheduled)"
