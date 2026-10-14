@@ -7,6 +7,7 @@ Types: showcase, howto, tool, critique, promo, reference.
 
 | seen | posted | author | url | type | tools | claim (short, paraphrased) |
 |---|---|---|---|---|---|---|
+| 2026-10-14 | | @lucian__03 | https://x.com/lucian__03/status/2109637939093254646 | reference | Lucian UX/UI Prompt (lucianlabs.dev), lucian-uxui skill | 200 interactive web UI elements, each copyable as a porting prompt or code; MIT. Repo read directly: github.com/Seokwoooo/lucian-uxui-prompt @4239614 |
 | 2026-10-14 | 2026-10-08 | @claudeai | https://x.com/claudeai/status/2108271558170976743 | tool | Claude Motion (beta, Team/Enterprise) | animations written as code, no video model; edit any word, number or timing, export MP4 |
 | 2026-10-14 | | @minchoi | https://x.com/minchoi/status/2104227722377757031 | promo | Opus 5.5 | roundup post: "AI solved motion graphic" |
 | 2026-10-14 | | @tequilafunks | https://x.com/tequilafunks/status/2103528644828127728 | showcase | Opus 5.5, Remotion | same 15 s showreel prompt, run in Remotion |

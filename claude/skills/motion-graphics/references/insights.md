@@ -19,6 +19,8 @@ Last updated: 2026-10-14
 - Give real UI kit, brand colours and fonts so the model does not invent product UI. n=2.
 - Short test render (about 3 s) before the full piece. n=2.
 - Revise by frame range, not vague notes. n=2.
+- Fix a small easing set as tokens and reuse it everywhere: Lucian UX/UI uses `--ux-ease: cubic-bezier(.2,.8,.2,1)` (57 uses across 200 elements) and `--ux-spring: cubic-bezier(.34,1.45,.64,1)` for overshoot. n=1 (repo read directly, not a snippet).
+- When porting or revising motion, keep the given motion values (durations, curves, delays) as they are, do not guess a new design, keep a reduced-motion path, and end with a report of what was checked and what was not. Source: the Lucian UX/UI copy-prompt template (`src/gallery/gallery.js`). n=1 (repo read directly).
 - Specify motion as name + duration + easing (motion-reference.takayustudio.jp style vocabulary). n=1. ours: used in the easing-lane scene.
 
 ## Quality and critique
