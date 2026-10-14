@@ -415,5 +415,25 @@ rc = bootstrap.cmd_setup(cur_r, {}, ask=yes, ask_text=typed("/x", "/y"), save=la
 check(rc == 2 and calls == [] and (mrepo / "state" / "machine.json").read_text(encoding="utf-8") == "[1]", "setup: a broken machine.json exits 2 and runs nothing")
 os.environ.pop("CLAUDE_CONFIG_DIR", None)
 
+# cleanup: candidates are known legacy files only, and each one is deleted only after its own yes
+cdir = tmp / "cleanup-claude"
+crepo = tmp / "cleanup-repo"
+(crepo / "state").mkdir(parents=True)
+cdir.mkdir()
+(cdir / ".claude-global-manifest").write_text("old", encoding="utf-8")
+check(bootstrap.cleanup_candidates(cdir, crepo, {}) == [], "cleanup: old manifest kept while the new name does not exist yet")
+(cdir / ".ai-setup-manifest").write_text("new", encoding="utf-8")
+(crepo / "state" / "project-roots.txt").write_text(str(tmp / "a") + "\n", encoding="utf-8")
+cands = bootstrap.cleanup_candidates(cdir, crepo, {})
+check([p.name for p, _ in cands] == [".claude-global-manifest"], "cleanup: project-roots kept until machine.json has projectRoots", cands)
+cands = bootstrap.cleanup_candidates(cdir, crepo, {"projectRoots": []})
+check([p.name for p, _ in cands] == [".claude-global-manifest", "project-roots.txt"], "cleanup: both listed once migrated", cands)
+removed = []
+check(bootstrap.cmd_cleanup(cands, ask=no, remove=removed.append) == 1 and removed == [], "cleanup: declining deletes nothing")
+check(bootstrap.cmd_cleanup(cands, ask=lambda q: "claude-global" in q, remove=removed.append) == 1 and [p.name for p in removed] == [".claude-global-manifest"],
+      "cleanup: deletes only the one answered yes")
+check(bootstrap.cmd_cleanup([], ask=lambda q: 1 / 0) == 0, "cleanup: nothing to clean asks nothing")
+check(bootstrap.cmd_cleanup([(cdir / "x", "why")], ask=yes, remove=lambda p: (_ for _ in ()).throw(OSError("locked"))) == 1, "cleanup: a failed delete exits 1")
+
 print(("FAIL " + str(len(fails))) if fails else "ALL PASS")
 sys.exit(1 if fails else 0)
