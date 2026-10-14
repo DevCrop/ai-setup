@@ -452,6 +452,18 @@ check(me({"model": "opus", "effortLevel": "high", "modelSettings": {"claude-sonn
 odd = [me({"model": "opus", "effortLevel": "high", "modelSettings": v}) for v in ("x", [1], None, {"claude-opus-5-5": "high"}, {"claude-opus-5-5": {"effortLevel": ["x"]}})] + [me({"model": 5, "modelSettings": {}})]
 check(odd == ["high"] * 5 + [None], "routing effort: odd types fall back, never raise or pass a non-string through", odd)
 
+# ---- orchestration limits: read from the prose that states them; missing text gives None, never a guessed number ----
+lr = Path(tempfile.mkdtemp())
+(lr / "claude" / "skills" / "orchestrate").mkdir(parents=True)
+(lr / "claude" / "skills" / "orchestrate" / "SKILL.md").write_text("---\nname: x\n---\n5. At most 4 delegates at once, and no two may edit the same file.\n", encoding="utf-8")
+(lr / "claude" / "CLAUDE.md").write_text("- Retry limit: three attempts on the same error.\n", encoding="utf-8")
+check(inventory.limits(lr) == {"delegates": 4, "retries": 3}, "limits: numbers come from the prose, words too", inventory.limits(lr))
+(lr / "claude" / "CLAUDE.md").write_text("nothing here\n", encoding="utf-8")
+check(inventory.limits(lr) == {"delegates": 4, "retries": None}, "limits: a missing sentence is None, never a guessed value", inventory.limits(lr))
+check(inventory.limits(Path(tempfile.mkdtemp())) == {"delegates": None, "retries": None}, "limits: no files at all is None for both")
+real = inventory.limits(Path(__file__).resolve().parent.parent)
+check(real["delegates"] == 3 and real["retries"] == 2, "limits: the repo's own prose gives 3 and 2 today", real)
+
 # ---- BACKLOG C1: debug() survives odd log lines (a list, a string message, non-dict content items, unhashable ids) ----
 import inventory
 dbg_log = tmp / "dbg.jsonl"

@@ -59,7 +59,9 @@ export class DelegationFlow extends Component {
 
 // State of one delegation: solid arrows are the normal path, the dashed elbow is the retry loop, the red box is the stop.
 export class DelegationStates extends Component {
+  constructor(ctx) { super(); this.ctx = ctx; }
   render() {
+    const retries = this.ctx.inv.orchestration.limits?.retries ?? "?";
     const W = 980, H = 200, S = [["브리프 작성", 40], ["실행", 228], ["보고 (주장)", 416], ["증거 확인", 604], ["완료", 800]], bw = 150;
     const svg = sv("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "위임 하나의 상태 다이어그램" });
     addMarkers(svg);
@@ -73,13 +75,13 @@ export class DelegationStates extends Component {
     });
     svg.append(SN("text", { x: 777, y: 40, "text-anchor": "middle", class: "msg" }, "[충족]"));
     svg.append(flowEdge("path", "ret", "", { d: "M679 74 V118 H303 V78" }));
-    svg.append(SN("text", { x: 491, y: 110, "text-anchor": "middle", class: "msg r" }, "[증거 불충분] 재시도 · 같은 오류는 최대 2회"));
+    svg.append(SN("text", { x: 491, y: 110, "text-anchor": "middle", class: "msg r" }, "[증거 불충분] 재시도 · 같은 오류는 최대 " + retries + "회"));
     svg.append(SN("rect", { x: 340, y: 150, width: 300, height: 36, rx: 18, class: "box", style: "stroke:var(--bad);fill:var(--bad-soft)" }));
     svg.append(SN("text", { x: 490, y: 173, "text-anchor": "middle", "font-weight": 600 }, "중단 · 정확한 오류와 누락 입력 보고"));
     svg.append(flowEdge("path", "call", "bad", { d: "M115 74 V168 H336" }));
     svg.append(SN("text", { x: 124, y: 140, class: "msg" }, "[입력 누락]"));
     svg.append(flowEdge("path", "ret", "bad", { d: "M679 118 V168 H644" }));
-    svg.append(SN("text", { x: 688, y: 146, class: "msg r" }, "[2회 실패]"));
+    svg.append(SN("text", { x: 688, y: 146, class: "msg r" }, "[" + retries + "회 실패]"));
     return wrapDiagram(svg);
   }
 }
