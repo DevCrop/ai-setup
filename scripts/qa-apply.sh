@@ -131,7 +131,7 @@ newcfg; mkdir -p "$cfg"; echo '{bad' > "$cfg/settings.json"; cp "$cfg/settings.j
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && cmp -s "$base/b9" "$cfg/settings.json" && [ ! -e "$cfg/CLAUDE.md" ] && pass "9 invalid live JSON: exit 1, nothing written" || bad "9 invalid JSON (rc=$rc; $out)"
 
-# 10. verify.sh --live compares only the repo-owned keys: machine-only keys are fine, a changed owned key is a WARN
+# 10. verify.sh --live compares the keys the repo sets: machine-only keys are fine, a changed repo key is a WARN
 newcfg; apply >/dev/null
 jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"} | .modelSettings["claude-opus-5-5"].autoCompactWindow=500000' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"

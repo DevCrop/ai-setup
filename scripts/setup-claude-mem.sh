@@ -17,4 +17,4 @@ if [ "$cur_model" = "$model" ] && [ "$cur_redact" = "true" ]; then echo "OK  alr
 cp "$f" "$f.bak-$(date +%Y%m%d-%H%M%S)" || { echo "FAIL  could not back up $f; nothing was changed"; exit 1; }
 tmp="$(mktemp)"
 jq --arg m "$model" '.CLAUDE_MEM_MODEL = $m | .CLAUDE_MEM_REDACT_ENABLED = "true"' "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; echo "FAIL  could not write $f"; exit 1; }
-echo "OK  updated $f (backup next to it). The worker reads it live; if values do not show in 'curl -s http://127.0.0.1:37777/api/settings', restart the worker."
+echo "OK  updated $f (backup next to it). Restart the session; if values do not show in 'curl -s http://127.0.0.1:37777/api/settings', restart the worker."

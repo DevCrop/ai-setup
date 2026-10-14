@@ -10,13 +10,15 @@
 
 ## 1. 설치할 것과 설치하지 않아도 되는 것
 
+권장 경로는 루트의 `python scripts/bootstrap.py install`이다(Git·Python·Node·Codex CLI를 winget으로 설치, 루트 `docs/GUIDE.md`). 아래 수동 절차는 그 대안이다.
+
 | 항목 | 필요 여부 | 새 PC에서의 선택 |
 |---|---|---|
 | Git | 필수 | 공식 Git for Windows; 이미 정상 설치됐으면 유지 |
 | Python | 필수 | 3.11 이상; 이 저장소의 CI 기준은 3.11/3.14 |
 | Codex 데스크톱 앱 | 앱·예약 루틴·UI 사용 시 필요 | 공식 Windows 앱을 설치하고 본인 계정으로 로그인 |
 | Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 루트 `bootstrap.py install`의 winget `OpenAI.Codex`, 아래 npm 방식, 공식 standalone 중 한 방식 |
-| Node.js/npm | 이 문서의 npm CLI 설치 시 필요 | 이 문서의 예시 기준은 Node 22.23.3/npm 10.9.9 |
+| Node.js/npm | 이 셋업에 필요(22 이상, 루트 `tools.json`); npm CLI 설치에도 쓴다 | 이 문서의 예시 기준은 Node 22.23.3/npm 10.9.9 |
 | RTK | 출력 축약 사용 시 설치 | TRACE의 고정 자산 설치기가 해당 OS/CPU 해시·버전 검증 |
 | Chrome/공식 확장 | Chrome 조작을 사용할 때 | 앱의 공식 연결 절차로 설치/연결; 기존 프로필과 권한 보존 |
 | 공식 Computer Use 플러그인 | 앱/브라우저 도구를 실제 사용할 때 | 해당 계정·앱에서 지원되는 공식 경로로 활성화 |

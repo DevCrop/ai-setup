@@ -33,7 +33,7 @@ Codex setup (`codex/`):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", Open).
 - Whether Codex gets a session handoff note rule like `claude/CLAUDE.md` (`docs/codex-alignment.md`, "Open differences" 2).
 - Codex subagent models: confirm in a live `codex exec` run, after `setup.py apply`, that the custom `explorer` agent file is loaded (effort high, sandbox read-only, its developer instructions); its model `gpt-6.1-sol` alone does not tell it from the built-in one (`codex/docs/decisions/004-subagent-models.md`).
-- After the local folder moves to `Projects\ai-setup`: re-render the Codex 08:00 routine with `codex/scripts/render_heartbeat.py` (its prompt holds the checkout path), run `bootstrap.py check --write`, then archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
+- The Codex docs (`codex/docs/install-another-windows-pc.md`) already name `Projects\ai-setup` as the single checkout, the target of M6; until M6 is done the first PC's checkout is still `Projects\claude-global`. After the local folder moves to `Projects\ai-setup`: re-render the Codex 08:00 routine with `codex/scripts/render_heartbeat.py` (its prompt holds the checkout path), run `bootstrap.py check --write`, then archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
 
 ## 7. Measure
 
