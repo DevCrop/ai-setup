@@ -45,6 +45,6 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 - `/ponytail off` turns Ponytail off for one session.
 
 ## Updates
-- The daily routine in `routines/daily-update.md` reports new releases and tool health and proposes config changes. Changes are applied only after review.
+- The daily routine (`claude/routines/daily-update.md` in the ai-setup clone, run from there) reports new releases and tool health and proposes config changes. Changes are applied only after review.
 
 @RTK.md

@@ -3,7 +3,7 @@
 Source of truth for the global agent setup: Claude Code (`claude/`, copied into `~/.claude` by `bash scripts/apply.sh`; edit `claude/`, never `~/.claude` directly), the Codex setup TRACE (`codex/`) and the Agent Orchestrator project setup (`ao/`).
 
 ## Commands
-- Apply: `bash scripts/apply.sh` (merges settings.json key by key, no backup; copies CLAUDE.md, RTK.md, settings.json, statusline.sh, agents/, hooks/, routines/ and the five listed skills; never scheduled-tasks/ or runtime data).
+- Apply: `bash scripts/apply.sh` (merges settings.json key by key, no backup; copies CLAUDE.md, RTK.md, settings.json, statusline.sh, agents/, hooks/ and the five listed skills; never routines/ or scheduled-tasks/ (the routine runs from the clone) or runtime data).
 - Machine setup: `python3 scripts/bootstrap.py check [--write]` (read-only; the tools listed in `tools.json` with their versions and setup checkouts, and the project roots; `--write` adds what it found to gitignored `state/machine.json`, where per-machine values go), then `install`, `apply`, `verify`, `autostart` (each write asks y/N and refuses without a terminal). Bare machine: `scripts/bootstrap.ps1`. Tests: `python3 scripts/qa-bootstrap.py`. Add a tool by adding one `tools.json` entry. `apply.sh --dry-run` previews an apply.
 - Check deny rules on this machine: `bash scripts/qa-deny.sh` (needs the claude CLI, uses haiku). Run it after any change to `permissions.deny` or hooks, and on every machine where RTK is installed.
 - Dashboard UI check: `bash scripts/qa-ui.sh` (headless Chrome through every tab, layout widths, palette, live updates; needs node 22+). The UI is ES modules in `scripts/dashboard/ui/`: a screen is a `Tab` subclass registered in `ui/tabs/index.js`, built from `ui/components.js`.
