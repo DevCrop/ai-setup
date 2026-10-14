@@ -111,7 +111,8 @@ codex --version
 
 설치 후 모든 셸 명령이 `setup refresh had errors`로 실패하면(0.161.0에서 관찰, 0.162.1에는 수정이 없다)
 `0.163.0-alpha.2`를 설치한다. 이 버전에서 셸 실행이 성공했다(루트 `docs/evidence.md`
-"Codex 셸 실행 실패"). 수정이 들어간 안정판이 나오면 안정판으로 돌아간다.
+"Codex 셸 실행 실패"). 수정이 들어간 안정판이 나오면 안정판으로 돌아간다. 2026-10-14 기준 npm `alpha` 태그는 `0.163.0-alpha.10`이고
+`latest`는 `0.162.1`이다. `alpha.10`의 셸 실행은 아직 검증하지 않았으므로 `alpha.2`를 기준으로 둔다.
 
 이미 winget 또는 standalone Codex가 있으면 npm으로 중복 설치하지 않는다. 두 경로가 존재하면
 `Get-Command codex -All`로 실제 실행 파일을 구분하고 설치 소유자를 확인한다.
