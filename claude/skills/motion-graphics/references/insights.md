@@ -2,10 +2,11 @@
 
 Curated from `x-log.md` and checked against our own renders. Each item: the claim, how many independent X sources back it (`n=`), and whether we reproduced it (`ours:`). The daily routine updates counts and adds items; it removes an item only when newer evidence contradicts it, and says so in the run report.
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 
 ## Pipeline
-- Models write code, not video; a renderer makes the MP4. Common forms: single HTML file with canvas/SVG/CSS, Three.js, Remotion (React), HyperFrames (HTML-first CLI). n=4. ours: yes (canvas + Playwright + ffmpeg, 450 frames in about 40 s at 12 blur samples).
+- Models write code, not video; a renderer makes the MP4. Common forms: single HTML file with canvas/SVG/CSS, Three.js, Remotion (React), HyperFrames (HTML-first CLI). n=6. ours: yes (canvas + Playwright + ffmpeg, 450 frames in about 40 s at 12 blur samples).
+- Anthropic ships its own code-based path: Claude Motion (beta, Team/Enterprise) writes animations as code with editable text, numbers and timing, MP4 export. n=1 (official post, snippet only).
 - Without a renderer you get a web page you have to screen-record. n=2.
 - Remotion fits series and templates (official skill `npx skills add remotion-dev/skills`); plain HTML fits one-offs; Opus tends to pick zero-dependency HTML on its own. n=3.
 - For editable After Effects output, MCP bridges exist (Higgsfield connector, open-source AE MCP servers). n=2. ours: not tried (needs AE).
@@ -13,6 +14,7 @@ Last updated: 2026-10-13
 ## Prompting and harness
 - "The prompt is 10%, the harness is 90%": put a render contract in CLAUDE.md before prompting. n=2.
 - Deterministic frames: one `seek(t)`/`renderAt(t)`, no random, no clock; verify by rendering one frame twice. n=3. ours: yes, hashes identical.
+- Showreel prompts that name a genre and ask to "go all out" are run at High or Max reasoning effort. n=3.
 - Name a reference style instead of describing it. n=2.
 - Give real UI kit, brand colours and fonts so the model does not invent product UI. n=2.
 - Short test render (about 3 s) before the full piece. n=2.

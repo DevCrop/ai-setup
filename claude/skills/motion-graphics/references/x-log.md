@@ -7,6 +7,11 @@ Types: showcase, howto, tool, critique, promo, reference.
 
 | seen | posted | author | url | type | tools | claim (short, paraphrased) |
 |---|---|---|---|---|---|---|
+| 2026-10-14 | 2026-10-08 | @claudeai | https://x.com/claudeai/status/2108271558170976743 | tool | Claude Motion (beta, Team/Enterprise) | animations written as code, no video model; edit any word, number or timing, export MP4 |
+| 2026-10-14 | | @minchoi | https://x.com/minchoi/status/2104227722377757031 | promo | Opus 5.5 | roundup post: "AI solved motion graphic" |
+| 2026-10-14 | | @tequilafunks | https://x.com/tequilafunks/status/2103528644828127728 | showcase | Opus 5.5, Remotion | same 15 s showreel prompt, run in Remotion |
+| 2026-10-14 | | @stephanlivera | https://x.com/stephanlivera/status/2103315922098470926 | showcase | Opus 5.5 Max effort | same 15 s showreel prompt at Max effort |
+| 2026-10-14 | | @liu8in | https://x.com/liu8in/status/2045568327746306152 | howto | HyperFrames, Claude Code | motion video from 2 prompts in 10 min; 4-min tutorial |
 | 2026-10-13 | | @flxrnc | https://x.com/flxrnc/status/2108242454105251921 | howto | Opus 5.5, HTML | 14 s UI loop from one prompt; shares full prompt with `<inputs>` slots and every follow-up |
 | 2026-10-13 | | @0xMovez | https://x.com/0xMovez/status/2104576360119206296 | howto | Opus 5.5, CLAUDE.md | "the prompt is 10%, the harness is 90%": write a render contract in CLAUDE.md first |
 | 2026-10-13 | | @0xMovez | https://x.com/0xMovez/article/2104216919033192746 | howto | Opus 5.5 | full course: motion design studio with Opus 5.5 |
