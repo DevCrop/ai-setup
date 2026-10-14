@@ -127,27 +127,21 @@ codex login status
 기존 모델·추론 선택은 보존한다. 원래 사용자의 선택은 `gpt-6.1-sol / medium`이다.
 새 계정에서 사용할 수 없다면 그 제약을 알리고 자동으로 다른 모델을 선택하지 않는다.
 
-## 3. Projects·ChatGPT 폴더가 없으면 준비하기
+## 3. Projects 폴더가 없으면 준비하기
 
 **Projects는 폴더이며 TRACE 필수 설정 파일이 아니다.** 프로젝트를 아직 가져오지
 않았어도 작업 루트는 만들 수 있다. 실제 프로젝트의 `package.json`이나 lockfile을
 가짜로 만들지 않으며 모든 프로젝트에 같은 `AGENTS.md`를 복사하지 않는다.
 
-아래 코드는 사용자 홈의 `Projects`, Windows가 반환하는 문서 위치의 `ChatGPT`,
-그 하위 `글로벌 셋업`을 없을 때만 만든다. 문서 폴더는 OneDrive 등으로 이동될 수 있다.
+아래 코드는 사용자 홈의 `Projects`를 없을 때만 만든다. ai-setup 체크아웃은
+`Projects\ai-setup` 하나만 쓴다(루트 `docs/GUIDE.md`의 Claude 설정과 같은 체크아웃).
 이 변수들은 다음 단계에서도 사용하므로 같은 PowerShell에서 계속 실행한다.
 
 ```powershell
 $traceProjectsRoot = Join-Path $env:USERPROFILE 'Projects'
-$traceDocumentsRoot = [Environment]::GetFolderPath('MyDocuments')
-if ([string]::IsNullOrWhiteSpace($traceDocumentsRoot)) {
-    throw '문서 폴더 경로를 확인할 수 없습니다. 사용할 실제 경로를 먼저 지정하세요.'
-}
-$traceChatGptRoot = Join-Path $traceDocumentsRoot 'ChatGPT'
-$traceSetupParent = Join-Path $traceChatGptRoot '글로벌 셋업'
-$traceCheckout = Join-Path $traceSetupParent 'ai-setup'
+$traceCheckout = Join-Path $traceProjectsRoot 'ai-setup'
 
-foreach ($tracePath in @($traceProjectsRoot, $traceChatGptRoot, $traceSetupParent)) {
+foreach ($tracePath in @($traceProjectsRoot)) {
     if (Test-Path -LiteralPath $tracePath) {
         if (-not (Test-Path -LiteralPath $tracePath -PathType Container)) {
             throw "폴더 위치에 파일이 있습니다: $tracePath"
@@ -158,14 +152,15 @@ foreach ($tracePath in @($traceProjectsRoot, $traceChatGptRoot, $traceSetupParen
 }
 ```
 
-다른 작업 드라이브를 쓰려면 실행 전에 `$traceProjectsRoot`/`$traceSetupParent`를
+다른 작업 드라이브를 쓰려면 실행 전에 `$traceProjectsRoot`를
 실제 선택 경로로 지정한다. 원래 PC의 사용자명·드라이브·절대경로를 복사하지 않는다.
 폴더를 만들었다고 자동 프로젝트 등록이나 정리 권한이 생기지 않는다.
 링크/junction 경로는 설치기의 안전 검사에서 충돌할 수 있으므로 우회하지 않는다.
 
 ## 4. 저장소 가져오기
 
-아래 코드는 새 체크아웃 전용이다. `ai-setup`이 이미 있으면 중단하며 삭제하지 않는다.
+Claude 설정을 위해 `Projects\ai-setup`을 이미 받았다면 새로 받지 말고 아래 "기존 체크아웃" 절차를 쓴다.
+아래 코드는 체크아웃이 없을 때만 쓴다. `ai-setup`이 이미 있으면 중단하며 삭제하지 않는다.
 TRACE 명령은 체크아웃의 `codex` 폴더에서 실행한다.
 
 설치할 커밋의 [공유 루틴](codex-routine-share.md)도 읽는다. 기존 훅 설정·개인 집계·
@@ -343,7 +338,7 @@ review-only다. 이는 TRACE의 운영 제약이며 플랫폼 보안 권한을 �
 명확해진다. 기존 루틴이 있으면 업데이트하고 없으면 하나만 등록하도록 했다.
 
 > 이 PC에서 docs/install-another-windows-pc.md를 따라 실제 경로와 의존성을 확인하고
-> 동일한 글로벌 셋업을 적용해줘. Projects와 문서의 ChatGPT 폴더는 없을 때만 만들어줘.
+> 동일한 글로벌 셋업을 적용해줘. 체크아웃은 Projects\ai-setup 하나만 쓰고, Projects 폴더는 없을 때만 만들어줘.
 > 기존 모델/effort·인증·MCP·권한·훅·프로젝트 소스는 보존해줘. 이 PC에서만 기존 루틴을
 > 매일 오전 8시 Asia/Seoul로 업데이트하고, 없으면 이 대화에 하나의 heartbeat를 등록해줘.
 > 공식 근거 검토 후 호환되는 작은 글로벌 지침과 안정 Codex CLI/RTK 업데이트를 승인한다.
@@ -406,7 +401,7 @@ Python 서버는 검증된 TRACE 러너로 실제 새 PC 집계만 읽고 `127.0
 
 - [ ] 의도한 Git 브랜치·실제 커밋을 확인했다.
 - [ ] Python/Git/선택한 CLI 경로가 정상이고 필요한 Node/npm만 준비했다.
-- [ ] Projects·ChatGPT·셋업 폴더가 존재하며 기존 파일을 보존했다.
+- [ ] Projects 폴더와 `Projects\ai-setup` 체크아웃 하나가 있으며 기존 파일을 보존했다.
 - [ ] 저장소 테스트/무결성, plan/apply/verify, 반복 unchanged를 확인했다.
 - [ ] 새 PC에서 로그인했고 모델/effort·인증·MCP·권한·훅을 보존했다.
 - [ ] 개인 스킬 파일 검사와 새 세션 발견을 구분해 확인했다.

@@ -66,6 +66,6 @@ python -B qa.py php-lint routes/web.php --project my-site --root '<실제 저장
 
 ## AO 업데이트와 큰 저장소
 
-AO를 업데이트한 뒤에는 `ao doctor`와 작은 작업의 Setup을 다시 확인한다. AO 실행 파일 경로(`resources/daemon`)는 PC마다 다르므로 다른 PC의 경로를 복사하지 말고 그 PC의 설치 경로와 `ao doctor` 결과를 확인한다. 이미 열린 앱/터미널은 PATH 변경 전 환경을 유지할 수 있다.
+AO 0.13.7은 Codex 바이너리 선택과 Windows Setup/Cleanup의 따옴표 경로에 문제가 있어 첫 PC에서는 로컬 수정본을 쓴다(원본은 `~/.ao/backups`). AO 자동 업데이트는 이 수정을 덮어쓰고, 수정본을 다른 PC에 복사하지 않는다. AO를 업데이트한 뒤에는 `ao doctor`와 작은 작업의 Setup을 다시 확인한다. AO 실행 파일 경로(`resources/daemon`)는 PC마다 다르므로 다른 PC의 경로를 복사하지 말고 그 PC의 설치 경로와 `ao doctor` 결과를 확인한다. 이미 열린 앱/터미널은 PATH 변경 전 환경을 유지할 수 있다.
 
 큰 저장소는 워크트리 생성 자체가 무거울 수 있다(대형 PHP 저장소의 전체 체크아웃이 Git 메모리를 약 1.7 GiB까지 썼다). 런타임 QA는 한 프로젝트씩 수행하고, 통합 담당 1개와 분리된 구현 작업 1개부터 시작한다. 이 도구가 Git 체크아웃의 메모리까지 제한하는 것은 아니다.
