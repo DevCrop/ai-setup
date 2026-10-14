@@ -77,7 +77,7 @@ export class MonitorTab extends Tab {
       ["apply", "적용", "apply.sh", st.liveMissing ? "적용본 없음" : sync ? "repo = live" : "repo ≠ live", st.liveMissing ? ["bad", "NOT APPLIED"] : sync ? ["ok", "SYNCED"] : ["bad", "DRIFT"]],
       ["live", "적용된 설정", "~/.claude", st.liveMissing ? "—" : st.liveMode || "—", st.liveMissing ? ["", "NONE"] : st.liveMode === "bypassPermissions" ? ["warn", "BYPASS"] : st.liveMode === "auto" ? ["accent", "AUTO"] : ["info", "DEFAULT"]],
       ["verify", "검증", "verify.sh", v.FAIL + " FAIL · " + v.WARN + " WARN", [c.health, c.healthTxt]],
-      ["routine", "루틴", "매일 09:03", rep ? rep.name.replace(".md", "") : "—", rep ? ["ok", "RAN"] : ["warn", "NONE"]],
+      ["routine", "루틴", "앱에서 설정",rep ? rep.name.replace(".md", "") : "—", rep ? ["ok", "RAN"] : ["warn", "NONE"]],
       ["report", "보고서", "reports/", (s.reports || []).length + "개", (s.reports || []).length ? ["info", "SAVED"] : ["", "EMPTY"]],
     ];
     $("pipe").replaceChildren(...steps.map(([id, nm, wh, vl, [tone, txt]]) => {

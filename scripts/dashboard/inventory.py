@@ -54,8 +54,22 @@ def agents(root):
     return out
 
 
+WORD_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+
+
+def limits(root):
+    """The two orchestration limits, read from the prose that states them (no copy kept here). None = not found there."""
+    skill = _read(root / "claude" / "skills" / "orchestrate" / "SKILL.md")
+    claude = _read(root / "claude" / "CLAUDE.md")
+    m = re.search(r"At most (\d+) delegates at once", skill)
+    r = re.search(r"Retry limit: (\w+) attempts", claude)
+    word = WORD_NUMBERS.get(r.group(1).lower()) if r else None
+    return {"delegates": int(m.group(1)) if m else None, "retries": word if word else (int(r.group(1)) if r and r.group(1).isdigit() else None)}
+
+
 def orchestration(root):
     text = _read(root / "claude" / "skills" / "orchestrate" / "SKILL.md").replace("\r", "")
+    lim = limits(root)
     body = text.split("---", 2)[-1].strip().split("\n")
     rules = [re.sub(r"\s+", " ", l.strip())[:300] for l in body if re.match(r"^\d+\.\s", l.strip())]
     routes = []
@@ -71,9 +85,9 @@ def orchestration(root):
             on = l.strip() == "## Orchestration"
         elif on and l.strip().startswith("- "):
             sec.append(l.strip()[2:][:500])
-    return {"default": first[:300], "rules": rules, "routes": routes, "global": sec,
+    return {"default": first[:300], "rules": rules, "routes": routes, "global": sec, "limits": lim,
             "format": ["위임 브리프: Task(한 문장) · Files(경로·스펙·API 계약) · Return format · Done criteria(명령으로 확인 가능)",
-                       "동시 위임 최대 3개, 같은 파일을 두 에이전트가 수정하지 않는다",
+                       ("동시 위임 최대 %d개" % lim["delegates"] if lim["delegates"] else "동시 위임 상한은 원본에서 찾지 못함") + ", 같은 파일을 두 에이전트가 수정하지 않는다",
                        "qa와 reviewer에는 기준과 변경 파일 목록만 준다(작성자의 추론·판정 금지)",
                        "서브에이전트 보고는 주장이다: 인용한 증거를 확인한 뒤 완료로 전달"]}
 
