@@ -22,7 +22,8 @@ Motion is code; a renderer turns it into video. Follow the render contract, then
 6. A separate reviewer checks the MP4 against the brief: container, scene timing, no black gaps, text at rest, no single-frame pops.
 
 ## References (read when needed)
+- [references/principles.md](references/principles.md): craft rules from practitioners (timing, easing, hierarchy, rhythm, transitions). Read before planning a piece and when reviewing a render for quality, not only defects.
 - [references/insights.md](references/insights.md): curated patterns, tools and critiques with evidence counts. Read before planning a piece.
 - [references/x-log.md](references/x-log.md): raw log of X posts, one row per URL. Read to find examples or check whether a claim has a source.
 
-Both files are updated by the daily routine in `claude/routines/x-motion-digest.md`. Entries come from search snippets, not from the posts themselves, and are unverified unless marked otherwise.
+These files are updated by the daily routine in `claude/routines/x-motion-digest.md`. Most entries come from search snippets and are unverified unless marked; `principles.md` marks each source `read: full` or `read: snippet`.

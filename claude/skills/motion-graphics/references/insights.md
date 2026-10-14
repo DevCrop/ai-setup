@@ -1,6 +1,6 @@
 # Motion-graphics insights
 
-Curated from `x-log.md` and checked against our own renders. Each item: the claim, how many independent X sources back it (`n=`), and whether we reproduced it (`ours:`). The daily routine updates counts and adds items; it removes an item only when newer evidence contradicts it, and says so in the run report.
+Curated from `x-log.md` and checked against our own renders. Each item: the claim, how many independent X sources back it (`n=`), and whether we reproduced it (`ours:`). The daily routine updates counts and adds items; an item that newer evidence contradicts moves under a "Contested" heading with both sides, and the run report says so.
 
 Last updated: 2026-10-14
 
