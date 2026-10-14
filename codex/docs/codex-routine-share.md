@@ -174,7 +174,7 @@ flowchart LR
 
 ### 설치 기본 요건과 검사
 
-Python 3.11 이상과 Git가 필요하다. Node.js는 선택한 CLI 설치 방식에 필요하다.
+Python 3.11 이상과 Git가 필요하다. Node.js 22 이상도 필요하다(루트 `tools.json`).
 TRACE 설치 스크립트는 Python 표준 라이브러리를 사용한다.
 프로젝트 의존성은 해당 프로젝트의 README·package.json·lockfile에 맞춰 별도로 설치한다.
 Projects 같은 작업 폴더가 없으면 새 PC에서 선택한 위치에 생성하되 가짜 프로젝트 설정은 만들지 않는다.

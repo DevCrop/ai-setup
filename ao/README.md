@@ -8,7 +8,7 @@
 
 `projects.json`은 이 머신의 로컬 등록부다(gitignore, 공개 레포에 올리지 않는다). C 또는 D 드라이브에 있는 실제 저장소를 등록하며, 빈 동명 폴더를 실제 코드 저장소로 취급하지 않는다. 다른 PC에는 이 파일을 복사하지 말고 실제 경로를 다시 등록한다.
 
-신규 프로젝트의 역할은 `setup.py`의 `LANES`로 정해진다(`docs/DECISIONS.md` "Model lanes", "AO reviewer lane"): 작업자는 Claude `claude-haiku-5-5`(권한 auto), 감독은 Claude `claude-opus-5-5`, 리뷰어는 Codex `gpt-6.1-sol`(effort high). AO 0.13.7은 `haiku` 같은 별칭을 거부하므로 전체 모델 ID를 쓴다. Codex 작업자는 `rm`을 승인 없이 실행하고 커밋하지 못한 실측(`docs/evidence.md` "AO 로컬 QA")이 있어 쓰지 않는다. 이미 등록된 프로젝트의 역할·권한·기존 스크립트는 보존하며, `python -B setup.py apply --lanes`로 명시하면 역할 세 필드만 `LANES`로 바꾼다(다른 설정은 유지); 바꾸기 전 프로젝트별 이전 값과 새 값을 출력한다. 역할 수준 권한이 프로젝트 전체 권한보다 우선하므로 앱에서 정한 프로젝트 전체 권한은 작업자(worker) 세션에서 auto로 덮인다. 같은 도구 경로에서 다시 적용하면 관리하는 규칙과 Cue를 중복 생성하지 않는다. 자동 리뷰는 초기 비활성이다. 리뷰는 `ao review trigger <세션> --effort high`로 걸고, 리뷰어 PC에서 `gh auth login`이 되어 있어야 GitHub에 게시된다(안 되면 `ao review ls --json`의 지적을 `ao send`로 전달).
+신규 프로젝트의 역할은 `setup.py`의 `LANES`로 정해진다(`docs/DECISIONS.md` "Model lanes", "AO reviewer lane"): 작업자는 Claude `claude-haiku-5-5`(권한 auto), 감독은 Claude `claude-opus-5-5`, 리뷰어는 Codex `gpt-6.1-sol`(effort high). AO 0.13.7은 별칭 `haiku`를 거부하므로(다른 별칭은 확인하지 않음) 전체 모델 ID를 쓴다. Codex 작업자는 `rm`을 승인 없이 실행하고 커밋하지 못한 실측(`docs/evidence.md` "AO 로컬 QA")이 있어 쓰지 않는다. 이미 등록된 프로젝트의 역할·권한·기존 스크립트는 보존하며, `python -B setup.py apply --lanes`로 명시하면 역할 세 필드만 `LANES`로 바꾼다(다른 설정은 유지); 바꾸기 전 프로젝트별 이전 값과 새 값을 출력한다. 역할 수준 권한이 프로젝트 전체 권한보다 우선하므로 앱에서 정한 프로젝트 전체 권한은 작업자(worker) 세션에서 auto로 덮인다. 같은 도구 경로에서 다시 적용하면 관리하는 규칙과 Cue를 중복 생성하지 않는다. 자동 리뷰는 초기 비활성이다. 리뷰는 `ao review trigger <세션> --effort high`로 걸고, 리뷰어 PC에서 `gh auth login`이 되어 있어야 GitHub에 게시된다(안 되면 `ao review ls --json`의 지적을 `ao send`로 전달).
 
 ## 사용 순서
 

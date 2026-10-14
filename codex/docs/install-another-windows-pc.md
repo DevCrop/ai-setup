@@ -109,7 +109,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Codex CLI 설치 실패' }
 codex --version
 ```
 
-설치 후 모든 셸 명령이 `setup refresh had errors`로 실패하면(0.161.0과 0.162.1에서 관찰)
+설치 후 모든 셸 명령이 `setup refresh had errors`로 실패하면(0.161.0에서 관찰, 0.162.1에는 수정이 없다)
 `0.163.0-alpha.2`를 설치한다. 이 버전에서 셸 실행이 성공했다(루트 `docs/evidence.md`
 "Codex 셸 실행 실패"). 수정이 들어간 안정판이 나오면 안정판으로 돌아간다.
 

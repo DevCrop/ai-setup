@@ -1,6 +1,6 @@
 # Evidence
 
-Measurements and source checks behind the current decisions in `docs/DECISIONS.md`; each section names the entry it backs. The runbook is `docs/GUIDE.md`. Language: Korean. Versions, counts and dates are those of the measurement; `claude/settings.json` and the scripts are the current source.
+Measurements and source checks behind the current decisions in `docs/DECISIONS.md`; each section names the DECISIONS entry or GUIDE section it backs. The runbook is `docs/GUIDE.md`. Language: Korean. Versions, counts and dates are those of the measurement; `claude/settings.json` and the scripts are the current source.
 
 ## deny 규칙 시험
 
@@ -215,5 +215,7 @@ Measurements and source checks behind the current decisions in `docs/DECISIONS.m
 - **Codex 워커 가드레일(2026-10-13, 일회용 레포, 원격은 로컬 bare).** 워커 codex `gpt-6.1-sol`, 권한 미설정, 규칙 없음으로 등록했다. Codex 세션 정책은 `approval_policy: on-request`, `sandbox: workspace-write`. 프롬프트는 재시도·우회·사용자 질문을 금지했다(하네스의 승인 이벤트는 0건). 결과: `rm notes.txt`는 승인 요청 없이 실행됐다. `git push --force origin HEAD:main`은 git의 `dubious ownership`으로, `git commit`은 `index.lock: Permission denied`로 실패했다. 둘 다 정책 판단이 아니라 샌드박스 계정과 쓰기 범위의 부수 효과다(AO 워크트리의 `.git`이 원본 레포 안에 있어 쓰기 범위 밖). Codex 워커에는 Claude의 deny/ask 같은 명령 단위 차단이 없고, 이 설정으로는 커밋도 못 한다. GitHub 원격 push, 비밀 파일 읽기, 쓰기 범위를 넓힌 경우는 측정하지 않았다.
 
 ## Codex 셸 실행 실패
+
+근거가 되는 문서: GUIDE "Troubleshooting and traps" (Codex CLI), `codex/docs/install-another-windows-pc.md`.
 
 - Codex CLI 0.161.0(npm)에서 모든 셸 명령이 `helper_unknown_error: setup refresh had errors`로 실패했다(AO 워커·리뷰어, AO 없이 `codex exec` 모두). 샌드박스 로그는 `runtimes\cua_node\...\node_repl.exe`의 ACL 갱신에서 `os error 32`였다. npm CLI를 `0.163.0-alpha.2`로 바꾼 뒤 node_repl을 끈 `codex exec`에서 셸 `git status`가 성공했다. 당시 `latest` 0.162.1에는 수정이 없었다(Codex 측 기록). 수정 PR(openai/codex#51822)의 내용은 읽지 않았다.
