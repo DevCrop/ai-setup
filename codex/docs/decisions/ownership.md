@@ -8,13 +8,14 @@ as prompt context.
 
 The official skill installer bootstrapped upstream packages. Subsequent managed
 updates use setup.py so removal and rollback have the same ownership contract.
-The former standalone bootstrap helper was removed in v1.0.1. It duplicated the
-manifest install path and did not participate in transactional updates/removal.
+There is no separate bootstrap helper; setup.py is the only install path, so every
+install takes part in transactional updates and removal.
 
-Two specifically fingerprinted historical config backup files were retired from
-the active Codex directory. Their contents remain only in the local prior restore
-point. Other app state/backups were not declared owned and were not broadly deleted.
+Entries under `retired` in manifest.json (superseded personal skills and two
+fingerprinted config backup files) are removed only when their SHA-256 matches; their
+prior bytes stay only in the local restore point. Other app state and backups are not
+owned and are never broadly deleted.
 
-Global configuration is not an app-version lock. CLI 0.147.0 was observed and not
-silently upgraded. Remote model availability may differ from its bundled catalog.
+Global configuration is not an app-version lock. The installed CLI is not silently
+upgraded. Remote model availability may differ from its bundled catalog.
 User-selected base model and reasoning settings are preserved.

@@ -1,23 +1,13 @@
 # Account disallows device authentication
 
-## Symptoms and environment
-ChatGPT account device-code login; version-specific UI labels may differ.
+## Symptom
+ChatGPT device-code login fails with a request to enable device-code authentication in account security settings. UI labels differ between versions.
 
-## Confirmed cause and limits
-The user reported an explicit request to enable device-code authentication in account security settings. This establishes the account setting issue for that attempt.
+## Cause
+The account's security settings do not allow device-code authentication.
 
-## Non-destructive diagnosis
-Read the CLI error without collecting codes or authorization parameters; verify the current official login instructions.
+## Fix
+Read the CLI error without collecting codes or authorization parameters and follow the current [official login instructions](https://learn.chatgpt.com/docs/auth). The user enables the account setting and starts a new device login. An agent never changes account security settings itself. Old codes expire and are never reused; record only that the user acted, never a code.
 
-## Resolution
-The user enables the relevant account setting and starts a new supported device login. An agent must not silently alter account security preferences.
-
-## Verification
-The user later reported successful browser authorization; confirm local login status separately.
-
-## Effects and rollback
-Changes an account setting. Record only the fact of user action, never a one-time code. Old codes expire and must not be reused.
-
-## Evidence and last review
-User transcript and historical inventory/S4-container-auth.md. Last evidence review: 2026-09-14. https://learn.chatgpt.com/docs/auth
-
+## Check
+Browser authorization succeeds, and local login status is confirmed separately in the terminal.

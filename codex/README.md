@@ -1,35 +1,27 @@
-# TRACE Setup v1.3.3
+# TRACE Setup
 
-Since 2026-10-13 this is the `codex/` folder of [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup) (moved from DevCrop/codex-setup with its history). Get it with `git clone https://github.com/DevCrop/ai-setup` and run the commands below from `ai-setup/codex`; `python scripts/bootstrap.py check` in ai-setup finds it there.
+This is the `codex/` folder of [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup). Get it with `git clone https://github.com/DevCrop/ai-setup` and run the commands below from `ai-setup/codex`; `python scripts/bootstrap.py check` in ai-setup finds it there.
 
 Portable Codex personal instructions, optional profiles, pinned Ponytail,
 RTK and ownership-based deployment. Python 3.11+ and Git are required. Use ChatGPT subscription login on each host. No API key and no
 50/200-run model benchmark are required.
 
-For the release contents, start with the Korean
-[2026-10-08 setup handoff](docs/setup-handoff-20261008.md): what changed, why,
-host-specific authority, incident recovery, actual checks and another-PC acceptance.
-Portable report UI sources are in [templates/reports](templates/reports/README.md).
-Follow the [detailed Windows installation guide](docs/install-another-windows-pc.md)
+Follow the Korean [detailed Windows installation guide](docs/install-another-windows-pc.md)
 for missing dependencies/folders, project packages, login and host-local scheduling.
-This payload includes the reviewed handoff and stable skill updates. See
-[v1.3.0 verification and upgrade](docs/release-1.3.0.md).
-The [v1.3.1 live-view recovery fix](docs/release-1.3.1.md) keeps the dashboard
-available during collection failures without reporting stale data as fresh.
+Portable report UI sources are in [templates/reports](templates/reports/README.md).
 
-For the final two-lane task/maintenance flow, per-diagnostic RTK routing and
-confirmed-history review, see the Korean [shareable routine](docs/codex-routine-share.md).
-These policies are included in v1.3.0; v1.2.4 is the preceding payload.
+For the two-lane task/maintenance flow, per-diagnostic RTK routing and
+confirmed-feedback review, see the Korean [shareable routine](docs/codex-routine-share.md).
 
-This release also includes an opt-in [RTK live viewer](docs/rtk-live-dashboard.md):
-local read-only aggregate polling, visible-tab refresh, pause/error states and a
-Windows launcher. The existing daily maintenance and stored probe timestamps
-remain independent. No startup task, hook or public web service is installed.
+The opt-in [RTK live viewer](docs/rtk-live-dashboard.md) provides local read-only
+aggregate polling, visible-tab refresh, pause/error states and a Windows launcher.
+It stays available during collection failures without reporting stale data as fresh.
+Daily maintenance and stored probe timestamps are independent of it. No startup
+task, hook or public web service is installed.
 
-The [v1.3.2 skills/profile fix](docs/release-1.3.2.md) moves bundled skills to
-`~/.agents/skills` and reports conflicting legacy profiles without editing them.
-The [v1.3.3 subagent defaults](docs/release-1.3.3.md) set spawned agents to GPT-6.1 Sol
-medium and add a read-only `explorer` agent on GPT-6.1 Sol high (decision 004).
+Bundled skills go to `~/.agents/skills`. `verify` fails and names any `config.toml`
+`profiles.<name>` entry that clashes with a TRACE-managed profile, without editing it.
+Spawned agents default to GPT-6.1 Sol medium, and a read-only `explorer` agent runs on GPT-6.1 Sol high ([decision 004](docs/decisions/004-subagent-models.md)).
 
 ## Install
 
@@ -128,7 +120,7 @@ authorization; local applied and publicly released states remain distinct.
 
 Start with [the project authoring contract](templates/project/README.md). Reuse
 existing rule documents; do not blindly copy the template into an existing repo.
-This release does not install product-project rules. Registered project health and
+This setup does not install product-project rules. Registered project health and
 RTK checks are separate from project onboarding. The portable routine is documented in [the portable guide](docs/portable-routine.md).
 
 ## Checks and maintenance
@@ -139,30 +131,29 @@ python -B scripts/validate_repo.py
 python -B scripts/index_docs.py
 ```
 
-See [documentation index](docs/index.md), [operations](docs/operations.md), and
-[current release verification](docs/verification-adaptive-routine.md). Update detection produces review
-candidates only. Preserve the designated host's existing schedule and authorization;
-installing this repository does not create or transfer an automation. The current
-observed TRACE host preserves Monday 10:00 Asia/Seoul weekly review. A separately
+See [documentation index](docs/index.md) and [operations](docs/operations.md).
+Update detection produces review candidates only. Preserve the designated host's existing schedule and authorization;
+installing this repository does not create or transfer an automation. The
+designated TRACE host keeps its Monday 10:00 Asia/Seoul weekly review. A separately
 authorized daily maintenance routine may update stable CLI/RTK releases within its approved scope,
 with integrity checks and verification; that authorization is not portable policy.
 Broader policy, skills, hooks and permission changes need separate approval.
-The October 5 host authorization permits only the bounded compatible updates
-defined in operations; new computers remain review-only.
+The host authorization permits only the bounded compatible updates defined in
+operations; new computers remain review-only.
 Inactive hosts cannot guarantee scheduled execution. No application-managed plugin
 cache is copied.
 
-## Migrating v1.0.1 and other computers
+## Other computers and existing hosts
 
-Use tag `v1.3.3` for a reproducible release checkout. On an existing TRACE host,
+Install from the reviewed `main` commit and record it. On an existing TRACE host,
 review `plan` before `apply`. Do not copy an entire Codex home between computers;
 authenticate independently and preserve local model, MCP, permissions and app state.
 
-The installer accepts previous ownership records and retires exactly reviewed
-`encoding-safety/SKILL.md` and `official-source-workflow/SKILL.md` under the personal
-skill root. Modified copies conflict even with `--adopt-existing`. The UTF-8 policy
-is in the agreement, source procedure in its conditional guide, and database notes
-in the optional project reference. Only empty parents of removed files are pruned.
+The installer reads older ownership records and removes the `retired` entries in
+`manifest.json` (such as `encoding-safety/SKILL.md` and `official-source-workflow/SKILL.md`
+under the personal skill root) only when their bytes match exactly. Modified copies
+conflict even with `--adopt-existing`. The UTF-8 policy is in the agreement, source
+procedure in its conditional guide, and database notes in the optional project reference. Only empty parents of removed files are pruned.
 One local restore point contains their prior bytes; credentials and raw backups
 must never be committed. `doctor` reports additional personal skills, which can
 make another computer's effective context differ. Whole-home cleanup remains separate.
@@ -188,16 +179,14 @@ the backward-compatible default is `trace`.
 Rendering does not create a monitor, grant host authority or update the scheduler.
 Do not install a second monitor on a new computer.
 
-For the current adaptive routine, exact boundaries and another computer's install/
-acceptance checklist, see [the portable setup guide](docs/portable-routine.md) and
-[branch verification evidence](docs/verification-adaptive-routine.md). Scheduled collection,
+For the adaptive routine, exact boundaries and another computer's install/
+acceptance checklist, see [the portable setup guide](docs/portable-routine.md). Scheduled collection,
 per-invocation local RTK checks and responses to observed failures are separate;
 this repository does not install an event daemon or perform model training.
 
-The preceding v1.2.4 retains its historical agreement. v1.3.0 includes
-active-root/tool/acceptance routing and verified RTK for every supported
-diagnostic, including nested orchestration, while retaining native evidence and
-final acceptance. Confirmed feedback, minimal changes and retirement live in
+The routine uses active-root/tool/acceptance routing and verified RTK for every
+supported diagnostic, including nested orchestration, while keeping native evidence
+and final acceptance. Confirmed feedback, minimal changes and retirement live in
 conditional guidance and the existing private routine state. Efficiency means correct completion with less
 avoidable rework and total task usage when observed, not a shorter prompt alone.
 RTK release planning reuses collection, preserves stable pins and reports conflicts
