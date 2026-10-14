@@ -15,7 +15,7 @@
 | Git | 필수 | 공식 Git for Windows; 이미 정상 설치됐으면 유지 |
 | Python | 필수 | 3.11 이상; 이 저장소의 CI 기준은 3.11/3.14 |
 | Codex 데스크톱 앱 | 앱·예약 루틴·UI 사용 시 필요 | 공식 Windows 앱을 설치하고 본인 계정으로 로그인 |
-| Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 아래 npm 방식 또는 공식 standalone 중 한 방식 |
+| Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 루트 `bootstrap.py install`의 winget `OpenAI.Codex`, 아래 npm 방식, 공식 standalone 중 한 방식 |
 | Node.js/npm | 이 문서의 npm CLI 설치 시 필요 | 이 문서의 예시 기준은 Node 22.23.3/npm 10.9.9 |
 | RTK | 출력 축약 사용 시 설치 | TRACE의 고정 자산 설치기가 해당 OS/CPU 해시·버전 검증 |
 | Chrome/공식 확장 | Chrome 조작을 사용할 때 | 앱의 공식 연결 절차로 설치/연결; 기존 프로필과 권한 보존 |
@@ -107,7 +107,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Codex CLI 설치 실패' }
 codex --version
 ```
 
-이미 standalone Codex가 있으면 npm으로 중복 설치하지 않는다. 두 경로가 존재하면
+설치 후 모든 셸 명령이 `setup refresh had errors`로 실패하면(0.161.0과 0.162.1에서 관찰)
+`0.163.0-alpha.2`를 설치한다. 이 버전에서 셸 실행이 성공했다(루트 `docs/evidence.md`
+"Codex 셸 실행 실패"). 수정이 들어간 안정판이 나오면 안정판으로 돌아간다.
+
+이미 winget 또는 standalone Codex가 있으면 npm으로 중복 설치하지 않는다. 두 경로가 존재하면
 `Get-Command codex -All`로 실제 실행 파일을 구분하고 설치 소유자를 확인한다.
 공식 standalone installer를 선택한 경우 현재 공식 스크립트와 무결성 검증을 검토한
 후 지원되는 PowerShell에서 실행한다. legacy PowerShell에서 Get-FileHash가 실패하면
@@ -232,7 +236,7 @@ python -B scripts/setup.py doctor
 |---|---|---|
 | Codex 홈 | `CODEX_HOME`; 없으면 사용자 홈 `.codex`; `--home` | 설치기가 필요한 관리 파일의 부모 경로 생성; 인증/기존 설정 보존 |
 | 개인 UI 스킬 | 사용자 홈 `.agents/skills`; `--personal-skills` | 스킬 폴더 생성; Codex 홈 변경과 독립 |
-| Ponytail | Codex 홈의 `skills` | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
+| Ponytail | 개인 스킬 루트(사용자 홈 `.agents/skills`; `--personal-skills`) | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
 | 상태·한 개의 이전 복구점 | 해당 홈에 대응하는 사용자별 비공개 상태; `--state` | 다른 PC의 상태 복사 금지 |
 
 한 컴퓨터에서 여러 홈을 쓰는 경우 설치/검증/복구 모두 같은 세 경로를 사용한다.
@@ -320,7 +324,8 @@ Ponytail은 필요한 작업에서 `$ponytail`을 명시한다.
 새 PC에서 사용자가 명시 승인한 범위만 그 PC의 비공개 `routine-review.json`에
 기록한다. 기존 상태가 없으면 설치기가 사용하는 CODEX_HOME-aware 상태 위치에 하나의
 현재 기록을 준비한다. 원래 PC의 ledger를 복사하거나 임의로 승인된 것으로 만들지 않는다.
-호환 자동 업데이트 승인 기록의 필수 항목은 다음과 같다.
+호환 자동 업데이트 승인 기록의 항목은 다음과 같다. 렌더러는 `mode`·`automation_id`·
+`host_identity`·`approved_on`을 확인하고, `schedule`·`scope`는 승인 내용으로 함께 남긴다.
 
 | 항목 | 실제로 기록할 값 |
 |---|---|
@@ -335,7 +340,7 @@ Ponytail은 필요한 작업에서 `$ponytail`을 명시한다.
 review-only다. 이는 TRACE의 운영 제약이며 플랫폼 보안 권한을 대신하지 않는다.
 
 앱의 Codex에서 아래 요청을 **새 PC의 사용자가 직접** 전달하면 설치/일정/승인 범위가
-명확해진다. 기존 루틴이 있으면 업데이트하고 없으면 하나만 등록하도록 했다.
+명확해진다. 기존 루틴이 있으면 업데이트하고 없으면 하나만 등록한다.
 
 > 이 PC에서 docs/install-another-windows-pc.md를 따라 실제 경로와 의존성을 확인하고
 > 동일한 글로벌 셋업을 적용해줘. 체크아웃은 Projects\ai-setup 하나만 쓰고, Projects 폴더는 없을 때만 만들어줘.

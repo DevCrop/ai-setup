@@ -6,10 +6,9 @@ in versions.lock.json. Keeping complete originals makes offline installation and
 transactional removal reproducible; package contents are not automatically loaded
 as prompt context.
 
-The official skill installer bootstrapped upstream packages. Subsequent managed
-updates use setup.py so removal and rollback have the same ownership contract.
-There is no separate bootstrap helper; setup.py is the only install path, so every
-install takes part in transactional updates and removal.
+There is no separate bootstrap helper; setup.py is the only install and update
+path, so every install takes part in transactional updates, removal and rollback
+under the same ownership contract.
 
 Entries under `retired` in manifest.json (superseded personal skills and two
 fingerprinted config backup files) are removed only when their SHA-256 matches; their

@@ -232,7 +232,7 @@ class Run:
                 hashes = {rel: sha256(data) for rel, data in sorted(files.items())}
                 if hashes != skill["files"]:
                     self.notes.append(f"{name}: vendored files change in {newest}; review codex/vendor/{name}/ and "
-                                      "whether codex/ needs a TRACE release note (codex/docs/release-*.md)")
+                                      "run codex/scripts/setup.py plan on a PC after merge")
                 for rel, data in files.items():
                     self.writes[f"codex/vendor/{name}/{rel}"] = data
                 skill.update(commit=commit, version=newest.lstrip("v"), files=hashes)

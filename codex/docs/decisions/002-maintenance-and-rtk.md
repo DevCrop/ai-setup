@@ -8,7 +8,7 @@ capabilities; OpenAI does not publish or endorse this complete setup.
 | Personal/project instruction hierarchy | [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) | Personal preferences global; project contracts remain in each repository |
 | Short instructions and contextual document loading | [Astra guidance](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra) | Keep concise agreement and conditional guides; no mandatory full inventory before edits |
 | Profile files and precedence | [Advanced config](https://learn.chatgpt.com/docs/config-file/config-advanced) | Separate sol/astra presets; base, session and project selections preserved |
-| GPT-6.1 Sol and effort selection | [Models](https://learn.chatgpt.com/docs/models) | Sol preset updated; client-default starting point; no claim of universal Medium superiority |
+| GPT-6.1 Sol and effort selection | [Models](https://learn.chatgpt.com/docs/models) | Sol preset selects GPT-6.1 Sol medium; client-default starting point; no claim of universal Medium superiority |
 | Agent controls and inheritance | [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) | Supported delegation only; explicit higher-priority host requirements win |
 | Implicit skill invocation policy | [Build skills](https://learn.chatgpt.com/docs/build-skills) | Ponytail retains upstream bytes and explicit-only invocation policy |
 | Hook rewrite/trust and scope | [Hooks](https://learn.chatgpt.com/docs/hooks) | No RTK transparent hook; never bypass exact-definition trust; cloud and local runtime differ |

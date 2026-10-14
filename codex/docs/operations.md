@@ -18,9 +18,8 @@ The optional CLI profiles are `sol`, `astra` and `astra-deep`. They are separate
 ## Designated-host maintenance
 
 Preserve the operating host's actual registered automation, cadence and authority.
-The monitor on the designated host runs weekly, Monday 10:00 Asia/Seoul; another
-host's daily routine is not permission to change it. A separately authorized daily
-maintenance routine is a different scheduler with its own scope.
+The routine runs daily at 08:00 Asia/Seoul on the host where it is registered;
+another host's routine is not permission to change it.
 The user authorizes compatible small global guidance and stable Codex CLI/RTK
 updates after review and verification on the designated host only.
 This does not create a monitor, transfer ownership, change cadence or apply to
@@ -192,8 +191,9 @@ Report any unpublished local update proactively rather than calling it distribut
 A compatible small batch changes at most three existing manifest-owned Markdown
 files under `global/AGENTS.md` or `global/guides/`, with at most 120 nonblank added/
 removed lines in total. Keep the agreement at most 2,400 UTF-8 bytes. These are
-TRACE scope bounds, not official optimal numbers. Registry/snapshots, reviewed
-version pins and release bookkeeping are allowed only to support that same batch.
+TRACE scope bounds, not official optimal numbers. Registry/snapshots are allowed
+only to support that same batch. Version pins in `versions.lock.json` and the
+vendored Ponytail files move only through the repository's weekly pin PR.
 Do not add executable setup logic, dependencies, skills/plugins, new managed paths,
 project files or a new architecture under this exception. Do not remove durable
 user preferences, change model/effort/tier, agent limits, MCP/auth, hooks/trust,
@@ -211,8 +211,8 @@ For each eligible batch:
    Establish the batch's intended result, owned scope and affected acceptance
    checks before applying, without expanding project or publishing authority.
 2. Use existing installer plan/apply/verify and one prior restore point. Stable
-   CLI comes from the official npm package after release review; stable RTK uses
-   published asset digests through the existing owned tool installer. Review
+   CLI updates use the host's existing installation method after release review;
+   stable RTK uses the pinned asset digests through the existing owned tool installer. Review
    breaking/permission changes instead of adopting a stable label blindly.
    Do not modify app binaries, credentials, PATH, hooks or sandbox settings.
 3. Run smallest relevant checks: repository integrity/index/hash/link validation,
@@ -228,7 +228,8 @@ For each eligible batch:
    state against its matching source revision, preserve evidence and report the
    exact blocker. Do not repeatedly retry an unchanged failed candidate; retry
    only with new evidence, a changed version or an explicit retry request.
-5. Record local Git history for owned source changes and distinguish applied,
+5. Commit owned source changes on a focused branch, never on `main`, so they
+   reach `main` only through a reviewed PR. Distinguish applied,
    verified, committed and published states. Do not automatically push/merge/tag
    without publishing authorization. If publication is authorized, check the final
    commit's CI and a disposable installation.
@@ -301,7 +302,7 @@ Without `--auto`, it is held. Registrations and observations remain host-local.
   unresolved errors or repeatedly force deletion. Logical size is not physical
   space reclaimed, especially with hard links.
 
-The same registry supplies weekly project health scope; do not maintain a second
+The same registry supplies the routine's project health scope; do not maintain a second
 path inventory in policy. `cleanup-observations.json` holds one current observation
 per project, separate from semantic-review evidence in `routine-review.json`.
 
@@ -323,7 +324,7 @@ reports unchanged, a candidate, or a blocked/older release. It makes no network
 call or pin/install change. Missing, failed or mismatched evidence is unknown, not unchanged.
 Same-version asset drift is a conflict; the installed receipt records the asset
 digest. A receipt without that field is not treated as verified. Review the exact release notes
-and all supported platform digests before changing the pin.
+and all supported platform digests before merging the weekly pin PR that changes the pin.
 Automatically adopt a stable binary only
 within the recorded compatible-tool authorization and its post-update checks. Standard RTK gain
 counts are estimates, not OpenAI usage. Run `verify_rtk.py --project PATH` during

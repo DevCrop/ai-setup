@@ -41,7 +41,8 @@ local deployment state. Defaults use supported per-user locations, not drive let
 `--personal-skills` selects the separate personal skill root (default
 `~/.agents/skills`); CODEX_HOME does not relocate it. For isolated checks, set
 `--home`, `--personal-skills`, and `--state` to disposable locations together.
-Keep the same roots for plan/apply/verify/rollback. Overlapping roots are refused.
+Keep the same roots for plan/apply/verify/rollback. Overlapping Codex home and
+personal skill roots are refused.
 The complete reviewed upstream Ponytail package is bundled in `vendor/` and managed
 by the same manifest for offline installation, removal, and rollback. It retains
 upstream instructions unchanged; the global working agreement limits applicability.
@@ -109,12 +110,12 @@ Use `project_cleanup.py hold --id NAME` or `touch --id NAME` to retain/mark acti
 Only the exact allowlisted dependency directory is removable; source, credentials,
 global installs, stores and unregistered projects are excluded. Binary upgrades
 require existing host authorization; do not register another monitoring host automatically.
-The completion audit also catches unpublished release versions, deployment/tool
-drift and registered projects awaiting their first scoped review. The existing
+The completion audit also catches deployment/tool drift and registered projects
+awaiting their first scoped review. The existing
 TRACE routine reports new actionable gaps proactively and retains previously
 reported findings without repeating unchanged notices. The current host pre-authorizes compatible small guidance and stable CLI/RTK
 updates after review and verification. Future remote publication requires separate
-authorization; local applied and publicly released states remain distinct.
+authorization; local applied and published states remain distinct.
 
 ## Project adoption
 
@@ -132,14 +133,14 @@ python -B scripts/index_docs.py
 ```
 
 See [documentation index](docs/index.md) and [operations](docs/operations.md).
-Update detection produces review candidates only. Preserve the designated host's existing schedule and authorization;
-installing this repository does not create or transfer an automation. The
-designated TRACE host keeps its Monday 10:00 Asia/Seoul weekly review. A separately
-authorized daily maintenance routine may update stable CLI/RTK releases within its approved scope,
+Update detection produces review candidates only. Preserve each host's existing schedule and authorization;
+installing this repository does not create or transfer an automation. A host's
+registered routine runs daily at 08:00 Asia/Seoul. With its separately recorded
+authorization it may update stable CLI/RTK releases within its approved scope,
 with integrity checks and verification; that authorization is not portable policy.
 Broader policy, skills, hooks and permission changes need separate approval.
 The host authorization permits only the bounded compatible updates defined in
-operations; new computers remain review-only.
+operations; a computer without its own recorded authorization stays review-only.
 Inactive hosts cannot guarantee scheduled execution. No application-managed plugin
 cache is copied.
 
@@ -177,7 +178,8 @@ render it with `python -B scripts/render_heartbeat.py --automation-id EXISTING_I
 on the designated host. The ID must match that host's private authorization record;
 the backward-compatible default is `trace`.
 Rendering does not create a monitor, grant host authority or update the scheduler.
-Do not install a second monitor on a new computer.
+Installing TRACE on another computer does not register a routine there; that
+computer's owner registers its own (see the [Windows install guide](docs/install-another-windows-pc.md)).
 
 For the adaptive routine, exact boundaries and another computer's install/
 acceptance checklist, see [the portable setup guide](docs/portable-routine.md). Scheduled collection,
