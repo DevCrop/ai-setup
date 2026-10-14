@@ -2,13 +2,13 @@
 
 공통 실행 도구는 이 폴더 한 곳에서 관리한다. 프로젝트 규칙은 각 저장소의 AGENTS.md가 소유한다. 새 상주 프로세스, 자동 모델 변경, API 키, 추가 MCP/훅은 설치하지 않는다.
 
-이 폴더는 2026-10-13 비공개 레포 DevCrop/ao-work-history의 `setup/`(커밋 `371fe7f`)에서 옮겼다. 다른 머신은 아래 "다른 PC / 다른 경로"를 따른다.
+다른 머신은 아래 "다른 PC / 다른 경로"를 따른다.
 
 ## 이 머신의 등록부
 
 `projects.json`은 이 머신의 로컬 등록부다(gitignore, 공개 레포에 올리지 않는다). C 또는 D 드라이브에 있는 실제 저장소를 등록하며, 빈 동명 폴더를 실제 코드 저장소로 취급하지 않는다. 다른 PC에는 이 파일을 복사하지 말고 실제 경로를 다시 등록한다.
 
-신규 프로젝트의 역할은 `setup.py`의 `LANES`로 정해진다(`docs/DECISIONS.md` 2026-10-12·13): 작업자는 Claude `claude-haiku-5-5`(권한 auto), 감독은 Claude `claude-opus-5-5`, 리뷰어는 Codex `gpt-6.1-sol`(effort high). AO 0.13.7은 `haiku` 같은 별칭을 거부하므로 전체 모델 ID를 쓴다. Codex 작업자는 `rm`을 승인 없이 실행하고 커밋하지 못한 실측(2026-10-13)이 있어 쓰지 않는다. 이미 등록된 프로젝트의 역할·권한·기존 스크립트는 보존하며, `python -B setup.py apply --lanes`로 명시하면 역할 세 필드만 `LANES`로 바꾼다(다른 설정은 유지); 바꾸기 전 프로젝트별 이전 값과 새 값을 출력한다. 역할 수준 권한이 프로젝트 전체 권한보다 우선하므로 앱에서 정한 프로젝트 전체 권한은 작업자(worker) 세션에서 auto로 덮인다. 같은 도구 경로에서 다시 적용하면 관리하는 규칙과 Cue를 중복 생성하지 않는다. 자동 리뷰는 초기 비활성이다. 리뷰는 `ao review trigger <세션> --effort high`로 걸고, 리뷰어 PC에서 `gh auth login`이 되어 있어야 GitHub에 게시된다(안 되면 `ao review ls --json`의 지적을 `ao send`로 전달).
+신규 프로젝트의 역할은 `setup.py`의 `LANES`로 정해진다(`docs/DECISIONS.md` "Model lanes", "AO reviewer lane"): 작업자는 Claude `claude-haiku-5-5`(권한 auto), 감독은 Claude `claude-opus-5-5`, 리뷰어는 Codex `gpt-6.1-sol`(effort high). AO 0.13.7은 별칭 `haiku`를 거부하므로(다른 별칭은 확인하지 않음) 전체 모델 ID를 쓴다. Codex 작업자는 `rm`을 승인 없이 실행하고 커밋하지 못한 실측(`docs/evidence.md` "AO 로컬 QA")이 있어 쓰지 않는다. 이미 등록된 프로젝트의 역할·권한·기존 스크립트는 보존하며, `python -B setup.py apply --lanes`로 명시하면 역할 세 필드만 `LANES`로 바꾼다(다른 설정은 유지); 바꾸기 전 프로젝트별 이전 값과 새 값을 출력한다. 역할 수준 권한이 프로젝트 전체 권한보다 우선하므로 앱에서 정한 프로젝트 전체 권한은 작업자(worker) 세션에서 auto로 덮인다. 같은 도구 경로에서 다시 적용하면 관리하는 규칙과 Cue를 중복 생성하지 않는다. 자동 리뷰는 초기 비활성이다. 리뷰는 `ao review trigger <세션> --effort high`로 걸고, 리뷰어 PC에서 `gh auth login`이 되어 있어야 GitHub에 게시된다(안 되면 `ao review ls --json`의 지적을 `ao send`로 전달).
 
 ## 사용 순서
 
@@ -54,20 +54,18 @@ python -B qa.py php-lint routes/web.php --project my-site --root '<실제 저장
 
 ## 근거와 로컬 정책
 
-2026-10-11 확인. AO 설치 버전 0.13.7, Compose 2.34.0. 프로젝트/Cue와 수명주기는 설치 버전의 소스 계약을 기준으로 사용한다. 컨테이너 예산·RAM·수동 설치는 이 사용자의 로컬 정책이며 AO/Docker의 기본 기능이라고 주장하지 않는다.
+기준: AO 0.13.7, Compose 2.34.0. 프로젝트/Cue와 수명주기는 설치 버전의 소스 계약을 기준으로 사용한다. 컨테이너 예산·RAM·수동 설치는 이 사용자의 로컬 정책이며 AO/Docker의 기본 기능이라고 주장하지 않는다.
 
 - https://docs.orchestrator.inc/configuration/projects/ — DB 기반 프로젝트 설정, 역할별 모델/effort, postCreate/preRemove, Cue, CLI 전체 설정 교체 주의.
 - https://docs.docker.com/reference/cli/docker/compose/ — -f - stdin, project-directory, 독립 project name, parallel 옵션.
 - https://docs.docker.com/reference/cli/docker/compose/up/ — --no-deps, --no-build, --pull never.
 - https://learn.chatgpt.com/docs/environments/git-worktrees — 작업별 체크아웃과 Handoff.
-- https://learn.chatgpt.com/docs/codex/cli — 사용자 설치 CLI와 로그인. 이 머신의 구버전 npm 중복 설치 제거는 AO의 잘못된 바이너리 선택을 해결하기 위한 로컬 정리다.
+- https://learn.chatgpt.com/docs/codex/cli — 사용자 설치 CLI와 로그인. Codex CLI가 여러 개 설치돼 있으면 AO가 다른 바이너리를 고를 수 있으므로 하나만 남긴다.
 
-과거 확인 결과와 미검증 항목은 비공개 레포 DevCrop/ao-work-history의 `evidence/QA-RESULTS.md`에 있다. 설정 저장 성공은 렌더링이나 전체 사이트 기능 검증을 뜻하지 않는다.
+설정 저장 성공은 렌더링이나 전체 사이트 기능 검증을 뜻하지 않는다.
 
-## 이 머신의 AO 실행 파일 수정
+## AO 업데이트와 큰 저장소
 
-AO 0.13.7에 Codex 진단용 바이너리 선택과 Windows Setup/Cleanup의 따옴표 경로 처리 수정을 적용했다. 원본과 수정 전 실행 파일은 사용자 홈 `.ao/backups`에 보존했다. AO 자동 업데이트는 이 로컬 수정을 덮어쓸 수 있으므로 업데이트 후 `ao doctor`와 작은 작업의 Setup을 다시 확인한다. 다른 PC에 이 실행 파일을 그대로 복사하지 말고 해당 설치 버전에서 문제가 재현되는지 먼저 확인한다.
+AO 0.13.7은 Codex 바이너리 선택과 Windows Setup/Cleanup의 따옴표 경로에 문제가 있어 첫 PC에서는 로컬 수정본을 쓴다(원본은 `~/.ao/backups`). AO 자동 업데이트는 이 수정을 덮어쓰고, 수정본을 다른 PC에 복사하지 않는다. AO를 업데이트한 뒤에는 `ao doctor`와 작은 작업의 Setup을 다시 확인한다. AO 실행 파일 경로(`resources/daemon`)는 PC마다 다르므로 다른 PC의 경로를 복사하지 말고 그 PC의 설치 경로와 `ao doctor` 결과를 확인한다. 이미 열린 앱/터미널은 PATH 변경 전 환경을 유지할 수 있다.
 
-현재 사용자 PATH에 설치된 AO의 `resources/daemon` 폴더를 추가했다. 이미 열린 앱/터미널은 이전 환경을 유지할 수 있다. AO 작업자 자체는 설치된 실행 파일 경로를 세션 PATH에 넣는다. 다른 PC에서는 그 PC의 설치 경로와 `ao doctor` 결과를 확인하며 이 머신의 C 경로를 복사하지 않는다.
-
-큰 저장소는 워크트리 생성 자체가 무거울 수 있다. 한 대형 PHP 저장소의 전체 체크아웃 시험은 약 1.7 GiB까지 Git 메모리를 사용했다. 런타임 QA는 한 프로젝트씩 수행하고, 통합 담당 1개와 분리된 구현 작업 1개부터 시작한다. 이 도구가 Git 체크아웃의 메모리까지 제한하는 것은 아니다.
+큰 저장소는 워크트리 생성 자체가 무거울 수 있다(대형 PHP 저장소의 전체 체크아웃이 Git 메모리를 약 1.7 GiB까지 썼다). 런타임 QA는 한 프로젝트씩 수행하고, 통합 담당 1개와 분리된 구현 작업 1개부터 시작한다. 이 도구가 Git 체크아웃의 메모리까지 제한하는 것은 아니다.

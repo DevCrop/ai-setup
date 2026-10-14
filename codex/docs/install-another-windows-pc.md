@@ -1,10 +1,7 @@
 # 다른 Windows PC에 동일한 글로벌 셋업 적용하기
 
-> 2026-10-13부터 이 셋업은 [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup)의 `codex/` 폴더다(DevCrop/codex-setup에서 히스토리째 옮김). 아래의 codex-setup clone·`cd` 단계 대신 `git clone https://github.com/DevCrop/ai-setup` 후 `ai-setup/codex`에서 명령을 실행한다. 아래 브랜치·태그 고정 절차는 그 시점 기록이다.
-
-2026-10-08 기준 `codex/global-setup-handoff-20261008` 브랜치용 상세 안내다.
-설정 이유는 [인수인계 문서](setup-handoff-20261008.md), 실행 경계는
-[운영 계약](operations.md)을 함께 읽는다. 아래 명령은 단계별로 실행하며
+이 셋업은 [DevCrop/ai-setup](https://github.com/DevCrop/ai-setup)의 `codex/` 폴더다.
+실행 경계는 [운영 계약](operations.md)을 함께 읽는다. 아래 명령은 단계별로 실행하며
 오류가 나면 그 단계에서 멈추고 실제 상태를 확인한다.
 
 **동일하게 전달하는 것**은 작업 규칙·가이드·고정 스킬·RTK 검증 방식·루틴 절차·보고
@@ -13,13 +10,15 @@
 
 ## 1. 설치할 것과 설치하지 않아도 되는 것
 
+권장 경로는 루트의 `python scripts/bootstrap.py install`이다(Git·Python·Node·Codex CLI를 winget으로 설치, 루트 `docs/GUIDE.md`). 아래 수동 절차는 그 대안이다.
+
 | 항목 | 필요 여부 | 새 PC에서의 선택 |
 |---|---|---|
 | Git | 필수 | 공식 Git for Windows; 이미 정상 설치됐으면 유지 |
 | Python | 필수 | 3.11 이상; 이 저장소의 CI 기준은 3.11/3.14 |
 | Codex 데스크톱 앱 | 앱·예약 루틴·UI 사용 시 필요 | 공식 Windows 앱을 설치하고 본인 계정으로 로그인 |
-| Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 아래 npm 방식 또는 공식 standalone 중 한 방식 |
-| Node.js/npm | 이 문서의 npm CLI 설치 시 필요 | 같은 날짜 검증 환경을 재현하려면 Node 22.23.3/npm 10.9.9 |
+| Codex CLI | CLI 확인·운영에 필요 | 기존 정상 설치는 유지; 루트 `bootstrap.py install`의 winget `OpenAI.Codex`, 아래 npm 방식, 공식 standalone 중 한 방식 |
+| Node.js/npm | 이 셋업에 필요(22 이상, 루트 `tools.json`); npm CLI 설치에도 쓴다 | 이 문서의 예시 기준은 Node 22.23.3/npm 10.9.9 |
 | RTK | 출력 축약 사용 시 설치 | TRACE의 고정 자산 설치기가 해당 OS/CPU 해시·버전 검증 |
 | Chrome/공식 확장 | Chrome 조작을 사용할 때 | 앱의 공식 연결 절차로 설치/연결; 기존 프로필과 권한 보존 |
 | 공식 Computer Use 플러그인 | 앱/브라우저 도구를 실제 사용할 때 | 해당 계정·앱에서 지원되는 공식 경로로 활성화 |
@@ -27,10 +26,9 @@
 | OpenAI Python/Node SDK·API 키 | 이 셋업에는 불필요 | ChatGPT 로그인 사용; API 기반 프로젝트는 해당 프로젝트에서 별도 구성 |
 | `pip install`/루트 `npm install` | TRACE 설치에는 불필요 | 설치/검증 스크립트는 Python 표준 라이브러리 사용 |
 
-원래 PC의 런타임 확인값은 CLI 0.161.0, RTK 0.51.0, Node 22.23.3,
-npm 10.9.9, Corepack 0.36.0, tsx 4.23.15, TypeScript 7.0.2였다.
-이는 날짜가 있는 재현 기준이며 앞으로도 최신이라는 뜻은 아니다. 기존 호환 도구를
-무조건 다운그레이드하거나 앱 내장 런타임·프로젝트 의존성을 일괄 교체하지 않는다.
+검토 기준 버전은 `versions.lock.json`에 있다: Codex CLI는 `runtime.codex_cli_reviewed`,
+RTK는 `tools.rtk.version`. Node·npm 버전은 이 문서의 예시 기준이며 최신이라는 뜻은
+아니다. 기존 호환 도구를 무조건 다운그레이드하거나 앱 내장 런타임·프로젝트 의존성을 일괄 교체하지 않는다.
 
 ## 2. 필수 도구 설치와 실행 확인
 
@@ -92,8 +90,8 @@ $traceNodeInstaller = Join-Path $env:USERPROFILE 'Downloads\node-v22.23.3-x64.ms
 Get-FileHash -LiteralPath $traceNodeInstaller -Algorithm SHA256
 ```
 
-이 문서 검토 시 x64 MSI의 공식 SHA-256은
-`1c0efc8449987e7da5d184786a0a96da83ffa11d334421201e5c09b93017cb8d`였다.
+x64 MSI의 공식 SHA-256은
+`1c0efc8449987e7da5d184786a0a96da83ffa11d334421201e5c09b93017cb8d`이다.
 ARM64나 다른 버전에는 이 값을 사용하지 않는다. 일치하는 설치기를 직접 실행한 후
 새 터미널에서 `node --version`, `npm.cmd --version`을 확인한다.
 이미 다른 버전/설치 관리자가 있으면 경로·프로젝트 호환성을 먼저 검토한다.
@@ -101,19 +99,24 @@ ARM64나 다른 버전에는 이 값을 사용하지 않는다. 일치하는 설
 ### Codex CLI와 앱
 
 [OpenAI 공식 CLI 안내](https://learn.chatgpt.com/docs/codex/cli)의 설치 방식 중
-하나를 선택한다. Node/npm 경로로 이 브랜치의 검토 기준을 재현하는 예는 다음과 같다.
-`@openai/codex@0.161.0`의 npm 배포 존재와 integrity 메타데이터를 확인했다.
+하나를 선택한다. Node/npm 경로의 예는 다음과 같다. 버전에는 저장소의
+`versions.lock.json`에 있는 `runtime.codex_cli_reviewed` 값을 넣는다.
 
 ```powershell
-npm.cmd install --global @openai/codex@0.161.0
+$traceCliVersion = Read-Host 'versions.lock.json의 runtime.codex_cli_reviewed 값'
+npm.cmd install --global "@openai/codex@$traceCliVersion"
 if ($LASTEXITCODE -ne 0) { throw 'Codex CLI 설치 실패' }
 codex --version
 ```
 
-이미 standalone Codex가 있으면 npm으로 중복 설치하지 않는다. 두 경로가 존재하면
+설치 후 모든 셸 명령이 `setup refresh had errors`로 실패하면(0.161.0에서 관찰, 0.162.1에는 수정이 없다)
+`0.163.0-alpha.2`를 설치한다. 이 버전에서 셸 실행이 성공했다(루트 `docs/evidence.md`
+"Codex 셸 실행 실패"). 수정이 들어간 안정판이 나오면 안정판으로 돌아간다.
+
+이미 winget 또는 standalone Codex가 있으면 npm으로 중복 설치하지 않는다. 두 경로가 존재하면
 `Get-Command codex -All`로 실제 실행 파일을 구분하고 설치 소유자를 확인한다.
 공식 standalone installer를 선택한 경우 현재 공식 스크립트와 무결성 검증을 검토한
-후 지원되는 PowerShell에서 실행한다. 과거 legacy PowerShell의 Get-FileHash 실패를
+후 지원되는 PowerShell에서 실행한다. legacy PowerShell에서 Get-FileHash가 실패하면
 같은 방식으로 반복하거나 전역 실행 정책을 완화하지 않는다.
 
 [OpenAI 공식 Windows 앱 안내](https://learn.chatgpt.com/docs/windows/windows-app)를
@@ -130,27 +133,21 @@ codex login status
 기존 모델·추론 선택은 보존한다. 원래 사용자의 선택은 `gpt-6.1-sol / medium`이다.
 새 계정에서 사용할 수 없다면 그 제약을 알리고 자동으로 다른 모델을 선택하지 않는다.
 
-## 3. Projects·ChatGPT 폴더가 없으면 준비하기
+## 3. Projects 폴더가 없으면 준비하기
 
 **Projects는 폴더이며 TRACE 필수 설정 파일이 아니다.** 프로젝트를 아직 가져오지
 않았어도 작업 루트는 만들 수 있다. 실제 프로젝트의 `package.json`이나 lockfile을
 가짜로 만들지 않으며 모든 프로젝트에 같은 `AGENTS.md`를 복사하지 않는다.
 
-아래 코드는 사용자 홈의 `Projects`, Windows가 반환하는 문서 위치의 `ChatGPT`,
-그 하위 `글로벌 셋업`을 없을 때만 만든다. 문서 폴더는 OneDrive 등으로 이동될 수 있다.
+아래 코드는 사용자 홈의 `Projects`를 없을 때만 만든다. ai-setup 체크아웃은
+`Projects\ai-setup` 하나만 쓴다(루트 `docs/GUIDE.md`의 Claude 설정과 같은 체크아웃).
 이 변수들은 다음 단계에서도 사용하므로 같은 PowerShell에서 계속 실행한다.
 
 ```powershell
 $traceProjectsRoot = Join-Path $env:USERPROFILE 'Projects'
-$traceDocumentsRoot = [Environment]::GetFolderPath('MyDocuments')
-if ([string]::IsNullOrWhiteSpace($traceDocumentsRoot)) {
-    throw '문서 폴더 경로를 확인할 수 없습니다. 사용할 실제 경로를 먼저 지정하세요.'
-}
-$traceChatGptRoot = Join-Path $traceDocumentsRoot 'ChatGPT'
-$traceSetupParent = Join-Path $traceChatGptRoot '글로벌 셋업'
-$traceCheckout = Join-Path $traceSetupParent 'codex-setup'
+$traceCheckout = Join-Path $traceProjectsRoot 'ai-setup'
 
-foreach ($tracePath in @($traceProjectsRoot, $traceChatGptRoot, $traceSetupParent)) {
+foreach ($tracePath in @($traceProjectsRoot)) {
     if (Test-Path -LiteralPath $tracePath) {
         if (-not (Test-Path -LiteralPath $tracePath -PathType Container)) {
             throw "폴더 위치에 파일이 있습니다: $tracePath"
@@ -161,33 +158,33 @@ foreach ($tracePath in @($traceProjectsRoot, $traceChatGptRoot, $traceSetupParen
 }
 ```
 
-다른 작업 드라이브를 쓰려면 실행 전에 `$traceProjectsRoot`/`$traceSetupParent`를
+다른 작업 드라이브를 쓰려면 실행 전에 `$traceProjectsRoot`를
 실제 선택 경로로 지정한다. 원래 PC의 사용자명·드라이브·절대경로를 복사하지 않는다.
 폴더를 만들었다고 자동 프로젝트 등록이나 정리 권한이 생기지 않는다.
 링크/junction 경로는 설치기의 안전 검사에서 충돌할 수 있으므로 우회하지 않는다.
 
-## 4. 정확한 브랜치 가져오기
+## 4. 저장소 가져오기
 
-아래 코드는 새 체크아웃 전용이다. `codex-setup`이 이미 있으면 중단하며 삭제하지 않는다.
+Claude 설정을 위해 `Projects\ai-setup`을 이미 받았다면 새로 받지 말고 아래 "기존 체크아웃" 절차를 쓴다.
+아래 코드는 체크아웃이 없을 때만 쓴다. `ai-setup`이 이미 있으면 중단하며 삭제하지 않는다.
+TRACE 명령은 체크아웃의 `codex` 폴더에서 실행한다.
 
-설치할 커밋의 [최종 공유 루틴](codex-routine-share.md)도 읽는다. 현재 브랜치는
-활성 프로젝트 도구 선택·매 지원 진단의 RTK 러너·히스토리 기반 회고 지침을 포함한다.
-기존 훅 설정·개인 집계·자동화 권한은 설치로 복제되지 않는다.
+설치할 커밋의 [공유 루틴](codex-routine-share.md)도 읽는다. 기존 훅 설정·개인 집계·
+자동화 권한은 설치로 복제되지 않는다.
 
 ```powershell
 if (Test-Path -LiteralPath $traceCheckout) {
     throw '체크아웃 경로가 이미 있습니다. 아래의 기존 체크아웃 절차로 확인하세요.'
 }
-git clone --branch codex/global-setup-handoff-20261008 --single-branch `
-    https://github.com/DevCrop/codex-setup.git $traceCheckout
+git clone https://github.com/DevCrop/ai-setup.git $traceCheckout
 if ($LASTEXITCODE -ne 0) { throw 'Git clone 실패' }
-Set-Location -LiteralPath $traceCheckout
+Set-Location -LiteralPath (Join-Path $traceCheckout 'codex')
 git branch --show-current
 git rev-parse HEAD
 git status --short
 ```
 
-기존 체크아웃은 경로·원격·브랜치와 작업 변경을 먼저 확인한다. **아래 갱신은 해당
+기존 체크아웃은 경로·원격·브랜치와 작업 변경을 먼저 확인한다. **아래 갱신은 main
 브랜치이고 작업 폴더가 깨끗하며 새 원격 변경을 검토한 경우에만** 실행한다.
 
 ```powershell
@@ -195,22 +192,21 @@ Set-Location -LiteralPath $traceCheckout
 git remote -v
 git branch --show-current
 git status --short
-git fetch origin codex/global-setup-handoff-20261008
+git fetch origin main
 if ($LASTEXITCODE -ne 0) { throw 'Git fetch 실패' }
 git log --oneline HEAD..FETCH_HEAD
-git diff HEAD..FETCH_HEAD -- README.md docs global manifest.json templates versions.lock.json scripts
+git diff HEAD..FETCH_HEAD -- codex
 ```
 
-검토한 상태가 맞을 때 `git merge --ff-only FETCH_HEAD`로 갱신한다.
-원격 추적 ref가 없는 single-branch 환경에서도 실제 fetch 결과를 사용한다.
+검토한 상태가 맞을 때 `git merge --ff-only FETCH_HEAD`로 갱신하고
+`Set-Location -LiteralPath (Join-Path $traceCheckout 'codex')`로 이동한다.
 로컬 수정·다른 브랜치·분기된 커밋이 있으면 보존하고 먼저 충돌을 해결한다.
 `reset --hard`, `clean`, 폴더 삭제로 문제를 숨기지 않는다.
-실제로 설치한 커밋은 기록한다. PR #15가 아직 merge되지 않았으면 main이나 v1.2.4만
-가져와서는 이 브랜치의 추가 설정이 전달되지 않는다.
+실제로 설치한 커밋은 기록한다.
 
 ## 5. 검사한 다음 글로벌 설정 설치
 
-이 단계는 TRACE 체크아웃에서 실행한다. 명령별 실패 시 다음 단계로 진행하지 않는다.
+이 단계는 체크아웃의 `codex` 폴더에서 실행한다. 명령별 실패 시 다음 단계로 진행하지 않는다.
 
 ```powershell
 $env:PYTHONIOENCODING = 'utf-8'
@@ -242,7 +238,7 @@ python -B scripts/setup.py doctor
 |---|---|---|
 | Codex 홈 | `CODEX_HOME`; 없으면 사용자 홈 `.codex`; `--home` | 설치기가 필요한 관리 파일의 부모 경로 생성; 인증/기존 설정 보존 |
 | 개인 UI 스킬 | 사용자 홈 `.agents/skills`; `--personal-skills` | 스킬 폴더 생성; Codex 홈 변경과 독립 |
-| Ponytail | Codex 홈의 `skills` | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
+| Ponytail | 개인 스킬 루트(사용자 홈 `.agents/skills`; `--personal-skills`) | 해시 고정 원본과 명시 호출 정책을 같은 설치기로 관리 |
 | 상태·한 개의 이전 복구점 | 해당 홈에 대응하는 사용자별 비공개 상태; `--state` | 다른 PC의 상태 복사 금지 |
 
 한 컴퓨터에서 여러 홈을 쓰는 경우 설치/검증/복구 모두 같은 세 경로를 사용한다.
@@ -252,7 +248,7 @@ python -B scripts/setup.py doctor
 ## 6. RTK 설치와 실제 경로 확인
 
 RTK는 TRACE 파일 설치만으로 설치되지 않는다. 출력 축약을 사용할 새 PC에서 별도 설치한다.
-해당 브랜치가 고정한 플랫폼 자산의 SHA-256·버전을 검사하며 임의 PATH/훅을 추가하지 않는다.
+저장소가 고정한 플랫폼 자산의 SHA-256·버전을 검사하며 임의 PATH/훅을 추가하지 않는다.
 
 ```powershell
 python -B scripts/tools.py install-rtk
@@ -330,7 +326,8 @@ Ponytail은 필요한 작업에서 `$ponytail`을 명시한다.
 새 PC에서 사용자가 명시 승인한 범위만 그 PC의 비공개 `routine-review.json`에
 기록한다. 기존 상태가 없으면 설치기가 사용하는 CODEX_HOME-aware 상태 위치에 하나의
 현재 기록을 준비한다. 원래 PC의 ledger를 복사하거나 임의로 승인된 것으로 만들지 않는다.
-호환 자동 업데이트 승인 기록의 필수 항목은 다음과 같다.
+호환 자동 업데이트 승인 기록의 항목은 다음과 같다. 렌더러는 `mode`·`automation_id`·
+`host_identity`·`approved_on`을 확인하고, `schedule`·`scope`는 승인 내용으로 함께 남긴다.
 
 | 항목 | 실제로 기록할 값 |
 |---|---|
@@ -345,10 +342,10 @@ Ponytail은 필요한 작업에서 `$ponytail`을 명시한다.
 review-only다. 이는 TRACE의 운영 제약이며 플랫폼 보안 권한을 대신하지 않는다.
 
 앱의 Codex에서 아래 요청을 **새 PC의 사용자가 직접** 전달하면 설치/일정/승인 범위가
-명확해진다. 기존 루틴이 있으면 업데이트하고 없으면 하나만 등록하도록 했다.
+명확해진다. 기존 루틴이 있으면 업데이트하고 없으면 하나만 등록한다.
 
 > 이 PC에서 docs/install-another-windows-pc.md를 따라 실제 경로와 의존성을 확인하고
-> 동일한 글로벌 셋업을 적용해줘. Projects와 문서의 ChatGPT 폴더는 없을 때만 만들어줘.
+> 동일한 글로벌 셋업을 적용해줘. 체크아웃은 Projects\ai-setup 하나만 쓰고, Projects 폴더는 없을 때만 만들어줘.
 > 기존 모델/effort·인증·MCP·권한·훅·프로젝트 소스는 보존해줘. 이 PC에서만 기존 루틴을
 > 매일 오전 8시 Asia/Seoul로 업데이트하고, 없으면 이 대화에 하나의 heartbeat를 등록해줘.
 > 공식 근거 검토 후 호환되는 작은 글로벌 지침과 안정 Codex CLI/RTK 업데이트를 승인한다.
@@ -411,7 +408,7 @@ Python 서버는 검증된 TRACE 러너로 실제 새 PC 집계만 읽고 `127.0
 
 - [ ] 의도한 Git 브랜치·실제 커밋을 확인했다.
 - [ ] Python/Git/선택한 CLI 경로가 정상이고 필요한 Node/npm만 준비했다.
-- [ ] Projects·ChatGPT·셋업 폴더가 존재하며 기존 파일을 보존했다.
+- [ ] Projects 폴더와 `Projects\ai-setup` 체크아웃 하나가 있으며 기존 파일을 보존했다.
 - [ ] 저장소 테스트/무결성, plan/apply/verify, 반복 unchanged를 확인했다.
 - [ ] 새 PC에서 로그인했고 모델/effort·인증·MCP·권한·훅을 보존했다.
 - [ ] 개인 스킬 파일 검사와 새 세션 발견을 구분해 확인했다.
@@ -424,10 +421,3 @@ Python 서버는 검증된 TRACE 러너로 실제 새 PC 집계만 읽고 `127.0
 결과는 커밋, OS/Python, pass/skip/fail, 설치/재적용, 실제 도구 버전, 스킬 발견/실행,
 루틴 등록/첫 실행, 남은 제약만 정제해 전달한다. 비밀·로그 원문·개인 기록은 공유하지 않는다.
 문서 검증과 원래 PC/CI 검증은 다른 사용자의 새 PC 설치 성공과 별개다.
-
-### 이 문서의 검증 범위 — 2026-10-08
-
-- PowerShell 예제 15개의 구문 분석이 통과했다. 다운로드·로그인·설치 명령을 모두 실행했다는 뜻은 아니다.
-- 폴더 생성 예제를 격리된 경로에서 실행해 신규 생성, 반복 실행과 기존 파일 보존, 같은 위치의 파일 충돌 차단, 문서 경로 미확인 시 중단을 확인했다.
-- 별도 Codex 홈·개인 스킬·상태 경로에서 `plan → apply → verify → apply`를 실행했다. 최초 적용, 검증 pass, 재적용 unchanged를 확인했고 기존 파일과 모델 설정을 보존했다.
-- 저장소 무결성·문서 링크 검사와 변경 diff 검사를 수행했다. 다른 PC의 계정 로그인, 실제 스킬 호출, 의존성 설치, 자동화 등록·실행은 해당 PC에서 위 체크리스트로 별도 확인해야 한다.

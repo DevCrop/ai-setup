@@ -17,7 +17,7 @@ Sources: [RTK 0.51.0 release](https://github.com/rtk-ai/rtk/releases/tag/v0.51.0
 When reporting efficiency, use the verified runner's `gain --daily --format json`
 aggregate snapshot; keep command text and project paths out of reports. Label
 counts as local recorded invocations and values as RTK token estimates, never
-OpenAI usage, money saved or subscription quota. Historical records may include
+OpenAI usage, money saved or subscription quota. Recorded aggregates may include
 other RTK versions, repeated diagnostics and fixtures; do not attribute all savings
 to the current runner. Compare arithmetic totals and disclose inconsistencies.
 Pair estimates with a scoped raw/filtered byte comparison, exit/evidence checks
@@ -31,13 +31,13 @@ Other hosts need their own authorization. Do not run commands to increase gain.
 
 ## Existing host integrations
 
-Earlier host guidance used a user-local PATH binary and an opt-in native hook.
-The v1.2 installer neither removes nor upgrades that separately owned integration.
+A host may have its own user-local PATH binary and an opt-in native hook.
+The installer neither removes nor upgrades that separately owned integration.
 Prefer the verified TRACE runner to avoid silently selecting a second binary.
 Inspect any existing hook with the supported Codex `/hooks` review and trust flow;
 do not alter trust records or assume a processor smoke test proves desktop
 interception. A CLI upgrade and a desktop app update are separate operations.
-Do not copy host-local sandbox recovery paths or older 0.50.0 asset hashes into a
+Do not copy host-local sandbox recovery paths or asset hashes other than the current pin into a
 new computer. Preserve unrelated hooks, credentials, environment and permissions.
 Sources: [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference),
 [Hooks and trust](https://learn.chatgpt.com/docs/hooks).

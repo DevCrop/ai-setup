@@ -8,7 +8,7 @@
 
 Python 3.11 이상과 이미 검증된 TRACE RTK 설치가 필요하다. `CODEX_HOME`을
 지정했다면 서버에도 그대로 전달된다. 아래 보고 폴더는 이 기능을 승인한 PC의
-폴더로 바꾼다. 저장소 루트에서 실행한다.
+폴더로 바꾼다. 체크아웃의 `codex` 폴더에서 실행한다.
 
 ```powershell
 ./scripts/start_rtk_dashboard.ps1 -ReportsDir 'C:\approved\reports'
@@ -28,7 +28,7 @@ URL·프로세스 번호·인스턴스 식별자만 갖는 로컬 상태다. Git
 설치하지 않는다. 사용 종료 시 준비 파일의 번호와 실제 서버 프로세스를 확인한
 후 그 서버만 종료할 수 있다. 탭을 닫으면 집계 조회는 멈추고 서버는 대기한다.
 
-다른 플랫폼은 다음 명령으로 시작하고 터미널에 출력된 로컬 URL을 연다.
+런처 없이 시작하려면 다음 명령을 실행하고 터미널에 출력된 로컬 URL을 연다.
 
 ```text
 python -B scripts/rtk_dashboard.py --reports-dir /approved/reports

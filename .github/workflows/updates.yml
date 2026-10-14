@@ -1,6 +1,6 @@
 name: updates
 
-# Weekly update PR (decision 2026-10-13, docs/DECISIONS.md "Pinned versions move by a weekly PR"): moves the pins in
+# Weekly update PR (docs/DECISIONS.md "Pinned versions move by a weekly PR"): moves the pins in
 # claude/settings.json and codex/versions.lock.json to the newest upstream releases and records the newest release of the
 # unpinned tools in docs/tool-versions.json. Nothing is installed anywhere; changes land only when the PR is reviewed and merged.
 # Job `check` reads upstream with a read-only token; job `pr` copies only the allowed paths from its artifact and writes.

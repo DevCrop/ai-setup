@@ -1,23 +1,15 @@
 # workspace-write request renders read-only
 
-## Symptoms and environment
-Historical Codex CLI 0.154.0 on Windows; debug prompt-input comparison.
+## Symptom
+On Windows, a session that requests `workspace-write` shows read-only permissions in the effective rendered configuration.
 
-## Confirmed cause and limits
-With windows.sandbox unspecified, workspace-write rendered read-only. Selecting unelevated or elevated rendered workspace-write. The managed marker did not establish an enterprise policy mandate.
+## Cause
+With `windows.sandbox` unspecified, Codex CLI 0.154.0 rendered workspace-write as read-only; selecting `unelevated` or `elevated` rendered workspace-write. A managed marker in the config does not by itself mean an enterprise policy requires it. Check whether the installed CLI behaves the same before acting.
 
-## Non-destructive diagnosis
-Compare effective rendered configuration without model calls or permission changes. Separate rendered permissions from actual tool enforcement.
+## Fix
+Compare the effective rendered configuration without model calls or permission changes, and keep rendered permissions separate from actual tool enforcement. If the installed CLI shows the same behavior, propose `windows.sandbox = "unelevated"` with the other restrictions unchanged, check it against the current docs and apply it only with the user's authorization. Never relax permissions or choose `elevated` automatically.
 
-## Resolution
-Historical proposal was selecting unelevated while retaining other restrictions. Do not apply that old setting to a new runtime without checking current docs and authorization.
+## Check
+The rendered configuration shows workspace-write and a small authorized write succeeds. If not, revert only the changed setting.
 
-## Verification
-Historical three-way comparison exited 0 with no stderr. It did not establish every runtime read/write boundary.
-
-## Effects and rollback
-Do not relax permissions or choose elevated automatically. Revert only the changed managed setting if verification fails.
-
-## Evidence and last review
-TRACE historical inventory/S4-permission-root-cause.md. Sources: https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core/src/config/mod.rs and https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core/src/config/permissions.rs . Last evidence review: 2026-09-14.
-
+Sources: [config/mod.rs](https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core/src/config/mod.rs), [config/permissions.rs](https://github.com/openai/codex/blob/rust-v0.154.0/codex-rs/core/src/config/permissions.rs).

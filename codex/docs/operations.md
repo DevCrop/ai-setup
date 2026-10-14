@@ -18,11 +18,10 @@ The optional CLI profiles are `sol`, `astra` and `astra-deep`. They are separate
 ## Designated-host maintenance
 
 Preserve the operating host's actual registered automation, cadence and authority.
-The observed monitor on this installation is weekly Monday 10:00 Asia/Seoul;
-another host's daily routine is not permission to change it. The merged PR #9
-records a separately authorized daily maintenance context, not this scheduler.
-On 2026-10-05 the user authorized compatible small global guidance and stable
-Codex CLI/RTK updates after review and verification on the recorded host only.
+The routine runs daily at 08:00 Asia/Seoul on the host where it is registered;
+another host's routine is not permission to change it.
+The user authorizes compatible small global guidance and stable Codex CLI/RTK
+updates after review and verification on the designated host only.
 This does not create a monitor, transfer ownership, change cadence or apply to
 another computer. The existing exact dependency-cleanup exception is separate.
 Shared policy supplies a procedure; private authority and the actual scheduler
@@ -43,8 +42,8 @@ does not inherit monitoring ownership merely by installing this repository.
 
 ### Evidence-based improvement
 
-The designated host's 2026-10-07 request adds an evidence-based feedback review to
-its existing scheduled routine. Follow global/guides/official-source-workflow.md for
+The designated host's scheduled routine includes an evidence-based feedback review.
+Follow global/guides/official-source-workflow.md for
 capture, diagnosis, promotion and retirement. Maintain preferences and lessons in
 the single private routine-review.json; its public/local report is a sanitized
 projection, not a second authority store. Review available authorized feedback,
@@ -129,8 +128,8 @@ and [Codex best practices](https://learn.chatgpt.com/guides/best-practices).
    policy below, executed only by `project_cleanup.py prune`. Recommend the smallest checks for other candidates;
    execute them during approved implementation. Missing paths and failed collection
    stay unknown/failed, not healthy. An offline host cannot guarantee scheduled execution.
-6. Since 2026-10-13 this setup is `codex/` in DevCrop/ai-setup, which publishes no
-   releases; `check_closure.py` and its release comparison were retired.
+6. This setup is `codex/` in DevCrop/ai-setup, which publishes no releases, so the
+   routine has no release comparison.
    For a registered project with no recorded substantive review, perform one scoped
    initial instruction/configuration/acceptance-contract review even when its
    content fingerprint is unchanged. Do not equate collection or a dirty file list
@@ -153,7 +152,7 @@ deferral has a version/hash, reason and reconsideration trigger; it is not a cla
 of runtime validation. Preserve unresolved candidates removed from the watch list
 until an exact-content review resolves them. Use current [OpenAI plugin examples](https://github.com/openai/plugins)
 and [plugin packaging guidance](https://developers.openai.com/plugins/build/plugins)
-for future examples; the deprecated skills catalog remains historical evidence.
+for examples.
 
 CLI `debug prompt-input` can confirm rendered global/project instructions without
 a model call. Keep only hashes and presence checks in private evidence, never raw
@@ -180,20 +179,21 @@ for review, not proof of a policy change or a fault.
 
 ### Pre-authorized automatic changes and post-update checks
 
-The 2026-10-05 approval is host-local. Record it in private `routine-review.json`
+The maintenance approval is host-local. Record it in private `routine-review.json`
 and the existing automation prompt; the portable prompt template defaults to
 review-only on a new computer. It authorizes analysis, relevant verification,
 compatible small global Markdown changes, stable CLI/RTK upgrades and local Git
 history. It does not authorize arbitrary new features or future remote publication.
-Prior task-specific release approval does not authorize future remote publication;
+A task-specific publishing approval does not carry over to later publication;
 GitHub writes require current standing or case-specific publishing authorization.
 Report any unpublished local update proactively rather than calling it distributed.
 
 A compatible small batch changes at most three existing manifest-owned Markdown
 files under `global/AGENTS.md` or `global/guides/`, with at most 120 nonblank added/
 removed lines in total. Keep the agreement at most 2,400 UTF-8 bytes. These are
-TRACE scope bounds, not official optimal numbers. Registry/snapshots, reviewed
-version pins and release bookkeeping are allowed only to support that same batch.
+TRACE scope bounds, not official optimal numbers. Registry/snapshots are allowed
+only to support that same batch. Version pins in `versions.lock.json` and the
+vendored Ponytail files move only through the repository's weekly pin PR.
 Do not add executable setup logic, dependencies, skills/plugins, new managed paths,
 project files or a new architecture under this exception. Do not remove durable
 user preferences, change model/effort/tier, agent limits, MCP/auth, hooks/trust,
@@ -211,8 +211,8 @@ For each eligible batch:
    Establish the batch's intended result, owned scope and affected acceptance
    checks before applying, without expanding project or publishing authority.
 2. Use existing installer plan/apply/verify and one prior restore point. Stable
-   CLI comes from the official npm package after release review; stable RTK uses
-   published asset digests through the existing owned tool installer. Review
+   CLI updates use the host's existing installation method after release review;
+   stable RTK uses the pinned asset digests through the existing owned tool installer. Review
    breaking/permission changes instead of adopting a stable label blindly.
    Do not modify app binaries, credentials, PATH, hooks or sandbox settings.
 3. Run smallest relevant checks: repository integrity/index/hash/link validation,
@@ -228,10 +228,11 @@ For each eligible batch:
    state against its matching source revision, preserve evidence and report the
    exact blocker. Do not repeatedly retry an unchanged failed candidate; retry
    only with new evidence, a changed version or an explicit retry request.
-5. Record local Git history for owned source changes and distinguish applied,
+5. Commit owned source changes on a focused branch, never on `main`, so they
+   reach `main` only through a reviewed PR. Distinguish applied,
    verified, committed and published states. Do not automatically push/merge/tag
-   without publishing authorization. If publication is authorized, check final
-   commit CI, immutable tag, downloaded ZIP digest and disposable installation.
+   without publishing authorization. If publication is authorized, check the final
+   commit's CI and a disposable installation.
 6. Rerun affected deployment and tool checks and reconcile stable findings.
    Inspect new or retained actionable gaps before stopping; continue authorized
    fixes until acceptance is met. Changed session/skill behavior that was not
@@ -267,7 +268,7 @@ known missed runs honestly; a timestamp alone cannot establish scheduler history
 
 ## Project dependency cleanup
 
-The user authorized idle dependency cleanup on 2026-10-01. This is TRACE operating
+The user authorizes idle dependency cleanup. This is TRACE operating
 policy, not an OpenAI recommendation or proof a person has stopped using a project.
 Only registered exact Git roots are examined; do not search every drive. Register
 an approved project with `project_cleanup.py register --id NAME --path PATH --auto`.
@@ -301,7 +302,7 @@ Without `--auto`, it is held. Registrations and observations remain host-local.
   unresolved errors or repeatedly force deletion. Logical size is not physical
   space reclaimed, especially with hard links.
 
-The same registry supplies weekly project health scope; do not maintain a second
+The same registry supplies the routine's project health scope; do not maintain a second
 path inventory in policy. `cleanup-observations.json` holds one current observation
 per project, separate from semantic-review evidence in `routine-review.json`.
 
@@ -322,9 +323,8 @@ current successful RTK record, checks stable tag/platform asset identities and
 reports unchanged, a candidate, or a blocked/older release. It makes no network
 call or pin/install change. Missing, failed or mismatched evidence is unknown, not unchanged.
 Same-version asset drift is a conflict; the installed receipt records the asset
-digest for new installs. An older receipt without that field remains limited
-historical evidence, not retroactively verified. Review the exact release notes
-and all supported platform digests before changing the pin.
+digest. A receipt without that field is not treated as verified. Review the exact release notes
+and all supported platform digests before merging the weekly pin PR that changes the pin.
 Automatically adopt a stable binary only
 within the recorded compatible-tool authorization and its post-update checks. Standard RTK gain
 counts are estimates, not OpenAI usage. Run `verify_rtk.py --project PATH` during
@@ -334,20 +334,20 @@ transparent hook loading. RTK's native auto-rewrite is not installed because of
 its documented approval-classifier limitation; do not run `rtk init -g` as a
 shortcut. See [conditional RTK guidance](../global/guides/rtk.md).
 
-## Manifest migration
+## Manifest schema
 
-Manifest schema 2 adds optional `root: personal_skills` to file/retirement entries;
-absent `root` means Codex home. Local keys use `@personal/` for the former and retain
-v1 keys for Codex home. Records/journals bind both roots. V1 records remain readable.
-After rollback to v1.0.1, use its checkout to verify that version. A blocked deletion
-remains unresolved; do not bypass the restriction.
+Manifest schema 2 has an optional `root: personal_skills` on file/retirement entries;
+absent `root` means Codex home. Local keys use `@personal/` for personal-skill entries
+and plain keys for Codex home. Records/journals bind both roots, and schema 1 records
+stay readable. A blocked deletion remains unresolved; do not bypass the restriction.
 
 ## Troubleshooting and portability
 
-Record reusable failures in the existing troubleshooting index: symptoms, affected
-environment/version, confirmed cause versus hypothesis, non-destructive diagnosis,
-resolution, verification, side effects/restore, evidence and last verified date.
-Do not universalize historical workarounds or record authentication parameters.
+Record reusable failures in the existing troubleshooting index: symptom, cause
+(confirmed versus hypothesis, with the affected environment/version), fix with its
+non-destructive diagnosis and side effects, and check. Delete a record whose fix no
+longer applies. Do not universalize a version-specific workaround or record
+authentication parameters.
 Only project-specific incidents belong in the project.
 
 Check C-only Windows, different checkout/home drives, Unicode and spaces, OneDrive paths, execution outside checkout, custom CODEX_HOME, missing/read-only paths and links/junctions. Only Windows is a supported host; Linux runs in CI only, and its install, repeat install, conflict and rollback behavior is not native host support. Simulated paths do not establish native OS support.
