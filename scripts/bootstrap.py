@@ -10,6 +10,8 @@ Usage: python scripts/bootstrap.py [check|install|apply|verify|autostart] [--wri
   apply      for each tool with a setup checkout: show its plan (or dry run), ask, then run that tool's own apply.
   verify     run every setup's own verify and summarize. Read-only.
   autostart  write the dashboard login launcher (Windows Startup .vbs) after showing it and asking.
+  setup      ask for the global Claude config folder and the project folders (Enter keeps the shown value), save them to
+             state/machine.json after a y/N, then apply and verify with them. Installs nothing: run install first if needed.
 Everything that writes asks first on the terminal and refuses when stdin is not a terminal (CI, pipes).
 Exit codes: 0 ok, 1 something missing, failed or declined, 2 state/machine.json is broken (--write refused), 3 crash.
 """
@@ -269,14 +271,74 @@ def cmd_autostart(ask=ask, plan=None):
     return 0
 
 
+def parse_roots(text):
+    """Folders typed on one line, separated by ';' or ','. Blank entries are dropped."""
+    return [p.strip() for p in text.replace(",", ";").split(";") if p.strip()]
+
+
+def ask_text(question, default):
+    """A line typed on the terminal; Enter keeps the default. None without a terminal: nothing is asked unattended."""
+    if not sys.stdin.isatty():
+        return None
+    try:
+        answer = input("%s [%s]: " % (question, default)).strip()
+    except EOFError:
+        return None
+    return answer or default
+
+
+def set_env(name, value):
+    """Set a variable for this process and for the commands run from it (ENV is a copy on Windows, so both are set)."""
+    os.environ[name] = value
+    if isinstance(ENV, dict):
+        ENV[name] = value
+
+
+def apply_machine_env(machine):
+    """state/machine.json values reach the setups it runs; an environment variable that is already set wins."""
+    if isinstance(machine.get("claudeConfigDir"), str) and "CLAUDE_CONFIG_DIR" not in os.environ:
+        set_env("CLAUDE_CONFIG_DIR", machine["claudeConfigDir"])
+
+
+def cmd_setup(r, entries, ask=ask, ask_text=ask_text, save=lambda update: toolreg.write_machine(update, replace=True),
+              apply=cmd_apply, verify=cmd_verify, current=None):
+    current = toolreg.load_machine() if current is None else current
+    cfg_now = os.environ.get("CLAUDE_CONFIG_DIR") or current.get("claudeConfigDir") or str(Path(toolreg.tokens()["HOME"]) / ".claude")
+    cfg = ask_text("Claude Code 글로벌 설정 폴더", cfg_now)
+    roots_now = ";".join(r["projectRoots"]) or "없음"
+    typed_roots = ask_text("프로젝트 폴더 (여러 개면 ; 로 구분)", roots_now)
+    if cfg is None or typed_roots is None:
+        print("refused (no terminal to ask): nothing was saved")
+        return 1
+    roots = [] if typed_roots == "없음" else parse_roots(typed_roots)
+    print("state/machine.json: claudeConfigDir = %s, projectRoots = %s" % (cfg, roots or "[]"))
+    if "PROJECT_ROOTS" in os.environ:
+        print("PROJECT_ROOTS is set in this shell and takes precedence over projectRoots")
+    if not ask("save these and apply them now?"):
+        return 1
+    try:
+        save({"claudeConfigDir": cfg, "projectRoots": roots})
+    except ValueError as e:  # a machine.json that is not an object: nothing is written, the user fixes it first
+        print("not saved: " + str(e), file=sys.stderr)
+        return 2
+    set_env("CLAUDE_CONFIG_DIR", cfg)
+    r = collect()
+    rc = apply(r, entries)
+    rc_verify = verify(r, entries)
+    return 1 if rc or rc_verify else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "apply", "verify", "autostart"])
+    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "apply", "verify", "autostart", "setup"])
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
+    apply_machine_env(toolreg.load_machine())
     if a.command == "autostart":
         return cmd_autostart()
+    if a.command == "setup":
+        return cmd_setup(collect(), entries_by_id())
     r = collect()
     if a.command != "check":
         return {"install": cmd_install, "apply": cmd_apply, "verify": cmd_verify}[a.command](r, entries_by_id())

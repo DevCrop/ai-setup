@@ -25,7 +25,7 @@ def load_machine(repo=REPO):
 
 
 # The shape each machine.json key must have; a value of another type is ignored (and reported), never a crash.
-MACHINE_TYPES = {"bin": dict, "checkout": dict, "disabled": list, "projectRoots": list}
+MACHINE_TYPES = {"bin": dict, "checkout": dict, "disabled": list, "projectRoots": list, "claudeConfigDir": str}
 
 
 def machine_problems(machine):
@@ -64,9 +64,10 @@ def which(name, windows=None):
     return None
 
 
-def write_machine(found, repo=REPO):
-    """Add detected values to state/machine.json. A value already there wins: the user may have set it by hand.
-    A file that exists but does not parse is refused (ValueError): rewriting it from scratch would lose the hand edits in it."""
+def write_machine(found, repo=REPO, replace=False):
+    """Add detected values to state/machine.json. A value already there wins: the user may have set it by hand, unless replace=True
+    (the setup step, which the user answers on the terminal). A file that exists but does not parse is refused (ValueError): rewriting
+    it from scratch would lose the hand edits in it."""
     f = repo / "state" / "machine.json"
     if f.exists():
         try:
@@ -77,6 +78,9 @@ def write_machine(found, repo=REPO):
             raise ValueError(str(f) + " is not a JSON object; fix it by hand first")
     m = load_machine(repo)
     for key, val in found.items():
+        if replace:
+            m[key] = val
+            continue
         if key in m and not isinstance(m[key], type(val)):  # a wrong type is the user's to fix: it stays and keeps being reported
             continue
         if isinstance(val, dict):
