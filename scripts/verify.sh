@@ -155,7 +155,7 @@ if command -v jq >/dev/null 2>&1; then
 else
   warn "auto mode settings and deny list not validated (needs jq)"
 fi
-# Superpowers is not adopted at any scope (decision 2026-10-11, docs/GUIDE.md): the repo must not enable it.
+# Superpowers is not adopted at any scope (docs/DECISIONS.md "Superpowers is not adopted at any scope"): the repo must not enable it.
 if command -v jq >/dev/null 2>&1; then
   jq -e '[.enabledPlugins // {} | keys[] | select(startswith("superpowers@"))] | length == 0' "$src/settings.json" >/dev/null 2>&1 \
     && pass "settings.json does not enable Superpowers" \

@@ -38,7 +38,7 @@ Applies to every project on this machine. Project `CLAUDE.md` files add to these
 
 ## Context and handoff
 - Keep long-lived facts in this file and in project `CLAUDE.md`. Keep temporary state in the task.
-- Before `/clear` or a new session on the same task, write a handoff note to `.claude/handoff.md` in the project: task, outputs, completed checks, open issues, next action. Never commit it; if `.gitignore` lacks it, say so instead of editing it silently. The note stays on this machine, so when the work has an open PR in a repository the user owns, also post it as a comment on that PR, leaving out secrets and machine-local paths (standing approval, 2026-10-12); without a PR, tell the user the note is on this machine only.
+- Before `/clear` or a new session on the same task, write a handoff note to `.claude/handoff.md` in the project: task, outputs, completed checks, open issues, next action. Never commit it; if `.gitignore` lacks it, say so instead of editing it silently. The note stays on this machine, so when the work has an open PR in a repository the user owns, also post it as a comment on that PR, leaving out secrets and machine-local paths (standing approval); without a PR, tell the user the note is on this machine only.
 - When compacting, always preserve the list of modified files, the test and check commands, and open issues.
 
 ## Tools

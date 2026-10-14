@@ -156,7 +156,7 @@ class ModelEfficiency(EfficiencySource):
         m.append(unavailable("모델별 사용량과 비용", "세션 로그에서 모델별 토큰을 집계하지 않습니다"))
         ro = [a["name"] for a in ag if not re.search(r"Edit|Write", a["tools"]) and a["model"] != "haiku"]
         ideas = []
-        if ro:  # lanes since 2026-10-12 (docs/DECISIONS.md "Model lanes"); no measurement of them yet (docs/BACKLOG.md R2), so no numbers here
+        if ro:  # lanes per docs/DECISIONS.md "Model lanes"; no measurement of them yet (docs/BACKLOG.md R2), so no numbers here
             ideas.append("읽기 전용 에이전트(" + ", ".join(ro) + ")는 검증 역할이라 haiku로 낮추지 않습니다. 거짓 통과가 가장 비싼 실패라 2026-10-12부터 Opus에서 돌립니다(메인과 검증은 Opus, 실행은 Haiku). 이 배치의 비용과 품질은 아직 측정하지 않았습니다. bench.sh와 qa-role-agents.sh의 QA_AGENT_MODEL 비교로 측정한 뒤에 바꿀지 정하세요.")
         return {"metrics": m, "caveats": ["Fable은 Max에서 같은 주간 한도의 최대 50% 몫이고 가장 빨리 소모되어 기본 라우팅에서 뺍니다(공식 지원 문서, 2026-10-11). 이 표에는 정의 파일에 적힌 모델만 보입니다."], "ideas": ideas}
 

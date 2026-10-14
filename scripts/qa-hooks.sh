@@ -267,7 +267,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *)  # without jq a GitHub file wr
   out="$(printf '%s' '{"tool_name":"mcp__github__push_files","tool_input":{"files":[{"path":"a.txt"}]}}' | PATH="$nojq" "$realbash" "$hook" 2>&1)"; rc=$?
   if [ "$rc" = 2 ]; then echo "PASS rc=2  (no jq) mcp push_files"; else echo "FAIL want=2 got=$rc  (no jq) mcp push_files [$out]"; fail=$((fail+1)); fi ;;
 esac
-# BACKLOG S5: the three secret lists agree. Every name below is a secret for the commit hook (is_secret), matches a Read(**/...) deny
+# DECISIONS "One secret list": the three secret lists agree. Every name below is a secret for the commit hook (is_secret), matches a Read(**/...) deny
 # rule in claude/settings.json, and every such rule is spelled out in the autoMode hard_deny text. Accepted differences (DECISIONS
 # "one secret list"): .claude.json and history.jsonl are commit-only; ~/.ssh/** and other ~/ rules are Read-only.
 eval "$(sed -n '/^is_secret() {/,/^}/p' "$hook")"
