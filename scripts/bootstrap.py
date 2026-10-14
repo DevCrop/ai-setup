@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One entry point to set up a machine from tools.json. Standard library only.
 
-Usage: python scripts/bootstrap.py [check|install|apply|verify|autostart] [--write] [--json]
+Usage: python scripts/bootstrap.py [check|install|apply|verify|autostart|setup|cleanup] [--write] [--json]
   check      read-only (default): every dependency and tool, its version, its setup checkout, the project roots,
              and the install command for anything missing. Exit 1 when a required item is missing or too old.
     --write  also record what was found in state/machine.json (values already there are kept).
@@ -12,6 +12,8 @@ Usage: python scripts/bootstrap.py [check|install|apply|verify|autostart] [--wri
   autostart  write the dashboard login launcher (Windows Startup .vbs) after showing it and asking.
   setup      ask for the global Claude config folder and the project folders (Enter keeps the shown value), save them to
              state/machine.json after a y/N, then apply and verify with them. Installs nothing: run install first if needed.
+  cleanup    list the legacy local files that a newer apply or setup replaced (with the reason), and delete each one only
+             after its own y/N. Lists nothing that is not a known legacy file.
 Everything that writes asks first on the terminal and refuses when stdin is not a terminal (CI, pipes).
 Exit codes: 0 ok, 1 something missing, failed or declined, 2 state/machine.json is broken (--write refused), 3 crash.
 """
@@ -328,9 +330,43 @@ def cmd_setup(r, entries, ask=ask, ask_text=ask_text, save=lambda update: toolre
     return 1 if rc or rc_verify else 0
 
 
+def cleanup_candidates(claude_dir, repo=toolreg.REPO, machine=None):
+    """Legacy local files that a newer apply or setup has replaced. Each one is listed with its reason; nothing is named that is not
+    listed here. The old manifest name is only a candidate once apply.sh has written the new one, and the old project-roots file only
+    once state/machine.json holds projectRoots (the value was migrated)."""
+    machine = toolreg.load_machine(repo) if machine is None else machine
+    out = []
+    old = Path(claude_dir) / ".claude-global-manifest"
+    if old.is_file() and (Path(claude_dir) / ".ai-setup-manifest").is_file():
+        out.append((old, "old manifest name; apply.sh already wrote .ai-setup-manifest"))
+    roots = Path(repo) / "state" / "project-roots.txt"
+    if roots.is_file() and "projectRoots" in machine:
+        out.append((roots, "old project-roots file; state/machine.json already has projectRoots"))
+    return out
+
+
+def cmd_cleanup(candidates, ask=ask, remove=lambda p: p.unlink()):
+    """Show each candidate with its reason and delete only the ones answered y. Nothing is deleted without a terminal."""
+    if not candidates:
+        print("no legacy files found")
+        return 0
+    rc = 0
+    for path, why in candidates:
+        if not ask("delete %s? (%s)" % (path, why)):
+            rc = 1
+            continue
+        try:
+            remove(path)
+            print("deleted: " + str(path))
+        except OSError as e:
+            print("not deleted: %s: %s" % (path, e), file=sys.stderr)
+            rc = 1
+    return rc
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "apply", "verify", "autostart", "setup"])
+    ap.add_argument("command", nargs="?", default="check", choices=["check", "install", "apply", "verify", "autostart", "setup", "cleanup"])
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
@@ -339,6 +375,10 @@ def main(argv=None):
         return cmd_autostart()
     if a.command == "setup":
         return cmd_setup(collect(), entries_by_id())
+    if a.command == "cleanup":
+        machine = toolreg.load_machine()
+        claude_dir = os.environ.get("CLAUDE_CONFIG_DIR") or machine.get("claudeConfigDir") or str(Path(toolreg.tokens()["HOME"]) / ".claude")
+        return cmd_cleanup(cleanup_candidates(claude_dir, toolreg.REPO, machine))
     r = collect()
     if a.command != "check":
         return {"install": cmd_install, "apply": cmd_apply, "verify": cmd_verify}[a.command](r, entries_by_id())
