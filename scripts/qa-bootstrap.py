@@ -358,5 +358,62 @@ check(bootstrap.cmd_autostart(ask=no, plan=(target, b"new", "u")) == 1 and not t
 check(bootstrap.cmd_autostart(ask=yes, plan=(target, b"new", "u")) == 0 and target.read_bytes() == b"new", "autostart: confirmed write")
 check(bootstrap.cmd_autostart(ask=lambda q: 1 / 0, plan=(target, b"new", "u")) == 0, "autostart: same content is unchanged and does not ask")
 
+# ---- setup: the global config folder and the project folders, asked on the terminal ----
+check(bootstrap.parse_roots(" C:/a ; D:/b,, ") == ["C:/a", "D:/b"], "parse_roots: ';' or ',' separated, blanks dropped")
+check(bootstrap.parse_roots("") == [], "parse_roots: an empty answer is no roots")
+mrepo = tmp / "setup-repo"
+(mrepo / "state").mkdir(parents=True)
+(mrepo / "state" / "machine.json").write_text(json.dumps({"projectRoots": ["/old"], "bin": {"x": "/y"}}), encoding="utf-8")
+toolreg.write_machine({"claudeConfigDir": "/cfg", "projectRoots": ["/new"]}, mrepo, replace=True)
+m = json.loads((mrepo / "state" / "machine.json").read_text(encoding="utf-8"))
+check(m["claudeConfigDir"] == "/cfg" and m["projectRoots"] == ["/new"] and m["bin"] == {"x": "/y"}, "write_machine(replace): sets the given keys, keeps the rest")
+(mrepo / "state" / "machine.json").write_text("[1]", encoding="utf-8")
+try:
+    toolreg.write_machine({"projectRoots": []}, mrepo, replace=True)
+    refused = False
+except ValueError:
+    refused = True
+check(refused and (mrepo / "state" / "machine.json").read_text(encoding="utf-8") == "[1]", "write_machine(replace): a file that is not an object is refused and kept")
+check(toolreg.machine_problems({"claudeConfigDir": 3}) != [] and toolreg.machine_problems({"claudeConfigDir": "/c"}) == [], "machine.json: claudeConfigDir must be a string")
+
+os.environ.pop("CLAUDE_CONFIG_DIR", None)
+bootstrap.apply_machine_env({"claudeConfigDir": "/cfg"})
+check(os.environ.get("CLAUDE_CONFIG_DIR") == "/cfg", "apply_machine_env: machine.json sets it when the environment does not")
+os.environ["CLAUDE_CONFIG_DIR"] = "/env"
+bootstrap.apply_machine_env({"claudeConfigDir": "/cfg"})
+check(os.environ["CLAUDE_CONFIG_DIR"] == "/env", "apply_machine_env: an environment value wins")
+os.environ.pop("CLAUDE_CONFIG_DIR", None)
+
+def typed(*answers):
+    it = iter(answers)
+    return lambda question, default: next(it)
+
+saved_writes, calls = [], []
+def save(update):
+    saved_writes.append(update)
+seen_env = []
+def record(name, rc=0):
+    def f(r, entries):
+        calls.append(name)
+        seen_env.append(os.environ.get("CLAUDE_CONFIG_DIR"))
+        return rc
+    return f
+cur_r = {"items": [], "projectRoots": ["/old"]}
+rc = bootstrap.cmd_setup(cur_r, {}, ask=yes, ask_text=typed("/work/cfg", "C:/p1;C:/p2"), save=save, apply=record("apply"), verify=record("verify"), current={})
+check(rc == 0 and saved_writes == [{"claudeConfigDir": "/work/cfg", "projectRoots": ["C:/p1", "C:/p2"]}], "setup: saves both answers")
+check(calls == ["apply", "verify"] and seen_env == ["/work/cfg", "/work/cfg"], "setup: apply and verify see the answered folder while they run", seen_env)
+os.environ.pop("CLAUDE_CONFIG_DIR", None)
+saved_writes.clear(); calls.clear()
+check(bootstrap.cmd_setup(cur_r, {}, ask=no, ask_text=typed("/x", "/y"), save=save, apply=record("apply"), verify=record("verify"), current={}) == 1
+      and saved_writes == [] and calls == [], "setup: declining writes nothing and applies nothing")
+check(bootstrap.cmd_setup(cur_r, {}, ask=yes, ask_text=lambda q, d: None, save=save, apply=record("apply"), verify=record("verify"), current={}) == 1
+      and saved_writes == [], "setup: no terminal to ask means no")
+
+(mrepo / "state" / "machine.json").write_text("[1]", encoding="utf-8")
+calls.clear()
+rc = bootstrap.cmd_setup(cur_r, {}, ask=yes, ask_text=typed("/x", "/y"), save=lambda u: toolreg.write_machine(u, mrepo, replace=True), apply=record("apply"), verify=record("verify"), current={})
+check(rc == 2 and calls == [] and (mrepo / "state" / "machine.json").read_text(encoding="utf-8") == "[1]", "setup: a broken machine.json exits 2 and runs nothing")
+os.environ.pop("CLAUDE_CONFIG_DIR", None)
+
 print(("FAIL " + str(len(fails))) if fails else "ALL PASS")
 sys.exit(1 if fails else 0)
