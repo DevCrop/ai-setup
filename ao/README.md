@@ -54,7 +54,7 @@ python -B qa.py php-lint routes/web.php --project my-site --root '<실제 저장
 
 ## 근거와 로컬 정책
 
-기준: AO 0.13.7, Compose 2.34.0. 프로젝트/Cue와 수명주기는 설치 버전의 소스 계약을 기준으로 사용한다. 컨테이너 예산·RAM·수동 설치는 이 사용자의 로컬 정책이며 AO/Docker의 기본 기능이라고 주장하지 않는다.
+기준: AO 0.13.7(이 PC에서 실측한 버전), Compose 2.34.0. 공식 최신 릴리스 v0.14.0(2026-10-14 게시)은 아직 이 PC에서 검증하지 않았다. 검증 전까지 기준과 로컬 수정본은 0.13.7 기준으로 둔다(`docs/BACKLOG.md` 6절). 프로젝트/Cue와 수명주기는 설치 버전의 소스 계약을 기준으로 사용한다. 컨테이너 예산·RAM·수동 설치는 이 사용자의 로컬 정책이며 AO/Docker의 기본 기능이라고 주장하지 않는다.
 
 - https://docs.orchestrator.inc/configuration/projects/ — DB 기반 프로젝트 설정, 역할별 모델/effort, postCreate/preRemove, Cue, CLI 전체 설정 교체 주의.
 - https://docs.docker.com/reference/cli/docker/compose/ — -f - stdin, project-directory, 독립 project name, parallel 옵션.
