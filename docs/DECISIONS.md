@@ -245,7 +245,7 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 - Check: none outside GitHub. Undo: drop the two `if:` lines.
 
 ### Workflow actions are pinned to commit SHAs; Dependabot moves them
-- What: every `uses:` in `.github/workflows/check.yml` and `updates.yml` names a full commit SHA with the release as a comment (`actions/checkout@<sha>  # v4.4.0`). `.github/dependabot.yml` (ecosystem `github-actions`, weekly) opens a PR when a newer release exists; it goes through review and CI like any PR.
+- What: every `uses:` in `.github/workflows/check.yml` and `updates.yml` names a full commit SHA with the release as a comment (for example `actions/checkout@<sha>  # vX.Y.Z`). `.github/dependabot.yml` (ecosystem `github-actions`, weekly) opens a PR when a newer release exists; it goes through review and CI like any PR.
 - Why: a tag such as `v4` can be moved to other code by whoever controls the action's repository, a commit SHA cannot. `updates.yml` holds a token that can push and open PRs, so the code it runs should not change without a PR here. GitHub's security hardening guide for Actions recommends full-length SHAs (not re-read for this entry).
 - Check: CI runs the pinned actions. No `verify.sh` check enforces the SHA form.
 - Undo: use release tags in both workflows and delete `.github/dependabot.yml`.
