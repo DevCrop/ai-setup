@@ -28,6 +28,11 @@ None open.
 
 ## 6. Waiting on something outside this repo
 
+AO (`ao/`), checked on the local PC (AO runs only there):
+- Upgrade check: AO v0.14.0 (published 2026-10-14) is not yet tested here. Run `ao doctor` and a small-task Setup on 0.14.0, then check whether the local 0.13.7 patch (`~/.ao/backups`) and the `haiku` alias workaround are still needed. Then update the baseline in `ao/README.md` and DECISIONS "AO reviewer lane".
+- Install path: after the 0.14.0 rename to Orchestrator.inc, confirm that `tools.json` `resources/daemon/ao.exe` still matches the installed app on each PC.
+- Not confirmed in the official docs: `ao project set-config --permission`, the model alias behavior, and `reviewers[].agentConfig.effort` (DECISIONS "AO reviewer lane", Not verified).
+
 Codex setup (`codex/`):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", Open).
 - Whether Codex gets a session handoff note rule like `claude/CLAUDE.md` (`docs/codex-alignment.md`, "Open differences" 2).
