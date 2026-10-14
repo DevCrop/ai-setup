@@ -239,5 +239,20 @@ echo agents/x.md > "$cfg/$old"; out="$(apply)"
 [ "$(cat "$cfg/$old")" = agents/x.md ] && cmp -s "$base/m13" "$cfg/.ai-setup-manifest" && ! printf '%s' "$out" | grep -q "renamed" \
   && pass "13 when both exist the new manifest wins and the old one is left alone" || bad "13 both manifests ($out)"
 
+# 14. verify --live judges the scheduled task body: the repo's path-free pointer passes, a pasted absolute path or another body warns
+newcfg; apply >/dev/null; t="$cfg/scheduled-tasks/daily-claude-update"; mkdir -p "$t"
+cp "$repo/claude/scheduled-tasks/daily-claude-update/SKILL.md" "$t/SKILL.md"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^PASS  scheduled task file points at" && pass "14 the repo pointer body passes" || bad "14 pointer body ($(printf '%s' "$v" | grep -i 'scheduled task'))"
+echo 'Run C:\Users\u\Projects\ai-setup/claude/routines/daily-update.md' > "$t/SKILL.md"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^WARN  scheduled task body names an absolute path" && pass "14 an absolute path in the body warns" || bad "14 absolute path ($(printf '%s' "$v" | grep -i 'scheduled task'))"
+echo 'Run claude/routines/daily-update.md; see https://code.claude.com/docs' > "$t/SKILL.md"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^PASS  scheduled task file points at" && pass "14 a URL is not taken for an absolute path" || bad "14 URL ($(printf '%s' "$v" | grep -i 'scheduled task'))"
+echo 'do something else' > "$t/SKILL.md"
+v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
+printf '%s' "$v" | grep -q "^WARN  scheduled task body is not the pointer body" && pass "14 another body warns" || bad "14 other body ($(printf '%s' "$v" | grep -i 'scheduled task'))"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

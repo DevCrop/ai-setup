@@ -217,7 +217,7 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 - Undo: drop `--no-upgrade` in `toolreg.install_argv` and the `ask()` gate in `bootstrap.py`, with their qa-bootstrap cases.
 
 ### Daily routine on every machine, Opus, read-only
-- What: `claude/routines/daily-update.md` runs as the scheduled task `daily-claude-update` on every machine, on Opus in auto mode, and only reads and reports. `reports/` and `state/` are local and gitignored, so machines do not mix baselines and `git pull` never conflicts. `scripts/docs-watch.sh` and the routine watch the official pages this setup depends on (the list is in routine step 8, model-config and advisor included).
+- What: `claude/routines/daily-update.md` runs as the scheduled task `daily-claude-update` on every machine, on Opus in auto mode, and only reads and reports. `reports/` and `state/` are local and gitignored, so machines do not mix baselines and `git pull` never conflicts. `scripts/docs-watch.sh` and the routine watch the official pages this setup depends on (the list is in routine step 8, model-config and advisor included). The task body is a path-free pointer and the task's folder is the clone, so no copy of the path or the steps lives in the app or in `~/.claude` (`apply.sh` stopped copying `routines/` on 2026-10-14, after a folder move left a stale path in the task body).
 - Undo: delete the scheduled task on each machine; remove `claude/routines/` and `claude/scheduled-tasks/`.
 
 ## CI and automation

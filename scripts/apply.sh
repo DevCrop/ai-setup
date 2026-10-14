@@ -27,7 +27,7 @@ dest="${dest%/}"
 
 # Files and directories copied. scheduled-tasks/ is excluded: it is created in the app.
 # Skills are listed one by one: skills from other sources live in the same directory.
-items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks routines skills/orchestrate skills/project-setup skills/spec-writing skills/design-spec skills/ui-baseline"
+items="CLAUDE.md RTK.md settings.json statusline.sh agents hooks skills/orchestrate skills/project-setup skills/spec-writing skills/design-spec skills/ui-baseline"
 
 command -v jq >/dev/null 2>&1 || { echo "apply: jq is required (settings.json is merged key by key). Windows: winget install jqlang.jq" >&2; exit 2; }
 [ -f "$repo/scripts/removed-keys.json" ] || { echo "apply: scripts/removed-keys.json is missing" >&2; exit 2; }
