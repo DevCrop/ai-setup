@@ -11,6 +11,8 @@ import qa
 
 BASE = Path(__file__).resolve().parent
 REGISTRY = BASE / 'projects.json'
+# The launcher is recognised by its folder tail, so an entry written from a clone that has since moved is replaced too.
+OWNED = re.compile(r'ao[\\/](qa\.py|launch\.ps1)\b')
 
 
 def api(method, path, body=None):
@@ -100,8 +102,7 @@ def apply(lanes=False):
             config[field] = '\n\n'.join(filter(None, (previous, rules)))
         for field, action in (('postCreate', 'prepare'), ('preRemove', 'stop')):
             entries = config.get(field, [])
-            owned = (str(BASE / 'qa.py'), str(BASE / 'launch.ps1'))
-            config[field] = [entry for entry in entries if not any(path in entry for path in owned)] + [command(action, project)] if profile.get('compose') or field == 'postCreate' else entries
+            config[field] = [entry for entry in entries if not OWNED.search(entry)] + [command(action, project)] if profile.get('compose') or field == 'postCreate' else entries
         if project in existing:
             api('PUT', f'projects/{project}/config', {'config': config})
         else:

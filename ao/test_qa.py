@@ -145,6 +145,16 @@ class LaneTests(unittest.TestCase):
         self.assertEqual(config['worker']['agent'], 'claude-code')
 
 
+    def test_stale_owned_entries_from_a_moved_clone_are_replaced(self):
+        # Reproduces: an old launcher path kept in postCreate after the clone moved (audit-security-logic finding 5).
+        stale = r'powershell.exe -File D:\old\ao\launch.ps1 -Action prepare -Project demo'
+        old = {'defaultBranch': 'main', 'postCreate': [stale, 'echo hi']}
+        config, _ = self.run_apply(existing_config=old, extra={'compose': 'compose.yml', 'image': 'img'})
+        self.assertEqual(config['postCreate'][0], 'echo hi')
+        self.assertEqual(len(config['postCreate']), 2)
+        self.assertNotIn(stale, config['postCreate'])
+
+
 class CommandTests(unittest.TestCase):
     def test_windows_command_has_no_embedded_quotes(self):
         # AO 0.14.2 quotes arguments itself; the embedded quotes broke every spawn (WORKSPACE_PROVISION_FAILED).
