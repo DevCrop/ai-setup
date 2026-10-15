@@ -62,7 +62,7 @@ export class LogDialog {
     this.app = app; this.dlg = $("dlg"); this.tab = "v"; this.filter = "ALL";
     $("logsBtn").onclick = () => { this.fill(); this.dlg.showModal(); };
     $("dlgClose").onclick = () => this.dlg.close();
-    [["tabV", "v"], ["tabR", "r"], ["tabA", "a"]].forEach(([id, k]) => { $(id).onclick = () => { this.tab = k; this.fill(); }; });
+    [["tabV", "v"], ["tabA", "a"]].forEach(([id, k]) => { $(id).onclick = () => { this.tab = k; this.fill(); }; });
   }
   refresh() { if (this.dlg.open) this.fill(); }
   tokens(text, parent) {
@@ -83,9 +83,9 @@ export class LogDialog {
   }
   fill() {
     const tab = this.tab, last = this.app.last;
-    $("tabV").setAttribute("aria-pressed", tab === "v"); $("tabR").setAttribute("aria-pressed", tab === "r"); $("tabA").setAttribute("aria-pressed", tab === "a");
+    $("tabV").setAttribute("aria-pressed", tab === "v"); $("tabA").setAttribute("aria-pressed", tab === "a");
     const box = $("dlgPre"), chips = $("dlgChips"); if (!last) { box.replaceChildren(el("div", "empty", "데이터를 기다리는 중")); return; }
-    const lines = tab === "v" ? last.verify.lines : tab === "a" ? aoText(last).split("\n") : (((last.reports[0] || {}).text) || "보고서가 아직 없습니다.").split("\n");
+    const lines = tab === "v" ? last.verify.lines : aoText(last).split("\n");
     const kind = tab === "v" ? "log" : tab === "a" ? "ao" : "md", lvl = (l) => (/^(FAIL|WARN|PASS)\b/.exec(l) || [])[1] || (tab === "v" ? "" : /\b(FAIL|OUTDATED|BLOCKED|EXPOSED)\b/.test(l) ? "FAIL" : /\bWARN\b/.test(l) ? "WARN" : "");
     const cnt = { ALL: lines.length, FAIL: 0, WARN: 0, PASS: 0 }; lines.forEach((l) => { const k = lvl(l); if (k === "FAIL") cnt.FAIL++; else if (k === "WARN") cnt.WARN++; else if (k === "PASS") cnt.PASS++; });
     if (!cnt[this.filter]) this.filter = "ALL";

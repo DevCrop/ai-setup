@@ -117,13 +117,12 @@ def main_effort(s):
 
 def routing(root, ao_projects):
     s = _settings(root)
-    routine = next((l.strip() for l in _read(root / "claude" / "routines" / "daily-update.md").split("\n") if l.startswith("Model:")), "")
     main = s.get("model")
     return {"main": main, "effort": main_effort(s), "advisor": s.get("advisorModel"), "autoCompact": s.get("autoCompactWindow"),
             "cacheTtl": s.get("promptCacheTtl"), "subagentCacheTtl": s.get("subagentPromptCacheTtl"),
             "plugins": sorted(k for k, v in (s.get("enabledPlugins") or {}).items() if v),
             "agents": [{"name": a["name"], "model": a["model"], "effort": a["effort"]} for a in agents(root)],
-            "routine": routine[:200], "ao": ao_projects,
+            "ao": ao_projects,
             "notes": ["서브에이전트는 설정된 advisor를 상속한다(공식 advisor 문서): 위임이 많으면 Opus 입력 토큰이 늘어난다",
                       "대량·정형 서브에이전트 작업은 Haiku(explorer)로 보낸다",
                       "AO 워커 모델은 프로젝트 설정 --model, 리뷰어는 reviewers[](하네스 codex + agentConfig.model)이며 AO 출력에는 실제 사용 모델 필드가 없다",
@@ -151,13 +150,12 @@ def features(root):
     for f in sorted((root / "scripts").glob("*.sh")):
         head = [l[1:].strip() for l in _read(f).split("\n")[1:6] if l.startswith("#")]
         scripts.append({"name": f.name, "desc": (head[0] if head else "")[:600]})
-    routine = [re.sub(r"\s+", " ", l)[:300] for l in _read(root / "claude" / "routines" / "daily-update.md").split("\n") if re.match(r"^\d+[a-z]?\.\s", l)]
     deny = p.get("deny", [])
     cat = {"파괴적 rm": len([r for r in deny if "rm -" in r]), "force push": len([r for r in deny if "push" in r]),
            "reset/clean/checkout/restore": len([r for r in deny if re.search(r"reset|clean|checkout|restore", r)]),
            "비밀 읽기(Read)": len([r for r in deny if r.startswith("Read(")])}
     return {"hooks": hooks, "deny": len(deny), "ask": len(p.get("ask", [])), "mode": p.get("defaultMode"), "denyKinds": cat,
-            "agents": [a["name"] for a in agents(root)], "skills": skills, "scripts": scripts, "routine": routine,
+            "agents": [a["name"] for a in agents(root)], "skills": skills, "scripts": scripts,
             "plugins": [k for k, v in s.get("enabledPlugins", {}).items() if v], "statusLine": statusline(s.get("statusLine")),
             "dashboard": ["활동·실시간 이벤트", "AO 워커", "변경 이력(PR)", "점검과 알림", "프로젝트 셋업", "사이드 탭 %d종" % len(re.findall(r'data-tab="', (root / "scripts/dashboard/index.html").read_text(encoding="utf-8")))]}
 

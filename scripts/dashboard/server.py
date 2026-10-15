@@ -5,7 +5,7 @@ and logs each run to state/fix-log.jsonl.
 
 Run: python3 scripts/dashboard/server.py [--port 8787]
 Optional: PROJECT_DIRS or state/projects.txt lists projects; the project roots of scripts/toolreg.py (PROJECT_ROOTS > state/machine.json projectRoots > state/project-roots.txt > ~/Projects) are parent folders whose sub-folders are all projects; the "프로젝트 셋업" dialog shows file presence, line counts, setting keys and script names.
-Reads: git history, gh PR list, scripts/verify.sh --live, reports/*.md, claude/settings.json, the AO daemon (ao status, session ls, review ls; read-only),
+Reads: git history, gh PR list, scripts/verify.sh --live, claude/settings.json, the AO daemon (ao status, session ls, review ls; read-only),
 the Codex setup checks (TRACE setup.py verify and plan, codex --version; read-only, see codex.py),
 and the tool-call names and timestamps of the newest session log in ~/.claude/projects.
 It parses the log tail in memory but emits only tool names, times, a file basename, and a command's first word plus a plain subcommand
@@ -26,7 +26,7 @@ import projects as projects_mod
 from fsutil import mem_dir, mtime as _mtime, newest_file, read_json as _read_json
 from efficiency import AoEfficiency, BenchEfficiency, EfficiencyReport, MemEfficiency, ModelEfficiency, RtkEfficiency, UsageEfficiency
 from cache import TtlCache
-from fixes import FixRegistry, MemRedactOn, RtkUpdate
+from fixes import FixRegistry, MemRedactOn
 from procs import BASH, ProcessRunner, which
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -84,19 +84,6 @@ def settings():
             "model": s.get("model"), "advisor": s.get("advisorModel"),
             "tune": {k: s.get(k) for k in keys}, "liveTune": {k: ls.get(k) for k in keys},
             "plugins": plugins(s), "livePlugins": plugins(ls)}
-
-
-def reports():
-    d = ROOT / "reports"
-    items = []
-    if d.is_dir():
-        for f in sorted(d.glob("20*.md"), reverse=True)[:7]:
-            try:
-                items.append({"name": f.name, "mtime": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(),
-                              "text": f.read_text(encoding="utf-8", errors="replace")[:4000]})
-            except OSError:
-                continue
-    return items
 
 
 def ao_bin():
@@ -318,25 +305,10 @@ def ao_health(ao, now=None):
     return out
 
 
-def tools_version_health():
-    """RTK installed vs latest GitHub release. Network failure means 'not checked', never an error."""
-    if not which("rtk"):
-        return []
-    cur = run(["rtk", "--version"], timeout=10).strip()
-    latest = cached("rtk_latest", 3600, RtkUpdate.latest, slow=True)
-    older = RtkUpdate.older(cur, latest)
-    if older is None:
-        return [("도구", "RTK 버전", "ok", f"{cur or '?'} · 최신 버전 확인 못 함")]
-    if not older:
-        return [("도구", "RTK 버전", "ok", f"{cur} (최신)")]
-    fixable = RtkUpdate.installer() is not None
-    return [("도구", "RTK 버전", "warn", f"{cur} → 최신 {latest}", "업데이트: " + " ".join(RtkUpdate.installer() or ["수동 설치"]) + " [출처: 설치 방식(winget) 확인함, 릴리스 노트는 안 읽음]", "rtk-update" if fixable else "")]
-
-
 def tools_health():
     ao = SOURCES["ao"].read({"available": bool(ao_bin()), "daemon": {"state": "loading"}, "sessions": []})
     items = []
-    for name, fn in (("claude-mem", mem_health), ("기록", history_health), ("AO", lambda: ao_health(ao)), ("도구", tools_version_health)):
+    for name, fn in (("claude-mem", mem_health), ("기록", history_health), ("AO", lambda: ao_health(ao))):
         try:
             items += fn()
         except Exception:  # one failing source must not take /api/state down
@@ -348,7 +320,6 @@ TOKEN = secrets.token_urlsafe(24)  # per start; a foreign page cannot read it (n
 FIXLOG = ROOT / "state" / "fix-log.jsonl"
 FIXES = FixRegistry()  # only fixes registered here can ever run
 FIXES.register(MemRedactOn())
-FIXES.register(RtkUpdate(RUNNER, CACHE))
 
 
 def fix_log_write(fid, targets, res):
@@ -397,7 +368,6 @@ STATE_SOURCES = (
     Source("prs", 60, pull_requests, slow=True, placeholder=[]),
     Source("verify", 60, verify, slow=True, placeholder=lambda: {"at": _now(), "counts": {"PASS": 0, "FAIL": 0, "WARN": 0}, "lines": ["검증 실행 중..."]}),
     Source("settings", 5, settings),
-    Source("reports", 30, reports),
     Source("ao", 8, ao_state, slow=True, placeholder={"available": True, "daemon": {"state": "loading"}, "sessions": []}),
     Source("projects", 10, projects),
 )

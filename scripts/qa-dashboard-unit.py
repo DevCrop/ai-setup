@@ -605,16 +605,5 @@ check(procs.which is procs.toolreg.which and "def which" not in src["procs.py"],
 unguarded = [n for n, t in src.items() if "toolreg.detect" in t or "run_version" in t]
 check(unguarded == [], "dashboard modules do not call toolreg.detect or run_version (they spawn without the no-console guard)", unguarded)
 
-# ---- BACKLOG T5: the RTK update reads its winget id from tools.json and compares versions with toolreg ----
-_sh.which = lambda n, *a, **k: "/x/winget" if n == "winget" else real_which(n, *a, **k)
-try:
-    wid = next(e["install"]["winget"] for e in procs.toolreg.load_registry() if e["id"] == "rtk")
-    check(fixes.RtkUpdate.installer() == ["winget", "upgrade", "--id", wid, "--silent", "--accept-package-agreements", "--accept-source-agreements"],
-          "rtk-update: the winget id comes from tools.json", fixes.RtkUpdate.installer())
-finally:
-    _sh.which = real_which
-check([fixes.RtkUpdate.older(a, b) for a, b in [("rtk 0.9.10", "v0.10.0"), ("rtk 0.32.0", "v0.32.0"), ("rtk 1.0.0", "v0.32.0"), ("", "v1.0.0"), ("rtk 1.0.0", None), ("error 2", "v1.0.0")]]
-      == [True, False, False, None, None, None], "rtk-update: older() compares numerically and is None when a version cannot be read")
-
 print(f"failures: {len(fails)}")
 sys.exit(1 if fails else 0)

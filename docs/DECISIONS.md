@@ -151,17 +151,17 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 
 ### Ponytail is always on
 - Ponytail costs about 641 tokens a session plus Node hooks (`claude plugin details ponytail`); the user wants it on in every session. `/ponytail off` turns it off for one session. The daily routine reports it as unhealthy when it is missing or disabled.
-- Undo: remove its `enabledPlugins` entry and marketplace from `claude/settings.json`, the routine's health check and the `verify.sh` Ponytail check.
+- Undo: remove its `enabledPlugins` entry and marketplace from `claude/settings.json` and the `verify.sh` Ponytail check.
 
 ### Third-party plugins are pinned to a commit in an inline marketplace
 - What (user choice: pin both plugins at a release rather than each machine taking upstream's newest): `extraKnownMarketplaces` declares `ponytail` and `thedotmack` as `settings` (inline) marketplaces, each with one plugin whose source carries a release tag as `ref` and its full commit as `sha`: Ponytail `url` source, claude-mem `git-subdir` source (`plugin/`). The keys and plugin ids equal the upstream ones, so `enabledPlugins` and installed data stay.
 - Why: without a pin, an upstream push runs code on every machine at the next install or update. An inline catalog pins without a fork or a marketplace repository to keep.
 - Sources: `url` and `git-subdir` with `https://` URLs, not `github` or `owner/repo` shorthand: in a rehearsal (Claude Code 2.1.296, empty `CLAUDE_CONFIG_DIR`) those two cloned over SSH and failed without a GitHub host key, while the https URLs installed both plugins at the pinned commit. Changing the source of an installed marketplace kept both plugins and their data folder.
 - Existing installs: `claude plugin update` replaces a plugin when the version it computes differs from the installed one, higher or lower (docs `plugins/loading`, "Versions and updates"; for an install of the same version string at another commit it prints "already at the latest version"). So an install older than the pin needs one `claude plugin update <id>` after `apply.sh` (back up `~/.claude-mem` first); an install of the same version at another commit stays as it is; an install newer than the pin must not be updated (it would move claude-mem back). The daily routine tells the three apart.
-- Upgrades: the weekly `updates` workflow opens a PR that changes `ref` and `sha` (entry "Pinned versions move by a weekly PR"); after merge, apply, then `claude plugin update <id>`. The daily routine reports a newer release tag and never edits the pin. Never move claude-mem to an older version (it migrates its database); back up `~/.claude-mem` before an upgrade.
+- Upgrades: by hand. Change `ref` and `sha` in `claude/settings.json` to the new release tag's commit, apply, then `claude plugin update <id>`. Nothing reports a newer tag. Never move claude-mem to an older version (it migrates its database); back up `~/.claude-mem` before an upgrade.
 - If upstream force-pushes or deletes the repository, fresh installs of the pinned commit break (installed copies keep working); fork the repository then and point the `url` at the fork.
 - Limits: `claude plugin marketplace add` cannot register an inline marketplace; Claude Code registers it when a session starts, so a new machine opens one session after `apply.sh` before `claude plugin install`. A plugin cache path longer than the Windows path limit fails (claude-mem has deep test fixtures); `~/.claude` is short enough.
-- Undo: replace the inline marketplaces with upstream `github` sources in `extraKnownMarketplaces` (installs then follow upstream's newest), and drop the pin steps in GUIDE, the daily routine, `scripts/update-pins.py` and the `verify.sh` hint.
+- Undo: replace the inline marketplaces with upstream `github` sources in `extraKnownMarketplaces` (installs then follow upstream's newest), and drop the pin steps in GUIDE and the `verify.sh` hint.
 
 ## Apply and settings
 
@@ -223,38 +223,34 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 - Undo: drop `--no-upgrade` in `toolreg.install_argv` and the `ask()` gate in `bootstrap.py`, with their qa-bootstrap cases.
 
 ### Daily routine on every machine, Opus, read-only
-- What: `claude/routines/daily-update.md` runs as the scheduled task `daily-claude-update` on every machine, on Opus in auto mode, and only reads and reports. `reports/` and `state/` are local and gitignored, so machines do not mix baselines and `git pull` never conflicts. `scripts/docs-watch.sh` and the routine watch the official pages this setup depends on (the list is in routine step 8, model-config and advisor included). The task body is a path-free pointer and the task's folder is the clone, so no copy of the path or the steps lives in the app or in `~/.claude` (`apply.sh` stopped copying `routines/` on 2026-10-14, after a folder move left a stale path in the task body).
-- Undo: delete the scheduled task on each machine; remove `claude/routines/` and `claude/scheduled-tasks/`.
+- Superseded 2026-10-16 by "No scheduled runs and no version detection". The routine, its scheduled task and `scripts/docs-watch.sh` are removed.
 
 ## CI and automation
+
+### No scheduled runs and no version detection (2026-10-16)
+- What: nothing runs on a schedule. There is no routine, no scheduled task, no `schedule` trigger in CI, no weekly pin PR, no Dependabot, and the dashboard does not look up the latest RTK release. Each tool and plugin stays at the version this repo pins or the version a person installs. A person reads the vendor's release page and moves a pin by hand. Each tool's own automatic self-update is off (user decision, plan A).
+- Why: user decision, plan A (2026-10-16). The daily routine, the weekly pin PR and the dashboard's version check were the largest moving parts and the most upkeep; the setup keeps only what the official recommendations need. Trade-off: an upstream change (runner image, a deprecated action, a new tool release) shows up at the next PR or the next manual check, not within a week.
+- Check: CI runs on push to `main`, on pull requests and by hand. `scripts/verify.sh` no longer checks workflow triggers.
+- Undo: restore the removed files from git history (the commit before the PR that removed them) and the entries they served.
 
 ### Changes go through a branch and a PR, and Claude merges
 - The user lets Claude merge a PR itself, after CI is green on the head, the PR is mergeable and the reviewer subagent has no open findings. Push stays after approval; no force push; no merge of a PR with red CI or a conflict.
 - Undo: require a person to merge: change root `CLAUDE.md`, `docs/GUIDE.md` and this entry.
 
 ### `check.yml` also runs every Monday and by hand
-- What: `.github/workflows/check.yml` has a `schedule` trigger (Mondays 00:17 UTC, 09:17 KST) and `workflow_dispatch`, besides push to `main` and pull requests.
-- Why: the user chose GitHub automation that runs the existing checks between PRs, so a change in the runner image, Python or a pinned tool shows up within a week. In a public repository GitHub disables a schedule after 60 days without repository activity (GitHub docs, "Disabling and enabling a workflow"); re-enable it from the Actions tab. Who is notified of a failed scheduled run follows the account's Actions notification settings (not verified here).
-- Check: `scripts/verify.sh` fails when either trigger is missing. Undo: remove the two triggers and that check.
+- Superseded 2026-10-16 by "No scheduled runs and no version detection". `check.yml` runs on push to `main`, on pull requests and by hand; its `schedule` trigger is removed.
 
 ### Pinned versions move by a weekly PR
-- What (user choice: automate with PRs, never install anything on a PC, changes land only after review and merge): `.github/workflows/updates.yml` runs every Monday at 00:47 UTC (09:47 KST) and by hand. It runs `python3 scripts/update-pins.py --write`, which moves the Ponytail and claude-mem plugin pins (`ref` and `sha` in `claude/settings.json`; newest stable `vX.Y.Z` tag from `git ls-remote --tags`, an annotated tag peeled to its commit), the Codex Ponytail skill (`codex/versions.lock.json` commit, version, the vendored files under `codex/vendor/ponytail/` and their sha256) and RTK (`codex/versions.lock.json`: the newest GitHub release, each asset name already locked downloaded and hashed; `release_plan` from `codex/scripts/tools.py` checks the release as GitHub returned it, and each locked asset needs a `sha256:` release digest equal to the downloaded bytes, or RTK is a failed source; other platforms are ignored). The Ponytail plugin and the Codex skill move together to the same tag or not at all; an upstream change to the skill's file set is reported for a manual update. It also records the newest release of the unpinned tools (Claude Code, Codex, Git for Windows, jq, GitHub CLI, Node.js LTS, Python, AO) in `docs/tool-versions.json` (Python: the newest patch of the minor that the `tools.json` winget id installs; a version that is not a plain version string is a failed source); the PR body lists which changed, with the `winget upgrade` id from `tools.json`. A job with a read-only token runs the script and uploads the changed files and the report as an artifact; a second job copies only `claude/settings.json`, `codex/versions.lock.json`, `codex/vendor/` and `docs/tool-versions.json` from it onto `main`. When anything changed, that job commits to the bot-owned branch `bot/updates` (force-updated each week), opens or updates one PR to `main` titled `chore: update pinned versions` with the report as its body, then runs `gh workflow run check.yml --ref bot/updates`, because a push or PR made with `GITHUB_TOKEN` starts no other workflow and `workflow_dispatch` is the documented exception. When nothing changed, upstream equals `main`, so it closes any open bot PR with a comment (merging it would change nothing or move pins back). A source that fails (network, rate limit) is listed in the report, the others are still written, and the run ends red. Only upward moves are made; a tag that now points at another commit is reported and left alone.
-- Why: without it the pins move only when someone reads the daily report and edits them by hand. A PR keeps the review step and CI, and nothing reaches a PC before merge.
-- Needs: the repository setting "Allow GitHub Actions to create and approve pull requests" (Settings, Actions, General, Workflow permissions) must be on, otherwise `gh pr create` fails. `check.yml` must keep its `workflow_dispatch` trigger, or the PR gets no checks.
-- After merge, on each PC (docs/GUIDE.md): `git pull && bash scripts/apply.sh && bash scripts/verify.sh --live`; for a moved plugin pin the user backs up `~/.claude-mem` and runs `claude plugin update <id>`; the Codex skill and RTK follow `codex/README.md` (`setup.py` plan/apply, `tools.py install-rtk`). The tools in `docs/tool-versions.json` are upgraded with winget by the user.
-- Check: `scripts/verify.sh` fails when `updates.yml` is missing its `schedule` or `workflow_dispatch` trigger or no longer runs `update-pins.py --write`; `scripts/qa-update-pins.py` (fake fetchers, in the linux CI job) covers newer and same versions, tag peeling, RTK hashing with only locked names and required release digests, a failing source, rejected version strings, the Python minor from `tools.json`, and the two Ponytail pins kept equal. The workflow itself runs only on GitHub.
-- Undo: delete `.github/workflows/updates.yml`, `scripts/update-pins.py`, `scripts/qa-update-pins.py`, `docs/tool-versions.json`, the CI step and the `verify.sh` check, and this entry's lines in GUIDE, README and the daily routine; close the open bot PR and delete the `bot/updates` branch.
+- Superseded 2026-10-16 by "No scheduled runs and no version detection". `.github/workflows/updates.yml`, `scripts/update-pins.py`, `scripts/qa-update-pins.py` and `docs/tool-versions.json` are removed. Pins move by hand, as before the weekly PR.
 
 ### `updates.yml` runs only on `main`, and both jobs read the same commit
-- What: both jobs have `if: github.ref == 'refs/heads/main'`; the check job and the PR job both check out `github.sha`.
-- Why: a manual run from another branch would copy files read on that branch into the PR against `main`, and a branch can move between the two jobs.
-- Check: none outside GitHub. Undo: drop the two `if:` lines.
+- Superseded 2026-10-16 by "No scheduled runs and no version detection". `updates.yml` is removed.
 
 ### Workflow actions are pinned to commit SHAs; Dependabot moves them
-- What: every `uses:` in `.github/workflows/check.yml` and `updates.yml` names a full commit SHA with the release as a comment (for example `actions/checkout@<sha>  # vX.Y.Z`). `.github/dependabot.yml` (ecosystem `github-actions`, weekly) opens a PR when a newer release exists; it goes through review and CI like any PR.
-- Why: a tag such as `v4` can be moved to other code by whoever controls the action's repository, a commit SHA cannot. `updates.yml` holds a token that can push and open PRs, so the code it runs should not change without a PR here. GitHub's security hardening guide for Actions recommends full-length SHAs (not re-read for this entry).
+- What: every `uses:` in `.github/workflows/check.yml` names a full commit SHA with the release as a comment (for example `actions/checkout@<sha>  # vX.Y.Z`). No Dependabot config is kept (`.github/dependabot.yml` is removed on 2026-10-16); a person moves a SHA by hand after reading the release.
+- Why: a tag such as `v4` can be moved to other code by whoever controls the action's repository, a commit SHA cannot. GitHub's security hardening guide for Actions recommends full-length SHAs (not re-read for this entry).
 - Check: CI runs the pinned actions. No `verify.sh` check enforces the SHA form.
-- Undo: use release tags in both workflows and delete `.github/dependabot.yml`.
+- Undo: use release tags in `check.yml`.
 
 ### CI parses every tracked `*.ps1`; `verify.sh` syntax-checks the hooks and the status line
 - What: the `windows` job of `check.yml` parses every file from `git ls-files '*.ps1'` with the PowerShell parser and fails on any parse error (or when none is found). `verify.sh` runs `bash -n` on `claude/hooks/*.sh` and `claude/statusline.sh` as well as `scripts/*.sh`.
@@ -262,9 +258,7 @@ One entry per choice that shapes this setup: what it is, why, how it is checked,
 - Undo: remove the step and the two globs.
 
 ### `docs-watch.sh` creates its cache only with `--update`, and has an offline test
-- What: `scripts/docs-watch.sh` creates the cache folder only under `--update`, as its header says; `scripts/qa-docs-watch.sh` runs it against a fake `curl` (no network) in the CI `linux` job.
-- Why: a report run must not write anything; the test keeps the script to its header.
-- Undo: drop the `--update` guard, the test and its CI step.
+- Superseded 2026-10-16 by "No scheduled runs and no version detection". `scripts/docs-watch.sh` and its test are removed.
 
 ### `.gitignore`: anchored `/reports/` and `/state/`, worktrees and secret file names
 - What: `reports/` and `state/` are ignored only at the repository root (`/reports/`, `/state/`), so a folder of that name elsewhere (for example in `codex/`) is not hidden. `.claude/worktrees/` is ignored. The secret file names of `secret-guard.sh` `is_secret()` and the Read deny rules (entry "One secret list") are listed too, with the `*.pub` public keys allowed.

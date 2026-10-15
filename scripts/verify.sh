@@ -173,12 +173,6 @@ case "$ask_ok" in
   0) fail "permissions.ask is missing or empty" ;;
   *) grep -q '"ask"' "$src/settings.json" && warn "permissions.ask present (not validated: needs jq or python3)" || fail "permissions.ask is missing" ;;
 esac
-# Weekly update PRs (decision 2026-10-13): updates.yml runs update-pins.py on a schedule and by hand.
-upd="$repo/.github/workflows/updates.yml"
-[ -f "$upd" ] && grep -q '^  schedule:' "$upd" && grep -q '^  workflow_dispatch:' "$upd" && grep -q 'scripts/update-pins.py --write' "$upd" \
-  && pass "updates.yml runs update-pins.py weekly and by hand" \
-  || fail "updates.yml must exist with schedule and workflow_dispatch triggers and run scripts/update-pins.py --write"
-
 # 5. global CLAUDE.md size (docs: target under 200 lines)
 lines="$(wc -l < "$src/CLAUDE.md" | tr -d ' ')"
 [ "$lines" -le 200 ] && pass "claude/CLAUDE.md has $lines lines (limit 200)" || fail "claude/CLAUDE.md has $lines lines (limit 200)"
