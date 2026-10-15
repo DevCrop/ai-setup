@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import tomllib
 import unittest
 
 from setup import Deployment, digest, patch_agents, safe, save_json
@@ -358,6 +359,32 @@ class LifecycleTests(unittest.TestCase):
 
     def test_uninstall_removes_originally_absent_config(self):
         self.dep().apply()
+        self.dep().uninstall()
+        self.assertFalse((self.home / "config.toml").exists())
+
+    def test_top_level_setting_goes_before_agents_table(self):
+        patched = patch_agents(b"[agents]\nenabled = true\n", {"check_for_update_on_startup": False, "enabled": True})
+        self.assertTrue(patched.decode().startswith("check_for_update_on_startup = false\n"))
+        parsed = tomllib.loads(patched.decode())
+        self.assertIs(parsed["check_for_update_on_startup"], False)
+        self.assertEqual(parsed["agents"], {"enabled": True})
+
+    def test_top_level_setting_alone_creates_no_agents_table(self):
+        patched = patch_agents(None, {"check_for_update_on_startup": False})
+        self.assertEqual(tomllib.loads(patched.decode()), {"check_for_update_on_startup": False})
+
+    def test_top_level_setting_inserted_before_other_tables(self):
+        parsed = tomllib.loads(patch_agents(b'model = "user"\n\n[profiles.a]\nk = 1\n', {"check_for_update_on_startup": False}).decode())
+        self.assertEqual(parsed["model"], "user")
+        self.assertIs(parsed["check_for_update_on_startup"], False)
+        self.assertEqual(parsed["profiles"], {"a": {"k": 1}})
+
+    def test_top_level_setting_applied_verified_and_uninstalled(self):
+        self.manifest["agent_settings"]["check_for_update_on_startup"] = False
+        self.write_manifest()
+        self.dep().apply()
+        self.assertEqual(self.dep().verify()["status"], "pass")
+        self.assertIs(tomllib.loads((self.home / "config.toml").read_text(encoding="utf-8"))["check_for_update_on_startup"], False)
         self.dep().uninstall()
         self.assertFalse((self.home / "config.toml").exists())
 

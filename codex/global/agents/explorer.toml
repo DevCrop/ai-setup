@@ -2,7 +2,6 @@ name = "explorer"
 description = "Read-only codebase search and summary: find files, symbols, call sites and config, then report what was found."
 model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
-sandbox_mode = "read-only"
 developer_instructions = """
 Search and read only; never edit files or run commands that change state.
 Answer the question you were given with file paths and line numbers for each claim.

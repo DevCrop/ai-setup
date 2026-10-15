@@ -4,7 +4,7 @@ import json
 import re
 import tomllib
 
-from setup import ROOT, read_json, safe, target_key
+from setup import ROOT, TOP_LEVEL_SETTINGS, read_json, safe, target_key
 from index_docs import render
 
 
@@ -15,7 +15,10 @@ def main():
     for p in (ROOT / "global").rglob("*.toml"):
         tomllib.loads(p.read_text(encoding="utf-8"))
     manifest = read_json(ROOT / "manifest.json")
-    if tomllib.loads((ROOT / 'global/config.base.toml').read_text(encoding='utf-8'))['agents'] != manifest['agent_settings']:
+    base = tomllib.loads((ROOT / 'global/config.base.toml').read_text(encoding='utf-8'))
+    tabled = {k: v for k, v in manifest['agent_settings'].items() if k not in TOP_LEVEL_SETTINGS}
+    top = {k: manifest['agent_settings'][k] for k in TOP_LEVEL_SETTINGS if k in manifest['agent_settings']}
+    if base.get('agents') != tabled or {k: base.get(k) for k in top} != top:
         raise ValueError('Config documentation differs from deployed manifest values')
     targets = set()
     for f in manifest["files"]:
