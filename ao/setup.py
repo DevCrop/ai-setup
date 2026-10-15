@@ -53,16 +53,15 @@ def command(action, project):
 
 
 def definitions(project, profile):
+    if not profile.get('compose'):  # only Docker QA projects get Cues (ai-setup has none)
+        return []
     package_file = Path(profile['path']) / 'package.json'
     scripts = json.loads(package_file.read_text(encoding='utf-8')).get('scripts', {}) if package_file.is_file() else {}
-    cues = [{'name': 'QA 상태', 'type': 'command', 'command': command('status', project)}]
-    if profile.get('compose'):
-        cues += [{'name': 'QA 시작 · 웹+DB', 'type': 'command', 'command': command('start', project)},
-                 {'name': 'QA 종료 · 컨테이너 제거', 'type': 'command', 'command': command('stop', project)}]
-        if profile.get('dbSourceVolume'):
-            cues += [{'name': 'QA DB 사본 · 최초 1회', 'type': 'command', 'command': command('clone-db', project)}]
-    else:
-        cues += [{'name': '개발 서버 · Vite', 'type': 'command', 'command': 'npm run dev -- --host 127.0.0.1'}]
+    cues = [{'name': 'QA 상태', 'type': 'command', 'command': command('status', project)},
+            {'name': 'QA 시작 · 웹+DB', 'type': 'command', 'command': command('start', project)},
+            {'name': 'QA 종료 · 컨테이너 제거', 'type': 'command', 'command': command('stop', project)}]
+    if profile.get('dbSourceVolume'):
+        cues += [{'name': 'QA DB 사본 · 최초 1회', 'type': 'command', 'command': command('clone-db', project)}]
     cues += [{'name': '가벼운 타입 검사', 'type': 'command', 'command': 'npm run typecheck' if 'typecheck' in scripts else 'npx --no-install tsc --noEmit'},
              {'name': '의존성 준비 · 수동', 'type': 'command', 'command': 'npm ci'},
              {'name': '코드 QA · 읽기 전용', 'type': 'agent', 'prompt':
@@ -97,12 +96,14 @@ def apply(lanes=False):
                  'QA 후 해당 Cue로 만든 컨테이너를 제거한다. DB 볼륨은 보존한다. '
                  '의존성 설치는 수동 Cue, 빌드·브라우저 검사는 변경 범위에 맞게 실행한다. '
                  '워크트리는 기준 커밋에서 시작하므로 원본 폴더의 미커밋 변경을 포함한다고 가정하지 않는다.\n[/AO local QA]')
+        # Setup, cleanup and the QA rules exist only for Docker QA projects; an empty value clears what an earlier apply wrote.
+        wired = bool(profile.get('compose'))
         for field in ('agentRules', 'orchestratorRules'):
-            previous = re.sub(r'\[AO local QA\].*?\[/AO local QA\]', '', config.get(field, ''), flags=re.S).strip()
-            config[field] = '\n\n'.join(filter(None, (previous, rules)))
+            previous = re.sub(r'\[AO local QA\].*?\[/AO local QA\]', '', config.get(field) or '', flags=re.S).strip()
+            config[field] = '\n\n'.join(filter(None, (previous, rules if wired else '')))
         for field, action in (('postCreate', 'prepare'), ('preRemove', 'stop')):
-            entries = config.get(field, [])
-            config[field] = [entry for entry in entries if not OWNED.search(entry)] + [command(action, project)] if profile.get('compose') or field == 'postCreate' else entries
+            kept = [entry for entry in config.get(field) or [] if not OWNED.search(entry)]
+            config[field] = kept + [command(action, project)] if wired else kept
         if project in existing:
             api('PUT', f'projects/{project}/config', {'config': config})
         else:
@@ -116,7 +117,7 @@ def apply(lanes=False):
                 if key not in config:
                     continue
                 saved_value = saved_branch if key == 'defaultBranch' else saved['config'].get(key)
-                if saved_value != config.get(key):
+                if (saved_value or None) != (config.get(key) or None):  # the API may omit empty values
                     raise RuntimeError(f'{project}: setting readback mismatch: {key}')
         current = {c['name']: c for c in api('GET', f'projects/{project}/cues')['cues']}
         for cue in definitions(project, profile):

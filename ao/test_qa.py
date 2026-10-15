@@ -131,7 +131,7 @@ class LaneTests(unittest.TestCase):
         self.assertEqual(moved['env'], {'A': '1'})
         self.assertEqual(moved['symlinks'], ['node_modules'])
         self.assertIn('echo hi', moved['postCreate'])
-        self.assertIn('[AO local QA]', moved['agentRules'])
+        self.assertIn('[AO local QA]', self.run_apply(existing_config=old, extra={'compose': 'compose.yml', 'image': 'img'})[0]['agentRules'])
         self.assertEqual(moved['defaultBranch'], 'main')
 
     def test_default_branch_read_from_top_level_for_existing_project(self):
@@ -153,6 +153,31 @@ class LaneTests(unittest.TestCase):
         self.assertEqual(config['postCreate'][0], 'echo hi')
         self.assertEqual(len(config['postCreate']), 2)
         self.assertNotIn(stale, config['postCreate'])
+
+    def test_project_without_compose_gets_no_setup_cleanup_cues_or_rules(self):
+        # ai-setup has no compose file, package install or .env need: nothing is generated (decision 2026-10-16).
+        config, calls = self.run_apply()
+        self.assertEqual(config['postCreate'], [])
+        self.assertEqual(config['preRemove'], [])
+        self.assertEqual(config['agentRules'], '')
+        self.assertEqual(config['orchestratorRules'], '')
+        self.assertEqual([c for c in calls if c[1].endswith('/cues') and c[0] != 'GET'], [])
+
+    def test_existing_setup_and_rules_removed_from_a_project_without_compose(self):
+        # Re-apply strips what an earlier apply wrote for ai-setup; the user's own entries stay.
+        old = {'defaultBranch': 'main', 'postCreate': ['echo hi', r'powershell.exe -File D:\ao\launch.ps1 -Action prepare -Project demo'],
+               'preRemove': None, 'agentRules': '[AO local QA]\nold\n[/AO local QA]',
+               'orchestratorRules': '사용자 규칙\n\n[AO local QA]\nold\n[/AO local QA]'}
+        config, _ = self.run_apply(existing_config=old)
+        self.assertEqual(config['postCreate'], ['echo hi'])
+        self.assertEqual(config['preRemove'], [])
+        self.assertEqual(config['agentRules'], '')
+        self.assertEqual(config['orchestratorRules'], '사용자 규칙')
+
+    def test_compose_project_keeps_setup_and_rules(self):
+        config, _ = self.run_apply(extra={'compose': 'compose.yml', 'image': 'img'})
+        self.assertIn('prepare', config['postCreate'][-1])
+        self.assertIn('[AO local QA]', config['agentRules'])
 
 
 class CommandTests(unittest.TestCase):
