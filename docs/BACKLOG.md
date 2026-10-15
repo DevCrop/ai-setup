@@ -20,7 +20,7 @@ None open.
 
 | # | Where | What | Done when |
 |---|---|---|---|
-| T4 | the whole repo, at `Projects\ai-setup` | full check at the new path, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (from a temporary repo with no remote, `rm -rf ~/__qa_nonexistent__` must be blocked, as in `qa-deny.sh`; then `ao stop`), one manual run of the scheduled task (after the user re-creates it in the app; it was removed on 2026-10-14) | every check passes; GUIDE "Last run" cells filled |
+| T4 | the whole repo, in this checkout | full check on this clone, judged by a QA subagent: `bootstrap.py check` (no stray WARN), `verify.sh --live --full`, a second `apply.sh` replaces nothing, `qa-bootstrap.py`, `qa-dashboard.sh`, `qa-ui.sh`, the dashboard Codex tab shows `codex/`, `codex/scripts/setup.py verify`, `ao/` unittest, a deny test through an AO worker (from a temporary repo with no remote, `rm -rf ~/__qa_nonexistent__` must be blocked, as in `qa-deny.sh`; then `ao stop`) | every check passes; GUIDE "Last run" cells filled |
 
 ## 5. Decisions waiting for you
 
@@ -29,7 +29,7 @@ None open.
 ## 6. Waiting on something outside this repo
 
 AO (`ao/`), checked on the local PC (AO runs only there):
-- Upgrade check: AO v0.14.0 (published 2026-10-14) is not yet tested here. Run `ao doctor` and a small-task Setup on 0.14.0, then check whether the local 0.13.7 patch (`~/.ao/backups`) and the `haiku` alias workaround are still needed. Then update the baseline in `ao/README.md` and DECISIONS "AO reviewer lane".
+- Upgrade check: AO 0.14.2 replaced the local 0.13.7 patch on the local PC. Run `ao doctor` and a small-task Setup. Check the `apply` KeyError at `ao/setup.py:121` (`defaultBranch`), and whether the `haiku` alias is still rejected (not tested on 0.14.2). Then update the baseline in `ao/README.md` and DECISIONS "AO reviewer lane".
 - Install path: after the 0.14.0 rename to Orchestrator.inc, confirm that `tools.json` `resources/daemon/ao.exe` still matches the installed app on each PC.
 - Not confirmed in the official docs: `ao project set-config --permission`, the model alias behavior, and `reviewers[].agentConfig.effort` (DECISIONS "AO reviewer lane", Not verified).
 
@@ -37,7 +37,7 @@ Codex setup (`codex/`):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", Open).
 - Whether Codex gets a session handoff note rule like `claude/CLAUDE.md` (`docs/codex-alignment.md`, "Open differences" 2).
 - Codex subagent models: confirm in a live `codex exec` run, after `setup.py apply`, that the custom `explorer` agent file is loaded (effort high, sandbox read-only, its developer instructions); its model `gpt-6.1-sol` alone does not tell it from the built-in one (`codex/docs/decisions/004-subagent-models.md`).
-- The first PC's checkout is now `Projects\ai-setup`, the single checkout the Codex docs (`codex/docs/install-another-windows-pc.md`) name. The Codex automations were removed on 2026-10-14 (backup `~/codex-automations-backup-2026-10-14`); the user re-adds them in the Codex app. Still to do: archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
+- The single checkout the Codex docs (`codex/docs/install-another-windows-pc.md`) name. The Codex automations were removed on 2026-10-14 (backup `~/codex-automations-backup-2026-10-14`); the user re-adds them in the Codex app. Still to do: archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
 
 ## 7. Measure
 
