@@ -46,7 +46,7 @@ def command(action, project):
     # A bare launcher works in cmd, PowerShell and Git Bash command Cues.
     # The script retains the shell's working directory and quotes native argv.
     if os.name == 'nt':
-        return f'powershell.exe -NoProfile -NonInteractive -File "{BASE / "launch.ps1"}" -PythonPath "{sys.executable}" -Action {action} -Project {project}'
+        return f'powershell.exe -NoProfile -NonInteractive -File {BASE / "launch.ps1"} -PythonPath {sys.executable} -Action {action} -Project {project}'
     return ' '.join(shlex.quote(value) for value in (sys.executable, '-B', str(BASE / 'qa.py'), action, '--project', project))
 
 

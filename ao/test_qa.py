@@ -145,5 +145,15 @@ class LaneTests(unittest.TestCase):
         self.assertEqual(config['worker']['agent'], 'claude-code')
 
 
+class CommandTests(unittest.TestCase):
+    def test_windows_command_has_no_embedded_quotes(self):
+        # AO 0.14.2 quotes arguments itself; the embedded quotes broke every spawn (WORKSPACE_PROVISION_FAILED).
+        import setup
+        with patch.object(setup.os, 'name', 'nt'):
+            command = setup.command('prepare', 'demo')
+        self.assertNotIn('"', command)
+        self.assertTrue(command.endswith('-Action prepare -Project demo'), command)
+
+
 if __name__ == '__main__':
     unittest.main()
