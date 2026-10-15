@@ -27,7 +27,7 @@ def api(method, path, body=None):
 
 # Role lanes (docs/DECISIONS.md "Model lanes" and "AO reviewer lane"): Claude workers on Haiku in auto mode, a Claude orchestrator
 # on Opus, and Codex as the PR reviewer so the reviewer is a different vendor from the author. Codex as a worker ran `rm` without approval
-# and could not commit (2026-10-13), so it is never the worker. Full model IDs: AO 0.13.7 rejects aliases such as `haiku`
+# and could not commit (2026-10-13), so it is never the worker. Full model IDs: AO 0.13.7 rejected aliases such as `haiku` (not re-tested on 0.14.2)
 # (UNSUPPORTED_MODEL). Update the IDs here when the models change. Reviewer effort is also passed per pass (`ao review trigger --effort high`)
 # because the CLI round trip drops agentConfig.effort; this tool talks to the API, which keeps it.
 LANES = {

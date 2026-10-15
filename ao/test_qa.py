@@ -71,7 +71,7 @@ class BudgetTests(unittest.TestCase):
 
 class LaneTests(unittest.TestCase):
     """New projects get the decided lanes (docs/DECISIONS.md "Model lanes" and "AO reviewer lane"): Claude worker on Haiku in auto mode,
-    Claude orchestrator on Opus, Codex reviewer on gpt-6.1-sol at high effort. Full model IDs: AO 0.13.7 rejects aliases."""
+    Claude orchestrator on Opus, Codex reviewer on gpt-6.1-sol at high effort. Full model IDs: AO 0.13.7 rejected aliases (not re-tested on 0.14.2)."""
 
     def run_apply(self, existing_config=None, lanes=False, extra=None):
         import json
