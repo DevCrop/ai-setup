@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from tools import extract, install, rollback, uninstall, runtime_env, target_name, validate_command, release_plan, plan_update, RTK_RELEASE_SOURCE
+from tools import extract, install, rollback, uninstall, runtime_env, target_name, validate_command, release_plan
 from setup import read_json, save_json
 
 
@@ -74,30 +74,6 @@ class ToolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_plan(release, lock)
         self.assertEqual(lock['assets'][release['assets'][0]['name']]['sha256'], 'a'*64)
-
-    def test_update_plan_requires_current_matching_collection(self):
-        release, lock = self.release_fixture()
-        body = json.dumps(release, sort_keys=True)
-        sha = hashlib.sha256(body.encode()).hexdigest()
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            with self.assertRaises(ValueError):
-                plan_update(state, lock)
-            report = {'checked_at':'2026-10-07T00:00:00Z', 'results':[
-                {'id':'R41', 'url':RTK_RELEASE_SOURCE, 'status':'fetched', 'sha256':sha}]}
-            save_json(state/'source-report.json', report)
-            save_json(state/'source-status.json', {'R41':{'body':body,'sha256':sha}})
-            with patch('tools.download', side_effect=AssertionError('No network allowed')):
-                self.assertEqual(plan_update(state, lock)['status'], 'unchanged')
-            report['results'][0]['status'] = 'error'
-            save_json(state/'source-report.json', report)
-            with self.assertRaises(ValueError):
-                plan_update(state, lock)
-            report['results'][0]['status'] = 'fetched'
-            save_json(state/'source-report.json', report)
-            save_json(state/'source-status.json', {'R41':{'body':body+' ', 'sha256':sha}})
-            with self.assertRaises(ValueError):
-                plan_update(state, lock)
 
     def test_same_version_install_cannot_replace_receipted_asset(self):
         with tempfile.TemporaryDirectory() as directory:

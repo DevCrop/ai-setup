@@ -10,27 +10,25 @@ Keep personal preferences global, repository conventions in the project, runtime
 
 ## Efficient maintenance review
 
-Collect on the existing schedule; review relevant originals once per changed content or unresolved
+Collect when a review is asked for; review relevant originals once per changed content or unresolved
 question. Reuse per-URL decisions tied to content identity and applicability;
 an unchanged index never proves an unread article was reviewed. Prioritize changes
 that affect this client's correctness, compatibility or recurring work. Keep a
 bounded explicit backlog rather than rereading every earlier article. Avoid
-duplicating guidance across the agreement, guides and the automation prompt.
+duplicating guidance across the agreement, guides.
 Check relevant installed state after changes; do not repeat expensive artifact
 validation when artifact identity and its successful receipt remain unchanged.
 Output compression and shorter instructions are cost proxies, not measured model
 token or performance gains. Stop after acceptance; retain unresolved risks.
 
-On the designated maintenance host, follow docs/operations.md in the TRACE checkout
-for the recorded automatic-update scope. A new official article is a review input,
+Updates are never automatic (2026-10-16 decision). A new official article is a review input,
 not permission to copy its example settings. Check subscription, client, platform
 and task applicability; keep the user's model/effort and project rules. Verify
 actual installed files and relevant loading/runtime evidence after applying a
 compatible update. Unknown content, conflicting rules or expanded authority stays
 a candidate. Do not infer token savings from API prices or compressed output.
 
-Sources: [GPT-6 practical guide](https://openai.com/index/practical-guide-building-gpt-6/),
-[Scheduled tasks](https://learn.chatgpt.com/docs/automations).
+Sources: [GPT-6 practical guide](https://openai.com/index/practical-guide-building-gpt-6/).
 
 ## Evidence-based feedback loop
 
@@ -51,7 +49,7 @@ native tools and checks; route every supported diagnostic through verified RTK
 under guides/rtk.md, including nested calls. Keep
 Ponytail explicit and retain exact evidence for final acceptance.
 
-During the authorized host's existing scheduled routine, review new or changed lessons
+When a review is asked for, consider new or changed lessons
 and official-source deltas only. Reuse settled evidence and disregard irrelevant
 changes. Consolidate duplicate rules in their narrowest owned location. Apply
 reviewed compatible changes only within recorded authorization after ownership,
@@ -65,9 +63,8 @@ remote publication require separate authority; learning never grants authority.
 Preserve one current feedback_loop object beside existing maintenance evidence,
 with preferences, lessons, decisions and distinct review/apply/verify times.
 A subsequent user correction supersedes the exact older preference; keep only a
-compact supersession reason. Each scheduled review reconciles confirmed preferences,
-new/changed incidents, relevant official changes and unresolved candidates with
-the installed guidance, actual saved routine and report. Check contradictions,
+compact supersession reason. Each review reconciles confirmed preferences,
+new/changed incidents, relevant official changes and unresolved candidates with the installed guidance and the report. Check contradictions,
 obsolete advice, omitted required tools and premature completion claims. Reuse
 matching reviews; classify each changed candidate as keep, apply, defer or unknown
 with evidence and a reconsideration trigger. Repair the actual authorized cause,
@@ -144,8 +141,7 @@ project bug. Capture distinct failures promptly and update the same ID after rep
    alone is not rendering evidence. A missing capability remains unverified.
    Review the affected diff and stop when acceptance is met. Distinguish repaired,
    verified, deferred and unresolved; never promise complete prevention of errors.
-5. Write a compact incident to the designated host's existing private
-   routine-review.json, using the installed TRACE runner's CODEX_HOME-aware
+5. Write a compact incident to the private routine-review.json, using the installed TRACE runner's CODEX_HOME-aware
    state_location helper. Use the same incidents collection, not another log store.
    Keep a stable ID, opaque project/root fingerprint when necessary, surface/stage,
    sanitized signature, first/last observation, tool identity, cause confidence,
@@ -154,7 +150,7 @@ project bug. Capture distinct failures promptly and update the same ID after rep
    Do not copy raw output, source, customer data, screenshots, command arguments,
    prompts, secrets or transcript contents. A write failure is an explicit gap.
 
-Daily maintenance reviews only new/changed incident summaries and existing approved
+A review considers only new/changed incident summaries and existing approved
 scope. It may apply compatible global fixes within its recorded authorization;
 project source changes still require that project's active task authority. A folder
 preference does not register every project or authorize background file/chat scans.
@@ -174,22 +170,3 @@ Reviewed 2026-10-08: [global/project instruction discovery](https://learn.chatgp
 [focused instruction-first skills](https://learn.chatgpt.com/docs/build-skills),
 [hook coverage and PostToolUse](https://learn.chatgpt.com/docs/hooks).
 
-## Scheduled maintenance and in-task response
-
-Use the existing registered cadence for stable-release discovery, source drift
-and aggregate collection. Revalidate compression only after a changed tool/filter
-identity or a relevant failure; reuse matching successful evidence. Do not poll
-release feeds or reinstall tools at every task, command or feedback event.
-During an active authorized task, a new correction, repeated failure, version
-mismatch or hidden diagnostic evidence triggers scoped diagnosis immediately.
-Record its outcome for the scheduled review; do not defer an authorized blocking fix
-merely until the next schedule. Use existing tools and exact native evidence.
-No standing event daemon, new hook or cross-chat scan is implied by this policy.
-
-A discovered stable release is a review candidate, not an installation command.
-Install only after relevant compatibility and ownership checks under recorded
-authority, then run affected existing checks and preserve a restore point.
-An unchanged version/evidence reuses its acceptance result. New tool versions,
-changed filter behavior or newly observed failures justify targeted revalidation;
-new tasks alone do not justify repeating full test suites. Report only meaningful
-verified changes, new failures or needed decisions; preserve cadence and scope.

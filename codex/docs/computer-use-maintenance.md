@@ -9,7 +9,7 @@ Ponytail retains its separate explicit invocation policy.
 
 ## Daily review and task-time recovery
 
-Use the existing designated host routine and its saved local schedule. Compare
+When a review is asked for, compare
 current CLI/RTK stable releases, installed SDK/CLI inventory and the current official
 Computer Use, browser, extension, skills, best-practice and release documentation.
 Do not install an SDK just because it has a newer release. Project-pinned packages
@@ -22,16 +22,14 @@ routine-review.json. Reuse unchanged evidence. Track SDKs only where installed o
 explicitly required; a package-manager error is unknown, not an empty inventory.
 
 Check managed skill files during normal integrity verification. Exercise affected
-UI behavior after tool/skill changes or when a task reproduces a failure. An idle
-daily routine must not take over the desktop, launch arbitrary project servers or
+UI behavior after tool/skill changes or when a task reproduces a failure. A review must not take over the desktop, launch arbitrary project servers or
 create artificial compression calls. Host availability, plugin setup, file loading,
 browser execution, native execution and model behavior are separate evidence levels.
 Within browser evidence, distinguish the built-in browser from the Chrome extension.
 Honor explicit tab/profile selection, reuse live bindings, verify navigation after
 the destination is visible and retain user tabs. Surface-specific failures and
 permission blocks belong in the same compact incident ledger; do not broaden
-browser access to make a test pass. Reuse unchanged successful evidence instead
-of scheduling a synthetic test on both browsers every day.
+browser access to make a test pass. Reuse unchanged successful evidence instead of running a synthetic test on both browsers each time.
 
 Incidents use stable IDs and include stage/surface, sanitized error signature,
 first/last observation, tool identity, recovery attempt/result, impact, next action,
@@ -49,9 +47,7 @@ unused: active browser profiles and bundled runtimes may be required for executi
 Inventory narrowly. Remove only exact owned temporary files or stale cache entries
 whose producer, inactivity and regeneration are established; record before/after
 bytes and retained categories. Reject linked/reparse paths, uncertain ownership and
-active files. Never delete history databases to reduce apparent disk usage. Keep
-the separately authorized node_modules routine's actual cadence, seven-day threshold
-and protected projects; this workflow does not broaden its scope.
+active files. Never delete history databases to reduce apparent disk usage. Dependency cleanup keeps its own approval and protected projects (`project_cleanup.py`); this workflow does not broaden its scope.
 
 ## Acceptance
 
@@ -62,8 +58,7 @@ and protected projects; this workflow does not broaden its scope.
   or a named unresolved limitation. One cannot stand in for the other.
 - Cleanup records exact approved categories and actual removed bytes; history and
   authentication remain intact.
-- The saved host automation retains its schedule/owner/notification settings while
-  including this review and incident process. New hosts require their own approval.
+
 
 Sources: [Computer Use](https://learn.chatgpt.com/docs/computer-use),
 [Browser](https://learn.chatgpt.com/docs/browser),
