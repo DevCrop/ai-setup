@@ -40,7 +40,7 @@ export class MonitorTab extends Tab {
     const prs = s.prs || [], ev = s.activity.events, ao = s.ao || { available: false }, aoS = ao.sessions || [], aoLive = aoS.filter((x) => !x.isTerminated);
     const v = s.verify.counts;
     return {
-      v, st: s.settings, g: s.git, prs, ev, rep: (s.reports || [])[0], ao, aoS, aoLive,
+      v, st: s.settings, g: s.git, prs, ev, ao, aoS, aoLive,
       open: prs.filter((p) => p.state === "OPEN").length, merged: prs.filter((p) => p.state === "MERGED").length,
       health: v.FAIL ? "bad" : v.WARN ? "warn" : "ok", healthTxt: v.FAIL ? "FAIL" : v.WARN ? "WARN" : "PASS",
       tools: ev.filter((e) => e.kind === "tool"),
@@ -66,7 +66,7 @@ export class MonitorTab extends Tab {
   }
 
   pipeline(s, c, now) {
-    const { v, st, g, ev, rep, open } = c, act = activeNode(ev, now), lastMerge = g.commits.find((x) => x.pr);
+    const { v, st, g, ev, open } = c, act = activeNode(ev, now), lastMerge = g.commits.find((x) => x.pr);
     const rulesOk = !st.liveMissing && st.deny === st.liveDeny && st.ask === st.liveAsk;
     const tuneOk = JSON.stringify(st.tune) === JSON.stringify(st.liveTune) && JSON.stringify(st.plugins) === JSON.stringify(st.livePlugins);
     const sync = st.mode === st.liveMode && rulesOk && tuneOk;
@@ -77,8 +77,6 @@ export class MonitorTab extends Tab {
       ["apply", "적용", "apply.sh", st.liveMissing ? "적용본 없음" : sync ? "repo = live" : "repo ≠ live", st.liveMissing ? ["bad", "NOT APPLIED"] : sync ? ["ok", "SYNCED"] : ["bad", "DRIFT"]],
       ["live", "적용된 설정", "~/.claude", st.liveMissing ? "—" : st.liveMode || "—", st.liveMissing ? ["", "NONE"] : st.liveMode === "bypassPermissions" ? ["warn", "BYPASS"] : st.liveMode === "auto" ? ["accent", "AUTO"] : ["info", "DEFAULT"]],
       ["verify", "검증", "verify.sh", v.FAIL + " FAIL · " + v.WARN + " WARN", [c.health, c.healthTxt]],
-      ["routine", "루틴", "앱에서 설정",rep ? rep.name.replace(".md", "") : "—", rep ? ["ok", "RAN"] : ["warn", "NONE"]],
-      ["report", "보고서", "reports/", (s.reports || []).length + "개", (s.reports || []).length ? ["info", "SAVED"] : ["", "EMPTY"]],
     ];
     $("pipe").replaceChildren(...steps.map(([id, nm, wh, vl, [tone, txt]]) => {
       const d = el("div", "step" + (id === act ? " active" : "")), n = el("div", "nm"); n.append(el("span", null, nm), id === act ? badge("accent", "NOW", true) : badge(tone, txt));
@@ -150,13 +148,12 @@ export class MonitorTab extends Tab {
 
   // only what needs attention; the full text is in the dialog
   alerts(s, c) {
-    const items = [], { ao, aoLive, aoBlocked, aoDown, rep, v } = c;
+    const items = [], { ao, aoLive, aoBlocked, aoDown, v } = c;
     s.verify.lines.filter((l) => /^(FAIL|WARN)/.test(l)).forEach((l) => items.push([l.split(" ")[0] === "FAIL" ? "bad" : "warn", l.split(" ")[0], l.replace(/^(FAIL|WARN)\s+/, "")]));
     if (aoDown) items.push(["bad", "AO DOWN", "AO 데몬 상태 " + ((ao.daemon || {}).state || "?")]);
     (s.tools || []).filter((x) => x.level === "bad").forEach((x) => items.push(["bad", x.group.toUpperCase(), x.name + " · " + x.detail]));
     aoBlocked.forEach((x) => items.push(["bad", "BLOCKED", x.id + " · 사용자 입력 대기"]));
     aoLive.flatMap((x) => x.prs || []).filter((p) => p.verdict === "changes_requested").forEach((p) => items.push(["warn", "REVIEW", "PR #" + p.number + " 수정 요청"]));
-    ((rep || {}).text || "").split("\n").filter((l) => /OUTDATED/.test(l)).forEach((l) => items.push(["info", "UPDATE", l.split("|")[0].trim() + " · 업데이트 필요"]));
     $("chkNote").textContent = items.length ? items.length + "건" : "이상 없음";
     const rows = items.slice(0, 5).map(([tone, b, t]) => { const r = el("div", "row chk"), x = el("span", "t", t); x.title = t; r.append(badge(tone, b), x); return r; });
     if (!rows.length) { const r = el("div", "row chk"); r.append(badge("ok", "PASS"), el("span", "t", "검증 " + v.PASS + "개 통과, 알림 없음")); rows.push(r); }

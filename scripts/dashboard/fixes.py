@@ -1,12 +1,11 @@
 """One-click fixes. A fix is a class with a preview and a run; only classes registered in a FixRegistry can ever run.
 To add a fix: subclass Fix, give it an id, register an instance in server.py. Nothing else changes."""
-import json, shutil, subprocess, threading, urllib.request
+import json, shutil, threading
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 
 from fsutil import mem_dir
-from procs import toolreg, which
 
 
 class Fix(ABC):
@@ -81,52 +80,3 @@ class MemRedactOn(Fix):
         d["CLAUDE_MEM_REDACT_ENABLED"] = "true"
         f.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
         return {"ok": True, "msg": "켰습니다. claude-mem 워커를 다시 시작해야 적용될 수 있습니다."}
-
-
-class RtkUpdate(Fix):
-    id = "rtk-update"
-
-    def __init__(self, runner, cache):
-        self.runner, self.cache = runner, cache
-
-    @staticmethod
-    def older(cur, latest):
-        """True when the installed version is below the latest release, False when not, None when either cannot be read."""
-        # only a dotted version counts: toolreg.parse_version falls back to any bare number, which an error text can contain
-        a, b = toolreg.parse_version(cur), toolreg.parse_version(latest)
-        return None if not a or not b or "." not in a or "." not in b else not toolreg.version_ok(a, b)
-
-    @staticmethod
-    def latest():
-        try:
-            req = urllib.request.Request("https://api.github.com/repos/rtk-ai/rtk/releases/latest", headers={"User-Agent": "ai-setup-dashboard"})
-            with urllib.request.urlopen(req, timeout=5) as r:
-                return json.load(r).get("tag_name")
-        except Exception:
-            return None
-
-    @staticmethod
-    def installer():
-        """Update command for this machine: winget, with the package id from tools.json (the rtk entry) and no prompts (pythonw has no console).
-        None when winget or the id is missing."""
-        wid = next(((e.get("install") or {}).get("winget") for e in toolreg.load_registry() if e.get("id") == "rtk"), None)
-        if wid and which("winget"):
-            return ["winget", "upgrade", "--id", wid, "--silent", "--accept-package-agreements", "--accept-source-agreements"]
-        return None
-
-    def preview(self):
-        cmd = self.installer()
-        cur, latest = self.runner.run(["rtk", "--version"], timeout=10).strip(), self.cache.get("rtk_latest", 3600, self.latest)
-        due = bool(cmd and self.older(cur, latest))
-        return {"title": "RTK 업데이트 (설치 관리자가 새 버전으로 교체, 이전 버전 복구는 수동)", "targets": [f"{cur} -> {latest}: {' '.join(cmd)}"] if due else [], "reversible": False}
-
-    def run(self, targets):
-        cmd = self.installer()
-        if not cmd:
-            return {"ok": False, "msg": "설치 관리자(winget)를 찾을 수 없습니다."}
-        try:
-            p = self.runner.spawn(cmd, timeout=300)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            return {"ok": False, "msg": "실행 실패: " + type(e).__name__}
-        self.cache.drop("rtk_latest")
-        return {"ok": p.returncode == 0, "msg": f"설치 관리자 종료 코드 {p.returncode}. 새 버전은 `rtk --version`으로 확인하세요."}
