@@ -73,7 +73,7 @@ class LaneTests(unittest.TestCase):
     """New projects get the decided lanes (docs/DECISIONS.md "Model lanes" and "AO reviewer lane"): Claude worker on Haiku in auto mode,
     Claude orchestrator on Opus, Codex reviewer on gpt-6.1-sol at high effort. Full model IDs: AO 0.13.7 rejects aliases."""
 
-    def run_apply(self, existing_config=None, lanes=False):
+    def run_apply(self, existing_config=None, lanes=False, extra=None):
         import json
         import setup
         calls = []
@@ -81,17 +81,21 @@ class LaneTests(unittest.TestCase):
             root = Path(tmp) / 'proj'
             root.mkdir()
             reg = Path(tmp) / 'projects.json'
-            reg.write_text(json.dumps({'projects': {'demo': {'path': str(root), 'port': 5173}}}), encoding='utf-8')
-            store = {'config': copy.deepcopy(existing_config)} if existing_config is not None else {}
+            reg.write_text(json.dumps({'projects': {'demo': {'path': str(root), 'port': 5173, **(extra or {})}}}), encoding='utf-8')
+            # AO 0.14.2 shape (ai-setup-4 evidence): defaultBranch is top-level in GET, never inside config.
+            existing = dict(existing_config or {})
+            store = {'branch': existing.pop('defaultBranch', 'main'), 'config': existing}
 
             def api(method, path, body=None):
                 calls.append((method, path, copy.deepcopy(body)))
                 if path == 'projects' and method == 'GET':
                     return {'projects': [{'id': 'demo', 'path': str(root)}] if existing_config is not None else []}
                 if path == 'projects/demo' and method == 'GET':
-                    return {'project': {'config': copy.deepcopy(store.get('config'))}}
+                    return {'project': {'defaultBranch': store['branch'], 'config': copy.deepcopy(store['config'])}}
                 if (method, path) in (('POST', 'projects'), ('PUT', 'projects/demo/config')):
-                    store['config'] = copy.deepcopy(body['config'])
+                    config = copy.deepcopy(body['config'])
+                    store['branch'] = config.pop('defaultBranch', store['branch'])
+                    store['config'] = config
                     return {}
                 if path.endswith('/cues') and method == 'GET':
                     return {'cues': []}
@@ -99,7 +103,7 @@ class LaneTests(unittest.TestCase):
             with patch.object(setup, 'REGISTRY', reg), patch.object(setup, 'api', api), \
                  patch.object(qa, 'root_for', return_value=root), patch.object(qa, 'git', return_value='main'):
                 setup.apply(lanes=lanes)
-        return store['config'], calls
+        return {**store['config'], 'defaultBranch': store['branch']}, calls
 
     def test_new_project_gets_claude_worker_and_codex_reviewer(self):
         config, _ = self.run_apply()
@@ -129,6 +133,17 @@ class LaneTests(unittest.TestCase):
         self.assertIn('echo hi', moved['postCreate'])
         self.assertIn('[AO local QA]', moved['agentRules'])
         self.assertEqual(moved['defaultBranch'], 'main')
+
+    def test_default_branch_read_from_top_level_for_existing_project(self):
+        # Reproduces KeyError 'defaultBranch' (setup.py final print) on 0.14.2 shape.
+        config, _ = self.run_apply(existing_config={'worker': {'agent': 'claude-code'}})
+        self.assertEqual(config['defaultBranch'], 'main')
+
+    def test_default_branch_readback_for_new_project(self):
+        # Reproduces the readback RuntimeError: GET config has no defaultBranch, top-level has it.
+        config, _ = self.run_apply()
+        self.assertEqual(config['worker']['agent'], 'claude-code')
+
 
 if __name__ == '__main__':
     unittest.main()

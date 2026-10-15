@@ -107,10 +107,15 @@ def apply(lanes=False):
         else:
             api('POST', 'projects', {'projectId': project, 'name': project, 'path': str(root), 'config': config})
         saved = api('GET', f'projects/{project}')['project']
+        # AO 0.14.2 returns defaultBranch at the top level and not inside config (ai-setup-4 evidence).
+        saved_branch = saved.get('defaultBranch') or saved['config'].get('defaultBranch')
         if saved['config'] != config:
             # API may omit empty values; compare required values rather than claim a full exact round-trip.
             for key in ('worker', 'orchestrator', 'reviewers', 'defaultBranch', 'postCreate', 'agentRules'):
-                if saved['config'].get(key) != config.get(key):
+                if key not in config:
+                    continue
+                saved_value = saved_branch if key == 'defaultBranch' else saved['config'].get(key)
+                if saved_value != config.get(key):
                     raise RuntimeError(f'{project}: setting readback mismatch: {key}')
         current = {c['name']: c for c in api('GET', f'projects/{project}/cues')['cues']}
         for cue in definitions(project, profile):
@@ -118,7 +123,7 @@ def apply(lanes=False):
                 api('PATCH', f'cues/{current[cue["name"]]["id"]}', cue)
             else:
                 api('POST', f'projects/{project}/cues', cue)
-        print(json.dumps({'project': project, 'root': str(root), 'base': saved['config']['defaultBranch'], 'cues': len(definitions(project, profile)), 'applied': True}, ensure_ascii=False))
+        print(json.dumps({'project': project, 'root': str(root), 'base': saved_branch, 'cues': len(definitions(project, profile)), 'applied': True}, ensure_ascii=False))
 
 
 def main():
