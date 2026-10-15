@@ -47,8 +47,10 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(run('verify')['status'], 'pass')
             before = tomllib.loads(config)
             after = tomllib.loads((home / 'config.toml').read_text(encoding='utf-8'))
-            self.assertEqual({k: v for k, v in after.items() if k != 'agents'},
-                             {k: v for k, v in before.items() if k != 'agents'})
+            managed = ('agents', 'check_for_update_on_startup')  # keys the manifest writes; everything else must survive
+            self.assertIs(after['check_for_update_on_startup'], False)
+            self.assertEqual({k: v for k, v in after.items() if k not in managed},
+                             {k: v for k, v in before.items() if k not in managed})
             restore_point = (state / 'previous.json').read_bytes()
             self.assertEqual(run('apply')['status'], 'unchanged')
             self.assertEqual((state / 'previous.json').read_bytes(), restore_point)

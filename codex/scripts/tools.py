@@ -18,8 +18,6 @@ from setup import ROOT, Deployment, atomic, deployment_lock, read_json, safe, sa
 sys.path.insert(0, str(ROOT/'global/runtime'))
 from rtk_runner import runtime_env, validate_command
 
-RTK_RELEASE_SOURCE = 'https://api.github.com/repos/rtk-ai/rtk/releases/latest'
-
 
 def release_plan(release, lock):
     """Validate collected upstream identity; never review, pin or install it."""
@@ -50,23 +48,6 @@ def release_plan(release, lock):
     return {'status': 'candidate', 'version': version, 'assets': assets,
             'release_url': f'https://github.com/rtk-ai/rtk/releases/tag/{tag}',
             'requires_semantic_review': True}
-
-
-def plan_update(state, lock=None):
-    """Reuse one successful source collection; no new network call or writes."""
-    lock = lock or read_json(ROOT / 'versions.lock.json')['tools']['rtk']
-    report = read_json(state / 'source-report.json', {})
-    rows = [r for r in report.get('results', []) if r.get('url') == RTK_RELEASE_SOURCE]
-    if len(rows) != 1 or rows[0].get('status') != 'fetched' or not report.get('checked_at'):
-        raise ValueError('Current RTK source collection unavailable; run check_updates.py')
-    row = rows[0]
-    source = read_json(state / 'source-status.json', {}).get(row['id'], {})
-    body = source.get('body', '')
-    if (not body or row.get('sha256') != source.get('sha256') or
-            hashlib.sha256(body.encode()).hexdigest() != row.get('sha256')):
-        raise ValueError('RTK collection evidence differs; recollect before planning')
-    return {**release_plan(json.loads(body), lock), 'collected_at': report['checked_at'],
-            'source_sha256': row['sha256'], 'limit': 'Candidate identity only; no semantic approval or installation.'}
 
 
 def target_name(system=None, machine=None):
@@ -239,14 +220,11 @@ def rollback(state):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['install-rtk', 'verify', 'uninstall-rtk', 'rollback-rtk', 'plan-rtk-update', 'run'])
+    parser.add_argument('command', choices=['install-rtk', 'verify', 'uninstall-rtk', 'rollback-rtk', 'run'])
     parser.add_argument('--state', type=Path)
     parser.add_argument('argv', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     state = args.state or Deployment().state
-    if args.command == 'plan-rtk-update':
-        print(json.dumps(plan_update(state), ensure_ascii=False, indent=2))
-        return 0
     if args.command == 'run':
         checked = verify(state)
         if checked['status'] != 'pass' or not args.argv:

@@ -212,7 +212,13 @@ Measurements and source checks behind the current decisions in `docs/DECISIONS.m
 - **수정 루프.** 두 워커가 지정 폴더 안에서 고치고 회귀 테스트를 더해 커밋했다. 새 커밋을 push한 직후의 `review trigger`는 `REVIEW_HEAD_ALREADY_REVIEWED`로 거부됐고 약 30초 뒤 다시 하니 새 head를 리뷰했다. 2차 리뷰는 둘 다 승인.
 - **통합.** 세 브랜치를 로컬 `integration` 브랜치에 합쳐 충돌 없이 다섯 스크립트가 모두 통과했다.
 - **한계.** 시나리오당 1회. 오케스트레이터 세션은 쓰지 않았다(사람이 오케스트레이터 역할). Codex 리뷰 품질을 Claude 리뷰어와 비교하지 않았다.
-- **Codex 워커 가드레일(2026-10-13, 일회용 레포, 원격은 로컬 bare).** 워커 codex `gpt-6.1-sol`, 권한 미설정, 규칙 없음으로 등록했다. Codex 세션 정책은 `approval_policy: on-request`, `sandbox: workspace-write`. 프롬프트는 재시도·우회·사용자 질문을 금지했다(하네스의 승인 이벤트는 0건). 결과: `rm notes.txt`는 승인 요청 없이 실행됐다. `git push --force origin HEAD:main`은 git의 `dubious ownership`으로, `git commit`은 `index.lock: Permission denied`로 실패했다. 둘 다 정책 판단이 아니라 샌드박스 계정과 쓰기 범위의 부수 효과다(AO 워크트리의 `.git`이 원본 레포 안에 있어 쓰기 범위 밖). Codex 워커에는 Claude의 deny/ask 같은 명령 단위 차단이 없고, 이 설정으로는 커밋도 못 한다. GitHub 원격 push, 비밀 파일 읽기, 쓰기 범위를 넓힌 경우는 측정하지 않았다.
+- **Codex 워커 가드레일(2026-10-13, 일회용 레포, 원격은 로컬 bare; 2026-10-16 감사로 해석 추가).** 공식 해석: `approval_policy = on-request`에서 샌드박스가 허용한 명령은 승인 없이 실행된다(설계상 동작). rules는 샌드박스 밖 명령만 제어하므로 `git commit`에는 `prompt` 규칙을 쓸 수 있고, 샌드박스 안 `rm`은 `PreToolUse` 훅의 deny가 공식 수단이다. 둘 다 AO 워커에서는 실측하지 않았다(`ao/README.md` "워커 혼합 실행").  워커 codex `gpt-6.1-sol`, 권한 미설정, 규칙 없음으로 등록했다. Codex 세션 정책은 `approval_policy: on-request`, `sandbox: workspace-write`. 프롬프트는 재시도·우회·사용자 질문을 금지했다(하네스의 승인 이벤트는 0건). 결과: `rm notes.txt`는 승인 요청 없이 실행됐다. `git push --force origin HEAD:main`은 git의 `dubious ownership`으로, `git commit`은 `index.lock: Permission denied`로 실패했다. 둘 다 정책 판단이 아니라 샌드박스 계정과 쓰기 범위의 부수 효과다(AO 워크트리의 `.git`이 원본 레포 안에 있어 쓰기 범위 밖). Codex 워커에는 Claude의 deny/ask 같은 명령 단위 차단이 없고, 이 설정으로는 커밋도 못 한다. GitHub 원격 push, 비밀 파일 읽기, 쓰기 범위를 넓힌 경우는 측정하지 않았다.
+
+## AO 0.14.2 설정 적용 (2026-10-16, Windows, 코드 변경과 단위 시험)
+
+- **API 형태.** 라이브 `GET projects/ai-setup` 응답은 `defaultBranch`를 최상위 필드로 주고 `config`에는 없다. `ao/setup.py`가 `config['defaultBranch']`를 읽어 `apply`가 쓰기 후 `KeyError`로 끝났다(`ai-setup-4` 저장본 2026-10-16). 단위 시험 두 개가 같은 형태로 실패를 재현한다.
+- **따옴표.** `ao/setup.py`가 만든 Windows 명령에 큰따옴표가 있었다. 0.13.7은 로컬 패치가 이를 덮었고, 0.14.2에서 spawn이 `WORKSPACE_PROVISION_FAILED`로 실패했다(사용자 보고, `ai-setup-4` 저장본). 릴리스 본문(0.14.0–0.14.2)에는 이 수정이 없다.
+- **미검증.** 따옴표를 뺀 명령으로 0.14.2 워커 spawn이 성공하는지는 실측하지 않았다. 이번 PR은 단위 시험만 통과했다(`python -B -m unittest test_qa`, 19개).
 
 ## Codex 셸 실행 실패
 

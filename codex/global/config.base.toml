@@ -1,6 +1,7 @@
 # Merge managed keys only. Preserve the user's model, auth, MCP and permissions.
 # Local operating limit; not an official cost-optimal value.
 # Subagent defaults are the user's choice (2026-10-12, decision 004), not a measured ranking.
+check_for_update_on_startup = false  # official config reference: false only when updates are centrally managed (pinned versions)
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 2

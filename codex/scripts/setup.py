@@ -102,24 +102,15 @@ def default_state(home):
     return base / "TRACE-Setup" / hashlib.sha256(str(home).encode()).hexdigest()[:16]
 
 
-def patch_agents(raw, updates):
-    text = (raw or b"").decode("utf-8-sig").replace("\r\n", "\n")
-    parsed = tomllib.loads(text)
-    agents = parsed.get("agents", {})
-    if not isinstance(agents, dict):
-        raise ValueError("agents must be a TOML table")
-    # Only manage the manifest's agent_settings keys; preserve all other settings verbatim.
-    match = re.search(r"(?m)^\[agents\][ \t]*(?:#.*)?$", text)
-    if not match:
-        if agents:
-            raise ValueError("Nonstandard agents table syntax; manual migration required")
-        text = text.rstrip() + "\n\n[agents]\n"
-        start = len(text)
-        end = start
-    else:
-        start = match.end()
-        nxt = re.search(r"(?m)^\s*\[", text[start:])
-        end = start + nxt.start() if nxt else len(text)
+# agent_settings keys written at the top level of config.toml (official config reference), not inside [agents].
+TOP_LEVEL_SETTINGS = ("check_for_update_on_startup",)
+
+
+def setting(parsed, key):
+    return parsed.get(key) if key in TOP_LEVEL_SETTINGS else parsed.get("agents", {}).get(key)
+
+
+def _edit(text, start, end, updates):
     block = text[start:end]
     for key, value in updates.items():
         pattern = rf"(?m)^[ \t]*{re.escape(key)}[ \t]*=.*(?:\n|$)"
@@ -127,17 +118,46 @@ def patch_agents(raw, updates):
         if re.search(pattern, block):
             block = re.sub(pattern, lambda _: line, block)
         elif value is not None:
-            block = block.rstrip() + "\n" + line
-    result = (text[:start] + block + text[end:]).encode()
-    actual = tomllib.loads(result.decode())
-    expected_agents = dict(parsed.get("agents", {}))
-    for key, value in updates.items():
-        if value is None:
-            expected_agents.pop(key, None)
+            block = (block.rstrip() + "\n" if block.strip() else "") + line
+    return text[:start] + block + text[end:]
+
+
+def patch_agents(raw, updates):
+    text = (raw or b"").decode("utf-8-sig").replace("\r\n", "\n")
+    parsed = tomllib.loads(text)
+    agents = parsed.get("agents", {})
+    if not isinstance(agents, dict):
+        raise ValueError("agents must be a TOML table")
+    top = {k: v for k, v in updates.items() if k in TOP_LEVEL_SETTINGS}
+    tabled = {k: v for k, v in updates.items() if k not in TOP_LEVEL_SETTINGS}
+    # Only manage the manifest's agent_settings keys; preserve all other settings verbatim.
+    if tabled:
+        match = re.search(r"(?m)^\[agents\][ \t]*(?:#.*)?$", text)
+        if not match:
+            if agents:
+                raise ValueError("Nonstandard agents table syntax; manual migration required")
+            text = text.rstrip() + "\n\n[agents]\n"
+            start = end = len(text)
         else:
-            expected_agents[key] = value
+            start = match.end()
+            nxt = re.search(r"(?m)^\s*\[", text[start:])
+            end = start + nxt.start() if nxt else len(text)
+        text = _edit(text, start, end, tabled)
+    if top:
+        first = re.search(r"(?m)^[ \t]*\[", text)  # top-level keys must stay before the first table header
+        text = _edit(text, 0, first.start() if first else len(text), top)
+    result = text.encode()
+    actual = tomllib.loads(text)
     expected = dict(parsed)
-    expected["agents"] = expected_agents
+    expected_agents = dict(agents)
+    for key, value in updates.items():
+        target = expected if key in TOP_LEVEL_SETTINGS else expected_agents
+        if value is None:
+            target.pop(key, None)
+        else:
+            target[key] = value
+    if "agents" in parsed or tabled:
+        expected["agents"] = expected_agents
     if actual != expected:
         raise ValueError("Ambiguous TOML edit refused: non-managed values or table structure changed")
     return result
@@ -226,10 +246,10 @@ class Deployment:
             known = self.record["files"].get(rel)
             conflict = False
             if rel == "config.toml":
-                current = tomllib.loads((before or b"").decode("utf-8-sig")).get("agents", {})
+                current = tomllib.loads((before or b"").decode("utf-8-sig"))
                 expected = self.record.get("agent_settings")
                 if expected:
-                    conflict = any(current.get(k) != v for k, v in expected.items())
+                    conflict = any(setting(current, k) != v for k, v in expected.items())
             elif known:
                 conflict = digest(before) != known["sha256"]
             elif before is not None and before != after:
@@ -276,10 +296,10 @@ class Deployment:
         wanted = self.desired()
         original_config = content(safe(self.home, "config.toml"))
         original_agents = dict(self.record.get("original_agents", {}))
-        current_agents = tomllib.loads((original_config or b"").decode("utf-8-sig")).get("agents", {})
+        current_config = tomllib.loads((original_config or b"").decode("utf-8-sig"))
         for key in self.manifest["agent_settings"]:
             if key not in original_agents:
-                original_agents[key] = current_agents.get(key)
+                original_agents[key] = setting(current_config, key)
         changed = [x for x in changes if x["action"] != "keep"]
         if not changed and self.record.get("version") == self.manifest["version"]:
             return {"status": "unchanged", "files": len(changes)}
@@ -345,7 +365,7 @@ class Deployment:
             actual = content(self.path(p))
             if p == "config.toml":
                 parsed = tomllib.loads((actual or b"").decode("utf-8-sig"))
-                if any(parsed.get("agents", {}).get(k) != v for k, v in self.manifest["agent_settings"].items()):
+                if any(setting(parsed, k) != v for k, v in self.manifest["agent_settings"].items()):
                     errors.append(p)
                 profiles = parsed.get("profiles", {})
                 for entry in self.manifest["files"]:
@@ -378,7 +398,7 @@ class Deployment:
             actual = content(self.path(p))
             if p == "config.toml":
                 parsed = tomllib.loads((actual or b"").decode("utf-8-sig"))
-                if any(parsed.get("agents", {}).get(k) != v for k, v in self.record["agent_settings"].items()):
+                if any(setting(parsed, k) != v for k, v in self.record["agent_settings"].items()):
                     raise ValueError("Managed config keys modified")
                 origin = self.record.get("original_config")
                 origin_bytes = None if origin is None else base64.b64decode(origin)

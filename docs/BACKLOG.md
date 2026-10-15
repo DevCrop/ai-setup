@@ -29,15 +29,17 @@ None open.
 ## 6. Waiting on something outside this repo
 
 AO (`ao/`), checked on the local PC (AO runs only there):
-- Upgrade check: AO v0.14.0 (published 2026-10-14) is not yet tested here. Run `ao doctor` and a small-task Setup on 0.14.0, then check whether the local 0.13.7 patch (`~/.ao/backups`) and the `haiku` alias workaround are still needed. Then update the baseline in `ao/README.md` and DECISIONS "AO reviewer lane".
+- AO 0.14.2 is the pinned baseline (`ao/README.md`), installed by reset. Not run yet: `ao doctor` with no FAIL, a small worker spawn with the quote-free Setup command, and whether the `haiku` alias is still rejected on 0.14.2 (the 0.13.7 result is kept as measured). Done when the spawn and `ao doctor` results are in `docs/evidence.md`; then delete the 0.13.7 backup in `~/.ao/backups`.
+- Mixed lane: a Codex worker on AO (`ao spawn --agent codex --kind worker`, `ao/README.md` "워커 혼합 실행") is unverified. In a disposable repo, measure the sandboxed `rm` under a `PreToolUse` deny, the `prompt` rule for `git commit`, hook trust, model ID pass-through and a worktree commit. Done when each result is in `docs/evidence.md` and the list in `ao/README.md` is updated.
 - Install path: after the 0.14.0 rename to Orchestrator.inc, confirm that `tools.json` `resources/daemon/ao.exe` still matches the installed app on each PC.
 - Not confirmed in the official docs: `ao project set-config --permission`, the model alias behavior, and `reviewers[].agentConfig.effort` (DECISIONS "AO reviewer lane", Not verified).
 
 Codex setup (`codex/`):
 - The project path line in `codex/global/AGENTS.md` (DECISIONS "The project is found from the cwd", Open).
 - Whether Codex gets a session handoff note rule like `claude/CLAUDE.md` (`docs/codex-alignment.md`, "Open differences" 2).
-- Codex subagent models: confirm in a live `codex exec` run, after `setup.py apply`, that the custom `explorer` agent file is loaded (effort high, sandbox read-only, its developer instructions); its model `gpt-6.1-sol` alone does not tell it from the built-in one (`codex/docs/decisions/004-subagent-models.md`).
-- The first PC's checkout is now `Projects\ai-setup`, the single checkout the Codex docs (`codex/docs/install-another-windows-pc.md`) name. The Codex automations were removed on 2026-10-14 (backup `~/codex-automations-backup-2026-10-14`); the user re-adds them in the Codex app. Still to do: archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
+- Codex subagent models: confirm in a live `codex exec` run, after `setup.py apply`, that the custom `explorer` agent file is loaded (effort high, its developer instructions); its model `gpt-6.1-sol` alone does not tell it from the built-in one (`codex/docs/decisions/004-subagent-models.md`).
+- Codex 0.162.1 shell failure (`codex/docs/install-another-windows-pc.md`): the pin carries a known risk. Confirm on the PC after the reset; done when shell commands run, or when a stable release is recorded as fixed.
+- The first PC's checkout is now `Projects\ai-setup`, the single checkout the Codex docs (`codex/docs/install-another-windows-pc.md`) name. Still to do: archive DevCrop/codex-setup and delete the old clone `Documents\ChatGPT\글로벌 셋업\codex-setup` (each with approval).
 
 ## 7. Measure
 

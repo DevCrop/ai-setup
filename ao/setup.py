@@ -11,6 +11,8 @@ import qa
 
 BASE = Path(__file__).resolve().parent
 REGISTRY = BASE / 'projects.json'
+# The launcher is recognised by its folder tail, so an entry written from a clone that has since moved is replaced too.
+OWNED = re.compile(r'ao[\\/](qa\.py|launch\.ps1)\b')
 
 
 def api(method, path, body=None):
@@ -25,7 +27,7 @@ def api(method, path, body=None):
 
 # Role lanes (docs/DECISIONS.md "Model lanes" and "AO reviewer lane"): Claude workers on Haiku in auto mode, a Claude orchestrator
 # on Opus, and Codex as the PR reviewer so the reviewer is a different vendor from the author. Codex as a worker ran `rm` without approval
-# and could not commit (2026-10-13), so it is never the worker. Full model IDs: AO 0.13.7 rejects aliases such as `haiku`
+# and could not commit (2026-10-13), so it is never the worker. Full model IDs: AO 0.13.7 rejected aliases such as `haiku` (not re-tested on 0.14.2)
 # (UNSUPPORTED_MODEL). Update the IDs here when the models change. Reviewer effort is also passed per pass (`ao review trigger --effort high`)
 # because the CLI round trip drops agentConfig.effort; this tool talks to the API, which keeps it.
 LANES = {
@@ -46,21 +48,20 @@ def command(action, project):
     # A bare launcher works in cmd, PowerShell and Git Bash command Cues.
     # The script retains the shell's working directory and quotes native argv.
     if os.name == 'nt':
-        return f'powershell.exe -NoProfile -NonInteractive -File "{BASE / "launch.ps1"}" -PythonPath "{sys.executable}" -Action {action} -Project {project}'
+        return f'powershell.exe -NoProfile -NonInteractive -File {BASE / "launch.ps1"} -PythonPath {sys.executable} -Action {action} -Project {project}'
     return ' '.join(shlex.quote(value) for value in (sys.executable, '-B', str(BASE / 'qa.py'), action, '--project', project))
 
 
 def definitions(project, profile):
+    if not profile.get('compose'):  # only Docker QA projects get Cues (ai-setup has none)
+        return []
     package_file = Path(profile['path']) / 'package.json'
     scripts = json.loads(package_file.read_text(encoding='utf-8')).get('scripts', {}) if package_file.is_file() else {}
-    cues = [{'name': 'QA 상태', 'type': 'command', 'command': command('status', project)}]
-    if profile.get('compose'):
-        cues += [{'name': 'QA 시작 · 웹+DB', 'type': 'command', 'command': command('start', project)},
-                 {'name': 'QA 종료 · 컨테이너 제거', 'type': 'command', 'command': command('stop', project)}]
-        if profile.get('dbSourceVolume'):
-            cues += [{'name': 'QA DB 사본 · 최초 1회', 'type': 'command', 'command': command('clone-db', project)}]
-    else:
-        cues += [{'name': '개발 서버 · Vite', 'type': 'command', 'command': 'npm run dev -- --host 127.0.0.1'}]
+    cues = [{'name': 'QA 상태', 'type': 'command', 'command': command('status', project)},
+            {'name': 'QA 시작 · 웹+DB', 'type': 'command', 'command': command('start', project)},
+            {'name': 'QA 종료 · 컨테이너 제거', 'type': 'command', 'command': command('stop', project)}]
+    if profile.get('dbSourceVolume'):
+        cues += [{'name': 'QA DB 사본 · 최초 1회', 'type': 'command', 'command': command('clone-db', project)}]
     cues += [{'name': '가벼운 타입 검사', 'type': 'command', 'command': 'npm run typecheck' if 'typecheck' in scripts else 'npx --no-install tsc --noEmit'},
              {'name': '의존성 준비 · 수동', 'type': 'command', 'command': 'npm ci'},
              {'name': '코드 QA · 읽기 전용', 'type': 'agent', 'prompt':
@@ -95,22 +96,28 @@ def apply(lanes=False):
                  'QA 후 해당 Cue로 만든 컨테이너를 제거한다. DB 볼륨은 보존한다. '
                  '의존성 설치는 수동 Cue, 빌드·브라우저 검사는 변경 범위에 맞게 실행한다. '
                  '워크트리는 기준 커밋에서 시작하므로 원본 폴더의 미커밋 변경을 포함한다고 가정하지 않는다.\n[/AO local QA]')
+        # Setup, cleanup and the QA rules exist only for Docker QA projects; an empty value clears what an earlier apply wrote.
+        wired = bool(profile.get('compose'))
         for field in ('agentRules', 'orchestratorRules'):
-            previous = re.sub(r'\[AO local QA\].*?\[/AO local QA\]', '', config.get(field, ''), flags=re.S).strip()
-            config[field] = '\n\n'.join(filter(None, (previous, rules)))
+            previous = re.sub(r'\[AO local QA\].*?\[/AO local QA\]', '', config.get(field) or '', flags=re.S).strip()
+            config[field] = '\n\n'.join(filter(None, (previous, rules if wired else '')))
         for field, action in (('postCreate', 'prepare'), ('preRemove', 'stop')):
-            entries = config.get(field, [])
-            owned = (str(BASE / 'qa.py'), str(BASE / 'launch.ps1'))
-            config[field] = [entry for entry in entries if not any(path in entry for path in owned)] + [command(action, project)] if profile.get('compose') or field == 'postCreate' else entries
+            kept = [entry for entry in config.get(field) or [] if not OWNED.search(entry)]
+            config[field] = kept + [command(action, project)] if wired else kept
         if project in existing:
             api('PUT', f'projects/{project}/config', {'config': config})
         else:
             api('POST', 'projects', {'projectId': project, 'name': project, 'path': str(root), 'config': config})
         saved = api('GET', f'projects/{project}')['project']
+        # AO 0.14.2 returns defaultBranch at the top level and not inside config (ai-setup-4 evidence).
+        saved_branch = saved.get('defaultBranch') or saved['config'].get('defaultBranch')
         if saved['config'] != config:
             # API may omit empty values; compare required values rather than claim a full exact round-trip.
             for key in ('worker', 'orchestrator', 'reviewers', 'defaultBranch', 'postCreate', 'agentRules'):
-                if saved['config'].get(key) != config.get(key):
+                if key not in config:
+                    continue
+                saved_value = saved_branch if key == 'defaultBranch' else saved['config'].get(key)
+                if (saved_value or None) != (config.get(key) or None):  # the API may omit empty values
                     raise RuntimeError(f'{project}: setting readback mismatch: {key}')
         current = {c['name']: c for c in api('GET', f'projects/{project}/cues')['cues']}
         for cue in definitions(project, profile):
@@ -118,7 +125,7 @@ def apply(lanes=False):
                 api('PATCH', f'cues/{current[cue["name"]]["id"]}', cue)
             else:
                 api('POST', f'projects/{project}/cues', cue)
-        print(json.dumps({'project': project, 'root': str(root), 'base': saved['config']['defaultBranch'], 'cues': len(definitions(project, profile)), 'applied': True}, ensure_ascii=False))
+        print(json.dumps({'project': project, 'root': str(root), 'base': saved_branch, 'cues': len(definitions(project, profile)), 'applied': True}, ensure_ascii=False))
 
 
 def main():
