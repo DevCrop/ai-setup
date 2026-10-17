@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ConfigChange hook (matchers user_settings, skills): append one line per change to <config dir>/config-changes.log so that
-# `bash scripts/verify.sh --live` can name edits made to the global config outside this repo. The hooks guide says ConfigChange fires
+# edits made to the global config outside this repo can be found later. The hooks guide says ConfigChange fires
 # when an external process or editor modifies a configuration file. Its stdout and systemMessage are not shown
 # (https://code.claude.com/docs/en/hooks), so the log is the only output. The skills matcher also fires for a project's .claude/skills/,
 # so only paths inside the config dir are logged. It never blocks: Claude Code itself and this repo's apply.sh write settings too.

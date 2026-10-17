@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Scenario tests for scripts/apply.sh and the settings part of verify.sh --live. No model calls, no network.
+# Scenario tests for scripts/apply.sh. No model calls, no network.
 # Every run happens in a scratch directory: HOME and CLAUDE_CONFIG_DIR both point under it, and the script refuses to start when the
-# target is not under that directory (verify.sh runs this on real machines where CLAUDE_CONFIG_DIR may be set).
+# target is not under that directory.
 # Usage: bash scripts/qa-apply.sh
 set -u
-export QA_APPLY_RUNNING=1  # verify.sh skips its own qa-apply step when called from here (no recursion)
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 command -v jq >/dev/null 2>&1 || { echo "needs jq" >&2; exit 2; }
 base="$(mktemp -d "${TMPDIR:-/tmp}/qa-apply.XXXXXX")" || exit 2
@@ -26,7 +25,7 @@ sorted() { jq -S . "$1"; }
 
 # 1. fresh machine: everything is applied and settings.json equals the repo
 newcfg; out="$(apply)"
-[ -f "$cfg/hooks/secret-guard.sh" ] && [ -f "$cfg/agents/reviewer.md" ] && [ -f "$cfg/.ai-setup-manifest" ] \
+[ -f "$cfg/hooks/config-audit.sh" ] && [ -f "$cfg/agents/reviewer.md" ] && [ -f "$cfg/.ai-setup-manifest" ] \
   && [ "$(sorted "$cfg/settings.json")" = "$(sorted "$repo/claude/settings.json")" ] \
   && pass "1 fresh install: files, manifest and settings equal the repo" || bad "1 fresh install ($out)"
 if ! printf '%s' "$out" | grep -qi "backup"; then pass "1 no backup is made"; else bad "1 apply mentions a backup"; fi
@@ -72,12 +71,12 @@ out="$(apply)"
 
 # 5. rules added by hand do not survive: allow, autoMode.allow, an extra hook event, an extra marketplace, changed values
 jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.allow=["x"] | .hooks.Stop=[{"hooks":[{"type":"command","command":"x"}]}]
-    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="bypassPermissions" | del(.permissions.disableBypassPermissionsMode) | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="bypassPermissions" | .permissions.disableBypassPermissionsMode="x" | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 out="$(apply)"
-if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, (.autoMode|has("allow")), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"auto","disable"]' ] \
-   && [ "$(live '.permissions.deny|length')" = "$(jq '.permissions.deny|length' "$repo/claude/settings.json")" ] \
+if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, (.autoMode|has("allow")), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"auto",null]' ] \
+   && [ "$(live '.permissions|has("deny")')" = false ] \
    && [ "$(live '.skillOverrides["auto-mode-setup"]')" = off ] && printf '%s' "$out" | grep -q "replaced live value of"; then
-  pass "5 hand-added allow/autoMode/hook/marketplace/mode and a removed bypass lock are replaced by the repo values and reported"
+  pass "5 hand-added allow/autoMode/hook/marketplace/mode and a hand-set deny or bypass lock are replaced by the repo values and reported"
 else bad "5 owned keys not restored ($out)"; fi
 
 # 6. keys listed in scripts/removed-keys.json are deleted
@@ -131,68 +130,6 @@ newcfg; mkdir -p "$cfg"; echo '{bad' > "$cfg/settings.json"; cp "$cfg/settings.j
 out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && cmp -s "$base/b9" "$cfg/settings.json" && [ ! -e "$cfg/CLAUDE.md" ] && pass "9 invalid live JSON: exit 1, nothing written" || bad "9 invalid JSON (rc=$rc; $out)"
 
-# 10. verify.sh --live compares the keys the repo sets: machine-only keys are fine, a changed repo key is a WARN
-newcfg; apply >/dev/null
-jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"} | .modelSettings["claude-opus-5-5"].autoCompactWindow=500000' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" && ! printf '%s' "$v" | grep -qE "^(FAIL|WARN)  .*settings\.json" \
-  && printf '%s' "$v" | grep -q "^INFO  machine-only settings.json keys" && pass "10 verify --live: machine-only keys and a level saved for another model are not drift, owned keys in sync" || bad "10 verify --live with machine-only keys ($(printf '%s' "$v" | grep -i settings))"
-jq '.permissions.allow=["Bash(*)"] | .autoMode.environment=["only mine"] | .modelSettings["claude-opus-5-5"].effortLevel="high"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "permissions.allow" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "autoMode" && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" && pass "10 verify --live: a hand-edited owned key is a WARN naming the key" || bad "10 verify --live drift WARN ($(printf '%s' "$v" | grep -i 'settings'))"
-jq '.enabledPlugins["superpowers@claude-plugins-official"]=true' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^WARN  settings.json still has keys that scripts/removed-keys.json deletes" && pass "10 verify --live: a removed key still present is a WARN" || bad "10 verify --live removed-key WARN"
-
-# 10a. apply reports a modelSettings field only when it replaces it: another model's level or a machine-only field is not "replaced"
-newcfg; apply >/dev/null
-jq '.modelSettings["claude-fable-5-1"]={"effortLevel":"xhigh"} | .modelSettings["claude-opus-5-5"].autoCompactWindow=500000' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-out="$(apply)"
-! printf '%s' "$out" | grep -q "modelSettings" && [ "$(live '.modelSettings["claude-fable-5-1"].effortLevel')" = xhigh ] && [ "$(live '.modelSettings["claude-opus-5-5"].autoCompactWindow')" = 500000 ] \
-  && pass "10a apply keeps other models' levels and extra fields without reporting them" || bad "10a modelSettings report ($out)"
-jq '.modelSettings["claude-opus-5-5"].effortLevel="high"' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-out="$(apply)"
-printf '%s' "$out" | grep -q "replaced live value of: .*modelSettings.claude-opus-5-5.effortLevel" && [ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ] \
-  && pass "10a apply resets a hand-saved Opus effort and names the field" || bad "10a Opus effort reset ($out)"
-
-# 10c. a live modelSettings that is not an object, or an entry that is not an object: apply repairs and names it, verify --live warns
-for bad in '"x"' '[1,2]' '{"claude-opus-5-5":"high"}'; do
-  newcfg; apply >/dev/null
-  jq --argjson b "$bad" '.modelSettings=$b' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-  v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-  # verify --live runs "claude plugin list", which may rewrite settings.json (it drops a bad modelSettings): write the bad file again
-  cp "$base/x" "$cfg/settings.json"
-  case "$bad" in '{'*) name="modelSettings.claude-opus-5-5.effortLevel" ;; *) name="modelSettings (was not an object)" ;; esac
-  out="$(apply 2>&1)"; rc=$?
-  if [ "$rc" = 0 ] && printf '%s' "$v" | grep -E "^WARN  settings.json differs" | grep -q "modelSettings.claude-opus-5-5.effortLevel" \
-     && printf '%s' "$out" | grep -qF "$name" &&[ "$(live '.modelSettings["claude-opus-5-5"].effortLevel')" = medium ]; then
-    pass "10c modelSettings $bad: verify warns, apply repairs and names it"
-  else bad "10c modelSettings $bad (rc=$rc; $out; $(printf '%s' "$v" | grep -i modelsettings))"; fi
-done
-
-# 10d. a live permissions or enabledPlugins that is not an object: verify --live FAILs (never a false PASS), apply repairs and names it
-newcfg; apply >/dev/null
-jq '.permissions=["x"] | .enabledPlugins=[]' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-cp "$base/x" "$cfg/settings.json"  # the claude CLI that verify --live runs may rewrite settings.json (see 10c)
-out="$(apply 2>&1)"; rc=$?
-if printf '%s' "$v" | grep -q "^FAIL  .*settings.json has a key of the wrong type" && ! printf '%s' "$v" | grep -q "^PASS  in sync: settings.json" \
-   && [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "permissions (was not an object)" && printf '%s' "$out" | grep -q "enabledPlugins (was not an object)" \
-   && [ "$(live '.permissions.deny|length')" = "$(jq '.permissions.deny|length' "$repo/claude/settings.json")" ] && [ "$(live '.permissions.disableBypassPermissionsMode')" = disable ]; then
-  pass "10d a non-object permissions/enabledPlugins: verify FAILs, apply repairs and names both"
-else bad "10d wrong-type containers (rc=$rc; $out; $(printf '%s' "$v" | grep -i 'settings.json' | head -2))"; fi
-
-# 10b. verify --live names config changes recorded after the last apply (config-audit.sh log), and skips the ones within 2 minutes
-newcfg; apply >/dev/null
-now="$(date -u +%s)"
-printf '%s\tT\tuser_settings\t/during/apply\n' "$now" > "$cfg/config-changes.log"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^PASS  no config change recorded after the last apply.sh" && pass "10b verify --live: a change during apply is not reported" || bad "10b verify --live grace ($(printf '%s' "$v" | grep -i config))"
-printf '%s\tT\tskills\t/by/hand/SKILL.md\n' "$((now + 600))" >> "$cfg/config-changes.log"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^WARN  config changed outside this repo" && printf '%s' "$v" | grep -q "/by/hand/SKILL.md" && ! printf '%s' "$v" | grep -q "/during/apply" \
-  && pass "10b verify --live: a later change is a WARN naming the file" || bad "10b verify --live later change ($(printf '%s' "$v" | grep -iA3 config))"
-
 # 11. --dry-run writes nothing, reports what would change, and says unchanged once applied
 newcfg; out="$(dryrun || true)"
 [ ! -e "$cfg" ] && printf '%s' "$out" | grep -q "^would write: settings.json" && printf '%s' "$out" | grep -q "^dry run: nothing was written" \
@@ -238,21 +175,6 @@ out="$(apply)"
 echo agents/x.md > "$cfg/$old"; out="$(apply)"
 [ "$(cat "$cfg/$old")" = agents/x.md ] && cmp -s "$base/m13" "$cfg/.ai-setup-manifest" && ! printf '%s' "$out" | grep -q "renamed" \
   && pass "13 when both exist the new manifest wins and the old one is left alone" || bad "13 both manifests ($out)"
-
-# 14. verify --live judges the scheduled task body: the repo's path-free pointer passes, a pasted absolute path or another body warns
-newcfg; apply >/dev/null; t="$cfg/scheduled-tasks/daily-claude-update"; mkdir -p "$t"
-cp "$repo/claude/scheduled-tasks/daily-claude-update/SKILL.md" "$t/SKILL.md"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^PASS  scheduled task file points at" && pass "14 the repo pointer body passes" || bad "14 pointer body ($(printf '%s' "$v" | grep -i 'scheduled task'))"
-echo 'Run C:\Users\u\Projects\ai-setup/claude/routines/daily-update.md' > "$t/SKILL.md"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^WARN  scheduled task body names an absolute path" && pass "14 an absolute path in the body warns" || bad "14 absolute path ($(printf '%s' "$v" | grep -i 'scheduled task'))"
-echo 'Run claude/routines/daily-update.md; see https://code.claude.com/docs' > "$t/SKILL.md"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^PASS  scheduled task file points at" && pass "14 a URL is not taken for an absolute path" || bad "14 URL ($(printf '%s' "$v" | grep -i 'scheduled task'))"
-echo 'do something else' > "$t/SKILL.md"
-v="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/verify.sh" --live 2>&1)"
-printf '%s' "$v" | grep -q "^WARN  scheduled task body is not the pointer body" && pass "14 another body warns" || bad "14 other body ($(printf '%s' "$v" | grep -i 'scheduled task'))"
 
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

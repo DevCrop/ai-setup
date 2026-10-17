@@ -1,8 +1,0 @@
-# Merge managed keys only. Preserve the user's model, auth, MCP and permissions.
-# Local operating limit; not an official cost-optimal value.
-# Subagent defaults are the user's choice (2026-10-12, decision 004), not a measured ranking.
-[agents]
-enabled = true
-max_concurrent_threads_per_session = 2
-default_subagent_model = "gpt-6.1-sol"
-default_subagent_reasoning_effort = "medium"

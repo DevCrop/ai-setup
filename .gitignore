@@ -2,7 +2,7 @@
 .credentials*
 .env*
 .claude.json
-# Secret file names that claude/hooks/secret-guard.sh is_secret() and the Read deny rules in claude/settings.json treat as secrets
+# Secret file names (never commit)
 *.pem
 *.pem.*
 *.key
@@ -46,6 +46,7 @@ history.jsonl
 # Per-machine values and reports (never commit)
 /reports/
 /state/
+/ao/
 *.lock
 
 # OS and editor
