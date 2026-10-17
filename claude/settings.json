@@ -119,8 +119,5 @@
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
     "desktop-commander@synced": false
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   }
 }
