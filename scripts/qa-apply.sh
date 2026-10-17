@@ -75,7 +75,8 @@ jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.
 out="$(apply)"
 if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, has("autoMode"), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"bypassPermissions",null]' ] \
    && [ "$(live '.permissions|has("deny")')" = false ] \
-   && [ "$(live 'has("skillOverrides")')" = false ] && printf '%s' "$out" | grep -q "replaced live value of"; then
+   && [ "$(live 'has("skillOverrides")')" = false ] && printf '%s' "$out" | grep -q "replaced live value of" \
+   && ! printf '%s' "$out" | grep "kept machine-only keys" | grep -qE "autoMode|skillOverrides"; then
   pass "5 hand-added allow/autoMode/hook/marketplace/mode and a hand-set deny or bypass lock are replaced by the repo values and reported"
 else bad "5 owned keys not restored ($out)"; fi
 
