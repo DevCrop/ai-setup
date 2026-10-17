@@ -2,7 +2,7 @@
 
 Source of truth for the global Claude Code setup (`~/.claude`). Edit `claude/` here, never `~/.claude` directly; `bash scripts/apply.sh` copies it over.
 
-What it sets up: Ponytail (plugin), RTK (Bash hook + `RTK.md`), claude-mem (plugin), subagents (Opus orchestrates and verifies, Haiku executes) with their `orchestrate`, `spec-writing`, `design-spec`, `ui-baseline` and `project-setup` skills, two session hooks (`compact-context`, `config-audit`) and the status line. There are no deny rules and no secret hook: permissions default to `bypassPermissions` (no prompts), so safety rests on `claude/CLAUDE.md` alone. In the desktop app, also turn on Settings → Claude Code → "Allow bypass permissions mode".
+What it sets up: Ponytail (plugin), RTK (Bash hook + `RTK.md`), claude-mem (plugin), subagents (Opus orchestrates and verifies, Haiku executes) with their `orchestrate`, `spec-writing`, `design-spec`, `ui-baseline` and `project-setup` skills, two session hooks (`compact-context`, `config-audit`) and the status line. There are no deny rules and no secret hook: permissions default to `bypassPermissions` (no prompts), so safety rests on the Safety lines of `claude/CLAUDE.md` alone. In the desktop app, also turn on Settings → Claude Code → "Allow bypass permissions mode".
 
 The full setup before this was slimmed down (AO, Codex, dashboard, daily routine, deny rules, secret guard) is at tag `legacy-full`.
 
@@ -12,6 +12,7 @@ The full setup before this was slimmed down (AO, Codex, dashboard, daily routine
 |---|---|
 | Take the latest `main` | `git pull && bash scripts/apply.sh` (Git Bash on Windows, not PowerShell) |
 | Preview an apply | `bash scripts/apply.sh --dry-run` |
+| Set up a project | Run `/project-setup` in it; `docs/project-setup.md` says what it should produce |
 | New machine | Claude Code logged in; `git`, `jq`, `rtk` (`winget install rtk-ai.rtk`); plugins `ponytail@ponytail` and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh`; then the first row |
 
 Open a new Claude Code session after an apply: running sessions do not pick up changed settings or plugins.

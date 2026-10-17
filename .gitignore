@@ -1,4 +1,4 @@
-# Credentials and auth (never commit; docs/GUIDE.md "Troubleshooting" names these as safeguards)
+# Credentials and auth (never commit)
 .credentials*
 .env*
 .claude.json
@@ -29,7 +29,7 @@ id_dsa*
 *.tfstate
 secrets.yaml
 secrets.yml
-# Example and template copies are not secrets (secret-guard lets them through too)
+# Example and template copies are not secrets
 !*.example
 !*.example.*
 !*.sample
@@ -43,17 +43,6 @@ secrets.yml
 settings.local.json
 history.jsonl
 
-# Per-machine values and reports (never commit)
-/reports/
-/state/
-/ao/
-*.lock
-
 # OS and editor
 Thumbs.db
 .vscode/
-
-# QA scratch dirs left behind by an interrupted scripts/qa-dashboard.sh
-.qa-ad.*
-
-__pycache__/
