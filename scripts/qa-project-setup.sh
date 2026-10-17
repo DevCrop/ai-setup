@@ -2,7 +2,7 @@
 # QA for the project-setup skill. Builds throwaway projects, runs the skill with `claude -p`, grades the stream.
 # Usage: bash scripts/qa-project-setup.sh <work-dir> [fixture...]   (fixtures: next php react markup existing agents both; default all)
 # Needs: claude CLI (uses the opus model, the main-thread model of this setup; costs tokens), jq, git. The script writes only under <work-dir>; the claude runs
-# use your global settings (auto mode default) and are not persisted (--no-session-persistence), but nothing stops a model from writing elsewhere.
+# use your global settings (bypassPermissions by default: no prompts and no classifier) and are not persisted (--no-session-persistence), but nothing stops a model from writing elsewhere.
 # Axes: G = reads the global layer and does not restate it (4 English phrases only); I = follows the global instructions (no .env,
 # nothing written, Korean, "Not verified"); P = proposals in fenced blocks match the project: commands present, no writing command in allow,
 # .env deny, gitignore lines. P checks presence, except markup (no Bash allow, asks). With no stream (QA_MODE=grade) G and the .env read

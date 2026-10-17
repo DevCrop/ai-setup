@@ -71,19 +71,19 @@ out="$(apply)"
 
 # 5. rules added by hand do not survive: allow, autoMode.allow, an extra hook event, an extra marketplace, changed values
 jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.allow=["x"] | .hooks.Stop=[{"hooks":[{"type":"command","command":"x"}]}]
-    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="bypassPermissions" | .permissions.disableBypassPermissionsMode="x" | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+    | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="default" | .permissions.disableBypassPermissionsMode="x" | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 out="$(apply)"
-if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, (.autoMode|has("allow")), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"auto",null]' ] \
+if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, has("autoMode"), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"bypassPermissions",null]' ] \
    && [ "$(live '.permissions|has("deny")')" = false ] \
-   && [ "$(live '.skillOverrides["auto-mode-setup"]')" = off ] && printf '%s' "$out" | grep -q "replaced live value of"; then
+   && [ "$(live 'has("skillOverrides")')" = false ] && printf '%s' "$out" | grep -q "replaced live value of"; then
   pass "5 hand-added allow/autoMode/hook/marketplace/mode and a hand-set deny or bypass lock are replaced by the repo values and reported"
 else bad "5 owned keys not restored ($out)"; fi
 
 # 6. keys listed in scripts/removed-keys.json are deleted
 jq '.enabledPlugins["superpowers@claude-plugins-official"]=true | .skipDangerousModePermissionPrompt=true' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 out="$(apply)"
-[ "$(live '.enabledPlugins | has("superpowers@claude-plugins-official")')" = false ] && [ "$(live 'has("skipDangerousModePermissionPrompt")')" = false ] \
-  && printf '%s' "$out" | grep -q "removed from settings.json" && pass "6 removed-keys are deleted and reported" || bad "6 removed-keys ($out)"
+[ "$(live '.enabledPlugins | has("superpowers@claude-plugins-official")')" = false ] && [ "$(live .skipDangerousModePermissionPrompt)" = true ] \
+  && printf '%s' "$out" | grep -q "removed from settings.json" && pass "6 removed-keys are deleted and reported; the accepted bypass warning is kept" || bad "6 removed-keys ($out)"
 
 # 6b. the repo owns a key by being the source: a repo without permissions.allow deletes the live one (scratch copy of the repo)
 r2="$base/repo2"; mkdir -p "$r2/scripts" "$r2/claude"; cp "$repo/scripts/apply.sh" "$repo/scripts/removed-keys.json" "$repo/scripts/owned-keys.json" "$r2/scripts/"; cp -R "$repo/claude/." "$r2/claude/"
@@ -101,7 +101,7 @@ printf '%s' "$out" | grep "replaced live value of" | grep -q "theme" && printf '
 
 # 6d. a live settings.json that is empty counts as {}; one that is JSON but not an object is refused
 newcfg; mkdir -p "$cfg"; : > "$cfg/settings.json"; out="$(apply)"
-[ -s "$cfg/settings.json" ] && [ "$(live .permissions.defaultMode)" = auto ] && pass "6d empty live settings.json is treated as {}" || bad "6d empty settings.json ($out)"
+[ -s "$cfg/settings.json" ] && [ "$(live .permissions.defaultMode)" = bypassPermissions ] && pass "6d empty live settings.json is treated as {}" || bad "6d empty settings.json ($out)"
 for bodytxt in '[]' '"str"' 'null' '5'; do
   newcfg; mkdir -p "$cfg"; printf '%s' "$bodytxt" > "$cfg/settings.json"
   out="$(HOME="$base/s$n" CLAUDE_CONFIG_DIR="$cfg" bash "$repo/scripts/apply.sh" 2>&1)"; rc=$?

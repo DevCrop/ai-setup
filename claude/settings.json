@@ -22,18 +22,7 @@
   },
   "permissions": {
     "allow": [],
-    "defaultMode": "auto"
-  },
-  "autoMode": {
-    "environment": [
-      "$defaults",
-      "Organization: personal (DevCrop). Primary use: software development and maintaining this Claude Code setup",
-      "Source control: github.com/DevCrop and all repos under it",
-      "Plugin supply chain: Claude Code plugins come only from the inline marketplaces in extraKnownMarketplaces, each pinned to a full commit sha; changing a pin, adding a marketplace or adding a plugin needs the user to name it"
-    ]
-  },
-  "skillOverrides": {
-    "auto-mode-setup": "off"
+    "defaultMode": "bypassPermissions"
   },
   "hooks": {
     "PreToolUse": [
@@ -86,8 +75,8 @@
             "source": {
               "source": "url",
               "url": "https://github.com/DietrichGebert/ponytail.git",
-              "ref": "v5.2.0",
-              "sha": "2961b52fc1fe6a5a87c7a959a79512e5c2f3ffe5"
+              "ref": "v5.3.2",
+              "sha": "16352ac229eb08a9598dcae48fe9f2b342567d86"
             }
           }
         ]
@@ -107,8 +96,8 @@
               "source": "git-subdir",
               "url": "https://github.com/thedotmack/claude-mem.git",
               "path": "plugin",
-              "ref": "v13.37.0",
-              "sha": "b2756eb31740143e6f464bf65d9f9c766402efc6"
+              "ref": "v14.0.0",
+              "sha": "f6a701a35504bb089452522b1101fab475720ea7"
             }
           }
         ]
@@ -119,8 +108,5 @@
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
     "desktop-commander@synced": false
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   }
 }

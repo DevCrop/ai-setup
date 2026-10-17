@@ -1,4 +1,10 @@
 [
-  ["enabledPlugins", "superpowers@claude-plugins-official"],
-  ["skipDangerousModePermissionPrompt"]
+  [
+    "enabledPlugins",
+    "superpowers@claude-plugins-official"
+  ],
+  [
+    "env",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
+  ]
 ]
