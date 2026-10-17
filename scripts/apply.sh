@@ -75,7 +75,7 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
         | (if ($l.modelSettings | type) == "object" then $l.modelSettings[$e.key] else $l.modelSettings end) as $le
         | select($le != null and (($le | type) != "object" or (($le | has($f)) and $le[$f] != $e.value[$f]))) | "modelSettings." + $e.key + "." + $f]) as $replaced
   | ($x | map(select(. as $p | ($l | getpath($p)) != null)) | map(join("."))) as $removed
-  | (($l | keys) - ($r | keys) - ($x | map(select(length == 1) | .[0]))) as $only_top
+  | (($l | keys) - ($r | keys) - own_top - ($x | map(select(length == 1) | .[0]))) as $only_top
   | ((($l.enabledPlugins // {}) | keys) - (($r.enabledPlugins // {}) | keys) - ($x | map(select(.[0] == "enabledPlugins" and length == 2) | .[1]))) as $only_plugins
   | (if ($replaced | length) > 0 then "replaced live value of: " + ($replaced | join(", ")) else empty end),
     (if ($removed | length) > 0 then "removed from settings.json: " + ($removed | join(", ")) else empty end),

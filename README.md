@@ -11,6 +11,7 @@ The full setup before this was slimmed down (AO, Codex, dashboard, daily routine
 | Situation | Do this |
 |---|---|
 | Take the latest `main` | `git pull && bash scripts/apply.sh` (Git Bash on Windows, not PowerShell) |
+| After a plugin pin changes | Apply, open and close one Claude Code session (it refreshes the local marketplace copy), then `claude plugin update ponytail@ponytail` and `claude plugin update claude-mem@thedotmack`, then start a new session. Apply alone does not upgrade plugins |
 | Preview an apply | `bash scripts/apply.sh --dry-run` |
 | Set up a project | Run `/project-setup` in it; `docs/project-setup.md` says what it should produce |
 | New machine | Claude Code logged in; `git`, `jq`, `rtk` (`winget install rtk-ai.rtk`); plugins `ponytail@ponytail` and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh`; then the first row |
