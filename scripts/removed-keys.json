@@ -4,9 +4,6 @@
     "superpowers@claude-plugins-official"
   ],
   [
-    "skipDangerousModePermissionPrompt"
-  ],
-  [
     "env",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
   ]

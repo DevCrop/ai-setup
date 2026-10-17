@@ -3,7 +3,7 @@
 # situation with `claude -p`, and grades the stream and the project mechanically.
 # Usage: bash scripts/qa-role-agents.sh <work-dir> [case...]   (default: all cases; names are listed in CASES below)
 # Needs: claude CLI (the agent files' models: haiku executors, opus qa; costs tokens; ~16 runs), jq, git, python3 or python. Writes only under <work-dir>, but nothing stops a model from
-# writing elsewhere: run it on a machine where that is acceptable. Every run gets --settings claude/settings.json (deny and ask rules) and --permission-mode auto (this repo's default;
+# writing elsewhere: run it on a machine where that is acceptable. Every run gets --settings claude/settings.json and --permission-mode auto (not the repo default bypassPermissions, so the classifier still guards these model runs;
 # pass the mode explicitly: in -p the mode defaults to Manual when none is given). In -p an auto-mode classifier block skips the action and the run
 # goes on, so a case can FAIL because the classifier blocked a step: read _out/<case>.jsonl before blaming the agent. Without an explicit mode, background subagents have their Edit and Bash
 # denied ("Permission prompts are not available in this context") and every case fails for that reason, not because of the agent.
