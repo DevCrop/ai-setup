@@ -4,8 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "17 0 * * 1"  # Mondays 00:17 UTC (09:17 KST): catches breakage from runner, Python or tool updates between PRs
   workflow_dispatch:
 
 concurrency:
@@ -15,126 +13,25 @@ concurrency:
 permissions:
   contents: read
 
-# Headless checks only. Not run here (need the claude CLI, a model, or Chrome): scripts/qa-deny.sh, scripts/qa-ui.sh,
-# scripts/qa-role-agents.sh in real mode, scripts/qa-project-setup.sh. Run those by hand after apply.sh on each machine.
+# Headless checks only. Not run here (need the claude CLI or a model): scripts/qa-role-agents.sh in real mode,
+# scripts/qa-project-setup.sh. Run those by hand after apply.sh.
 jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.12"
       - name: Syntax
         run: |
           for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
-          python3 -c "import json;json.load(open('claude/settings.json'))"
+          jq empty claude/settings.json scripts/owned-keys.json scripts/removed-keys.json
       - name: Shellcheck (warnings and errors)
         run: shellcheck -S warning scripts/*.sh claude/statusline.sh claude/hooks/*.sh
-      - name: Repo checks
-        run: bash scripts/verify.sh
-      - name: Dashboard fix and spawn tests
+      - name: Apply scenarios
+        run: bash scripts/qa-apply.sh
+      - name: Session hooks, status line, claude-mem setup
         run: |
-          python3 scripts/qa-fix.py "$PWD"
-          python3 scripts/qa-spawn-guard.py scripts/dashboard
-      - name: Tool registry and bootstrap check
-        run: |
-          python3 scripts/qa-bootstrap.py
-          rc=0; python3 scripts/bootstrap.py check --json > "$RUNNER_TEMP/boot.json" || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected; 3 = crash
-          python3 -c "import json,sys; f={i['id']: i['found'] for i in json.load(open(sys.argv[1], encoding='utf-8'))['items']}; assert f.get('git') and f.get('python'), f" "$RUNNER_TEMP/boot.json"  # a detector that finds nothing must not pass
-      - name: Update checker (fake fetchers, no network)
-        run: python3 scripts/qa-update-pins.py
-      - name: Docs watcher (fake curl, no network)
-        run: bash scripts/qa-docs-watch.sh
+          bash scripts/qa-hooks-session.sh
+          bash scripts/qa-statusline.sh
+          bash scripts/qa-setup-claude-mem.sh
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
-      - name: Bench report (self-test, no model calls)
-        run: bash scripts/bench.sh selftest
-      - name: Apply into a scratch home, then check the dashboard server
-        run: |
-          h="$(mktemp -d)"
-          env -u CLAUDE_CONFIG_DIR HOME="$h" bash scripts/apply.sh
-          HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" bash scripts/qa-dashboard.sh
-
-  windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.12"
-      - name: Syntax
-        run: |
-          for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
-          python -c "import json;json.load(open('claude/settings.json'))"
-      - name: PowerShell syntax (every tracked *.ps1)
-        shell: pwsh
-        run: |
-          $files = @(git ls-files '*.ps1')
-          if ($files.Count -eq 0) { Write-Error 'no tracked *.ps1 found'; exit 1 }
-          $bad = 0
-          foreach ($f in $files) {
-            $tokens = $null; $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path -LiteralPath $f).Path, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) { $bad++; foreach ($e in $errors) { Write-Host "::error file=$f,line=$($e.Extent.StartLineNumber)::$($e.Message)" } }
-            else { Write-Host "OK  $f" }
-          }
-          if ($bad -gt 0) { exit 1 }
-      - name: Repo checks
-        run: bash scripts/verify.sh
-      - name: Dashboard fix and spawn tests
-        run: |
-          python scripts/qa-fix.py "$PWD"
-          python scripts/qa-spawn-guard.py scripts/dashboard
-      - name: Tool registry and bootstrap check
-        run: |
-          python scripts/qa-bootstrap.py
-          rc=0; python scripts/bootstrap.py check --json > "$RUNNER_TEMP/boot.json" || rc=$?; test "$rc" -le 1  # 1 = a required tool is missing on the runner, which is expected; 3 = crash
-          python -c "import json,sys; f={i['id']: i['found'] for i in json.load(open(sys.argv[1], encoding='utf-8'))['items']}; assert f.get('git') and f.get('python'), f" "$RUNNER_TEMP/boot.json"  # a detector that finds nothing must not pass
-      - name: Role-agent graders (self-test, no model calls)
-        run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
-      - name: Bench report (self-test, no model calls)
-        run: bash scripts/bench.sh selftest
-      - name: Apply into a scratch home, then check the dashboard server
-        run: |
-          h="$(mktemp -d)"
-          env -u CLAUDE_CONFIG_DIR HOME="$h" bash scripts/apply.sh
-          HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" bash scripts/qa-dashboard.sh
-
-  # codex/ is the Codex setup (TRACE) with its own checks; Windows and Linux runners only.
-  codex:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ['3.11', '3.14']
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: codex
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
-        with:
-          node-version: '22'
-      - run: python -B -m unittest discover -s scripts -p 'test_*.py' -v
-      - run: node scripts/test_rtk_dashboard_client.cjs
-      - run: python -B scripts/validate_repo.py
-
-  # ao/ is the AO project setup, moved from the private DevCrop/ao-work-history setup/; its tests need no AO.
-  ao:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ao
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.12"
-      - run: python -B -m unittest -v test_qa

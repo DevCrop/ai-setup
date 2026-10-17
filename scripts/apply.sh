@@ -4,7 +4,7 @@
 # runtime data. There is no backup: git is the history. To go back, check out the older commit and run this script again.
 #
 # settings.json is merged key by key, not replaced:
-#   - this repo owns the keys in scripts/owned-keys.json (top-level keys and permissions.* keys; verify.sh --live reads the same file):
+#   - this repo owns the keys in scripts/owned-keys.json (top-level keys and permissions.* keys):
 #     the live value is replaced by the repo value (a key the repo lacks is deleted), so a rule added by hand on a machine cannot stay;
 #     of modelSettings only the fields the repo sets are owned (levels saved for other models and other fields of the same entry stay);
 #   - every other key present in the repo (model, effortLevel, ...) takes the repo value;
