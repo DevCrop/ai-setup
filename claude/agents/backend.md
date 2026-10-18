@@ -2,7 +2,7 @@
 name: backend
 description: 백엔드. Server code, API endpoints and database access with tests, from a spec. Not for client code (use frontend) or markup (use publisher).
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: haiku
+model: sonnet
 color: green
 effort: high
 maxTurns: 60

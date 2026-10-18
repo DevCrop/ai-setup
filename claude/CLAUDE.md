@@ -20,10 +20,10 @@
 - Never declare completion from your own judgment; confirm with a command result, a test, or a source check.
 
 ## Orchestration
-- Opus orchestrates and verifies, Haiku executes (the agents' `model` field). Delegation rules are in the `orchestrate` skill.
+- Opus plans, decides and verifies and does not write code; Sonnet and Haiku execute (the agents' `model` field). Lanes and the failure path are in the `orchestrate` skill.
 - Verification is done by a separate reviewer subagent with explicit criteria. The author does not verify its own output.
 - Consult the advisor before committing to an approach, on a recurring error, and before declaring a task done.
-- Retry limit: two attempts on the same error. Then stop, state the exact error, suggest /rewind, and wait for the user.
+- Retry limit: two attempts on the same error. Then stop, state the exact error, suggest /rewind, and wait for the user. Delegated parts follow the `orchestrate` skill's failure path instead.
 
 ## Safety
 - Permission mode is `bypassPermissions`: almost no prompts and no classifier, so the lines below are the main guard.
