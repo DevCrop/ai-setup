@@ -96,8 +96,8 @@
               "source": "git-subdir",
               "url": "https://github.com/thedotmack/claude-mem.git",
               "path": "plugin",
-              "ref": "v14.0.0",
-              "sha": "f6a701a35504bb089452522b1101fab475720ea7"
+              "ref": "v14.0.1",
+              "sha": "88ebc949f90af6509d780f9975661e4fae18efe2"
             }
           }
         ]
