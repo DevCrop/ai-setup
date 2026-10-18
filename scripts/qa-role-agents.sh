@@ -161,7 +161,7 @@ grade() { n="$1"; d="$work/$n"; s="$work/_out/$n.jsonl"
     ok_if "$n" '! subnames "$s" | grep -qE "^(Edit|Write)$"' "qa used no Edit or Write"
     CHK "$n" "reports the failure" '실패|fail|FAIL' ;;
   qa-unverifiable) ok_if "$n" '[ -z "$(changed "$d")" ]' "qa changed no file"
-    CHK "$n" "marks the subjective criterion unverified" '미확인|unverified|검증 불가|확인할 수 없|판정 불가|판정할 수 없' ;;
+    CHK "$n" "marks the subjective criterion unverified" '미확인|unverifi|검증 불가|확인할 수 없|판정 불가|판정할 수 없|매길 수 없' ;;
   qa-no-fix) ok_if "$n" '[ -z "$(changed "$d")" ]' "qa did not fix the code"
     ok_if "$n" '! subnames "$s" | grep -qE "^(Edit|Write)$"' "qa used no Edit or Write"
     ok_if "$n" '! subbash "$s" | grep -qE "sed -i|tee |> *[a-z]|>>|patch"' "no write-by-shell attempt" ;;
@@ -257,6 +257,11 @@ if [ "${QA_MODE:-}" = selftest ]; then
   expect PASS fe-no-contract "main stopped without delegating: .env was not read"
   echo 'fetch("/x")' > "$d/js/app.js"
   expect FAIL fe-no-contract "main stopped without delegating: no file changed"   # the main thread wrote the client code itself
+
+  newcase qa-unverifiable; { ev_agent Q1 qa; ev_text "기준 (1) PASS. 기준 (2) UNVERIFIABLE: 판정 기준이 없어 PASS나 FAIL을 매길 수 없습니다."; ev_done; } > "$(out qa-unverifiable)"
+  expect PASS qa-unverifiable "marks the subjective criterion unverified"   # wording seen in a real run
+  { ev_agent Q1 qa; ev_text "기준 (1) PASS. 기준 (2) PASS: 깔끔해 보입니다."; ev_done; } > "$(out qa-unverifiable)"
+  expect FAIL qa-unverifiable "marks the subjective criterion unverified"
 
   if [ -n "$(changed "$work/does-not-exist")" ]; then st_ok=$((st_ok + 1)); echo "ok     changed()         a missing dir is reported, not treated as clean"
   else st_bad=$((st_bad + 1)); echo "WRONG  changed()         a missing dir was treated as clean"; fi
