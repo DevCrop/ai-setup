@@ -1,6 +1,6 @@
 ---
 name: worker
-description: Implement one self-contained change (one feature with its tests) from a written brief. Use when the part is independent of the main thread's next step.
+description: Implement one self-contained change (one feature with its tests) from a written brief. Use when no role agent fits the change.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: haiku
 color: blue

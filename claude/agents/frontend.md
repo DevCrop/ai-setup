@@ -2,7 +2,7 @@
 name: frontend
 description: 프론트엔드. JS/TS components, client state and API integration from a spec and an API contract. Not for static markup only (use publisher), not for server code (use backend).
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: haiku
+model: sonnet
 color: purple
 effort: high
 maxTurns: 60
