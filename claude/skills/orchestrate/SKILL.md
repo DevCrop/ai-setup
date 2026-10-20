@@ -6,7 +6,7 @@ when_to_use: Requests such as 서브에이전트로 나눠서 해줘, 에이전�
 
 The main thread does not write or edit code: every code change goes to an executor. Reading, a one-file lookup, git and plain docs stay inline, because every delegate pays a start-up cost (about 43K prompt tokens written to the cache in the one call measured).
 
-1. Split by context and file ownership, not by job title. Roles that depend on each other in sequence and need the user (기획, 디자인) stay in the main thread: skills `spec-writing`, then `design-spec`. Delegate only parts that own different files.
+1. Split by context and file ownership, not by job title. Roles that depend on each other in sequence and need the user (기획, 디자인) stay in the main thread: skills `spec-writing`, then `design-spec`; `publisher` and `frontend` preload `ui-baseline` and `frontend-design`. Delegate only parts that own different files.
 2. Route by what the part touches:
 
    | Part | Agent |
