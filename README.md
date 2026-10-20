@@ -13,6 +13,7 @@ The full setup before this was slimmed down (AO, Codex, dashboard, daily routine
 | Take the latest `main` | `git pull && bash scripts/apply.sh` (Git Bash on Windows, not PowerShell) |
 | After a plugin pin changes | Apply, open and close one Claude Code session (it refreshes the local marketplace copy), then `claude plugin update ponytail@ponytail` and `claude plugin update claude-mem@thedotmack`, then start a new session. Apply alone does not upgrade plugins |
 | Preview an apply | `bash scripts/apply.sh --dry-run` |
+| Check the setup is working | `node scripts/monitor.mjs` writes one HTML page to the temp folder and prints its path; add `--watch` to refresh it every 10 s. It reads local files and the local claude-mem worker only |
 | Set up a project | Run `/project-setup` in it; `docs/project-setup.md` says what it should produce |
 | Chat instructions (claude.ai, desktop chat) | Paste the block in `docs/chat-instructions.md` into Settings → Profile |
 | New machine | Claude Code logged in; `git`, `jq`, `rtk` (`winget install rtk-ai.rtk`); plugins `ponytail@ponytail` and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh`; then the first row |
@@ -26,7 +27,7 @@ Open a new Claude Code session after an apply: running sessions do not pick up c
 
 ## Checks
 
-`bash scripts/qa-apply.sh`, `qa-hooks-session.sh`, `qa-statusline.sh`, `qa-setup-claude-mem.sh` and `QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"` run without a model (CI runs them). `qa-role-agents.sh` in real mode and `qa-project-setup.sh` need the claude CLI.
+`bash scripts/qa-apply.sh`, `qa-hooks-session.sh`, `qa-statusline.sh`, `qa-setup-claude-mem.sh`, `qa-monitor.sh` and `QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"` run without a model (CI runs them). `qa-role-agents.sh` in real mode and `qa-project-setup.sh` need the claude CLI.
 
 ## Changing this repo
 

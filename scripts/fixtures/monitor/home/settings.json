@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": { "ponytail@ponytail": true, "claude-mem@thedotmack": true },
+  "hooks": {
+    "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] }],
+    "SessionStart": [{ "matcher": "compact", "hooks": [{ "type": "command", "command": "bash ~/.claude/hooks/compact-context.sh" }] }],
+    "ConfigChange": [{ "hooks": [{ "type": "command", "command": "bash ~/.claude/hooks/config-audit.sh" }] }]
+  }
+}
