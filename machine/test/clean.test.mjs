@@ -5,10 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { isDenied, secretFile } from '../lib/deny.mjs';
 import { resolveCacheDir, CACHE_TOOLS } from '../lib/caches.mjs';
-import { validatePlan, verifyItem, main, makeCtx } from '../clean.mjs';
+import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from '../lib/rules.mjs';
+import { validatePlan, verifyItem, main, makeCtx, execute, defaultRun, SHIMS } from '../clean.mjs';
 
 const W = path.win32;
 const win = process.platform === 'win32';
+const GIT = ['git', '-c', 'core.fsmonitor=false'];
 
 // ---------- deny list (pure strings) ----------
 const E = {
@@ -32,7 +34,7 @@ const DENY_CASES = [
   ['C:\\Users\\me\\proj\\.git', true], ['C:\\Users\\me\\proj\\.GIT\\objects', true], ['C:\\Users\\me\\proj\\node_modules', false],
   ['C:\\Users\\me\\.claude', true], ['C:\\Users\\me\\.claude\\settings.json', true], ['C:\\Users\\me\\.claude\\plugins\\cache', true],
   ['C:\\Users\\me\\.claude\\plugins\\cache\\mk', true], ['C:\\Users\\me\\.claude\\plugins\\cache\\mk\\pl', true],
-  ['C:\\Users\\me\\.claude\\plugins\\cache\\mk\\pl\\1.0.0', false], ['c:/users/ME/.claude/plugins/cache/mk/pl/1.0.0/x/y', false],
+  ['C:\\Users\\me\\.claude\\plugins\\cache\\mk\\pl\\1.0.0', false], ['c:/users/ME/.claude/plugins/cache/mk/pl/1.0.0/x/y', true],
   ['C:\\Users\\me\\.claude-mem', true], ['C:\\Users\\me\\.claude-mem\\db', true],
   ['C:\\Users\\me\\x\\.credentials.json', true], ['C:\\Users\\me\\x\\.env', true], ['C:\\Users\\me\\x\\.env.local\\a', true],
   ['C:\\Users\\me\\x\\.envrc', true], ['C:\\Users\\me\\x\\env.txt', false],
@@ -97,7 +99,7 @@ test('validatePlan rejects bad plans and items, ignores command-like fields', ()
   assert.deepEqual(items.map((i) => i.id), ['a', 'b']);
   assert.equal(rejected.length, 12);
   assert.ok(rejected.every((r) => r.reason));
-  assert.equal(Object.keys(items[1]).sort().join(), 'category,id,path,safety,size,tool'); // extra fields dropped
+  assert.equal(Object.keys(items[1]).sort().join(), 'category,id,path,size,tool'); // extra fields (how, action, safety...) dropped
 });
 
 // ---------- fixtures ----------
@@ -115,12 +117,21 @@ async function fixture() {
     probe: async (a) => { calls.probe.push(a); return over.probe ? over.probe(a) : { code: 1, stdout: '', stderr: '' }; },
     run: async (a) => { calls.run.push(a); return { code: 0, stdout: '', stderr: '' }; },
     recycle: async (l) => { calls.recycle.push(l); return l.map(() => ({ ok: true })); },
+    listInstalledApps: async () => [], ...sys,
     ...over.ctx,
   });
   const write = async (p, s = 'x') => { await fs.mkdir(W.dirname(p), { recursive: true }); await fs.writeFile(p, s); };
   const plan = async (items) => { const f = d('plan.json'); await fs.writeFile(f, JSON.stringify({ version: 1, items })); return f; };
-  return { root, d, env, calls, mk, write, plan, done: () => fs.rm(root, { recursive: true, force: true }) };
+  // set every file and dir under `p` to `days` ago
+  const age = async (p, days = 200) => {
+    const t = (Date.now() - days * 864e5) / 1000;
+    const walk = async (q) => { if ((await fs.lstat(q)).isDirectory()) for (const n of await fs.readdir(q)) await walk(W.join(q, n)); await fs.utimes(q, t, t); };
+    await walk(p);
+  };
+  return { root, d, env, calls, mk, write, plan, age, done: () => fs.rm(root, { recursive: true, force: true }) };
 }
+// deterministic drive facts: a Recycle Bin exists and the drive is huge
+const sys = { binExists: async () => true, driveTotal: async () => 1e15 };
 const opts = { skip: !win && 'Windows-only' };
 
 // ---------- re-verify ----------
@@ -131,6 +142,7 @@ test('verify: missing path, re-measured size, symlink refused', opts, async () =
     await f.write(W.join(nm, 'a.js'), '12345');
     await f.write(W.join(nm, 'sub', 'b.js'), '123');
     await f.write(f.d('proj', 'package.json'), '{}');
+    await f.age(f.d('proj'));
     const ctx = f.mk();
     const miss = await verifyItem({ id: 'm', category: 'dev-artifact', path: f.d('proj', 'dist') }, ctx);
     assert.deepEqual([miss.ok, miss.reason], [false, '경로가 없음']);
@@ -156,6 +168,7 @@ test('verify: directory containing a runtime-created .env file is denied', opts,
   try {
     await f.write(f.d('proj', 'package.json'), '{}');
     await f.write(f.d('proj', 'node_modules', 'pkg', 'a.js'));
+    await f.age(f.d('proj'));
     const ctx = f.mk();
     // .env.example / .env.sample / .env.template copies are not secrets
     for (const n of ['.env.example', '.env.sample', '.env.template']) await f.write(f.d('proj', 'node_modules', 'pkg', n));
@@ -258,7 +271,7 @@ test('verify: orphan worktree (a) missing gitdir, (b) merged+clean via git, dirt
     await f.write(f.d('wt2', '.git'), 'gitdir: ' + W.join(parent, '.git', 'worktrees', 'wt2') + '\n');
     const head = 'a'.repeat(40);
     const git = (dirty, merged = true) => (a) => {
-      const s = a.slice(3).join(' ');
+      const s = a.slice(5).join(' ');
       if (s.startsWith('worktree list')) return { code: 0, stdout: `worktree ${parent.replace(/\\/g, '/')}\nHEAD ${head}\n\nworktree ${f.d('wt2').replace(/\\/g, '/')}\nHEAD ${head}\n`, stderr: '' };
       if (s.startsWith('rev-parse HEAD')) return { code: 0, stdout: head + '\n', stderr: '' };
       if (s.startsWith('symbolic-ref')) return { code: 0, stdout: 'origin/main\n', stderr: '' };
@@ -268,7 +281,7 @@ test('verify: orphan worktree (a) missing gitdir, (b) merged+clean via git, dirt
     };
     const b = await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(false) }));
     assert.ok(b.ok);
-    assert.deepEqual(b.entry.argv, ['git', '-C', parent, 'worktree', 'remove', '--', f.d('wt2')]);
+    assert.deepEqual(b.entry.argv, GIT.concat(['-C', parent, 'worktree', 'remove', '--', f.d('wt2')]));
     assert.equal(b.entry.action, 'run');
     assert.equal((await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(true) }))).ok, false);
     assert.equal((await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(false, false) }))).ok, false);
@@ -280,19 +293,19 @@ test('verify: orphan-worktree (c) repo root with a .git dir and prunable entries
   try {
     const repo = f.d('someRepo');
     await fs.mkdir(W.join(repo, '.git', 'worktrees'), { recursive: true });
-    const list = (prunable) => (a) => (a.slice(3).join(' ') === 'worktree list --porcelain'
+    const list = (prunable) => (a) => (a.slice(5).join(' ') === 'worktree list --porcelain'
       ? { code: 0, stdout: `worktree ${repo.replace(/\\/g, '/')}\nHEAD ${'a'.repeat(40)}\n\nworktree ${f.d('gone').replace(/\\/g, '/')}\nHEAD ${'b'.repeat(40)}\n${prunable ? 'prunable gitdir file points to non-existent location\n' : ''}`, stderr: '' }
       : { code: 1, stdout: '', stderr: '' });
     const r = await verifyItem({ id: 'c', category: 'orphan-worktree', path: repo }, f.mk({ probe: list(true) }));
     assert.ok(r.ok);
-    assert.deepEqual([r.entry.action, r.entry.argv], ['run', ['git', '-C', repo, 'worktree', 'prune']]);
+    assert.deepEqual([r.entry.action, r.entry.argv], ['run', GIT.concat(['-C', repo, 'worktree', 'prune'])]);
     assert.equal((await verifyItem({ id: 'c', category: 'orphan-worktree', path: repo }, f.mk({ probe: list(false) }))).ok, false);
     // through main(): confirmed run executes exactly the prune argv, nothing is recycled
     const file = await f.plan([{ id: 'c', category: 'orphan-worktree', path: repo, how: 'rm -rf /' }]);
     const runs = [];
-    const code = await main([file], { env: f.env, probe: list(true), run: async (a) => { runs.push(a); return { code: 0 }; }, recycle: async () => { throw new Error('recycle'); }, ask: async () => 'y', out: () => {} });
+    const code = await main([file], { env: f.env, ...sys, probe: list(true), run: async (a) => { runs.push(a); return { code: 0 }; }, recycle: async () => { throw new Error('recycle'); }, ask: async () => 'y', out: () => {} });
     assert.equal(code, 0);
-    assert.deepEqual(runs, [['git', '-C', repo, 'worktree', 'prune']]);
+    assert.deepEqual(runs, [GIT.concat(['-C', repo, 'worktree', 'prune'])]);
   } finally { await f.done(); }
 });
 
@@ -305,7 +318,7 @@ test('verify: shader-cache and app-cache recycle children of allowed locations o
       W.join(ad, 'Discord', 'Cache'), W.join(ad, 'Code', 'Code Cache'), W.join(ad, 'Slack', 'GPUCache'), W.join(ad, 'Code', 'CachedData'),
       W.join(la, 'Microsoft', 'Windows', 'INetCache'), W.join(la, 'Microsoft', 'Windows', 'WER'),
     ];
-    const bad = [la, W.join(la, 'NVIDIA'), W.join(la, 'Programs'), ad, W.join(ad, 'Discord'), W.join(ad, 'Discord', 'Local Storage'), W.join(ad, 'a', 'b', 'Cache'), W.join(la, 'Microsoft', 'Windows'), f.d('home', 'Documents')];
+    const bad = [la, W.join(la, 'NVIDIA'), W.join(la, 'Programs'), ad, W.join(ad, 'Discord'), W.join(ad, 'Discord', 'Local Storage'), W.join(ad, 'a', 'b', 'Cache'), W.join(ad, 'SomeUnknownApp', 'Cache'), W.join(la, 'Microsoft', 'Windows'), f.d('home', 'Documents')];
     for (const p of [...ok, ...bad]) { await f.write(W.join(p, 'x.bin'), '12345'); await f.write(W.join(p, 'sub', 'y.bin'), '123'); }
     await f.write(W.join(ok[0], 'secret', '.env'), 'S=1'); // a child with a secret is skipped, not recycled
     const ctx = f.mk();
@@ -329,7 +342,7 @@ test('verify: shader-cache and app-cache recycle children of allowed locations o
     // locked children are skipped with a message, not failed
     const file = await f.plan([{ id: 'a', category: 'app-cache', path: ok[3] }]);
     const o = collect();
-    const code = await main([file], { env: f.env, recycle: async (l) => l.map(() => ({ ok: false, e: 'IOException' })), ask: async () => 'y', out: o.out });
+    const code = await main([file], { env: f.env, ...sys, recycle: async (l) => l.map(() => ({ ok: false, e: 'IOException' })), ask: async () => 'y', out: o.out });
     assert.equal(code, 0);
     assert.match(o.lines.join('\n'), /사용 중 — 건너뜀/);
   } finally { await f.done(); }
@@ -370,30 +383,234 @@ test('system-cleanup and old-download are report-only and never executed', opts,
   } finally { await f.done(); }
 });
 
-test('safety tier is shown but never changes decisions', opts, async () => {
+test('the safety tier shown comes from the category, never from the plan', opts, async () => {
   const f = await fixture();
   try {
     await f.write(f.d('proj', 'package.json'), '{}');
     await f.write(f.d('proj', 'node_modules', 'a.js'), 'abc');
+    await f.age(f.d('proj'));
+    await f.write(W.join(f.env.localAppData, 'CrashDumps', 'a.dmp'), 'x');
     const file = await f.plan([
-      { id: 'a', category: 'dev-artifact', path: f.d('proj', 'node_modules'), safety: 'safe' },
+      { id: 'a', category: 'dev-artifact', path: f.d('proj', 'node_modules'), safety: 'safe' }, // plan says safe, the category says check
+      { id: 'c', category: 'crash-dump', path: W.join(f.env.localAppData, 'CrashDumps'), safety: 'manual' },
       { id: 'b', category: 'dev-artifact', path: f.d('Windows', 'System32'), safety: 'safe' }, // still refused
-      { id: 'c', category: 'dev-artifact', path: f.d('proj', 'dist'), safety: 'bogus' },
     ]);
-    await f.write(f.d('proj', 'dist', 'x'));
-    await f.write(f.d('proj', 'build', 'x'));
     const o = collect();
-    assert.equal(await main([file, '--dry-run'], { env: f.env, out: o.out }), 0);
+    assert.equal(await main([file, '--dry-run'], { env: f.env, ...sys, out: o.out }), 0);
     const text = o.lines.join('\n');
-    assert.match(text, /\[휴지통 이동\] \[삭제해도 됨\].*node_modules/);
-    assert.match(text, /\[휴지통 이동\] \[직접 판단\].*dist/); // invalid tier falls back to the most cautious label
+    const label = { safe: '삭제해도 됨', check: '확인 후 삭제', manual: '직접 판단' };
+    assert.equal(tierOf('dev-artifact'), 'check');
+    assert.match(text, new RegExp(`\\[휴지통 이동\\] \\[${label[tierOf('dev-artifact')]}\\].*node_modules`));
+    assert.match(text, new RegExp(`\\[휴지통 이동\\] \\[${label[tierOf('crash-dump')]}\\].*CrashDumps`));
     assert.match(text, /\[거부\].*System32/);
-    for (const [tier, label] of [['check', '확인 후 삭제'], ['manual', '직접 판단']]) {
-      const pf = await f.plan([{ id: 'a', category: 'dev-artifact', path: f.d('proj', 'node_modules'), safety: tier }]);
-      const oo = collect();
-      await main([pf, '--dry-run'], { env: f.env, out: oo.out });
-      assert.ok(oo.lines.join('\n').includes(`[${label}]`));
+  } finally { await f.done(); }
+});
+
+// ---------- hardening round ----------
+const BIG = APPDATA_MIN_BYTES + 1024;
+async function bigDir(f, p, days) {
+  await f.write(W.join(p, 'blob.bin'), 'x');
+  await fs.truncate(W.join(p, 'blob.bin'), BIG);
+  if (days) await f.age(p, days);
+}
+
+test('appdata-orphan: needs size, age, a non-skipped name and no installed-app match', opts, async () => {
+  const f = await fixture();
+  try {
+    const ad = f.env.appData, old = APPDATA_MIN_AGE_DAYS + 20;
+    await bigDir(f, W.join(ad, 'OldTool'), old);
+    await bigDir(f, W.join(ad, 'FreshTool'), 1);
+    await f.write(W.join(ad, 'TinyTool', 'a.txt'), 'x'); await f.age(W.join(ad, 'TinyTool'), old);
+    const skipName = [...APPDATA_SKIP][0];
+    await bigDir(f, W.join(ad, skipName), old);
+    const apps = [{ name: 'Totally Different App', publisher: 'Acme', location: 'C:\\Program Files\\Acme' }];
+    const v = (name, over = {}) => verifyItem({ id: name, category: 'appdata-orphan', path: W.join(ad, name) }, f.mk({ ctx: { listInstalledApps: async () => apps, ...over } }));
+    const ok = await v('OldTool');
+    assert.ok(ok.ok, ok.reason);
+    assert.equal(ok.entry.action, 'recycle');
+    assert.match((await v('FreshTool')).reason, /이내/);
+    assert.match((await v('TinyTool')).reason, /미만/);
+    assert.equal((await v(skipName)).ok, false);
+    assert.match((await v('OldTool', { listInstalledApps: async () => [{ name: 'OldTool Pro' }] })).reason, /비슷/); // looks installed
+    assert.match((await v('OldTool', { listInstalledApps: async () => [] })).reason, /판단 불가/); // unsure -> reject
+    assert.match((await v('OldTool', { listInstalledApps: async () => { throw new Error('reg'); } })).reason, /판단 불가/);
+  } finally { await f.done(); }
+});
+
+test('dev-artifact: refused when the project has source newer than the age limit', opts, async () => {
+  const f = await fixture();
+  try {
+    const proj = f.d('proj'), nm = W.join(proj, 'node_modules');
+    await f.write(W.join(proj, 'package.json'), '{}');
+    await f.write(W.join(proj, 'src', 'a.js'), 'x');
+    await f.write(W.join(nm, 'pkg', 'i.js'), 'x');
+    await f.age(proj, DEV_MIN_AGE_DAYS + 5);
+    const ctx = f.mk();
+    const v = () => verifyItem({ id: 'n', category: 'dev-artifact', path: nm }, ctx);
+    assert.ok((await v()).ok);
+    // a fresh file inside an artifact dir or .git does not count as source activity
+    await f.write(W.join(nm, 'pkg', 'fresh.js'), 'x');
+    await f.write(W.join(proj, '.git', 'index'), 'x');
+    assert.ok((await v()).ok);
+    // inside the age window: refused
+    await fs.utimes(W.join(proj, 'src', 'a.js'), (Date.now() - (DEV_MIN_AGE_DAYS - 5) * 864e5) / 1000, (Date.now() - (DEV_MIN_AGE_DAYS - 5) * 864e5) / 1000);
+    const r = await v();
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /이내/);
+    // a brand new file
+    await f.age(proj, DEV_MIN_AGE_DAYS + 5);
+    await f.write(W.join(proj, 'src', 'new.js'), 'x');
+    assert.equal((await v()).ok, false);
+  } finally { await f.done(); }
+});
+
+test('git: every argv starts with -c core.fsmonitor=false and the runner refuses anything else', opts, async () => {
+  const f = await fixture();
+  try {
+    const parent = f.d('parent');
+    await fs.mkdir(W.join(parent, '.git', 'worktrees', 'wt2'), { recursive: true });
+    await f.write(f.d('wt2', '.git'), 'gitdir: ' + W.join(parent, '.git', 'worktrees', 'wt2') + '\n');
+    const head = 'a'.repeat(40), seen = [];
+    const probe = async (a) => {
+      seen.push(a);
+      const s = a.slice(5).join(' ');
+      if (s.startsWith('worktree list')) return { code: 0, stdout: `worktree ${parent}\nHEAD ${head}\n\nworktree ${f.d('wt2')}\nHEAD ${head}\n`, stderr: '' };
+      if (s.startsWith('rev-parse HEAD')) return { code: 0, stdout: head, stderr: '' };
+      if (s.startsWith('symbolic-ref')) return { code: 0, stdout: 'origin/main', stderr: '' };
+      return { code: 0, stdout: '', stderr: '' };
+    };
+    const r = await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe }));
+    assert.ok(r.ok, r.reason);
+    assert.ok(seen.length >= 5);
+    for (const a of [...seen, r.entry.argv]) assert.deepEqual(a.slice(0, 3), GIT, a.join(' '));
+    assert.equal((await defaultRun(['git', '--version'])).code, -1); // no fsmonitor flag: not allowed
+    assert.equal((await defaultRun(['git', '-c', 'core.fsmonitor=true', '--version'])).code, -1);
+    assert.equal((await defaultRun([...GIT, '--version'])).code, 0);
+    assert.ok(SHIMS.has('bun') && SHIMS.has('npm'));
+  } finally { await f.done(); }
+});
+
+test('orphan-worktree (a): structure and drive guards, listing compared by real path', opts, async () => {
+  const f = await fixture();
+  try {
+    // pointer to a missing gitdir that is not <repo>\.git\worktrees\<id>: never "orphan"
+    await f.write(f.d('w1', '.git'), 'gitdir: ' + f.d('gone', 'somewhere') + '\n');
+    const s = await verifyItem({ id: 'a', category: 'orphan-worktree', path: f.d('w1') }, f.mk());
+    assert.equal(s.ok, false);
+    assert.match(s.reason, /구조/);
+    // a missing gitdir on a drive that is not there may just be an unplugged disk
+    let free = null;
+    for (const c of 'ZYXWVUTSRQPONMLKJIHGFE') if (!(await fs.access(`${c}:\\`).then(() => true, () => false))) { free = c; break; }
+    if (free) {
+      await f.write(f.d('w2', '.git'), `gitdir: ${free}:\\repo\\.git\\worktrees\\w2\n`);
+      const d = await verifyItem({ id: 'a', category: 'orphan-worktree', path: f.d('w2') }, f.mk());
+      assert.equal(d.ok, false);
+      assert.match(d.reason, /드라이브/);
     }
+    // git lists the worktree through a junction: still listed (not an orphan to recycle)
+    const parent = f.d('parent');
+    await fs.mkdir(W.join(parent, '.git', 'worktrees', 'w3'), { recursive: true });
+    await f.write(f.d('w3', '.git'), 'gitdir: ' + W.join(parent, '.git', 'worktrees', 'w3') + '\n');
+    try { await fs.symlink(f.d('w3'), f.d('w3link'), 'junction'); } catch { return; }
+    const head = 'b'.repeat(40);
+    const probe = async (a) => {
+      const q = a.slice(5).join(' ');
+      if (q.startsWith('worktree list')) return { code: 0, stdout: `worktree ${parent}\nHEAD ${head}\n\nworktree ${f.d('w3link')}\nHEAD ${head}\n`, stderr: '' };
+      if (q.startsWith('rev-parse HEAD')) return { code: 0, stdout: head, stderr: '' };
+      if (q.startsWith('symbolic-ref')) return { code: 0, stdout: 'origin/main', stderr: '' };
+      if (q.startsWith('status')) return { code: 0, stdout: ' M x\n', stderr: '' }; // dirty -> rejected, proving we got past "listed"
+      return { code: 0, stdout: '', stderr: '' };
+    };
+    const l = await verifyItem({ id: 'a', category: 'orphan-worktree', path: f.d('w3') }, f.mk({ probe }));
+    assert.equal(l.ok, false);
+    assert.match(l.reason, /깨끗/);
+  } finally { await f.done(); }
+});
+
+test('run: a missing tool is reported as not installed, not as a failure', opts, async () => {
+  const f = await fixture();
+  try {
+    const real = f.d('realcache');
+    await f.write(W.join(real, 'a'), 'abc');
+    const file = await f.plan([{ id: 'n', category: 'pkg-cache', tool: 'npm', path: real }]);
+    for (const res of [{ code: -1, stdout: '', stderr: 'ENOENT' }, { code: 9009, stdout: '', stderr: '' }, { code: 1, stdout: '', stderr: "'npm' is not recognized as an internal or external command" }]) {
+      const o = collect();
+      const code = await main([file], { env: f.env, ...sys, probe: async (a) => (a[0] === 'npm' ? { code: 0, stdout: real, stderr: '' } : { code: 1, stdout: '', stderr: '' }), run: async () => res, ask: async () => 'y', out: o.out });
+      assert.equal(code, 0);
+      assert.match(o.lines.join('\n'), /도구가 설치되어 있지 않음 — 건너뜀/);
+      assert.match(o.lines.join('\n'), /실패 0/);
+    }
+    // a real failure still fails
+    const o = collect();
+    const code = await main([file], { env: f.env, ...sys, probe: async (a) => (a[0] === 'npm' ? { code: 0, stdout: real, stderr: '' } : { code: 1, stdout: '', stderr: '' }), run: async () => ({ code: 1, stdout: '', stderr: 'boom' }), ask: async () => 'y', out: o.out });
+    assert.equal(code, 1);
+  } finally { await f.done(); }
+});
+
+const entry = (p, extra = {}) => ({ item: {}, category: 'dev-artifact', action: 'recycle', kind: 'recycle', path: p, isDir: true, size: 10, maxPath: p.length, ...extra });
+
+test('recycle: skipped when the drive has no Recycle Bin, the item is over 5% of the drive, or the path is too long', opts, async () => {
+  const f = await fixture();
+  try {
+    await f.write(f.d('a', 'x.txt'), 'x'); await f.write(f.d('b', 'x.txt'), 'x'); await f.write(f.d('c', 'x.txt'), 'x'); await f.write(f.d('d', 'x.txt'), 'x');
+    const o = collect();
+    let ctx = f.mk({ ctx: { binExists: async () => false, out: o.out } });
+    await execute([entry(f.d('a'))], ctx);
+    assert.match(o.lines.join('\n'), /휴지통이 없음/);
+    ctx = f.mk({ ctx: { driveTotal: async () => 100, out: o.out } }); // size 10 of 100 = 10% > 5%
+    const r2 = await execute([entry(f.d('b'))], ctx);
+    assert.match(o.lines.join('\n'), /휴지통 용량 초과 위험 — 건너뜀/);
+    assert.equal(r2.skipped, 1);
+    ctx = f.mk({ ctx: { out: o.out } });
+    await execute([entry(f.d('c'), { maxPath: 300 })], ctx);
+    assert.match(o.lines.join('\n'), /경로가 너무 길어/);
+    assert.equal(f.calls.recycle.length, 0); // nothing was sent to the recycler
+    const r4 = await execute([entry(f.d('d'), { size: 1 })], f.mk({ ctx: { driveTotal: async () => 1000, out: o.out } }));
+    assert.equal(r4.done, 1);
+    assert.equal(f.calls.recycle.length, 1);
+  } finally { await f.done(); }
+});
+
+test('recycle results: locked, access denied and the permanent-delete warning are skipped, not failed', opts, async () => {
+  const f = await fixture();
+  try {
+    for (const n of ['a', 'b', 'c', 'd']) await f.write(f.d(n, 'x.txt'), 'x');
+    const o = collect();
+    const codes = { a: 'SHErr32', b: 'SHErr5', c: 'SHErr1223', d: 'SHErr1026' };
+    const ctx = f.mk({ ctx: { out: o.out, recycle: async (l) => l.map((x) => ({ ok: false, e: codes[W.basename(x.path)] })) } });
+    const r = await execute(['a', 'b', 'c', 'd'].map((n) => entry(f.d(n))), ctx);
+    const text = o.lines.join('\n');
+    assert.match(text, /a: 사용 중 — 건너뜀/);
+    assert.match(text, /b: 관리자 권한 필요 — 건너뜀/);
+    assert.match(text, /c: 휴지통으로 보낼 수 없음\(영구 삭제 경고\) — 건너뜀/);
+    assert.deepEqual([r.skipped, r.failed], [3, 1]); // 1026 = unknown shell error stays a failure
+  } finally { await f.done(); }
+});
+
+test('TOCTOU: the target is re-checked right before recycle/run', opts, async () => {
+  const f = await fixture();
+  try {
+    const o = collect();
+    const ctx = () => f.mk({ ctx: { out: o.out } });
+    await f.write(f.d('gone', 'x'));
+    await f.write(f.d('swapped', 'x')); await f.write(f.d('target', 'x'));
+    await f.write(f.d('Windows', 'System32', 'x.dll'));
+    await f.write(f.d('home', 'Documents', 'x.txt'));
+    await f.write(f.d('real', 'x'));
+    const paths = { gone: f.d('gone'), swapped: f.d('swapped'), denied: f.d('Windows', 'System32'), docs: f.d('home', 'Documents') };
+    await fs.rm(paths.gone, { recursive: true });
+    let junction = true;
+    try { await fs.rm(paths.swapped, { recursive: true }); await fs.symlink(f.d('target'), paths.swapped, 'junction'); } catch { junction = false; }
+    const r = await execute([entry(paths.gone), ...(junction ? [entry(paths.swapped)] : []), entry(paths.denied), entry(paths.docs),
+      entry(f.d('real'), { kind: 'run', action: 'run', argv: ['npm', 'cache', 'clean', '--force'] }),
+      entry(paths.denied, { kind: 'run', action: 'run', argv: ['npm', 'cache', 'clean', '--force'] })], ctx());
+    const text = o.lines.join('\n');
+    assert.match(text, /경로가 사라짐/);
+    if (junction) assert.match(text, /링크로 바뀜/);
+    assert.match(text, /보호 경로로 판정됨/);
+    assert.equal(f.calls.recycle.length, 0); // nothing reached the recycler
+    assert.deepEqual(f.calls.run, [['npm', 'cache', 'clean', '--force']]); // only the untouched run target executed
+    assert.equal(r.done, 1);
   } finally { await f.done(); }
 });
 
@@ -402,6 +619,7 @@ async function scenario() {
   const f = await fixture();
   await f.write(f.d('proj', 'package.json'), '{}');
   await f.write(f.d('proj', 'node_modules', 'a.js'), 'abc');
+  await f.age(f.d('proj'));
   const file = await f.plan([
     { id: 'n', category: 'dev-artifact', path: f.d('proj', 'node_modules'), size: 1 },
     { id: 'd', category: 'dev-artifact', path: f.d('Windows', 'System32') },
@@ -435,12 +653,12 @@ test('confirmation: anything but y aborts; y recycles the expected paths', opts,
   try {
     for (const ans of ['n', '', 'yes', null, undefined, 'yy']) {
       const calls = [];
-      const code = await main([file], { env: f.env, recycle: async (l) => { calls.push(l); return []; }, run: async (a) => { calls.push(a); return { code: 0 }; }, ask: async () => ans, out: () => {} });
+      const code = await main([file], { env: f.env, ...sys, recycle: async (l) => { calls.push(l); return []; }, run: async (a) => { calls.push(a); return { code: 0 }; }, ask: async () => ans, out: () => {} });
       assert.equal(code, 1, `answer ${JSON.stringify(ans)}`);
       assert.equal(calls.length, 0);
     }
     const calls = [], runs = [], o = collect();
-    const code = await main([file], { env: f.env, recycle: async (l) => { calls.push(l); return l.map(() => ({ ok: true })); }, run: async (a) => { runs.push(a); return { code: 0 }; }, ask: async () => 'y', out: o.out });
+    const code = await main([file], { env: f.env, ...sys, recycle: async (l) => { calls.push(l); return l.map(() => ({ ok: true })); }, run: async (a) => { runs.push(a); return { code: 0 }; }, ask: async () => 'y', out: o.out });
     assert.equal(code, 0);
     assert.deepEqual(calls, [[{ path: f.d('proj', 'node_modules'), dir: true }]]);
     assert.deepEqual(runs, []); // the plan's command-like text never reaches a runner
@@ -461,7 +679,7 @@ test('execution: access denied is skipped with the admin message, plan commands 
     ]);
     const o = collect(), runs = [];
     const code = await main([file], {
-      env: f.env,
+      env: f.env, ...sys,
       probe: async (a) => (a[0] === 'npm' ? { code: 0, stdout: real, stderr: '' } : { code: 1, stdout: '', stderr: '' }),
       recycle: async () => [{ ok: false, e: 'UnauthorizedAccessException' }],
       run: async (a) => { runs.push(a); return { code: 0, stdout: '', stderr: '' }; },

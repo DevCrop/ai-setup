@@ -8,13 +8,14 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveCacheDir, CACHE_TOOLS } from './lib/caches.mjs';
 import { isDenied, defaultEnv, norm, secretFile } from './lib/deny.mjs';
+import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './lib/rules.mjs';
+import { realListInstalledApps } from './lib/detectors.mjs';
 
 const W = path.win32;
 export const CATEGORIES = ['temp', 'pkg-cache', 'dev-artifact', 'orphan-worktree', 'plugin-cache', 'appdata-orphan', 'recycle-bin', 'crash-dump', 'vm-disk', 'browser-cache', 'shader-cache', 'app-cache', 'system-cleanup', 'old-download'];
 const REPORT = new Set(['recycle-bin', 'vm-disk', 'system-cleanup', 'old-download']);
 const SAFETY = { safe: '삭제해도 됨', check: '확인 후 삭제', manual: '직접 판단' }; // display only, never used for decisions
 const REPORT_TEXT = { 'system-cleanup': 'Windows 디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)', 'old-download': '다운로드 폴더는 보호됨 — 직접 확인 후 삭제하세요', 'recycle-bin': 'Windows에서 직접 휴지통을 비우세요', 'vm-disk': '직접 정리하세요' };
-const APP_CACHE_DIRS = new Set(['cache', 'code cache', 'gpucache', 'cacheddata']);
 const LABEL = { recycle: '휴지통 이동', run: '명령 실행', report: '보고만' };
 const ADMIN_MSG = '관리자 권한 필요 — 건너뜀';
 const DAY = 864e5;
@@ -33,8 +34,11 @@ const CLEAN = {
 const DEV_DIRS = new Set(['node_modules', '.venv', 'venv', 'dist', 'build', '.next', 'target']);
 const BROWSER_DIRS = new Set(['cache', 'code cache', 'gpucache', 'cache2']);
 const MARKERS = ['package.json', 'pyproject.toml', 'Cargo.toml', '.git'];
-const SHIMS = new Set(['npm', 'pnpm', 'yarn']); // .cmd shims on Windows
-const RUNNABLE = new Set([...SHIMS, 'pip', 'uv', 'bun', 'dotnet', 'git']);
+export const SHIMS = new Set(['npm', 'pnpm', 'yarn', 'bun']); // .cmd shims on Windows
+const RUNNABLE = new Set([...SHIMS, 'pip', 'uv', 'dotnet', 'git']);
+// Every git call starts with this: a repo's config must not make git run a hook program (fsmonitor).
+const GIT = ['git', '-c', 'core.fsmonitor=false'];
+const git = (...a) => [...GIT, ...a];
 
 // ---------- default (real) runners; tests inject fakes ----------
 
@@ -42,10 +46,10 @@ const RUNNABLE = new Set([...SHIMS, 'pip', 'uv', 'bun', 'dotnet', 'git']);
 export function defaultRun(argv, { timeout = 120000 } = {}) {
   return new Promise((resolve) => {
     const [bin, ...rest] = argv;
-    if (!RUNNABLE.has(bin)) return resolve({ code: -1, stdout: '', stderr: 'not allowed' });
+    if (!RUNNABLE.has(bin) || (bin === 'git' && (rest[0] !== '-c' || rest[1] !== 'core.fsmonitor=false'))) return resolve({ code: -1, stdout: '', stderr: 'not allowed' });
     const [cmd, args] = SHIMS.has(bin) ? ['cmd.exe', ['/d', '/s', '/c', bin, ...rest]] : [bin, rest];
     let out = '', err = '';
-    const c = spawn(cmd, args, { shell: false, windowsHide: true, timeout, stdio: ['ignore', 'pipe', 'pipe'] });
+    const c = spawn(cmd, args, { shell: false, windowsHide: true, timeout, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
     c.stdout.on('data', (d) => { if (out.length < 1e6) out += d; });
     c.stderr.on('data', (d) => { if (err.length < 1e6) err += d; });
     c.on('error', (e) => resolve({ code: -1, stdout: out, stderr: String(e.code || e.message) }));
@@ -53,18 +57,36 @@ export function defaultRun(argv, { timeout = 120000 } = {}) {
   });
 }
 
-// Fixed script; paths arrive on stdin as lines "D|F <base64 utf8 path>", never inside the command line.
+// Fixed script; paths arrive on stdin as lines of base64 (utf8), never inside the command line.
+// SHFileOperation flags 0x4454 = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI | FOF_WANTNUKEWARNING:
+// to the Recycle Bin, no error dialogs, and Windows still asks before it would delete permanently.
 const PS_SCRIPT = String.raw`
-Add-Type -AssemblyName Microsoft.VisualBasic
+$cs = @'
+using System;
+using System.Runtime.InteropServices;
+public static class Shf {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct Op64 { public IntPtr hwnd; public uint wFunc; public string pFrom; public string pTo; public ushort fFlags; public int aborted; public IntPtr map; public string title; }
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
+  struct Op32 { public IntPtr hwnd; public uint wFunc; public string pFrom; public string pTo; public ushort fFlags; public int aborted; public IntPtr map; public string title; }
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "SHFileOperationW")] static extern int F64(ref Op64 o);
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "SHFileOperationW")] static extern int F32(ref Op32 o);
+  // 0 = recycled, 100000 = aborted, anything else = the SHFileOperation error code
+  public static int Recycle(string path) {
+    string from = path + "\0";
+    if (IntPtr.Size == 8) { Op64 o = new Op64(); o.wFunc = 3; o.pFrom = from; o.fFlags = 0x4454; int r = F64(ref o); return (r == 0 && o.aborted != 0) ? 100000 : r; }
+    else { Op32 o = new Op32(); o.wFunc = 3; o.pFrom = from; o.fFlags = 0x4454; int r = F32(ref o); return (r == 0 && o.aborted != 0) ? 100000 : r; }
+  }
+}
+'@
+Add-Type -TypeDefinition $cs
 $lines = @([Console]::In.ReadToEnd() -split '\r?\n' | Where-Object { $_ })
 $res = @()
 for ($i = 0; $i -lt $lines.Count; $i++) {
   try {
-    $kind, $b64 = $lines[$i] -split ' ', 2
-    $p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64))
-    if ($kind -eq 'D') { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($p, 'OnlyErrorDialogs', 'SendToRecycleBin') }
-    else { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin') }
-    $res += @{ i = $i; ok = $true }
+    $p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($lines[$i].Trim()))
+    $r = [Shf]::Recycle($p)
+    if ($r -eq 0) { $res += @{ i = $i; ok = $true } } else { $res += @{ i = $i; ok = $false; e = "SHErr$r" } }
   } catch {
     $ex = $_.Exception
     if ($ex.InnerException) { $ex = $ex.InnerException }
@@ -74,16 +96,16 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 ConvertTo-Json -InputObject @($res) -Compress
 `;
 
-/** list: [{path, dir}] -> [{ok, e?}] in the same order. */
+/** list: [{path}] -> [{ok, e?}] in the same order. Small chunks + timeout: a stuck confirmation dialog must not hang forever. */
 export async function defaultRecycle(list) {
   const out = [];
-  for (let s = 0; s < list.length; s += 300) {
-    const chunk = list.slice(s, s + 300);
-    const payload = chunk.map(({ path: p, dir }) => `${dir ? 'D' : 'F'} ${Buffer.from(p).toString('base64')}`).join('\n');
+  for (let s = 0; s < list.length; s += 50) {
+    const chunk = list.slice(s, s + 50);
+    const payload = chunk.map(({ path: p }) => Buffer.from(p).toString('base64')).join('\n');
     const enc = Buffer.from(PS_SCRIPT, 'utf16le').toString('base64');
     const r = await new Promise((resolve) => {
       let o = '';
-      const c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', enc], { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+      const c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', enc], { shell: false, windowsHide: true, timeout: 300000, stdio: ['pipe', 'pipe', 'ignore'] });
       c.stdout.on('data', (d) => { o += d; });
       c.on('error', () => resolve(null));
       c.on('close', () => resolve(o));
@@ -91,7 +113,7 @@ export async function defaultRecycle(list) {
       c.stdin.end(payload);
     });
     let parsed = null;
-    try { parsed = JSON.parse(r); } catch { /* runner failed */ }
+    try { parsed = JSON.parse(r); } catch { /* runner failed or timed out */ }
     chunk.forEach((_, i) => out.push(parsed?.find((x) => x.i === i) ?? { ok: false, e: 'RunnerError' }));
   }
   return out;
@@ -112,6 +134,9 @@ export function makeCtx(o = {}) {
     probe: o.probe ?? defaultRun, // read-only commands (resolve cache dir, git queries)
     run: o.run ?? defaultRun, // mutating commands (official cleaners, git worktree remove/prune)
     recycle: o.recycle ?? defaultRecycle,
+    listInstalledApps: o.listInstalledApps ?? realListInstalledApps, // uninstall registry (read-only)
+    binExists: o.binExists ?? ((root) => exists(W.join(root, '$Recycle.Bin'))), // does the drive have a Recycle Bin?
+    driveTotal: o.driveTotal ?? (async (root) => { try { const s = await fs.statfs(root); return s.blocks * s.bsize; } catch { return null; } }),
     ask: o.ask ?? defaultAsk,
     out: o.out ?? ((s) => console.log(s)),
   };
@@ -148,7 +173,7 @@ export function validatePlan(plan) {
       seen.add(k);
     }
     if (reason) rejected.push({ id: printable(it?.id ?? '?', 80), path: printable(it?.path ?? '?'), reason });
-    else items.push({ id: it.id, category: it.category, tool: it.tool, path: it.path, size: it.size, safety: Object.hasOwn(SAFETY, it.safety) ? it.safety : undefined });
+    else items.push({ id: it.id, category: it.category, tool: it.tool, path: it.path, size: it.size });
   }
   return { items, rejected };
 }
@@ -157,7 +182,7 @@ export function validatePlan(plan) {
 
 /** Own small du: logical size, newest mtime, first sensitive name, first `.git` dir. Does not follow links. */
 export async function du(top, { scanSensitive = true } = {}) {
-  const r = { size: 0, newest: 0, sensitive: null, gitDir: null, unreadable: 0 };
+  const r = { size: 0, newest: 0, sensitive: null, gitDir: null, unreadable: 0, maxPath: top.length };
   const topSt = await fs.lstat(top);
   r.newest = topSt.mtimeMs;
   if (!topSt.isDirectory()) { r.size = topSt.size; return r; }
@@ -168,6 +193,7 @@ export async function du(top, { scanSensitive = true } = {}) {
     try { ents = await fs.readdir(dir, { withFileTypes: true }); } catch { r.unreadable++; continue; }
     await Promise.all(ents.map(async (e) => {
       const q = W.join(dir, e.name);
+      if (q.length > r.maxPath) r.maxPath = q.length;
       if (scanSensitive && secretFile(e.name)) { r.sensitive ??= q; return; }
       if (e.isSymbolicLink()) return; // symlinks/junctions are skipped, not followed
       if (e.isDirectory()) {
@@ -194,7 +220,7 @@ function parseWorktrees(txt) {
 }
 
 async function defaultBranch(parent, ctx) {
-  const g = (...a) => ctx.probe(['git', '-C', parent, ...a]);
+  const g = (...a) => ctx.probe(git('-C', parent, ...a));
   const s = await g('symbolic-ref', '--short', 'refs/remotes/origin/HEAD');
   const name = s.stdout?.trim();
   if (s.code === 0 && /^[\w./-]+$/.test(name) && !name.startsWith('-')) return name;
@@ -202,43 +228,100 @@ async function defaultBranch(parent, ctx) {
   return null;
 }
 
+/** Is `p` one of git's listed worktrees? Compared by normalized path and by real path (junctions, 8.3 names). */
+async function isListed(list, p) {
+  const rp = norm(await fs.realpath(p).catch(() => p));
+  for (const w of list) {
+    if (norm(w.path) === norm(p)) return true;
+    if (norm(await fs.realpath(w.path).catch(() => w.path)) === rp) return true;
+  }
+  return false;
+}
+
 async function planWorktree(p, ctx) {
   const gitEntry = W.join(p, '.git');
   const gst = await fs.lstat(gitEntry).catch(() => null);
   if (!gst) return { reject: '.git 없음 — 워크트리가 아님' };
-  const git = (cwd, ...a) => ctx.probe(['git', '-C', cwd, ...a]);
+  const q = (cwd, ...a) => ctx.probe(git('-C', cwd, ...a));
   if (gst.isDirectory()) {
     // (c) repo root with prunable worktree entries -> git worktree prune
-    const l = await git(p, 'worktree', 'list', '--porcelain');
+    const l = await q(p, 'worktree', 'list', '--porcelain');
     if (l.code !== 0 || !parseWorktrees(l.stdout).some((w) => w.prunable)) return { reject: 'prunable 워크트리 항목이 없음' };
-    return { kind: 'run', argv: ['git', '-C', p, 'worktree', 'prune'], noDu: true };
+    return { kind: 'run', argv: git('-C', p, 'worktree', 'prune'), noDu: true };
   }
   if (!gst.isFile() || gst.size > 4096) return { reject: '.git 포인터 파일이 올바르지 않음' };
   const m = /^gitdir:\s*(.+)$/m.exec(await fs.readFile(gitEntry, 'utf8'));
   if (!m) return { reject: '.git 포인터 파일에 gitdir 줄이 없음' };
   const gitdir = W.resolve(p, m[1].trim());
-  if (!(await exists(gitdir))) return { kind: 'recycle' }; // (a) gitdir missing
+  // 1. structure first: <parent>\.git\worktrees\<id>
   const wtDir = W.dirname(gitdir), parentGit = W.dirname(wtDir), parent = W.dirname(parentGit);
-  if (W.basename(wtDir).toLowerCase() !== 'worktrees' || W.basename(parentGit).toLowerCase() !== '.git') return { reject: '부모 저장소를 찾을 수 없음' };
-  const l = await git(parent, 'worktree', 'list', '--porcelain');
-  if (l.code !== 0) return { reject: '부모 저장소 git 확인 실패' };
-  if (!parseWorktrees(l.stdout).some((w) => norm(w.path) === norm(p))) return { kind: 'recycle' }; // (a) not listed
+  if (W.basename(wtDir).toLowerCase() !== 'worktrees' || W.basename(parentGit).toLowerCase() !== '.git') return { reject: 'gitdir가 <저장소>\\.git\\worktrees\\<id> 구조가 아님' };
+  // 2. "missing" must not just mean an unplugged drive
+  if (!(await exists(W.parse(gitdir).root))) return { reject: 'gitdir의 드라이브를 찾을 수 없음 — 판단 불가' };
+  if (!(await exists(gitdir))) return { kind: 'recycle' }; // (a) gitdir missing
+  const l = await q(parent, 'worktree', 'list', '--porcelain');
+  const listed = l.code === 0 ? parseWorktrees(l.stdout) : [];
+  if (!listed.length) return { reject: '부모 저장소 git 확인 실패' };
+  if (!(await isListed(listed, p))) return { kind: 'recycle' }; // (a) not listed
   // (b) listed worktree: merged into the default branch, clean, outside the parent's .claude/worktrees
   if (norm(p).startsWith(norm(W.join(parent, '.claude', 'worktrees')) + '\\')) return { reject: '부모의 .claude/worktrees 안 — 건너뜀' };
-  const head = (await git(p, 'rev-parse', 'HEAD')).stdout?.trim();
+  const head = (await q(p, 'rev-parse', 'HEAD')).stdout?.trim();
   if (!/^[0-9a-f]{40,64}$/.test(head || '')) return { reject: 'HEAD를 확인할 수 없음' };
   const def = await defaultBranch(parent, ctx);
   if (!def) return { reject: '기본 브랜치를 찾을 수 없음' };
-  if ((await git(parent, 'merge-base', '--is-ancestor', head, def)).code !== 0) return { reject: `HEAD가 ${def}에 병합되지 않음` };
-  const st = await git(p, 'status', '--porcelain');
+  if ((await q(parent, 'merge-base', '--is-ancestor', head, def)).code !== 0) return { reject: `HEAD가 ${def}에 병합되지 않음` };
+  const st = await q(p, 'status', '--porcelain');
   if (st.code !== 0 || st.stdout.trim() !== '') return { reject: '작업 트리가 깨끗하지 않음' };
-  return { kind: 'run', argv: ['git', '-C', parent, 'worktree', 'remove', '--', p] };
+  return { kind: 'run', argv: git('-C', parent, 'worktree', 'remove', '--', p) };
 }
 
 function collectStrings(v, out = []) {
   if (typeof v === 'string') out.push(v);
   else if (v && typeof v === 'object') Object.values(v).forEach((x) => collectStrings(x, out));
   return out;
+}
+
+const SKIP_SRC = new Set([...DEV_DIRS, '.git']); // artifact dirs and git metadata are not "source"
+
+/** First file under `root` (outside artifact dirs) newer than `cutoff`, or {truncated} when the tree is too big to judge. */
+async function newestSource(root, cutoff, limit = 100000) {
+  const stack = [root];
+  let seen = 0;
+  while (stack.length) {
+    const dir = stack.pop();
+    let ents;
+    try { ents = await fs.readdir(dir, { withFileTypes: true }); } catch { continue; }
+    for (const e of ents) {
+      if (e.isSymbolicLink()) continue;
+      const q = W.join(dir, e.name);
+      if (e.isDirectory()) { if (!SKIP_SRC.has(e.name.toLowerCase())) stack.push(q); continue; }
+      if (++seen > limit) return { truncated: true };
+      try { if ((await fs.lstat(q)).mtimeMs > cutoff) return { recent: q }; } catch { /* vanished */ }
+    }
+  }
+  return {};
+}
+
+const nz = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+/** Fuzzy "does an installed app own this folder?" (same idea as the scanner); too-short names count as matched. */
+function matchesApp(folder, apps) {
+  const f = nz(folder);
+  if (f.length < 3) return true;
+  const fl = folder.toLowerCase();
+  return apps.some((a) => {
+    if ([a.name, a.publisher, W.basename(a.location || '')].some((x) => { const n = nz(x); return n.length >= 3 && (n.includes(f) || f.includes(n)); })) return true;
+    return (a.location || '').toLowerCase().split(/[\\/]+/).includes(fl);
+  });
+}
+
+/** appdata-orphan checks that need the measured size/mtime. Returns a reject reason or null. */
+async function orphanReject(p, u, ctx) {
+  if (u.size < APPDATA_MIN_BYTES) return `크기가 ${fmtSize(APPDATA_MIN_BYTES)} 미만`;
+  if (ctx.now - u.newest < APPDATA_MIN_AGE_DAYS * DAY) return `${APPDATA_MIN_AGE_DAYS}일 이내에 사용된 흔적이 있음`;
+  let apps = [];
+  try { apps = await ctx.listInstalledApps(); } catch { /* unreadable registry */ }
+  if (!apps?.length) return '설치된 앱 목록을 읽을 수 없어 판단 불가';
+  return matchesApp(W.basename(p), apps) ? '설치된 앱과 이름이 비슷함' : null;
 }
 
 /** Category rules. Returns {reject} or {kind:'recycle'|'run'|'report', argv?}. */
@@ -254,8 +337,13 @@ async function planFor(item, p, st, ctx) {
     }
     case 'dev-artifact': {
       if (!st.isDirectory() || !DEV_DIRS.has(base)) return { reject: '개발 산출물 폴더가 아님' };
-      for (const mk of MARKERS) if (await exists(W.join(W.dirname(p), mk))) return { kind: 'recycle' };
-      return { reject: '상위에 프로젝트 파일(package.json 등)이 없음' };
+      let marker = false;
+      for (const mk of MARKERS) if (await exists(W.join(W.dirname(p), mk))) { marker = true; break; }
+      if (!marker) return { reject: '상위에 프로젝트 파일(package.json 등)이 없음' };
+      const r = await newestSource(W.dirname(p), ctx.now - DEV_MIN_AGE_DAYS * DAY);
+      if (r.recent) return { reject: `프로젝트에 ${DEV_MIN_AGE_DAYS}일 이내에 수정된 파일이 있음 (${W.relative(W.dirname(p), r.recent)})` };
+      if (r.truncated) return { reject: '프로젝트가 너무 커서 최근 수정 여부를 판단할 수 없음' };
+      return { kind: 'recycle' };
     }
     case 'orphan-worktree': return planWorktree(p, ctx);
     case 'plugin-cache': {
@@ -269,7 +357,8 @@ async function planFor(item, p, st, ctx) {
     }
     case 'appdata-orphan':
       if (!st.isDirectory() || ![env.appData, env.localAppData].filter(Boolean).map(norm).includes(parent)) return { reject: 'AppData 바로 아래 폴더가 아님' };
-      return { kind: 'recycle' };
+      if (base.startsWith('.') || APPDATA_SKIP.has(base)) return { reject: '고아 폴더로 보지 않는 이름(시스템/공용 폴더)' };
+      return { kind: 'recycle', orphan: true };
     case 'crash-dump': {
       const la = env.localAppData && norm(env.localAppData);
       if (!la || !np.startsWith(la + '\\') || !((st.isDirectory() && base === 'crashdumps') || (st.isFile() && base.endsWith('.dmp')))) return { reject: 'LOCALAPPDATA의 CrashDumps/*.dmp가 아님' };
@@ -288,15 +377,13 @@ async function planFor(item, p, st, ctx) {
 
 /** Allowed roots for the "recycle children" categories. */
 function childrenRootOk(category, p, env) {
-  const np = norm(p), la = env.localAppData, ad = env.appData;
+  const np = norm(p), la = env.localAppData;
   if (category === 'temp') return [env.tmp, W.join(env.windir, 'Temp')].map(norm).includes(np);
   if (category === 'shader-cache') {
     return !!la && [['D3DSCache'], ['NVIDIA', 'DXCache'], ['NVIDIA', 'GLCache'], ['AMD', 'DxCache']].map((x) => norm(W.join(la, ...x))).includes(np);
   }
   if (la && [['Microsoft', 'Windows', 'INetCache'], ['Microsoft', 'Windows', 'WER']].map((x) => norm(W.join(la, ...x))).includes(np)) return true;
-  if (!ad || !np.startsWith(norm(ad) + '\\')) return false;
-  const rel = np.slice(norm(ad).length + 1).split('\\'); // <app>\{Cache,Code Cache,GPUCache,CachedData}
-  return rel.length === 2 && APP_CACHE_DIRS.has(rel[1]);
+  return category === 'app-cache' && APP_CACHE_PATHS(env).map(norm).includes(np); // exact list shared with the scanner
 }
 
 async function verifyChildren(item, p, st, ctx) {
@@ -314,7 +401,7 @@ async function verifyChildren(item, p, st, ctx) {
     try {
       const u = await du(cp);
       if (u.sensitive || (u.gitDir && !(await env.isOrphanGit(cp))) || (temp && u.newest > now - DAY)) return void skipped++;
-      children.push({ path: cp, dir: e.isDirectory(), size: u.size });
+      children.push({ path: cp, dir: e.isDirectory(), size: u.size, maxPath: u.maxPath });
       size += u.size;
     } catch { skipped++; }
   };
@@ -372,8 +459,10 @@ export async function verifyItem(item, ctx) {
   try { u = await du(p); } catch (e) { return no(errReason(e)); }
   if (u.sensitive) return no(`거부: 민감 파일 포함 (${W.relative(p, u.sensitive)})`);
   if (u.gitDir && !(await env.isOrphanGit(p))) return no('거부: .git 폴더 포함');
+  if (plan.orphan) { const why = await orphanReject(p, u, ctx); if (why) return no(why); }
   entry.size = u.size;
   entry.unreadable = u.unreadable;
+  entry.maxPath = u.maxPath;
   return { ok: true, entry };
 }
 
@@ -397,7 +486,7 @@ export function printList(entries, rejected, out) {
     const extra = e.argv ? `  → ${e.argv.join(' ')}`
       : e.children ? `  (하위 ${e.children.length}개${e.ageFilter ? ', 1일 이상 지난 것만' : ''}; 건너뜀 ${e.skipped})`
       : e.action === 'report' ? `  (${REPORT_TEXT[e.category]})` : '';
-    out(`[${LABEL[e.action]}] [${SAFETY[e.item.safety] ?? SAFETY.manual}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
+    out(`[${LABEL[e.action]}] [${SAFETY[tierOf(e.category)]}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
   }
   if (rejected.length) out('거부/제외된 항목:');
   for (const r of rejected) out(`[거부] ${r.path}  — ${r.reason}`);
@@ -406,28 +495,64 @@ export function printList(entries, rejected, out) {
 
 // ---------- 5. execution ----------
 
-const classify = (e = '') => (/Unauthorized|Security|EPERM|EACCES|denied/i.test(e) ? ADMIN_MSG : /IOException|Sharing|locked/i.test(e) ? '사용 중 — 건너뜀' : null);
+const NOT_INSTALLED = '도구가 설치되어 있지 않음 — 건너뜀';
+const classify = (e = '') => (/Unauthorized|Security|EPERM|EACCES|denied|SHErr(?:5|120)\b/i.test(e) ? ADMIN_MSG
+  : /IOException|Sharing|locked|SHErr(?:32|33)\b/i.test(e) ? '사용 중 — 건너뜀'
+  : /Aborted|SHErr(?:100000|1223)\b/i.test(e) ? '휴지통으로 보낼 수 없음(영구 삭제 경고) — 건너뜀' : null);
+const notInstalled = (r) => r.code === 9009 || (r.code === -1 && /ENOENT/.test(r.stderr || '')) || /is not recognized|내부 또는 외부 명령/i.test(`${r.stderr}${r.stdout}`);
+
+/** TOCTOU guard right before acting: the target must still be the same plain, non-denied path. */
+async function recheck(p, ctx, { root = false } = {}) {
+  let st;
+  try { st = await fs.lstat(p); } catch (e) { return e.code === 'ENOENT' ? '경로가 사라짐 — 건너뜀' : errReason(e); }
+  if (st.isSymbolicLink()) return '링크로 바뀜 — 건너뜀';
+  try { if (norm(await fs.realpath(p)) !== norm(p)) return '실제 경로가 바뀜 — 건너뜀'; } catch (e) { return errReason(e); }
+  if (!root && isDenied(p, ctx.env).denied) return '보호 경로로 판정됨 — 건너뜀';
+  return null;
+}
+
+/** Why a path must not be sent to the Recycle Bin (it could be deleted permanently instead), or null. */
+async function recycleBlocker(u, ctx, cache) {
+  const root = W.parse(u.path).root;
+  if (!cache.has(root)) cache.set(root, { bin: await ctx.binExists(root), total: await ctx.driveTotal(root) });
+  const d = cache.get(root);
+  if (!d.bin) return '드라이브에 휴지통이 없음 — 건너뜀';
+  if (d.total && u.size > d.total * 0.05) return '휴지통 용량 초과 위험 — 건너뜀';
+  if ((u.maxPath ?? 0) >= 240) return '경로가 너무 길어 휴지통 이동 불가 — 건너뜀';
+  return null;
+}
 
 export async function execute(entries, ctx) {
   const res = { done: 0, skipped: 0, failed: 0, bytes: 0 };
+  const skip = (p, why) => { res.skipped++; ctx.out(`  - ${p}: ${why}`); };
   const tally = (r, p, size) => {
     if (r?.ok) { res.done++; res.bytes += size ?? 0; return; }
     const why = classify(r?.e);
     why ? res.skipped++ : res.failed++;
     ctx.out(`  - ${p}: ${why ?? `실패 (${printable(r?.e ?? '알 수 없음', 60)})`}`);
   };
+  const bins = new Map();
   for (const e of entries) {
     if (e.action === 'report') continue; // never executed
     if (e.kind === 'recycle') {
-      const list = e.children ?? [{ path: e.path, dir: e.isDir }];
-      const rs = await ctx.recycle(list.map(({ path: p, dir }) => ({ path: p, dir })));
-      list.forEach((c, i) => tally(rs?.[i], c.path, c.size ?? e.size));
+      const list = e.children ?? [{ path: e.path, dir: e.isDir, size: e.size, maxPath: e.maxPath }];
+      const send = [];
+      for (const c of list) {
+        const why = (await recheck(c.path, ctx)) ?? (await recycleBlocker(c, ctx, bins));
+        why ? skip(c.path, why) : send.push(c);
+      }
+      if (!send.length) continue;
+      const rs = await ctx.recycle(send.map(({ path: p, dir }) => ({ path: p, dir })));
+      send.forEach((c, i) => tally(rs?.[i], c.path, c.size));
     } else if (e.kind === 'run') {
+      const why = await recheck(e.path, ctx);
+      if (why) { skip(e.path, why); continue; }
       const r = await ctx.run(e.argv);
       if (r.code === 0) { res.done++; res.bytes += e.size ?? 0; continue; }
-      const why = classify(`${r.stderr}${r.stdout}`);
-      why ? res.skipped++ : res.failed++;
-      ctx.out(`  - ${e.argv.join(' ')}: ${why ?? `실패 (종료 코드 ${r.code})`}`);
+      if (notInstalled(r)) { skip(e.argv.slice(e.argv[0] === 'git' ? 3 : 0).join(' '), NOT_INSTALLED); continue; }
+      const m = classify(`${r.stderr}${r.stdout}`);
+      m ? res.skipped++ : res.failed++;
+      ctx.out(`  - ${e.argv.join(' ')}: ${m ?? `실패 (종료 코드 ${r.code})`}`);
     }
   }
   ctx.out(`요약: 완료 ${res.done}, 건너뜀 ${res.skipped}, 실패 ${res.failed}, 약 ${fmtSize(res.bytes)} 정리`);

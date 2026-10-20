@@ -109,3 +109,19 @@ test('walk indexes projects, artifacts (not nested), git pointers, dmp and vhdx 
   assert.equal(proj.ms, old.getTime());
   assert.ok(proj.m > proj.ms);
 });
+
+test('walk counts hard-linked files once', async (t) => {
+  const f = await fixture();
+  t.after(f.done);
+  await f.put('store/blob.bin', 4000);
+  try {
+    await fs.link(path.join(f.root, 'store', 'blob.bin'), path.join(f.root, 'a', 'link.bin'));
+  } catch (e) {
+    t.skip(`cannot create hard link: ${e.code}`);
+    return;
+  }
+  const r = await walk([f.root]);
+  assert.equal(r.bytes, 1610 + 4000); // fixture 1610 + one copy of the blob
+  assert.equal(r.rootNodes[0].s, 5610);
+  assert.equal(r.files, 6);
+});

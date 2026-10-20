@@ -31,6 +31,17 @@ async function setup() {
   return { T, p, put, env, done: () => fs.rm(T, { recursive: true, force: true }) };
 }
 
+// Fake probe: every listed tool is "installed" and reports its default cache dir; others fail like a missing command.
+const installedProbe = (f, tools = ['npm', 'pnpm', 'yarn', 'pip', 'uv', 'bun', 'dotnet']) => async (argv) => {
+  const la = f.p('home', 'AppData', 'Local');
+  const dirs = {
+    npm: path.join(la, 'npm-cache'), pnpm: path.join(la, 'pnpm', 'store'), yarn: path.join(la, 'Yarn', 'Cache'),
+    pip: path.join(la, 'pip', 'cache'), uv: path.join(la, 'uv', 'cache'), bun: f.p('home', '.bun', 'install', 'cache'), dotnet: '8.0.100',
+  };
+  return tools.includes(argv[0]) ? { code: 0, stdout: `${dirs[argv[0]]}
+` } : { code: 1, stdout: '' };
+};
+
 function assertShape(j) {
   assert.equal(typeof j.id, 'string');
   assert.ok(j.id.startsWith(`${j.category}:`));
@@ -78,7 +89,7 @@ test('pkg-cache: resolves real cache dirs and only those that exist', async (t) 
   await f.put(path.join('home', '.bun', 'install', 'cache', 'a'), 10);
   await f.put(path.join('home', '.nuget', 'packages', 'a'), 10);
   await f.put(path.join('home', '.gradle', 'caches', 'a'), 10);
-  const all = await D.detectPkgCache(await f.env());
+  const all = await D.detectPkgCache(await f.env({ probe: installedProbe(f) }));
   all.forEach(assertShape);
   assert.deepEqual(all.map((j) => j.tool).sort(), ['bun', 'gradle', 'npm', 'nuget', 'pip', 'pnpm', 'uv', 'yarn']);
   assert.equal(all.find((j) => j.tool === 'gradle').action, 'recycle');
@@ -86,7 +97,20 @@ test('pkg-cache: resolves real cache dirs and only those that exist', async (t) 
   assert.equal(all.find((j) => j.tool === 'npm').how, 'npm cache clean --force');
 
   await fs.rm(f.p('home', '.bun'), { recursive: true });
-  assert.ok(!(await D.detectPkgCache(await f.env())).some((j) => j.tool === 'bun'));
+  assert.ok(!(await D.detectPkgCache(await f.env({ probe: installedProbe(f) }))).some((j) => j.tool === 'bun'));
+});
+
+test('pkg-cache: a cache whose tool is not installed is not flagged; pnpm carries a size caveat', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const la = path.join('home', 'AppData', 'Local');
+  await f.put(path.join(la, 'pip', 'cache', 'a'), 10);
+  await f.put(path.join(la, 'pnpm', 'store', 'a'), 10);
+  await f.put(path.join('home', '.nuget', 'packages', 'a'), 10);
+  await f.put(path.join('home', '.gradle', 'caches', 'a'), 10);
+  const out = await D.detectPkgCache(await f.env({ probe: installedProbe(f, ['pnpm']) })); // no pip, no dotnet
+  assert.deepEqual(out.map((j) => j.tool).sort(), ['gradle', 'pnpm']);
+  assert.match(out.find((j) => j.tool === 'pnpm').effect, /실제 확보량은 더 적을 수 있음/);
 });
 
 test('dev-artifact: stale projects only, mtime ignores the artifact itself, no nested artifacts', async (t) => {
@@ -302,7 +326,7 @@ test('detectAll returns unique ids across all detectors', async (t) => {
   t.after(f.done);
   await f.put(path.join('home', 'AppData', 'Local', 'npm-cache', 'a'), 10);
   await f.put(path.join('tmp', 'old'), 10, 3);
-  const out = await D.detectAll(await f.env());
+  const out = await D.detectAll(await f.env({ probe: installedProbe(f) }));
   assert.deepEqual(out.map((j) => j.category).sort(), ['pkg-cache', 'temp']);
   assert.equal(new Set(out.map((j) => j.id)).size, out.length);
 });
@@ -324,7 +348,7 @@ test('detectAll: junk inside protected folders becomes report-only with a lower 
   await f.put(path.join('home', 'OneDrive', 'Desktop', 'proj', 'node_modules', 'a'), 50, 300);
   await f.put(path.join('home', 'AppData', 'Local', 'npm-cache', 'a'), 10);
   await f.put(path.join('tmp', 'old'), 10, 3);
-  const env = await f.env();
+  const env = await f.env({ probe: installedProbe(f) });
   env.idx.artifacts.forEach((a) => { a.node.s = 2 * 1024 * 1024; }); // clear the 1 MB floor without big fixtures
   const out = await D.detectAll(env);
   const da = out.find((j) => j.category === 'dev-artifact');
@@ -421,7 +445,7 @@ test('safety tiers: defaults per category, protected-folder junk becomes manual'
   await f.put(path.join('home', 'AppData', 'Local', 'D3DSCache', 'a'), 10);
   await f.put(path.join('home', 'OneDrive', 'p', 'package.json'), 5, 300);
   await f.put(path.join('home', 'OneDrive', 'p', 'node_modules', 'a'), 50, 300);
-  const env = await f.env();
+  const env = await f.env({ probe: installedProbe(f) });
   env.idx.artifacts.forEach((a) => { a.node.s = 2 * 1024 * 1024; });
   const out = await D.detectAll(env);
   assert.equal(out.find((j) => j.category === 'shader-cache').safety, 'safe');
@@ -430,4 +454,13 @@ test('safety tiers: defaults per category, protected-folder junk becomes manual'
   assert.equal(da.action, 'report');
   const direct = await D.detectDevArtifact(env);
   assert.equal(direct[0].safety, 'check');
+});
+
+test('matchesInstalledApp is exported and fuzzy-matches name, publisher and install folder', () => {
+  const apps = [{ name: 'Some Tool 2.0', publisher: 'Acme Corp', location: 'C:\Apps\ToolDir' }];
+  assert.equal(D.matchesInstalledApp('SomeTool', apps), true);
+  assert.equal(D.matchesInstalledApp('acme', apps), true);
+  assert.equal(D.matchesInstalledApp('tooldir', apps), true);
+  assert.equal(D.matchesInstalledApp('Ghost', apps), false);
+  assert.equal(D.matchesInstalledApp('ab', apps), true); // too short to judge
 });

@@ -18,10 +18,13 @@ const SPEC = {
 
 /**
  * @param {string} tool one of CACHE_TOOLS
- * @param {{probe: (argv:string[]) => Promise<{code:number, stdout:string}>, env: {home:string, localAppData?:string}}} o
+ * @param {{probe: (argv:string[]) => Promise<{code:number, stdout:string}>, env: {home:string, localAppData?:string}, requireTool?: boolean}} o
+ * `requireTool`: for tools that can be asked (npm, pnpm, yarn, pip, uv, bun), return null unless the tool itself
+ * answered (no fallback), so the cleaner only accepts a path the real tool agrees with. nuget and gradle have no
+ * resolver, so they always use their fixed default location.
  * @returns {Promise<string|null>} absolute path, or null for an unknown tool / unusable env
  */
-export async function resolveCacheDir(tool, { probe, env }) {
+export async function resolveCacheDir(tool, { probe, env, requireTool = false }) {
   const spec = Object.hasOwn(SPEC, tool) ? SPEC[tool] : null;
   if (!spec) return null;
   if (spec.resolve) {
@@ -31,6 +34,7 @@ export async function resolveCacheDir(tool, { probe, env }) {
       if (r?.code === 0 && /^[a-z]:[\\/]/i.test(line || '')) return line;
     } catch { /* tool missing: use the default */ }
   }
+  if (requireTool && spec.resolve) return null;
   if (!env?.home || (!env.localAppData && !['bun', 'nuget', 'gradle'].includes(tool))) return null;
   return spec.fallback(env);
 }

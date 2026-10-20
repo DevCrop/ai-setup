@@ -439,7 +439,7 @@ function client() {
     const plan = {
       version: 1,
       createdAt: new Date().toISOString(),
-      items: picked.map((j) => ({ id: j.id, category: j.category, tool: j.tool ?? null, path: j.path, size: j.size })),
+      items: picked.map((j) => ({ id: j.id, category: j.category, tool: j.tool ?? null, path: j.path, size: j.size, safety: tierOf(j) })),
     };
     const text = JSON.stringify(plan, null, 2);
     const a = document.createElement('a');

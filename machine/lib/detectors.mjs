@@ -9,6 +9,7 @@ import { execFile } from 'node:child_process';
 import { pkey } from './walk.mjs';
 import { resolveCacheDir, CACHE_TOOLS } from './caches.mjs';
 import { isDenied } from './deny.mjs';
+import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './rules.mjs';
 
 const DAY = 86400e3;
 const MB = 1024 * 1024;
@@ -20,11 +21,6 @@ const realOr = async (p) => fs.realpath(p).catch(() => p);
 const dirNames = async (p) => (await fs.readdir(p, { withFileTypes: true }).catch(() => [])).filter((e) => e.isDirectory()).map((e) => e.name);
 
 // Default safety tier and plain-Korean "can I delete it?" sentence per category (call sites may override effect).
-const SAFETY = {
-  temp: 'safe', 'pkg-cache': 'safe', 'crash-dump': 'safe', 'browser-cache': 'safe', 'shader-cache': 'safe', 'app-cache': 'safe',
-  'plugin-cache': 'safe', 'dev-artifact': 'check', 'orphan-worktree': 'check', 'appdata-orphan': 'manual', 'recycle-bin': 'manual',
-  'vm-disk': 'manual', 'system-cleanup': 'manual', 'old-download': 'manual',
-};
 const EFFECT = {
   temp: '프로그램이 잠깐 쓰고 남긴 임시 파일이라 지워도 괜찮습니다. 사용 중인 파일은 건너뜁니다.',
   'pkg-cache': '다음에 패키지를 설치할 때 인터넷에서 다시 받습니다. 그 외 영향 없음.',
@@ -48,7 +44,7 @@ function junk(category, node, { size, mtime, score, label, reason, how, action, 
   if (tool) j.tool = tool;
   return Object.assign(j, {
     label, path: p, size: size ?? node.s, mtime: mtime ?? node.m, score, reason, how, action,
-    safety: safety ?? SAFETY[category], effect: effect ?? EFFECT[category],
+    safety: safety ?? tierOf(category), effect: effect ?? EFFECT[category],
   });
 }
 
@@ -119,13 +115,17 @@ export async function detectPkgCache(env) {
   const out = [];
   const seen = new Set();
   for (const tool of CACHE_TOOLS) {
-    const p = await resolveCacheDir(tool, { probe, env: { home: env.home, localAppData: env.localAppData } });
+    // Command tools are only reported when installed (`<tool> --version` works; NuGet needs dotnet); requireTool is passed too.
+    if (tool !== 'gradle' && (await probe([tool === 'nuget' ? 'dotnet' : tool, '--version']).catch(() => ({ code: 1 }))).code !== 0) continue;
+    const p = await resolveCacheDir(tool, { probe, env: { home: env.home, localAppData: env.localAppData }, requireTool: tool !== 'gradle' });
     if (!p || !path.isAbsolute(p) || seen.has(pkey(p))) continue;
     seen.add(pkey(p));
     const [label, how, action] = meta[tool];
+    const note = tool === 'pnpm' ? ' store prune은 안 쓰는 패키지만 지웁니다 — 실제 확보량은 더 적을 수 있음' : '';
     const j = sized(env, p, {
-      category: 'pkg-cache', tool, score: 0.9, label, action, how,
-      reason: `${tool}이(가) 필요할 때 다시 받을 수 있는 다운로드 캐시입니다.`,
+      category: 'pkg-cache', tool, score: 0.9, label, action, how: how + (note && ` (${note.trim()})`),
+      reason: `${tool}이(가) 필요할 때 다시 받을 수 있는 다운로드 캐시입니다.${note}`,
+      effect: note ? `${EFFECT['pkg-cache']}${note}` : undefined,
     });
     if (j) out.push(j);
   }
@@ -133,7 +133,7 @@ export async function detectPkgCache(env) {
 }
 
 // ---- dev-artifact ----
-export async function detectDevArtifact(env, { days = 90, minBytes = MB } = {}) {
+export async function detectDevArtifact(env, { days = DEV_MIN_AGE_DAYS, minBytes = MB } = {}) {
   const now = env.now ?? Date.now();
   const out = [];
   for (const { node, parent } of env.idx.artifacts) {
@@ -313,15 +313,11 @@ export async function detectPluginCache(env) {
 }
 
 // ---- appdata-orphan ----
-const APPDATA_SKIP = new Set([
-  'microsoft', 'packages', 'temp', 'programs', 'publishers', 'connecteddevices', 'comms', 'd3dscache', 'virtualstore',
-  'history', 'crashdumps', 'diagnostics', 'tempstate', 'packagemanagement', 'nuget', 'google', 'mozilla', 'bravesoftware',
-  'npm', 'npm-cache', 'pnpm', 'yarn', 'pip', 'uv', 'node-gyp', 'nvidia', 'nvidia corporation', 'intel', 'amd', 'adobe',
-  'apple computer', 'claude', 'code', 'jetbrains', 'docker', 'low', 'application data', 'ms-playwright', 'discord',
-]);
 const nz = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
 
-function matchesApp(folder, apps) {
+/** True when `name` fuzzy-matches an installed app (DisplayName/Publisher/InstallLocation); too-short names count as matched so callers skip them. */
+export function matchesInstalledApp(name, apps) {
+  const folder = name;
   const f = nz(folder);
   if (f.length < 3) return true; // too short to judge: treat as matched, i.e. skip
   const fl = folder.toLowerCase();
@@ -331,7 +327,7 @@ function matchesApp(folder, apps) {
   });
 }
 
-export async function detectAppdataOrphan(env, { minBytes = 50 * MB, days = 180 } = {}) {
+export async function detectAppdataOrphan(env, { minBytes = APPDATA_MIN_BYTES, days = APPDATA_MIN_AGE_DAYS } = {}) {
   const now = env.now ?? Date.now();
   const roots = [env.appData, env.localAppData].filter(Boolean);
   if (!roots.length) return [];
@@ -340,7 +336,7 @@ export async function detectAppdataOrphan(env, { minBytes = 50 * MB, days = 180 
   const out = [];
   for (const r of roots) {
     for (const name of await dirNames(r)) {
-      if (name.startsWith('.') || APPDATA_SKIP.has(name.toLowerCase()) || matchesApp(name, apps)) continue;
+      if (name.startsWith('.') || APPDATA_SKIP.has(name.toLowerCase()) || matchesInstalledApp(name, apps)) continue;
       const z = env.sizeOf(path.join(r, name));
       if (!z || z.s < minBytes || !z.m || now - z.m < days * DAY) continue;
       out.push(junk('appdata-orphan', z.node, {
@@ -458,23 +454,16 @@ export async function detectShaderCache(env) {
 }
 
 // ---- app-cache ----
-const ELECTRON_APPS = [['Discord'], ['Slack'], ['Microsoft', 'Teams'], ['Code'], ['Cursor'], ['Notion'], ['Spotify'], ['Claude'], ['obsidian']];
-const APP_CACHE_DIRS = ['Cache', 'Code Cache', 'GPUCache', 'CachedData'];
-
 export async function detectAppCache(env) {
   const out = [];
   const how = '내용물을 휴지통으로 이동 (앱을 닫고 진행, 사용 중인 파일은 건너뜀)';
-  if (env.appData) {
-    for (const app of ELECTRON_APPS) {
-      const name = app[app.length - 1];
-      for (const c of APP_CACHE_DIRS) {
-        const j = cacheJunk(env, path.join(env.appData, ...app, c), {
-          category: 'app-cache', score: 0.8, label: `${name} ${c}`, action: 'recycle', how,
-          reason: `${name} 앱이 빨리 열리려고 저장한 캐시이며 앱이 다시 만듭니다.`,
-        });
-        if (j) out.push(j);
-      }
-    }
+  for (const p of APP_CACHE_PATHS(env)) {
+    const name = path.win32.basename(path.win32.dirname(p));
+    const j = cacheJunk(env, p, {
+      category: 'app-cache', score: 0.8, label: `${name} ${path.win32.basename(p)}`, action: 'recycle', how,
+      reason: `${name} 앱이 빨리 열리려고 저장한 캐시이며 앱이 다시 만듭니다.`,
+    });
+    if (j) out.push(j);
   }
   if (env.localAppData) {
     const win = path.join(env.localAppData, 'Microsoft', 'Windows');

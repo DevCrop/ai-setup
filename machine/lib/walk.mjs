@@ -31,6 +31,7 @@ export async function walk(roots, { concurrency = 64, onProgress, progressMs = 2
   const lim = limiter(concurrency);
   const skipped = { unreadable: 0, reparse: 0 };
   const idx = { gitFiles: [], repos: [], artifacts: [], files: [], big: [] };
+  const linked = new Set();
   const st = { files: 0, bytes: 0, dir: '' };
   const timer = onProgress ? setInterval(() => onProgress({ ...st }), progressMs) : null;
   timer?.unref();
@@ -64,16 +65,23 @@ export async function walk(roots, { concurrency = 64, onProgress, progressMs = 2
       ...files.map((e) => lim(async () => {
         const fp = path.join(node.p, e.name);
         try {
-          const s = await fs.lstat(fp);
+          const s = await fs.lstat(fp, { bigint: true });
           if (s.isSymbolicLink()) { skipped.reparse++; return; }
-          own += s.size;
-          const mt = Math.floor(s.mtimeMs);
+          const mt = Number(s.mtimeMs);
           if (mt > ownM) ownM = mt;
           st.files++;
-          st.bytes += s.size;
+          // Hard links (pnpm stores, WinSxS) are counted once: later links to the same dev:ino add no bytes.
+          let size = Number(s.size);
+          if (s.nlink > 1n) {
+            const id = `${s.dev}:${s.ino}`;
+            if (linked.has(id)) size = 0;
+            else linked.add(id);
+          }
+          own += size;
+          st.bytes += size;
           const ext = path.extname(e.name).toLowerCase();
-          if (s.size >= bigBytes) idx.big.push({ path: fp, size: s.size, mtime: mt });
-          if (ext === '.dmp' || ext === '.vhdx') idx.files.push({ path: fp, size: s.size, mtime: Math.floor(s.mtimeMs) });
+          if (size >= bigBytes) idx.big.push({ path: fp, size, mtime: mt });
+          if (size && (ext === '.dmp' || ext === '.vhdx')) idx.files.push({ path: fp, size, mtime: mt });
         } catch {
           skipped.unreadable++;
         }
