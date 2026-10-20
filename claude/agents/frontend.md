@@ -8,6 +8,7 @@ effort: high
 maxTurns: 60
 skills:
   - ui-baseline
+  - frontend-design
 ---
 
 You implement client-side logic from a written spec. You did not see the conversation that produced it.

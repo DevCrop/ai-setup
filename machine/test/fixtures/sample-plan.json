@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "createdAt": "2026-10-19T12:00:00.000Z",
+  "items": [
+    { "id": "npm-cache:C:\\Users\\edn_y\\AppData\\Local\\npm-cache", "category": "pkg-cache", "tool": "npm", "path": "C:\\Users\\edn_y\\AppData\\Local\\npm-cache", "size": 1234567890, "safety": "safe" },
+    { "id": "temp:D:\\PC-Storage\\Temp", "category": "temp", "path": "D:\\PC-Storage\\Temp", "size": 500000000, "safety": "safe" },
+    { "id": "crash-dump:C:\\Users\\edn_y\\AppData\\Local\\CrashDumps", "category": "crash-dump", "path": "C:\\Users\\edn_y\\AppData\\Local\\CrashDumps", "size": 90000000, "safety": "safe" },
+    { "id": "shader-cache:C:\\Users\\edn_y\\AppData\\Local\\D3DSCache", "category": "shader-cache", "path": "C:\\Users\\edn_y\\AppData\\Local\\D3DSCache", "size": 300000000, "safety": "safe" },
+    { "id": "app-cache:C:\\Users\\edn_y\\AppData\\Local\\Microsoft\\Windows\\INetCache", "category": "app-cache", "path": "C:\\Users\\edn_y\\AppData\\Local\\Microsoft\\Windows\\INetCache", "size": 100000000, "safety": "safe" },
+    { "id": "system-cleanup:C:\\Windows\\SoftwareDistribution\\Download", "category": "system-cleanup", "path": "C:\\Windows\\SoftwareDistribution\\Download", "size": 700000000, "safety": "manual" },
+    { "id": "recycle-bin:C:\\$Recycle.Bin", "category": "recycle-bin", "path": "C:\\$Recycle.Bin", "size": 2000000000, "safety": "manual" },
+    { "id": "dev-artifact:C:\\Windows\\System32", "category": "dev-artifact", "path": "C:\\Windows\\System32", "size": 1, "safety": "safe" },
+    { "id": "app-cache:C:\\Users\\edn_y\\AppData\\Roaming\\Code", "category": "app-cache", "path": "C:\\Users\\edn_y\\AppData\\Roaming\\Code", "size": 1, "safety": "safe" },
+    { "id": "bad:relative", "category": "rm -rf /", "path": "..\\..\\Users", "size": 0, "how": "del /s /q C:\\" }
+  ]
+}

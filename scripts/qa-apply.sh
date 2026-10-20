@@ -177,5 +177,40 @@ echo agents/x.md > "$cfg/$old"; out="$(apply)"
 [ "$(cat "$cfg/$old")" = agents/x.md ] && cmp -s "$base/m13" "$cfg/.ai-setup-manifest" && ! printf '%s' "$out" | grep -q "renamed" \
   && pass "13 when both exist the new manifest wins and the old one is left alone" || bad "13 both manifests ($out)"
 
+# 14. frontend-design is copied and dry-run names it; every repo skill has valid frontmatter and a listing under 1536 characters;
+#     the frontend-design body is under 4000 bytes and every references/ path it names exists in the repo
+newcfg; apply >/dev/null
+find "$cfg/skills/frontend-design/references" -type f 2>/dev/null | grep -q . && [ -f "$cfg/skills/frontend-design/SKILL.md" ] \
+  && pass "14a frontend-design SKILL.md and a references/ file are copied" || bad "14a frontend-design SKILL.md or references/ file not copied"
+newcfg; out="$(dryrun)"
+printf '%s' "$out" | grep -q "would write: skills/frontend-design" && pass "14a dry run on a fresh install names skills/frontend-design" || bad "14a dry run does not name skills/frontend-design ($out)"
+# frontmatter value of key $1 in file $2 (lines between the opening and the closing ---); fmclose prints the closing line number
+fmval() { awk -v k="$1" 'NR==1{next} /^---[ \t]*$/{exit} index($0, k": ")==1 {sub("^" k ": *", ""); print; exit}' "$2"; }
+fmclose() { awk 'NR>1 && /^---[ \t]*$/ {print NR; exit}' "$1"; }
+chars() { LC_ALL=C tr -d '\200-\277' | LC_ALL=C wc -c | tr -d ' '; } # counts UTF-8 characters: continuation bytes are skipped
+fm_bad=""; len_bad=""
+for f in "$repo"/claude/skills/*/SKILL.md; do
+  s="${f%/SKILL.md}"; s="${s##*/}"
+  [ "$(sed -n 1p "$f")" = "---" ] && [ -n "$(fmclose "$f")" ] && [ "$(fmval name "$f")" = "$s" ] && [ -n "$(fmval description "$f")" ] \
+    || fm_bad="$fm_bad skills/$s/SKILL.md"
+  total=$(( $(printf '%s' "$(fmval description "$f")" | chars) + $(printf '%s' "$(fmval when_to_use "$f")" | chars) ))
+  [ "$total" -le 1536 ] || len_bad="$len_bad skills/$s/SKILL.md($total)"
+done
+[ -z "$fm_bad" ] && pass "14b every skill has frontmatter at line 1, a closing ---, name equal to its directory and a description" \
+  || bad "14b frontmatter problems:$fm_bad"
+[ -z "$len_bad" ] && pass "14b description + when_to_use is at most 1536 characters in every skill" \
+  || bad "14b listing over 1536 characters:$len_bad"
+sk="$repo/claude/skills/frontend-design/SKILL.md"; close="$(fmclose "$sk" 2>/dev/null)"
+body="$([ -f "$sk" ] && [ -n "$close" ] && tail -n +$((close + 1)) "$sk" | LC_ALL=C wc -c | tr -d ' ')"
+[ -n "$body" ] && [ "$body" -le 4000 ] 2>/dev/null && pass "14c frontend-design body is $body bytes (max 4000)" \
+  || bad "14c frontend-design body is ${body:-missing} bytes, or SKILL.md or its closing --- is missing (max 4000)"
+refs_bad=""
+if [ -f "$sk" ]; then
+  for r in $(grep -o 'references/[A-Za-z0-9._-]*\.md' "$sk" | sort -u); do
+    [ -f "$repo/claude/skills/frontend-design/$r" ] || refs_bad="$refs_bad $r"
+  done
+else refs_bad="SKILL.md missing"; fi
+[ -z "$refs_bad" ] && pass "14d every references/*.md path in frontend-design/SKILL.md exists" || bad "14d referenced file missing:$refs_bad"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]
