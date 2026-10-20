@@ -59,9 +59,13 @@ export async function detectTemp(env) {
   const out = [];
   const now = env.now ?? Date.now();
   const seen = new Set();
-  for (const dir of [env.tmp, env.windir && path.join(env.windir, 'Temp')]) {
-    if (!dir || seen.has(pkey(dir))) continue;
-    seen.add(pkey(dir));
+  // %TEMP% may be relocated while apps still hardcode %LOCALAPPDATA%\Temp, so scan all three; dedupe by realpath.
+  const roots = [env.tmp, env.localAppData && path.join(env.localAppData, 'Temp'), env.windir && path.join(env.windir, 'Temp')];
+  for (const dir of roots) {
+    if (!dir) continue;
+    const rk = pkey(await realOr(dir));
+    if (seen.has(rk)) continue;
+    seen.add(rk);
     const z = env.sizeOf(dir);
     if (!z) continue;
     const ents = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -69,7 +73,7 @@ export async function detectTemp(env) {
     let newest = 0;
     for (const e of ents) {
       const lower = e.name.toLowerCase();
-      if (lower === 'claude' || /^machine-map.*.html$/.test(lower) || e.isSymbolicLink()) continue;
+      if (lower === 'claude' || /^machine-map.*\.html$/.test(lower) || e.isSymbolicLink()) continue;
       const cp = path.join(dir, e.name);
       let s;
       let m;
@@ -175,6 +179,27 @@ async function readGitdir(dir) {
   }
 }
 
+/**
+ * Mirrors configRisk in clean.mjs (not exported there). Reading config executes nothing. Only the repo-local file, plus the
+ * per-worktree file when extensions.worktreeConfig is on, is checked: the user's global config (git-lfs filters) is theirs.
+ * Exit 1 = no matching key; anything printed or any other failure counts as a risk.
+ */
+async function configRisk(env, dir) {
+  const re = '^(include\\.|includeif\\.|filter\\.|core\\.fsmonitor|core\\.hookspath|core\\.sshcommand|diff\\.|merge\\.)';
+  const run = async (...a) => {
+    const r = await env.git(['config', ...a], dir);
+    return { ...r, code: r.code ?? (r.ok ? 0 : 1) };
+  };
+  const ext = await run('--local', '--bool', '--get', 'extensions.worktreeConfig');
+  if (![0, 1].includes(ext.code)) return true;
+  const scopes = ['--local', ...(ext.code === 0 && ext.out.trim() === 'true' ? ['--worktree'] : [])];
+  for (const scope of scopes) {
+    const r = await run(scope, '--get-regexp', re);
+    if (![0, 1].includes(r.code) || r.out.trim()) return true;
+  }
+  return false;
+}
+
 export async function detectOrphanWorktree(env) {
   const out = [];
   const parents = new Map(); // slashKey(common dir) -> { repoDir, common, list, branch }
@@ -237,6 +262,15 @@ export async function detectOrphanWorktree(env) {
         if (!br) continue;
         const anc = await env.git(['merge-base', '--is-ancestor', entryReal.head, br], p.repoDir);
         if (!anc.ok) continue;
+        // A repo config that can run external programs (filters, fsmonitor, hooks, ...) makes `git status` unsafe: do not run it.
+        if (await configRisk(env, dir)) {
+          out.push(junk('orphan-worktree', z.node, {
+            score: 0.3, label: '고아 워크트리', safety: 'manual', action: 'report',
+            reason: '저장소 설정에 외부 프로그램 실행 항목이 있어 자동 확인하지 않았습니다',
+            how: `직접 확인 후 git worktree remove "${z.node.p}" (원본 저장소 ${p.repoDir}에서 실행)`,
+          }));
+          continue;
+        }
         const status = await env.git(['status', '--porcelain'], dir);
         if (!status.ok || status.out.trim()) continue;
         why = `작업이 모두 ${br} 브랜치에 병합되었고 변경 사항이 없는 워크트리입니다.`;
@@ -338,9 +372,13 @@ export async function detectAppdataOrphan(env, { minBytes = APPDATA_MIN_BYTES, d
     for (const name of await dirNames(r)) {
       if (name.startsWith('.') || APPDATA_SKIP.has(name.toLowerCase()) || matchesInstalledApp(name, apps)) continue;
       const z = env.sizeOf(path.join(r, name));
-      if (!z || z.s < minBytes || !z.m || now - z.m < days * DAY) continue;
+      if (!z || z.s < minBytes) continue;
+      // Same "newest mtime" as the cleaner: newest file in the subtree or the folder's own mtime.
+      const st = await fs.stat(z.node.p).catch(() => null);
+      const m = Math.max(z.m, st ? Math.floor(st.mtimeMs) : 0);
+      if (!m || now - m < days * DAY) continue;
       out.push(junk('appdata-orphan', z.node, {
-        score: 0.4, label: `앱 데이터 (${name})`, action: 'recycle',
+        mtime: m, score: 0.4, label: `앱 데이터 (${name})`, action: 'recycle',
         reason: `설치된 앱 목록에서 찾지 못한 폴더이고 ${days}일 넘게 쓰이지 않았습니다. 확신이 낮으니 직접 확인하세요.`,
         how: '내용을 확인한 뒤 휴지통으로 이동',
       }));
@@ -549,7 +587,7 @@ export function realGit(args, cwd) {
     // fsmonitor=false: a repo config must not make `git status` run a hook.
     execFile('git', ['-c', 'core.fsmonitor=false', ...args], {
       cwd, timeout: 30000, windowsHide: true, maxBuffer: 1 << 26, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
-    }, (err, stdout) => resolve({ ok: !err, out: String(stdout ?? '') }));
+    }, (err, stdout) => resolve({ ok: !err, code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, out: String(stdout ?? '') }));
   });
 }
 

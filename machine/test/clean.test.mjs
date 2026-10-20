@@ -6,7 +6,7 @@ import path from 'node:path';
 import { isDenied, secretFile } from '../lib/deny.mjs';
 import { resolveCacheDir, CACHE_TOOLS } from '../lib/caches.mjs';
 import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from '../lib/rules.mjs';
-import { validatePlan, verifyItem, main, makeCtx, execute, defaultRun, SHIMS } from '../clean.mjs';
+import { validatePlan, verifyItem, main, makeCtx, execute, defaultRun, SHIMS, du, parseRecycleOutput, defaultDriveOk } from '../clean.mjs';
 
 const W = path.win32;
 const win = process.platform === 'win32';
@@ -131,7 +131,7 @@ async function fixture() {
   return { root, d, env, calls, mk, write, plan, age, done: () => fs.rm(root, { recursive: true, force: true }) };
 }
 // deterministic drive facts: a Recycle Bin exists and the drive is huge
-const sys = { binExists: async () => true, driveTotal: async () => 1e15 };
+const sys = { driveOk: async () => true, driveTotal: async () => 1e15 };
 const opts = { skip: !win && 'Windows-only' };
 
 // ---------- re-verify ----------
@@ -232,10 +232,13 @@ test('verify: pkg-cache must match the real cache dir', opts, async () => {
     assert.equal(withEnv.ok, false);
     assert.match(withEnv.reason, /민감 파일/);
     await fs.rm(W.join(real, 'deep'), { recursive: true });
-    // tool does not answer -> official default location
+    // tool does not answer -> no default-location fallback (R5); the check still needs the tool
     await f.write(W.join(f.env.localAppData, 'pip', 'cache', 'a'));
     const pip = await verifyItem({ id: 'p', category: 'pkg-cache', tool: 'pip', path: W.join(f.env.localAppData, 'pip', 'cache') }, ctx);
-    assert.deepEqual(pip.entry.argv, ['pip', 'cache', 'purge']);
+    assert.equal(pip.ok, false);
+    assert.match(pip.reason, /확인할 수 없음/);
+    const pip2 = await verifyItem({ id: 'p', category: 'pkg-cache', tool: 'pip', path: W.join(f.env.localAppData, 'pip', 'cache') }, f.mk({ probe: (a) => (a[0] === 'pip' ? { code: 0, stdout: W.join(f.env.localAppData, 'pip', 'cache'), stderr: '' } : { code: 1, stdout: '', stderr: '' }) }));
+    assert.deepEqual(pip2.entry.argv, ['pip', 'cache', 'purge']);
     // gradle: recycle ~/.gradle/caches
     await f.write(f.d('home', '.gradle', 'caches', 'a'));
     const g = await verifyItem({ id: 'g', category: 'pkg-cache', tool: 'gradle', path: f.d('home', '.gradle', 'caches') }, ctx);
@@ -549,14 +552,14 @@ test('run: a missing tool is reported as not installed, not as a failure', opts,
 
 const entry = (p, extra = {}) => ({ item: {}, category: 'dev-artifact', action: 'recycle', kind: 'recycle', path: p, isDir: true, size: 10, maxPath: p.length, ...extra });
 
-test('recycle: skipped when the drive has no Recycle Bin, the item is over 5% of the drive, or the path is too long', opts, async () => {
+test('recycle: skipped when the drive is not a fixed NTFS drive, the item is over 5% of the drive, or the path is too long', opts, async () => {
   const f = await fixture();
   try {
     await f.write(f.d('a', 'x.txt'), 'x'); await f.write(f.d('b', 'x.txt'), 'x'); await f.write(f.d('c', 'x.txt'), 'x'); await f.write(f.d('d', 'x.txt'), 'x');
     const o = collect();
-    let ctx = f.mk({ ctx: { binExists: async () => false, out: o.out } });
+    let ctx = f.mk({ ctx: { driveOk: async () => false, out: o.out } });
     await execute([entry(f.d('a'))], ctx);
-    assert.match(o.lines.join('\n'), /휴지통이 없음/);
+    assert.match(o.lines.join('\n'), /고정 NTFS/);
     ctx = f.mk({ ctx: { driveTotal: async () => 100, out: o.out } }); // size 10 of 100 = 10% > 5%
     const r2 = await execute([entry(f.d('b'))], ctx);
     assert.match(o.lines.join('\n'), /휴지통 용량 초과 위험 — 건너뜀/);
@@ -611,6 +614,130 @@ test('TOCTOU: the target is re-checked right before recycle/run', opts, async ()
     assert.equal(f.calls.recycle.length, 0); // nothing reached the recycler
     assert.deepEqual(f.calls.run, [['npm', 'cache', 'clean', '--force']]); // only the untouched run target executed
     assert.equal(r.done, 1);
+  } finally { await f.done(); }
+});
+
+test('orphan-worktree: repo config that can run programs is refused before status/remove', opts, async () => {
+  const f = await fixture();
+  try {
+    const parent = f.d('parent');
+    await fs.mkdir(W.join(parent, '.git', 'worktrees', 'wt'), { recursive: true });
+    await f.write(f.d('wt', '.git'), 'gitdir: ' + W.join(parent, '.git', 'worktrees', 'wt') + '\n');
+    const head = 'c'.repeat(40);
+    const mkProbe = (cfg, seen) => async (a) => {
+      seen.push(a);
+      const q = a.slice(5);
+      if (q[0] === 'config') return cfg(a, q);
+      if (q[0] === 'worktree') return { code: 0, stdout: `worktree ${parent}\nHEAD ${head}\n\nworktree ${f.d('wt')}\nHEAD ${head}\n`, stderr: '' };
+      if (q[0] === 'rev-parse') return { code: 0, stdout: head, stderr: '' };
+      if (q[0] === 'symbolic-ref') return { code: 0, stdout: 'origin/main', stderr: '' };
+      return { code: 0, stdout: '', stderr: '' };
+    };
+    const run = async (cfg) => {
+      const seen = [];
+      const r = await verifyItem({ id: 'w', category: 'orphan-worktree', path: f.d('wt') }, f.mk({ probe: mkProbe(cfg, seen) }));
+      return { r, seen, status: seen.some((a) => a[5] === 'status') };
+    };
+    const clean = await run(() => ({ code: 1, stdout: '', stderr: '' }));
+    assert.ok(clean.r.ok, clean.r.reason);
+    const cfgCalls = clean.seen.filter((a) => a[5] === 'config');
+    assert.equal(cfgCalls.length, 4); // for the worktree and for the parent: the worktreeConfig flag, then the local regexp check
+    assert.ok(cfgCalls.every((a) => a[6] === '--local'));
+    assert.equal(cfgCalls.filter((a) => a[9] === 'extensions.worktreeConfig').length, 2);
+    assert.equal(cfgCalls.filter((a) => a[7] === '--get-regexp').length, 2);
+    // with extensions.worktreeConfig on, the per-worktree file is checked too
+    const wtCfg = await run((a) => {
+      if (a[9] === 'extensions.worktreeConfig') return { code: 0, stdout: 'true\n', stderr: '' };
+      return a[6] === '--worktree' ? { code: 0, stdout: 'core.hookspath /x\n', stderr: '' } : { code: 1, stdout: '', stderr: '' };
+    });
+    assert.equal(wtCfg.r.ok, false);
+    assert.ok(wtCfg.seen.some((a) => a[6] === '--worktree'));
+    // it must come before status
+    assert.ok(clean.seen.findIndex((a) => a[5] === 'config') < clean.seen.findIndex((a) => a[5] === 'status'));
+    for (const bad of [
+      { code: 0, stdout: 'filter.x.clean evil.exe\n', stderr: '' },
+      { code: 0, stdout: 'core.fsmonitor C:/x/hook.exe\n', stderr: '' },
+      { code: 128, stdout: '', stderr: 'fatal' },
+      { code: -1, stdout: '', stderr: 'ENOENT' },
+    ]) {
+      const x = await run(() => bad);
+      assert.equal(x.r.ok, false);
+      assert.match(x.r.reason, /외부 프로그램 실행 항목/);
+      assert.equal(x.status, false); // git status never ran
+    }
+    // only the parent's config is bad: still refused
+    const onlyParent = await run((a) => (a[4] === parent ? { code: 0, stdout: 'diff.x.textconv y\n', stderr: '' } : { code: 1, stdout: '', stderr: '' }));
+    assert.equal(onlyParent.r.ok, false);
+    // (c) prune on a repo root checks config too
+    const repo = f.d('someRepo');
+    await fs.mkdir(W.join(repo, '.git'), { recursive: true });
+    const prune = (cfgOut) => async (a) => {
+      const q = a.slice(5);
+      if (q[0] === 'worktree') return { code: 0, stdout: `worktree ${repo}\nHEAD ${head}\n\nworktree ${f.d('gone')}\nHEAD ${head}\nprunable x\n`, stderr: '' };
+      return cfgOut;
+    };
+    assert.equal((await verifyItem({ id: 'c', category: 'orphan-worktree', path: repo }, f.mk({ probe: prune({ code: 1, stdout: '', stderr: '' }) }))).ok, true);
+    assert.equal((await verifyItem({ id: 'c', category: 'orphan-worktree', path: repo }, f.mk({ probe: prune({ code: 0, stdout: 'include.path x\n', stderr: '' }) }))).ok, false);
+  } finally { await f.done(); }
+});
+
+test('recycler output: partial results are kept and a missing result is "unknown", not failed', opts, async () => {
+  const out = '{"i":0,"ok":true}\n{"i":2,"ok":false,"e":"SHErr32"}\nnot json\n{"i":9,"ok":true}\n{"i":1,';
+  assert.deepEqual(parseRecycleOutput(out, 4), [{ i: 0, ok: true }, { ok: false, e: 'Unknown' }, { i: 2, ok: false, e: 'SHErr32' }, { ok: false, e: 'Unknown' }]);
+  assert.deepEqual(parseRecycleOutput(undefined, 2), [{ ok: false, e: 'Unknown' }, { ok: false, e: 'Unknown' }]);
+  const f = await fixture();
+  try {
+    for (const n of ['a', 'b', 'c']) await f.write(f.d(n, 'x.txt'), 'x');
+    const o = collect();
+    const ctx = f.mk({ ctx: { out: o.out, recycle: async () => [{ ok: true }, { ok: false, e: 'Unknown' }] } }); // 3 paths, 2 results (timeout)
+    const kids = ['a', 'b', 'c'].map((n) => ({ path: f.d(n), dir: true, size: 1, maxPath: 50 }));
+    const r = await execute([entry(f.d('a'), { children: kids })], ctx); // one entry, 3 paths
+    assert.deepEqual([r.done, r.skipped, r.failed], [1, 2, 0]);
+    assert.match(o.lines.join('\n'), /알 수 없음 \(확인 필요\)/);
+  } finally { await f.done(); }
+});
+
+test('du counts hard-linked files once', opts, async () => {
+  const f = await fixture();
+  try {
+    await f.write(f.d('t', 'a.bin'), 'x'.repeat(1000));
+    await f.write(f.d('t', 'plain.bin'), 'y'.repeat(10));
+    try { await fs.link(f.d('t', 'a.bin'), f.d('t', 'sub', 'b.bin').replace('sub\\', '')); await fs.mkdir(f.d('t', 'sub')); await fs.link(f.d('t', 'a.bin'), f.d('t', 'sub', 'c.bin')); } catch { return; }
+    assert.equal((await du(f.d('t'))).size, 1010); // 1000 once (3 links) + 10
+  } finally { await f.done(); }
+});
+
+test('drive check: only a validated drive root reaches PowerShell', opts, async () => {
+  for (const bad of ['', 'D:', 'D:\\x', "D:\\'; calc; '", '\\\\srv\\share\\', 'DD:\\']) assert.equal(await defaultDriveOk(bad), false, bad);
+  assert.equal(typeof (await defaultDriveOk(W.parse(os.tmpdir()).root)), 'boolean');
+});
+
+test('temp: exactly three roots, each protecting claude and machine-map*.html', opts, async () => {
+  const f = await fixture();
+  try {
+    const roots = [f.env.tmp, W.join(f.env.localAppData, 'Temp'), W.join(f.env.windir, 'Temp')];
+    await fs.mkdir(roots[1], { recursive: true });
+    const ctx = f.mk();
+    for (const root of roots) {
+      for (const n of ['old.tmp', 'claude\\live.txt', 'Claude\\x', 'machine-map.html', 'machine-map-2.html', 'MACHINE-MAP.HTML']) {
+        const p = W.join(root, n);
+        await f.write(p).catch(() => {}); // Claude\x collides with claude on a case-insensitive disk: fine
+      }
+      await f.age(root, 3);
+      const r = await verifyItem({ id: root, category: 'temp', path: root }, ctx);
+      assert.ok(r.ok, `${root}: ${r.reason}`);
+      assert.deepEqual(r.entry.children.map((c) => W.basename(c.path)), ['old.tmp'], root);
+      assert.equal(r.entry.skipped, 3, root); // claude, machine-map.html, machine-map-2.html (MACHINE-MAP.HTML is the same file)
+    }
+    // anything else is not a temp root
+    for (const bad of [f.env.localAppData, W.join(roots[1], 'sub'), W.join(roots[0], 'claude'), f.env.windir, f.d('home')]) {
+      await fs.mkdir(bad, { recursive: true });
+      assert.equal((await verifyItem({ id: bad, category: 'temp', path: bad }, ctx)).ok, false, bad);
+    }
+    // a root reached through a junction is refused (the path is not the real path)
+    const link = f.d('templink');
+    try { await fs.symlink(roots[1], link, 'junction'); } catch { return; }
+    assert.equal((await verifyItem({ id: 'l', category: 'temp', path: link }, ctx)).ok, false);
   } finally { await f.done(); }
 });
 

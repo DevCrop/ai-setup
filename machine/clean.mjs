@@ -81,20 +81,28 @@ public static class Shf {
 '@
 Add-Type -TypeDefinition $cs
 $lines = @([Console]::In.ReadToEnd() -split '\r?\n' | Where-Object { $_ })
-$res = @()
+function Emit($h) { [Console]::Out.WriteLine(($h | ConvertTo-Json -Compress)); [Console]::Out.Flush() }
 for ($i = 0; $i -lt $lines.Count; $i++) {
   try {
     $p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($lines[$i].Trim()))
     $r = [Shf]::Recycle($p)
-    if ($r -eq 0) { $res += @{ i = $i; ok = $true } } else { $res += @{ i = $i; ok = $false; e = "SHErr$r" } }
+    if ($r -eq 0) { Emit @{ i = $i; ok = $true } } else { Emit @{ i = $i; ok = $false; e = "SHErr$r" } }
   } catch {
     $ex = $_.Exception
     if ($ex.InnerException) { $ex = $ex.InnerException }
-    $res += @{ i = $i; ok = $false; e = $ex.GetType().Name }
+    Emit @{ i = $i; ok = $false; e = $ex.GetType().Name }
   }
 }
-ConvertTo-Json -InputObject @($res) -Compress
 `;
+
+/** Parse the recycler's one-JSON-object-per-line output into n results; a path without a line is "Unknown" (needs a look), not failed. */
+export function parseRecycleOutput(text, n) {
+  const got = new Map();
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    try { const x = JSON.parse(line); if (Number.isInteger(x?.i) && x.i >= 0 && x.i < n) got.set(x.i, x); } catch { /* partial line */ }
+  }
+  return Array.from({ length: n }, (_, i) => got.get(i) ?? { ok: false, e: 'Unknown' });
+}
 
 /** list: [{path}] -> [{ok, e?}] in the same order. Small chunks + timeout: a stuck confirmation dialog must not hang forever. */
 export async function defaultRecycle(list) {
@@ -107,16 +115,28 @@ export async function defaultRecycle(list) {
       let o = '';
       const c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', enc], { shell: false, windowsHide: true, timeout: 300000, stdio: ['pipe', 'pipe', 'ignore'] });
       c.stdout.on('data', (d) => { o += d; });
-      c.on('error', () => resolve(null));
-      c.on('close', () => resolve(o));
+      c.on('error', () => resolve(o));
+      c.on('close', () => resolve(o)); // after a timeout kill this still holds every result printed so far
       c.stdin.on('error', () => {});
       c.stdin.end(payload);
     });
-    let parsed = null;
-    try { parsed = JSON.parse(r); } catch { /* runner failed or timed out */ }
-    chunk.forEach((_, i) => out.push(parsed?.find((x) => x.i === i) ?? { ok: false, e: 'RunnerError' }));
+    out.push(...parseRecycleOutput(r, chunk.length));
   }
   return out;
+}
+
+/** True for a fixed NTFS drive root such as "D:\". Only the validated drive letter goes into the (otherwise fixed) command. */
+export function defaultDriveOk(root) {
+  return new Promise((resolve) => {
+    const m = /^([A-Za-z]):\\$/.exec(root);
+    if (!m) return resolve(false);
+    let o = '';
+    const script = `$d = [IO.DriveInfo]::new('${m[1]}:\\'); Write-Output ($d.DriveType.ToString() + ' ' + $d.DriveFormat)`;
+    const c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { shell: false, windowsHide: true, timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] });
+    c.stdout.on('data', (d) => { o += d; });
+    c.on('error', () => resolve(false));
+    c.on('close', () => resolve(/^Fixed NTFS\s*$/.test(o)));
+  });
 }
 
 async function defaultAsk(q) {
@@ -135,7 +155,7 @@ export function makeCtx(o = {}) {
     run: o.run ?? defaultRun, // mutating commands (official cleaners, git worktree remove/prune)
     recycle: o.recycle ?? defaultRecycle,
     listInstalledApps: o.listInstalledApps ?? realListInstalledApps, // uninstall registry (read-only)
-    binExists: o.binExists ?? ((root) => exists(W.join(root, '$Recycle.Bin'))), // does the drive have a Recycle Bin?
+    driveOk: o.driveOk ?? defaultDriveOk, // fixed NTFS drive (has a Recycle Bin; a missing $Recycle.Bin folder is created on demand)
     driveTotal: o.driveTotal ?? (async (root) => { try { const s = await fs.statfs(root); return s.blocks * s.bsize; } catch { return null; } }),
     ask: o.ask ?? defaultAsk,
     out: o.out ?? ((s) => console.log(s)),
@@ -186,6 +206,7 @@ export async function du(top, { scanSensitive = true } = {}) {
   const topSt = await fs.lstat(top);
   r.newest = topSt.mtimeMs;
   if (!topSt.isDirectory()) { r.size = topSt.size; return r; }
+  const links = new Set();
   const stack = [top];
   while (stack.length && !r.sensitive && !r.gitDir) {
     const dir = stack.pop();
@@ -201,7 +222,16 @@ export async function du(top, { scanSensitive = true } = {}) {
         else stack.push(q);
         return;
       }
-      try { const st = await fs.lstat(q); r.size += st.size; r.newest = Math.max(r.newest, st.mtimeMs); } catch { r.unreadable++; }
+      try {
+        const st = await fs.lstat(q, { bigint: true });
+        r.newest = Math.max(r.newest, Number(st.mtimeMs));
+        if (st.nlink > 1n) { // hard links (pnpm stores) count once
+          const id = `${st.dev}:${st.ino}`;
+          if (links.has(id)) return;
+          links.add(id);
+        }
+        r.size += Number(st.size);
+      } catch { r.unreadable++; }
     }));
   }
   return r;
@@ -238,6 +268,27 @@ async function isListed(list, p) {
   return false;
 }
 
+const CONFIG_RISK = '저장소 설정에 외부 프로그램 실행 항목이 있어 건너뜀';
+/**
+ * `git status` / `worktree remove` can run programs named in the repo's own config (filters, fsmonitor, hooks, ssh, diff/merge drivers,
+ * includes). Reading config executes nothing. Only the repo-local and per-worktree files are checked: the user's global config
+ * (git-lfs filters) is theirs. Returns a reject reason or null.
+ */
+async function configRisk(dir, ctx) {
+  const re = '^(include\\.|includeif\\.|filter\\.|core\\.fsmonitor|core\\.hookspath|core\\.sshcommand|diff\\.|merge\\.)';
+  const cfg = (...a) => ctx.probe(git('-C', dir, 'config', ...a));
+  // --worktree is only valid (git errors otherwise) when extensions.worktreeConfig is on
+  const ext = await cfg('--local', '--bool', '--get', 'extensions.worktreeConfig');
+  if (![0, 1].includes(ext.code)) return CONFIG_RISK;
+  const scopes = ['--local', ...(ext.code === 0 && (ext.stdout || '').trim() === 'true' ? ['--worktree'] : [])];
+  for (const scope of scopes) {
+    const r = await cfg(scope, '--get-regexp', re);
+    // exit 1 = no matching key; anything printed, or any other failure, is a risk
+    if (![0, 1].includes(r.code) || (r.stdout || '').trim()) return CONFIG_RISK;
+  }
+  return null;
+}
+
 async function planWorktree(p, ctx) {
   const gitEntry = W.join(p, '.git');
   const gst = await fs.lstat(gitEntry).catch(() => null);
@@ -247,6 +298,8 @@ async function planWorktree(p, ctx) {
     // (c) repo root with prunable worktree entries -> git worktree prune
     const l = await q(p, 'worktree', 'list', '--porcelain');
     if (l.code !== 0 || !parseWorktrees(l.stdout).some((w) => w.prunable)) return { reject: 'prunable 워크트리 항목이 없음' };
+    const risk = await configRisk(p, ctx);
+    if (risk) return { reject: risk };
     return { kind: 'run', argv: git('-C', p, 'worktree', 'prune'), noDu: true };
   }
   if (!gst.isFile() || gst.size > 4096) return { reject: '.git 포인터 파일이 올바르지 않음' };
@@ -270,6 +323,7 @@ async function planWorktree(p, ctx) {
   const def = await defaultBranch(parent, ctx);
   if (!def) return { reject: '기본 브랜치를 찾을 수 없음' };
   if ((await q(parent, 'merge-base', '--is-ancestor', head, def)).code !== 0) return { reject: `HEAD가 ${def}에 병합되지 않음` };
+  for (const dir of [p, parent]) { const risk = await configRisk(dir, ctx); if (risk) return { reject: risk }; } // before status and remove
   const st = await q(p, 'status', '--porcelain');
   if (st.code !== 0 || st.stdout.trim() !== '') return { reject: '작업 트리가 깨끗하지 않음' };
   return { kind: 'run', argv: git('-C', parent, 'worktree', 'remove', '--', p) };
@@ -330,8 +384,10 @@ async function planFor(item, p, st, ctx) {
   const np = norm(p), base = W.basename(np), parent = norm(W.dirname(p));
   switch (item.category) {
     case 'pkg-cache': {
-      const real = await resolveCacheDir(item.tool, { probe: ctx.probe, env });
-      const dirs = real ? [norm(real), ...(item.tool === 'pnpm' ? [norm(W.dirname(real))] : [])] : [];
+      // the tool itself must answer (no default-location fallback), except gradle/nuget which have no resolver
+      const real = await resolveCacheDir(item.tool, { probe: ctx.probe, env, requireTool: !['gradle', 'nuget'].includes(item.tool) });
+      if (!real) return { reject: `${item.tool}에서 캐시 경로를 확인할 수 없음 — 건너뜀` };
+      const dirs = [norm(real), ...(item.tool === 'pnpm' ? [norm(W.dirname(real))] : [])];
       if (!dirs.includes(np)) return { reject: `${item.tool}의 실제 캐시 경로와 다름` };
       return CLEAN[item.tool] ? { kind: 'run', argv: CLEAN[item.tool] } : { kind: 'recycle' };
     }
@@ -375,10 +431,18 @@ async function planFor(item, p, st, ctx) {
   return { reject: '알 수 없는 category' };
 }
 
+/** The only temp roots: the user temp dir (os.tmpdir()), %LOCALAPPDATA%\Temp and <windir>\Temp, compared by real path. */
+async function tempRoots(env) {
+  const roots = [env.tmp, env.localAppData && W.join(env.localAppData, 'Temp'), W.join(env.windir, 'Temp')].filter(Boolean);
+  return Promise.all(roots.map(async (r) => norm(await fs.realpath(r).catch(() => r))));
+}
+/** Never touched inside any temp root: live Claude sessions and the machine map page. */
+const tempProtected = (name) => name.toLowerCase() === 'claude' || /^machine-map.*\.html$/i.test(name);
+
 /** Allowed roots for the "recycle children" categories. */
-function childrenRootOk(category, p, env) {
+async function childrenRootOk(category, p, env) {
   const np = norm(p), la = env.localAppData;
-  if (category === 'temp') return [env.tmp, W.join(env.windir, 'Temp')].map(norm).includes(np);
+  if (category === 'temp') return (await tempRoots(env)).includes(np);
   if (category === 'shader-cache') {
     return !!la && [['D3DSCache'], ['NVIDIA', 'DXCache'], ['NVIDIA', 'GLCache'], ['AMD', 'DxCache']].map((x) => norm(W.join(la, ...x))).includes(np);
   }
@@ -389,7 +453,7 @@ function childrenRootOk(category, p, env) {
 async function verifyChildren(item, p, st, ctx) {
   const { env, now } = ctx;
   const temp = item.category === 'temp';
-  if (!st.isDirectory() || !childrenRootOk(item.category, p, env)) return no(temp ? '임시 폴더가 아님' : '허용된 캐시 위치가 아님');
+  if (!st.isDirectory() || !(await childrenRootOk(item.category, p, env))) return no(temp ? '임시 폴더가 아님' : '허용된 캐시 위치가 아님');
   if (!temp) { const d = isDenied(p, env); if (d.denied) return no(`거부: ${d.reason}`); } // temp roots are denied themselves; only children count
   let names;
   try { names = await fs.readdir(p, { withFileTypes: true }); } catch (e) { return no(errReason(e)); }
@@ -397,7 +461,7 @@ async function verifyChildren(item, p, st, ctx) {
   let skipped = 0, size = 0;
   const one = async (e) => {
     const cp = W.join(p, e.name);
-    if (e.isSymbolicLink() || isDenied(cp, env).denied) return void skipped++;
+    if (e.isSymbolicLink() || (temp && tempProtected(e.name)) || isDenied(cp, env).denied) return void skipped++;
     try {
       const u = await du(cp);
       if (u.sensitive || (u.gitDir && !(await env.isOrphanGit(cp))) || (temp && u.newest > now - DAY)) return void skipped++;
@@ -498,7 +562,8 @@ export function printList(entries, rejected, out) {
 const NOT_INSTALLED = '도구가 설치되어 있지 않음 — 건너뜀';
 const classify = (e = '') => (/Unauthorized|Security|EPERM|EACCES|denied|SHErr(?:5|120)\b/i.test(e) ? ADMIN_MSG
   : /IOException|Sharing|locked|SHErr(?:32|33)\b/i.test(e) ? '사용 중 — 건너뜀'
-  : /Aborted|SHErr(?:100000|1223)\b/i.test(e) ? '휴지통으로 보낼 수 없음(영구 삭제 경고) — 건너뜀' : null);
+  : /Aborted|SHErr(?:100000|1223)\b/i.test(e) ? '휴지통으로 보낼 수 없음(영구 삭제 경고) — 건너뜀'
+  : /^Unknown$/.test(e) ? '알 수 없음 (확인 필요)' : null);
 const notInstalled = (r) => r.code === 9009 || (r.code === -1 && /ENOENT/.test(r.stderr || '')) || /is not recognized|내부 또는 외부 명령/i.test(`${r.stderr}${r.stdout}`);
 
 /** TOCTOU guard right before acting: the target must still be the same plain, non-denied path. */
@@ -514,9 +579,9 @@ async function recheck(p, ctx, { root = false } = {}) {
 /** Why a path must not be sent to the Recycle Bin (it could be deleted permanently instead), or null. */
 async function recycleBlocker(u, ctx, cache) {
   const root = W.parse(u.path).root;
-  if (!cache.has(root)) cache.set(root, { bin: await ctx.binExists(root), total: await ctx.driveTotal(root) });
+  if (!cache.has(root)) cache.set(root, { ok: await ctx.driveOk(root), total: await ctx.driveTotal(root) });
   const d = cache.get(root);
-  if (!d.bin) return '드라이브에 휴지통이 없음 — 건너뜀';
+  if (!d.ok) return '고정 NTFS 드라이브가 아니라 휴지통을 쓸 수 없음 — 건너뜀';
   if (d.total && u.size > d.total * 0.05) return '휴지통 용량 초과 위험 — 건너뜀';
   if ((u.maxPath ?? 0) >= 240) return '경로가 너무 길어 휴지통 이동 불가 — 건너뜀';
   return null;
@@ -527,7 +592,7 @@ export async function execute(entries, ctx) {
   const skip = (p, why) => { res.skipped++; ctx.out(`  - ${p}: ${why}`); };
   const tally = (r, p, size) => {
     if (r?.ok) { res.done++; res.bytes += size ?? 0; return; }
-    const why = classify(r?.e);
+    const why = classify(r ? r.e : 'Unknown'); // no result at all (timeout, runner died) = unknown, not failed
     why ? res.skipped++ : res.failed++;
     ctx.out(`  - ${p}: ${why ?? `실패 (${printable(r?.e ?? '알 수 없음', 60)})`}`);
   };

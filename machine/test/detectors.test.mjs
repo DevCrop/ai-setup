@@ -138,7 +138,7 @@ test('dev-artifact: stale projects only, mtime ignores the artifact itself, no n
 });
 
 // ---- orphan-worktree ----
-function fakeGit(repo, { listed, ancestors, dirty = [], prunable = [] }) {
+function fakeGit(repo, { listed, ancestors, dirty = [], prunable = [], risky = [], wtRisky = [] }) {
   const fw = (x) => x.replace(/\\/g, '/');
   const calls = [];
   const git = async (args, cwd) => {
@@ -153,6 +153,12 @@ function fakeGit(repo, { listed, ancestors, dirty = [], prunable = [] }) {
     if (a === 'symbolic-ref') return { ok: false, out: '' };
     if (a === 'rev-parse') return { ok: args[3] === 'refs/heads/main', out: '' };
     if (a === 'merge-base') return { ok: ancestors.includes(args[2]), out: '' };
+    if (a === 'config') {
+      // Unscoped queries would see the user's global git-lfs filter; the detector must only ask --local/--worktree.
+      if (args.includes('extensions.worktreeConfig')) return wtRisky.includes(cwd) ? { ok: true, code: 0, out: 'true' } : { ok: false, code: 1, out: '' };
+      const hit = args.includes('--local') ? risky.includes(cwd) : args.includes('--worktree') ? wtRisky.includes(cwd) : true;
+      return hit ? { ok: true, code: 0, out: 'filter.lfs.clean git-lfs clean -- %f' } : { ok: false, code: 1, out: '' };
+    }
     if (a === 'status') return { ok: true, out: dirty.some((d) => cwd === d) ? ' M file\n' : '' };
     return { ok: false, out: '' };
   };
@@ -175,13 +181,19 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   await pointer('wt/merged', gw('merged')); // (b)
   await pointer('wt/dirtyone', gw('dirtyone')); // merged but dirty
   await pointer('wt/ahead', gw('ahead')); // not an ancestor
+  await fs.mkdir(gw('risky'), { recursive: true });
+  await pointer('wt/risky', gw('risky')); // merged, but repo config can run programs
+  await fs.mkdir(gw('wtrisky'), { recursive: true });
+  await pointer('wt/wtrisky', gw('wtrisky')); // risky only in its per-worktree config
   await pointer('repo/.claude/worktrees/live', gw('live')); // live Claude session
   await pointer('sub', path.join('..', 'repo', '.git', 'modules', 'sub')); // submodule pointer
   await fs.mkdir(path.join(repo, '.git', 'modules', 'sub'), { recursive: true });
 
   const { git, calls } = fakeGit(repo, {
-    listed: [[f.p('wt', 'merged'), 'h-merged'], [f.p('wt', 'dirtyone'), 'h-dirty'], [f.p('wt', 'ahead'), 'h-ahead'], [f.p('repo', '.claude', 'worktrees', 'live'), 'h-live']],
-    ancestors: ['h-merged', 'h-dirty', 'h-live'],
+    listed: [[f.p('wt', 'merged'), 'h-merged'], [f.p('wt', 'dirtyone'), 'h-dirty'], [f.p('wt', 'ahead'), 'h-ahead'], [f.p('repo', '.claude', 'worktrees', 'live'), 'h-live'], [f.p('wt', 'risky'), 'h-risky'], [f.p('wt', 'wtrisky'), 'h-wtrisky']],
+    ancestors: ['h-merged', 'h-dirty', 'h-live', 'h-risky', 'h-wtrisky'],
+    risky: [f.p('wt', 'risky')],
+    wtRisky: [f.p('wt', 'wtrisky')],
     dirty: [f.p('wt', 'dirtyone')],
     prunable: [f.p('wt', 'vanished')],
   });
@@ -194,6 +206,12 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   const merged = by(f.p('wt', 'merged'));
   assert.equal(merged.action, 'command');
   assert.match(merged.how, /git worktree remove/);
+  const risky = by(f.p('wt', 'risky'));
+  assert.equal(risky.action, 'report');
+  assert.equal(risky.safety, 'manual');
+  assert.match(risky.reason, /외부 프로그램 실행 항목/);
+  assert.ok(!calls.some(([c, cwd]) => c === 'status --porcelain' && cwd === f.p('wt', 'risky')), 'status must not run');
+  assert.equal(by(f.p('wt', 'wtrisky')).action, 'report');
   assert.equal(by(f.p('wt', 'dirtyone')), undefined);
   assert.equal(by(f.p('wt', 'ahead')), undefined);
   assert.equal(by(f.p('repo', '.claude', 'worktrees', 'live')), undefined);
@@ -202,7 +220,7 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   assert.equal(pr.path, repo);
   assert.equal(pr.how, `git -C "${repo}" worktree prune`);
   assert.equal(pr.action, 'command');
-  assert.equal(out.length, 4);
+  assert.equal(out.length, 6);
   // git status is run inside the worktree, remove/ancestor checks in the parent
   assert.ok(calls.some(([c, cwd]) => c === 'status --porcelain' && cwd === f.p('wt', 'merged')));
 });
@@ -246,6 +264,9 @@ test('appdata-orphan: old big folders with no matching installed app', async (t)
   await f.put(path.join(r, 'Fresh', 'data'), 100, 1); // recently used
   await f.put(path.join(r, 'Small', 'data'), 1, 400); // under the size threshold
   await f.put(path.join(r, 'Microsoft', 'data'), 100, 400); // system folder
+  await f.put(path.join(r, 'Touched', 'data'), 100, 400); // old files, but the folder itself changed recently
+  const old = new Date(Date.now() - 400 * DAY);
+  for (const n of ['GhostApp', 'Installed Thing', 'vendorx', 'Small', 'Microsoft']) await fs.utimes(f.p(r, n), old, old);
   const apps = [{ name: 'Installed Thing 2.0', publisher: 'Acme', location: '' }, { name: 'Other', publisher: 'VendorX Inc.', location: '' }];
   const env = await f.env({ listInstalledApps: async () => apps });
   const out = await D.detectAppdataOrphan(env, { minBytes: 50 });
@@ -463,4 +484,20 @@ test('matchesInstalledApp is exported and fuzzy-matches name, publisher and inst
   assert.equal(D.matchesInstalledApp('tooldir', apps), true);
   assert.equal(D.matchesInstalledApp('Ghost', apps), false);
   assert.equal(D.matchesInstalledApp('ab', apps), true); // too short to judge
+});
+
+test('temp: also scans %LOCALAPPDATA%\Temp when %TEMP% is relocated, and dedupes identical roots', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const lt = path.join('home', 'AppData', 'Local', 'Temp');
+  await f.put(path.join(lt, 'old.bin'), 300, 3);
+  await f.put(path.join(lt, 'new.bin'), 900, 0);
+  await f.put(path.join(lt, 'claude', 'x'), 800, 9);
+  await f.put(path.join(lt, 'machine-map-3.html'), 800, 9);
+  await f.put('tmp/old.bin', 100, 3);
+  const out = await D.detectTemp(await f.env());
+  assert.deepEqual(out.map((j) => [j.path, j.size]).sort(), [[f.p(lt), 300], [f.p('tmp'), 100]].sort());
+  // when %TEMP% is %LOCALAPPDATA%\Temp (the default Windows setup) it is reported once
+  const same = await D.detectTemp(await f.env({ tmp: f.p(lt) }));
+  assert.equal(same.filter((j) => j.path === f.p(lt)).length, 1);
 });
