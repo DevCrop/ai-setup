@@ -1,0 +1,1 @@
+{"type":"assistant","timestamp":"2026-10-19T11:10:00.000Z","entrypoint":"sdk-ts","isSidechain":false,"message":{"id":"s1","model":"claude-haiku-5-5","content":[{"type":"text","text":"CANARY_MSG_TEXT_42"}],"usage":{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}

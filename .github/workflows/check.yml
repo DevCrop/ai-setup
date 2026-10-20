@@ -33,5 +33,7 @@ jobs:
           bash scripts/qa-hooks-session.sh
           bash scripts/qa-statusline.sh
           bash scripts/qa-setup-claude-mem.sh
+      - name: Monitor parsers
+        run: bash scripts/qa-monitor.sh
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
