@@ -1,0 +1,726 @@
+{
+ "version": 1,
+ "generatedAt": "2026-10-19T12:00:00.000Z",
+ "host": "DESKTOP-SAMPLE",
+ "durationMs": 41234,
+ "roots": [
+  {
+   "path": "C:\\",
+   "total": 512000000000,
+   "free": 100000000000
+  },
+  {
+   "path": "D:\\",
+   "total": 1000000000000,
+   "free": 400000000000
+  }
+ ],
+ "skipped": {
+  "unreadable": 1234,
+  "reparse": 56
+ },
+ "tree": {
+  "n": "PC",
+  "p": "PC",
+  "s": 528495725773,
+  "m": 1792411200000,
+  "c": [
+   {
+    "n": "D:\\",
+    "p": "D:\\",
+    "s": 350361957171,
+    "m": 1792324800000,
+    "c": [
+     {
+      "n": "Games",
+      "p": "D:\\Games",
+      "s": 161061273600,
+      "m": 1790683200000
+     },
+     {
+      "n": "Media",
+      "p": "D:\\Media",
+      "s": 96636764160,
+      "m": 1791374400000
+     },
+     {
+      "n": "Docker",
+      "p": "D:\\Docker",
+      "s": 42949672960,
+      "m": 1791979200000,
+      "c": [
+       {
+        "n": "wsl",
+        "p": "D:\\Docker\\wsl",
+        "s": 42949672960,
+        "m": 1791979200000,
+        "c": [
+         {
+          "n": "ext4.vhdx",
+          "p": "D:\\Docker\\wsl\\ext4.vhdx",
+          "s": 42949672960,
+          "m": 1792411200000,
+          "j": [
+           15
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "n": "PC-Storage",
+      "p": "D:\\PC-Storage",
+      "s": 30064771072,
+      "m": 1792411200000,
+      "c": [
+       {
+        "n": "Backup",
+        "p": "D:\\PC-Storage\\Backup",
+        "s": 21474836480,
+        "m": 1789819200000
+       },
+       {
+        "n": "Temp",
+        "p": "D:\\PC-Storage\\Temp",
+        "s": 8589934592,
+        "m": 1792411200000,
+        "j": [
+         14
+        ]
+       }
+      ]
+     },
+     {
+      "n": "project",
+      "p": "D:\\project",
+      "s": 14280766259,
+      "m": 1792324800000,
+      "c": [
+       {
+        "n": "web-app",
+        "p": "D:\\project\\web-app",
+        "s": 6442450944,
+        "m": 1792152000000
+       },
+       {
+        "n": "data-lab",
+        "p": "D:\\project\\data-lab",
+        "s": 4294967296,
+        "m": 1791115200000
+       },
+       {
+        "n": "ai-setup",
+        "p": "D:\\project\\ai-setup",
+        "s": 3543348019,
+        "m": 1792411200000,
+        "c": [
+         {
+          "n": ".claude",
+          "p": "D:\\project\\ai-setup\\.claude",
+          "s": 3006477107,
+          "m": 1792411200000,
+          "c": [
+           {
+            "n": "worktrees",
+            "p": "D:\\project\\ai-setup\\.claude\\worktrees",
+            "s": 3006477107,
+            "m": 1792411200000,
+            "c": [
+             {
+              "n": "old-feature",
+              "p": "D:\\project\\ai-setup\\.claude\\worktrees\\old-feature",
+              "s": 2147483648,
+              "m": 1784635200000,
+              "j": [
+               13
+              ]
+             },
+             {
+              "n": "current",
+              "p": "D:\\project\\ai-setup\\.claude\\worktrees\\current",
+              "s": 858993459,
+              "m": 1792411200000
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "n": "(기타 9개)",
+      "p": null,
+      "s": 3221225472,
+      "m": 1789819200000
+     }
+    ]
+   },
+   {
+    "n": "C:\\",
+    "p": "C:\\",
+    "s": 178133768602,
+    "m": 1792324800000,
+    "c": [
+     {
+      "n": "Users",
+      "p": "C:\\Users",
+      "s": 93630287053,
+      "m": 1792411200000,
+      "c": [
+       {
+        "n": "me",
+        "p": "C:\\Users\\me",
+        "s": 93630287053,
+        "m": 1792411200000,
+        "c": [
+         {
+          "n": "AppData",
+          "p": "C:\\Users\\me\\AppData",
+          "s": 24803436134,
+          "m": 1792411200000,
+          "c": [
+           {
+            "n": "Local",
+            "p": "C:\\Users\\me\\AppData\\Local",
+            "s": 20615843021,
+            "m": 1792411200000,
+            "c": [
+             {
+              "n": "npm-cache",
+              "p": "C:\\Users\\me\\AppData\\Local\\npm-cache",
+              "s": 6442450944,
+              "m": 1792152000000,
+              "j": [
+               0
+              ]
+             },
+             {
+              "n": "Google",
+              "p": "C:\\Users\\me\\AppData\\Local\\Google",
+              "s": 4939212390,
+              "m": 1792324800000,
+              "c": [
+               {
+                "n": "Chrome",
+                "p": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome",
+                "s": 4939212390,
+                "m": 1792324800000,
+                "c": [
+                 {
+                  "n": "User Data",
+                  "p": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data",
+                  "s": 4939212390,
+                  "m": 1792324800000,
+                  "c": [
+                   {
+                    "n": "Default",
+                    "p": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default",
+                    "s": 4294967296,
+                    "m": 1792324800000,
+                    "c": [
+                     {
+                      "n": "Cache",
+                      "p": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+                      "s": 2254857830,
+                      "m": 1792324800000,
+                      "j": [
+                       2
+                      ]
+                     },
+                     {
+                      "n": "Code Cache",
+                      "p": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Code Cache",
+                      "s": 429496730,
+                      "m": 1792324800000
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             },
+             {
+              "n": "Packages",
+              "p": "C:\\Users\\me\\AppData\\Local\\Packages",
+              "s": 2576980378,
+              "m": 1790683200000
+             },
+             {
+              "n": "D3DSCache",
+              "p": "C:\\Users\\me\\AppData\\Local\\D3DSCache",
+              "s": 1395864371,
+              "m": 1792238400000,
+              "j": [
+               3
+              ]
+             },
+             {
+              "n": "CrashDumps",
+              "p": "C:\\Users\\me\\AppData\\Local\\CrashDumps",
+              "s": 1288490189,
+              "m": 1788955200000,
+              "j": [
+               1
+              ]
+             },
+             {
+              "n": "(기타 14개)",
+              "p": null,
+              "s": 751619277,
+              "m": 1789819200000
+             }
+            ]
+           },
+           {
+            "n": "Roaming",
+            "p": "C:\\Users\\me\\AppData\\Roaming",
+            "s": 4187593114,
+            "m": 1792411200000,
+            "c": [
+             {
+              "n": "Code",
+              "p": "C:\\Users\\me\\AppData\\Roaming\\Code",
+              "s": 1181116006,
+              "m": 1792411200000
+             },
+             {
+              "n": "OldApp",
+              "p": "C:\\Users\\me\\AppData\\Roaming\\OldApp",
+              "s": 966367642,
+              "m": 1757851200000,
+              "j": [
+               4
+              ]
+             },
+             {
+              "n": "discord",
+              "p": "C:\\Users\\me\\AppData\\Roaming\\discord",
+              "s": 966367642,
+              "m": 1792411200000,
+              "c": [
+               {
+                "n": "Cache",
+                "p": "C:\\Users\\me\\AppData\\Roaming\\discord\\Cache",
+                "s": 858993459,
+                "m": 1792411200000,
+                "j": [
+                 5
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "n": "Pictures",
+          "p": "C:\\Users\\me\\Pictures",
+          "s": 23622320128,
+          "m": 1789819200000
+         },
+         {
+          "n": "Downloads",
+          "p": "C:\\Users\\me\\Downloads",
+          "s": 19542101197,
+          "m": 1792238400000,
+          "c": [
+           {
+            "n": "win11.iso",
+            "p": "C:\\Users\\me\\Downloads\\win11.iso",
+            "s": 5583457485,
+            "m": 1775131200000,
+            "j": [
+             6
+            ]
+           }
+          ]
+         },
+         {
+          "n": "Documents",
+          "p": "C:\\Users\\me\\Documents",
+          "s": 12884901888,
+          "m": 1791979200000
+         },
+         {
+          "n": ".gradle",
+          "p": "C:\\Users\\me\\.gradle",
+          "s": 5368709120,
+          "m": 1787227200000,
+          "c": [
+           {
+            "n": "caches",
+            "p": "C:\\Users\\me\\.gradle\\caches",
+            "s": 5368709120,
+            "m": 1787227200000,
+            "j": [
+             7
+            ]
+           }
+          ]
+         },
+         {
+          "n": "source",
+          "p": "C:\\Users\\me\\source",
+          "s": 3435973837,
+          "m": 1783771200000,
+          "c": [
+           {
+            "n": "project-a",
+            "p": "C:\\Users\\me\\source\\project-a",
+            "s": 3435973837,
+            "m": 1775131200000,
+            "c": [
+             {
+              "n": "node_modules",
+              "p": "C:\\Users\\me\\source\\project-a\\node_modules",
+              "s": 3221225472,
+              "m": 1775131200000,
+              "j": [
+               9
+              ]
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "n": ".claude",
+          "p": "C:\\Users\\me\\.claude",
+          "s": 1825361101,
+          "m": 1792411200000,
+          "c": [
+           {
+            "n": "plugins",
+            "p": "C:\\Users\\me\\.claude\\plugins",
+            "s": 1503238554,
+            "m": 1792411200000,
+            "c": [
+             {
+              "n": "cache",
+              "p": "C:\\Users\\me\\.claude\\plugins\\cache",
+              "s": 1503238554,
+              "m": 1782043200000,
+              "j": [
+               8
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "n": "Program Files",
+      "p": "C:\\Program Files",
+      "s": 32212254720,
+      "m": 1791720000000
+     },
+     {
+      "n": "Windows",
+      "p": "C:\\Windows",
+      "s": 29205777613,
+      "m": 1792238400000,
+      "c": [
+       {
+        "n": "System32",
+        "p": "C:\\Windows\\System32",
+        "s": 11811160064,
+        "m": 1792152000000
+       },
+       {
+        "n": "WinSxS",
+        "p": "C:\\Windows\\WinSxS",
+        "s": 9663676416,
+        "m": 1791547200000
+       },
+       {
+        "n": "(기타 30개)",
+        "p": null,
+        "s": 3221225472,
+        "m": 1789819200000
+       },
+       {
+        "n": "SoftwareDistribution",
+        "p": "C:\\Windows\\SoftwareDistribution",
+        "s": 2362232013,
+        "m": 1791547200000,
+        "c": [
+         {
+          "n": "Download",
+          "p": "C:\\Windows\\SoftwareDistribution\\Download",
+          "s": 2362232013,
+          "m": 1791547200000,
+          "j": [
+           11
+          ]
+         }
+        ]
+       },
+       {
+        "n": "Temp",
+        "p": "C:\\Windows\\Temp",
+        "s": 2147483648,
+        "m": 1792324800000,
+        "j": [
+         10
+        ]
+       }
+      ]
+     },
+     {
+      "n": "Program Files (x86)",
+      "p": "C:\\Program Files (x86)",
+      "s": 15032385536,
+      "m": 1791720000000
+     },
+     {
+      "n": "$Recycle.Bin",
+      "p": "C:\\$Recycle.Bin",
+      "s": 3758096384,
+      "m": 1792238400000,
+      "j": [
+       12
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "junk": [
+  {
+   "id": "pkg-cache:C:\\Users\\me\\AppData\\Local\\npm-cache",
+   "category": "pkg-cache",
+   "tool": "npm",
+   "label": "npm 캐시",
+   "path": "C:\\Users\\me\\AppData\\Local\\npm-cache",
+   "size": 6442450944,
+   "mtime": 1792152000000,
+   "score": 0.9,
+   "reason": "npm이 다시 받을 수 있는 다운로드 캐시입니다.",
+   "how": "npm cache clean --force",
+   "action": "command",
+   "safety": "safe",
+   "effect": "다음에 패키지를 설치할 때 인터넷에서 다시 받습니다. 그 외 영향 없음."
+  },
+  {
+   "id": "crash-dump:C:\\Users\\me\\AppData\\Local\\CrashDumps",
+   "category": "crash-dump",
+   "label": "오류 덤프",
+   "path": "C:\\Users\\me\\AppData\\Local\\CrashDumps",
+   "size": 1288490189,
+   "mtime": 1788955200000,
+   "score": 0.9,
+   "reason": "프로그램이 멈출 때 남긴 진단 파일입니다.",
+   "how": "휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "문제 진단용 기록이라 지워도 프로그램은 정상 동작합니다."
+  },
+  {
+   "id": "browser-cache:C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+   "category": "browser-cache",
+   "label": "Chrome 캐시",
+   "path": "C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+   "size": 2254857830,
+   "mtime": 1792324800000,
+   "score": 0.8,
+   "reason": "웹 페이지를 빠르게 열기 위한 임시 저장본입니다.",
+   "how": "휴지통으로 이동 (브라우저를 닫고)",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "웹 페이지를 처음 열 때 조금 느려질 수 있고 로그인 정보는 그대로입니다."
+  },
+  {
+   "id": "shader-cache:C:\\Users\\me\\AppData\\Local\\D3DSCache",
+   "category": "shader-cache",
+   "label": "그래픽 셰이더 캐시",
+   "path": "C:\\Users\\me\\AppData\\Local\\D3DSCache",
+   "size": 1395864371,
+   "mtime": 1792238400000,
+   "score": 0.85,
+   "reason": "게임과 그래픽 프로그램이 만든 컴파일 캐시입니다.",
+   "how": "휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "게임을 처음 실행할 때 로딩이 잠깐 길어지고 자동으로 다시 만들어집니다."
+  },
+  {
+   "id": "appdata-orphan:C:\\Users\\me\\AppData\\Roaming\\OldApp",
+   "category": "appdata-orphan",
+   "label": "설치 흔적이 없는 앱 데이터",
+   "path": "C:\\Users\\me\\AppData\\Roaming\\OldApp",
+   "size": 966367642,
+   "mtime": 1757851200000,
+   "score": 0.4,
+   "reason": "설치된 프로그램 목록에 없고 1년 넘게 쓰지 않은 폴더입니다.",
+   "how": "내용을 확인한 뒤 휴지통으로 이동",
+   "action": "recycle",
+   "safety": "manual",
+   "effect": "어떤 프로그램의 데이터인지 확실하지 않습니다. 설정이나 저장 파일일 수 있으니 직접 판단하세요."
+  },
+  {
+   "id": "app-cache:C:\\Users\\me\\AppData\\Roaming\\discord\\Cache",
+   "category": "app-cache",
+   "label": "Discord 캐시",
+   "path": "C:\\Users\\me\\AppData\\Roaming\\discord\\Cache",
+   "size": 858993459,
+   "mtime": 1792411200000,
+   "score": 0.8,
+   "reason": "앱이 임시로 저장해 둔 이미지와 데이터입니다.",
+   "how": "휴지통으로 이동 (앱을 닫고)",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "앱을 다시 켜면 필요한 것을 다시 받아 옵니다. 설정과 로그인은 유지됩니다."
+  },
+  {
+   "id": "old-download:C:\\Users\\me\\Downloads\\win11.iso",
+   "category": "old-download",
+   "label": "오래된 설치 파일",
+   "path": "C:\\Users\\me\\Downloads\\win11.iso",
+   "size": 5583457485,
+   "mtime": 1775131200000,
+   "score": 0.3,
+   "reason": "200일 넘게 열지 않은 큰 설치 파일입니다.",
+   "how": "직접 확인한 뒤 삭제하세요",
+   "action": "report",
+   "safety": "manual",
+   "effect": "내려받은 파일 중 오래 쓰지 않은 큰 파일입니다. 필요한지는 직접 확인해야 합니다."
+  },
+  {
+   "id": "pkg-cache:C:\\Users\\me\\.gradle\\caches",
+   "category": "pkg-cache",
+   "tool": "gradle",
+   "label": "Gradle 캐시",
+   "path": "C:\\Users\\me\\.gradle\\caches",
+   "size": 5368709120,
+   "mtime": 1787227200000,
+   "score": 0.9,
+   "reason": "Gradle이 다시 받을 수 있는 라이브러리 캐시입니다.",
+   "how": "휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "다음에 패키지를 설치할 때 인터넷에서 다시 받습니다. 그 외 영향 없음."
+  },
+  {
+   "id": "plugin-cache:C:\\Users\\me\\.claude\\plugins\\cache",
+   "category": "plugin-cache",
+   "label": "쓰지 않는 플러그인 캐시",
+   "path": "C:\\Users\\me\\.claude\\plugins\\cache",
+   "size": 1503238554,
+   "mtime": 1782043200000,
+   "score": 0.8,
+   "reason": "설치 목록에서 빠진 옛 버전 플러그인입니다.",
+   "how": "휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "설치 목록에 없는 옛 버전이라 쓰이지 않습니다."
+  },
+  {
+   "id": "dev-artifact:C:\\Users\\me\\source\\project-a\\node_modules",
+   "category": "dev-artifact",
+   "label": "오래된 프로젝트의 node_modules",
+   "path": "C:\\Users\\me\\source\\project-a\\node_modules",
+   "size": 3221225472,
+   "mtime": 1775131200000,
+   "score": 0.8,
+   "reason": "90일 넘게 손대지 않은 프로젝트의 설치 폴더입니다. npm install로 복구됩니다.",
+   "how": "휴지통으로 이동",
+   "action": "recycle",
+   "safety": "check",
+   "effect": "그 프로젝트를 다시 실행하려면 설치(npm install 등)를 한 번 더 해야 합니다. 소스 코드는 지워지지 않습니다."
+  },
+  {
+   "id": "temp:C:\\Windows\\Temp",
+   "category": "temp",
+   "label": "윈도우 임시 파일",
+   "path": "C:\\Windows\\Temp",
+   "size": 2147483648,
+   "mtime": 1792324800000,
+   "score": 0.9,
+   "reason": "프로그램이 쓰고 남긴 임시 파일입니다.",
+   "how": "하루 지난 파일만 휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "프로그램이 필요하면 알아서 다시 만듭니다. 사용 중인 파일은 건너뜁니다."
+  },
+  {
+   "id": "system-cleanup:C:\\Windows\\SoftwareDistribution\\Download",
+   "category": "system-cleanup",
+   "label": "윈도우 업데이트 임시 파일",
+   "path": "C:\\Windows\\SoftwareDistribution\\Download",
+   "size": 2362232013,
+   "mtime": 1791547200000,
+   "score": 0.5,
+   "reason": "이미 설치된 윈도우 업데이트 파일 조각입니다.",
+   "how": "디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)",
+   "action": "report",
+   "safety": "manual",
+   "effect": "윈도우가 관리하는 파일입니다. 디스크 정리 도구에서 관리자 권한으로 정리하세요."
+  },
+  {
+   "id": "recycle-bin:C:\\$Recycle.Bin",
+   "category": "recycle-bin",
+   "label": "휴지통",
+   "path": "C:\\$Recycle.Bin",
+   "size": 3758096384,
+   "mtime": 1792238400000,
+   "score": 0.6,
+   "reason": "이미 지운 파일이 모여 있습니다.",
+   "how": "윈도우 휴지통 비우기로 직접 비우세요",
+   "action": "report",
+   "safety": "manual",
+   "effect": "휴지통을 비우면 복구할 수 없습니다. 윈도우에서 직접 비우세요."
+  },
+  {
+   "id": "orphan-worktree:D:\\project\\ai-setup\\.claude\\worktrees\\old-feature",
+   "category": "orphan-worktree",
+   "label": "끝난 작업 폴더(worktree)",
+   "path": "D:\\project\\ai-setup\\.claude\\worktrees\\old-feature",
+   "size": 2147483648,
+   "mtime": 1784635200000,
+   "score": 0.7,
+   "reason": "원본 저장소에 이미 합쳐졌고 변경 사항이 없습니다.",
+   "how": "git worktree remove",
+   "action": "command",
+   "safety": "check",
+   "effect": "작업 폴더만 정리됩니다. 변경 사항이 남아 있으면 git이 거부하므로 안전하지만, 목록을 한 번 확인하세요."
+  },
+  {
+   "id": "temp:D:\\PC-Storage\\Temp",
+   "category": "temp",
+   "label": "임시 폴더",
+   "path": "D:\\PC-Storage\\Temp",
+   "size": 8589934592,
+   "mtime": 1792411200000,
+   "score": 0.9,
+   "reason": "프로그램이 쓰고 남긴 임시 파일입니다.",
+   "how": "하루 지난 파일만 휴지통으로 이동",
+   "action": "recycle",
+   "safety": "safe",
+   "effect": "프로그램이 필요하면 알아서 다시 만듭니다. 사용 중인 파일은 건너뜁니다."
+  },
+  {
+   "id": "vm-disk:D:\\Docker\\wsl\\ext4.vhdx",
+   "category": "vm-disk",
+   "label": "Docker/WSL 가상 디스크",
+   "path": "D:\\Docker\\wsl\\ext4.vhdx",
+   "size": 42949672960,
+   "mtime": 1792411200000,
+   "score": 0.2,
+   "reason": "가상 컴퓨터의 디스크 파일입니다. 지우면 안의 데이터가 모두 사라집니다.",
+   "how": "Docker/WSL에서 직접 줄이세요",
+   "action": "report",
+   "safety": "manual",
+   "effect": "Docker/WSL 가상 컴퓨터의 전체 데이터입니다. 지우면 안에 있는 모든 것이 사라집니다."
+  }
+ ]
+}
