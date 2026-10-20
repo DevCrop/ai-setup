@@ -22,7 +22,7 @@ test('static shell: charset, lang, viewport, Korean button', () => {
   assert.match(html, /<html lang="ko">/);
   assert.match(html, /<meta charset="utf-8">/);
   assert.match(html, /<meta name="viewport"/);
-  assert.match(html, /정리 계획 내보내기/);
+  assert.match(html, /정리 계획 저장/);
   assert.match(html, /이 PC의 디스크 지도/);
   assert.match(html, /prefers-color-scheme:\s*dark/);
 });
@@ -77,7 +77,7 @@ test('fixture has safety tiers, effect text and the new categories', () => {
 
 test('page has the panel sections, auto button and category strip; old scans without safety still render', () => {
   const html = renderPage(fixture);
-  for (const t of ['자동 최적화 — 안전한 것만', '삭제해도 되는 것', '확인 후 삭제', '직접 판단', '지워도 되나요?', 'id="cats"']) {
+  for (const t of ['안전한 것만 자동 선택', '삭제해도 되는 것', '확인 후 삭제', '직접 판단', '지워도 되나요?', 'id="cats"']) {
     assert.ok(html.includes(t), t);
   }
   const old = structuredClone(fixture);
