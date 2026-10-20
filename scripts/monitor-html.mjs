@@ -47,7 +47,7 @@ const CSS = `
 /* 1 tokens (legacy dashboard). Colour budget: accent only for brand, active nav, live dots and the Opus data colour; the rest is grey. */
 :root {
   --bg: #faf9f5; --panel: #ffffff; --line: #e8e6dc; --line-strong: #d3d0c3; --fg: #141413; --muted: #5e5d59; --faint: #7a786f;
-  --accent: #d77757; --accent-ink: #b9532f;
+  --accent: #d77757; --accent-ink: #b9532f; --fill: #f0eee6;
   --warn: #8f6420; --bad: #b04a38;
   --f-opus: #d77757; --f-sonnet: #7391b3; --f-haiku: #74a085; --f-other: #a09c92; --hatch: rgba(255, 255, 255, .55);
   --sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
@@ -62,11 +62,11 @@ const CSS = `
 @media (max-width: 760px) { :root { --gap: 12px; --pad: 12px; --edge: 16px; --ctl: 40px; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #1f1e1d; --panel: #262624; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
-  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f;
+  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --fill: #33322f;
   --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #1f1e1d; --panel: #262624; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
-  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f;
+  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --fill: #33322f;
   --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; }
 
 /* 2 base */
@@ -86,29 +86,36 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 .side { grid-area: side; background: var(--panel); border-right: 1px solid var(--line); padding: var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: 2px; align-content: start; overflow-y: auto; }
 .side .grp { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: var(--sp-4) var(--sp-3) var(--sp-1); }
 .side .grp:first-child { padding-top: var(--sp-1); }
-.side button { display: flex; align-items: center; min-height: 32px; text-align: left; font-size: var(--t-sm); color: var(--muted); background: none; border: 0; border-radius: var(--r-sm); padding: 0 var(--sp-3); }
-.side button:hover { color: var(--fg); background: var(--bg); }
-.side button[aria-current="page"] { color: var(--fg); background: var(--bg); box-shadow: inset 2px 0 0 var(--accent); }
+.trk { display: contents; }
+.side button { display: flex; align-items: center; width: 100%; min-height: 32px; text-align: left; font-size: var(--t-sm); color: var(--muted); background: none; border: 0; border-radius: var(--r-md); padding: 0 var(--sp-3); transition: background-color .15s, color .15s; }
+.side button:hover { color: var(--fg); background: color-mix(in srgb, var(--fill) 55%, transparent); }
+.side button[aria-current="page"] { color: var(--fg); font-weight: 500; background: var(--fill); }
+.side button:focus-visible { outline-offset: -2px; }
 .top { grid-area: top; position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3) var(--edge); background: var(--bg); border-bottom: 1px solid var(--line); min-width: 0; }
 .brand { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .mark { color: var(--accent); font-size: var(--t-lg); }
 .brand h1 { margin: 0; font-family: var(--serif); font-size: var(--t-h1); font-weight: 500; line-height: 1.3; white-space: nowrap; }
 .meta { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .meta time { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; }
+.prog { position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; pointer-events: none; }
 .stage { grid-area: stage; min-width: 0; min-height: 0; padding: var(--gap) var(--edge) var(--edge); }
 .view { width: 100%; max-width: var(--max); margin-inline: auto; display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); }
+.kpis.k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ov { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
 .grid2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
 @media (max-width: 1099px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "top" "side" "stage"; }
-  .side { position: sticky; top: 0; z-index: 6; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: var(--sp-1) var(--edge); gap: var(--sp-1); scrollbar-width: thin; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "top" "side" "stage"; align-content: start; }
+  .side { position: sticky; top: 0; z-index: 6; flex-direction: row; overflow: visible; background: var(--bg); border-right: 0; border-bottom: 1px solid var(--line); padding: var(--sp-2) var(--edge); }
+  .trk { display: flex; flex: 1 1 auto; min-width: 0; gap: 2px; overflow-x: auto; background: var(--fill); border-radius: var(--r-md); padding: 3px; scrollbar-width: none; }
   .side .grp { display: none; }
-  .side button { white-space: nowrap; flex: none; min-height: 36px; }
-  .side button[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--accent); }
-  .top { position: static; }
+  .side button { white-space: nowrap; flex: none; width: auto; min-height: 40px; border-radius: var(--r-sm); }
+  .side button:hover { background: none; color: var(--fg); }
+  .side button[aria-current="page"] { background: var(--panel); box-shadow: 0 1px 2px rgba(20, 20, 19, .14), 0 0 0 1px var(--line); }
+  .top { position: relative; }
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpis.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -119,6 +126,8 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
   .brand h1 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; }
   .meta { gap: var(--sp-2); flex: none; }
   .meta time { font-size: 11px; }
+  .lcw { display: none; }
+  .cd .cl { font-size: 10px; } .yax { width: 3em; font-size: 10px; }
   .meta .btn { min-height: 32px; padding: 0 var(--sp-2); }
   .kpi .v { font-size: 22px; }
   .dlines { font-size: var(--t-xs); }
@@ -134,7 +143,7 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 .pip { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .live .pip, .pip.live { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
-@media (prefers-reduced-motion: reduce) { .live .pip, .pip.live { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .live .pip, .pip.live { animation: none !important; } .prog { display: none; } .dl, .kpi::after, .cd::after, .chip::after, .side button { transition: none; } }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--fc, var(--faint)); flex: none; }
 .fc { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--fg); white-space: nowrap; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--ctl); font-size: var(--t-sm); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-1) var(--sp-3); }
@@ -156,8 +165,22 @@ details.fold[open] summary { margin-bottom: var(--sp-3); }
 .tile { display: grid; gap: 2px; align-content: start; min-width: 0; }
 .tile .n { font-size: 20px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
 .tile .l { font-size: var(--t-xs); color: var(--muted); }
-.kpi { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: var(--sp-4); display: grid; gap: var(--sp-1); align-content: start; min-width: 0; }
-.kpi .k { font-size: var(--t-xs); color: var(--muted); }
+.kpi { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: var(--pad); display: grid; gap: var(--sp-1); align-content: start; min-width: 0; }
+.kpi .k { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; }
+.dl { font-size: var(--t-xs); color: var(--muted); opacity: 0; transition: opacity .4s; white-space: nowrap; }
+.dl:empty { display: none; } .dl.on { opacity: 1; }
+.sl { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 16px; margin-top: var(--sp-1); }
+.sl svg { flex: none; margin-left: auto; overflow: visible; }
+.sl polyline { fill: none; stroke: var(--faint); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.mb { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: var(--sp-1) 0; }
+.mb i { display: block; height: 100%; border-radius: 2px; background: var(--faint); }
+.chip { display: inline-flex; align-items: center; gap: var(--sp-2); width: max-content; max-width: 100%; margin: 0; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--t-xs); color: var(--muted); }
+.chip b { font-weight: 500; color: var(--fg); }
+.kpi, .cd, .chip { position: relative; }
+.kpi::after, .cd::after, .chip::after { content: ""; position: absolute; inset: -2px; border-radius: calc(var(--r-lg) + 2px); box-shadow: 0 0 0 2px var(--accent), 0 0 14px 2px var(--accent); opacity: 0; transition: opacity .3s; pointer-events: none; }
+.cd::after { border-radius: var(--r-sm); }
+.hot::after { opacity: .35; }
 .kpi .v { font-size: 24px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
 .kpi .v.bad { color: var(--bad); }
 .kpi .n { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -187,6 +210,8 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 .ubar-track { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .ubar-fill { display: block; height: 100%; border-radius: 3px; background: var(--faint); }
 .ubar-v { font-size: var(--t-xs); color: var(--muted); text-align: right; white-space: nowrap; }
+.ubar.rtk { grid-template-columns: minmax(90px, 150px) minmax(0, 1fr) 11ch; }
+.ubar-v b { font-weight: 500; color: var(--fg); } .ubar-v i { font-style: normal; }
 .ubars { display: grid; gap: var(--sp-3); }
 
 .pitems { display: flex; flex-direction: column; }
@@ -197,15 +222,7 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 .dt { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
 .dt.warn { background: var(--warn); } .dt.bad { background: var(--bad); }
 
-.rt { display: grid; grid-template-columns: minmax(96px, 1.1fr) 104px minmax(100px, 3fr) 64px 76px; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); min-width: 0; }
-.rt:first-child { padding-top: 0; } .rt:last-child { border-bottom: 0; padding-bottom: 0; }
-.rt .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.rt .runs { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; }
-.rt .st { justify-self: start; }
-.exp { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--muted); white-space: nowrap; }
 @media (max-width: 640px) {
-  .rt { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nm vd" "ch rn" "bar bar"; }
-  .rt .nm { grid-area: nm; } .rt .st { grid-area: vd; justify-self: end; } .rt .exp { grid-area: ch; } .rt .runs { grid-area: rn; text-align: right; } .rt .stack { grid-area: bar; }
   .ubar.wide { grid-template-columns: minmax(64px, 90px) minmax(0, 1fr); }
   .ubar.wide .ubar-v { grid-column: 1 / -1; text-align: left; white-space: normal; }
 }
@@ -222,11 +239,46 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 
 .cols { display: flex; gap: var(--sp-2); align-items: flex-end; }
 .cd { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.stk { display: flex; flex-direction: column; justify-content: flex-end; border-bottom: 1px solid var(--line-strong); }
-.stk .cv-v { font-size: 11px; line-height: 14px; color: var(--muted); text-align: center; white-space: nowrap; }
+.stk { position: relative; display: flex; flex-direction: column; justify-content: flex-end; border-bottom: 1px solid var(--line-strong); }
 .stk .sg { background-color: var(--fc); display: block; flex: none; width: 100%; max-width: 44px; margin-inline: auto; min-height: 1px; }
 .stk .sg:first-of-type { border-radius: 3px 3px 0 0; }
 .cd .cl { font-size: 11px; line-height: 14px; color: var(--muted); text-align: center; white-space: nowrap; }
+.cd .cv-v { display: block; color: var(--fg); }
+
+.dn { width: 120px; height: 120px; flex: none; }
+.dn circle { fill: none; stroke-width: 14; stroke: var(--fc); } .dn circle.tr { stroke: var(--line); }
+.dn .dv { fill: var(--fg); font-size: 22px; font-weight: 500; } .dn .dk { fill: var(--muted); font-size: 11px; }
+.d-main { --fc: var(--faint); } .d-sub { --fc: var(--accent); } .d-bg { --fc: var(--line-strong); }
+.dlg { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); font-size: var(--t-sm); flex: 1 1 180px; min-width: 0; }
+.dlg li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto; gap: var(--sp-2); align-items: center; }
+.dlg .nm { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg b { font-weight: 500; text-align: right; } .dlg .tk { font-size: var(--t-xs); color: var(--muted); min-width: 4.5em; text-align: right; }
+
+.chart { display: flex; gap: var(--sp-2); align-items: flex-start; }
+.chart .cols { flex: 1 1 0; min-width: 0; }
+.yax { display: flex; flex-direction: column; justify-content: space-between; margin-top: -7px; font-size: 11px; line-height: 14px; color: var(--muted); width: 3.4em; flex: none; }
+.hl { position: absolute; left: 50%; top: 0; width: calc(100% + var(--sp-2)); height: 100%; overflow: visible; pointer-events: none; }
+.hl line { stroke: var(--fg); stroke-width: 1.5; opacity: .6; }
+.hl circle { fill: var(--panel); stroke: var(--fg); stroke-width: 1.5; pointer-events: all; }
+.hl circle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--fg); }
+
+.mx { display: grid; }
+.mr { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(56px, 84px)); gap: var(--sp-2); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.mr.mh { padding-top: 0; font-size: var(--t-xs); } .mr.mh span { justify-self: center; }
+.mr:last-child { border-bottom: 0; padding-bottom: 0; }
+.who { display: grid; gap: 2px; min-width: 0; }
+.who .nm { font-size: var(--t-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who .sb { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2); font-size: var(--t-xs); color: var(--muted); }
+.mc { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 40px; border: 1px solid transparent; border-radius: var(--r-md); font-size: 11px; color: var(--muted); }
+.mc.ex { border-color: var(--line-strong); }
+.mdw { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; }
+.md { display: block; border-radius: 50%; background: var(--fc); }
+.mc.mm .md { background: var(--warn); } .mc.mm .mp { color: var(--warn); }
+@media (max-width: 640px) {
+  .mr { grid-template-columns: minmax(0, 1fr) repeat(3, 52px); gap: var(--sp-1); }
+  .mc { flex-direction: column; gap: 0; min-height: 48px; }
+}
 
 /* 5 views: orchestration flowchart. Neutral root and node cards; 1px grey connectors: a stem, a trunk on the left, a bus per row, a tick into each node. */
 .tree { min-width: 0; }
@@ -266,13 +318,17 @@ ${treeCss(2, '.nodes.cmp')}
 @keyframes grow { from { transform: scaleX(0); } }
 @keyframes growy { from { transform: scaleY(0); } }
 @keyframes fadein { from { opacity: 0; } }
+@keyframes prog { to { transform: scaleX(1); } }
 @keyframes ndin { from { opacity: 0; transform: translateY(8px); } }
 @keyframes draw { from { stroke-dashoffset: var(--a); } }
 @keyframes dashx { to { background-position: 8px 0; } }
 @keyframes dashy { to { background-position: 0 8px; } }
 @media (prefers-reduced-motion: no-preference) {
   .view.fade { animation: fadein .15s ease; }
-  .anim .stack i, .anim .ubar-fill { transform-origin: left; animation: grow .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+  .anim .dn { animation: fadein .5s both; }
+  .anim .hl { animation: fadein .4s .6s both; }
+  .prog { animation: prog linear forwards; }
+  .anim .stack i, .anim .ubar-fill, .anim .mb i { transform-origin: left; animation: grow .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
   .anim .stk .sg { transform-origin: bottom; animation: growy .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
   .anim .cv-v { animation: fadein .4s .5s both; }
   .anim .ring .fg { animation: draw .9s var(--ease) both; }
@@ -366,6 +422,14 @@ function fmtKo(iso, withDate) {
   const p = (n) => String(n).padStart(2, '0');
   const hm = `${p(t.getHours())}:${p(t.getMinutes())}`;
   return withDate ? `${t.getMonth() + 1}월 ${t.getDate()}일 ${hm}` : hm;
+}
+
+// "HH:MM:SS" in local time, or the dash.
+function fmtHms(iso) {
+  const t = new Date(parseTime(iso));
+  if (Number.isNaN(t.getTime())) return DASH;
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`;
 }
 
 // "10월 19일 22:59–23:31", or both dates when the session spans days.
@@ -526,51 +590,104 @@ function delegationModel(sv) {
   const bg = sum(isBg);
   const execTotal = sum(isMain) + sum(isSub);
   return {
-    total, bg, mainFam, subFam,
+    total, bg, mainFam, subFam, main: sum(isMain), sub: sum(isSub),
     // Execution share: Sonnet/Haiku subagents over main + all subagents; claude-mem and sdk are excluded.
     share: execTotal > 0 ? (subFam('sonnet') + subFam('haiku')) / execTotal : NaN,
   };
 }
 
+// Donut of main / subagent / background output tokens. Arcs are stroke-dasharray segments of one circle.
+function donut(segs, total, centre, label, aria) {
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  let off = 0;
+  const arcs = segs.filter((g) => g.value > 0).map((g) => {
+    const len = (g.value / total) * C;
+    const gap = len > 3 ? 1.5 : 0;
+    const el = `<circle class="d-${g.k}" cx="60" cy="60" r="${R}" stroke-dasharray="${(len - gap).toFixed(2)} ${(C - len + gap).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"><title>${esc(`${g.name} ${pct01(g.value / total)}`)}</title></circle>`;
+    off += len;
+    return el;
+  }).join('');
+  return `<svg class="dn" viewBox="0 0 120 120" role="img" aria-label="${esc(aria)}"><circle class="tr" cx="60" cy="60" r="${R}"/>${arcs}` +
+    `<text class="dv" x="60" y="60" text-anchor="middle">${esc(centre)}</text><text class="dk" x="60" y="78" text-anchor="middle">${esc(label)}</text></svg>`;
+}
+
 function delegationBlock(sv) {
   const m = delegationModel(sv);
   if (!(m.total > 0)) return noData();
-  const parts = [
-    ...FAMILY_ORDER.map((f) => ({ fam: f, value: m.mainFam(f), name: `메인 ${famLabel(f)}` })),
-    ...SUB_ORDER.map((f) => ({ fam: f, value: m.subFam(f), name: `서브에이전트 ${famLabel(f)}` })),
-    { fam: 'other', value: m.bg, hatch: true, name: '백그라운드 claude-mem·SDK' },
+  const segs = [
+    { k: 'main', name: '메인', value: m.main },
+    { k: 'sub', name: '서브에이전트', value: m.sub },
+    { k: 'bg', name: '백그라운드 (claude-mem·SDK)', value: m.bg },
   ];
+  const subPct = pct01(m.sub / m.total);
+  const aria = `실행 위임, 7일 출력 토큰: ${segs.map((g) => `${g.name} ${pct01(g.value / m.total)} (${compactKo(g.value)})`).join(', ')}`;
+  const legend = `<ul class="dlg">${segs.map((g) => `<li><i class="sw d-${g.k}" aria-hidden="true"></i><span class="nm" title="${esc(g.name)}">${esc(g.name)}</span>` +
+    `<b>${pct01(g.value / m.total)}</b><span class="tk">${compactKo(g.value)}</span></li>`).join('')}</ul>`;
   const p = (v) => `${fixed1((v / m.total) * 100)}%`;
   const mainTxt = FAMILY_ORDER.filter((f) => m.mainFam(f) > 0).map((f) => `<span class="sp">${sw(f)}${famLabel(f)} ${p(m.mainFam(f))}</span>`).join('') || DASH;
   const subTxt = SUB_ORDER.filter((f) => f !== 'other' || m.subFam(f) > 0)
     .map((f) => `<span class="sp">${sw(f)}${famLabel(f)} ${p(m.subFam(f))}</span>`).join('');
-  return stack(parts, '출력 토큰 분포') +
-    `<div class="dlines"><div><b>메인</b><span class="sps">${mainTxt}</span></div>` +
-    `<div><b>서브에이전트</b><span class="sps">${subTxt}</span></div>` +
-    `<div><b>백그라운드</b><span class="sps"><span class="sp">${sw('other', true)}claude-mem·SDK ${p(m.bg)} (빗금)</span></span></div></div>`;
+  const fams = `<div class="dlines"><div><b>메인</b><span class="sps">${mainTxt}</span></div><div><b>서브에이전트</b><span class="sps">${subTxt}</span></div></div>`;
+  return `<div class="donut">${donut(segs, m.total, subPct, '서브에이전트', aria)}${legend}</div>` +
+    (Number.isFinite(m.share) ? `<p class="cap">실행 위임 비율 ${pct01(m.share)} = 메인+서브 출력 중 Sonnet·Haiku 서브에이전트</p>` : '') +
+    details('모델별 비율', fams);
 }
 
 // ---------- KPI row ----------
 
-function kpi(label, value, note, cls) {
-  return `<div class="kpi"><div class="k">${esc(label)}</div><div class="v${cls ? ` ${cls}` : ''}">${value}</div><div class="n" title="${note}">${note}</div></div>`;
+// o.key/o.u: live-delta hook (u "p" = percentage points, "n" = count); o.bar: 0..1 mini bar. note is trusted HTML built from numbers or esc() text.
+function kpi(label, value, note, cls, o = {}) {
+  const hook = o.key ? ` data-m="${o.key}" data-u="${o.u || 'n'}"` : '';
+  const bar = Number.isFinite(o.bar) ? `<div class="mb" role="img" aria-label="${esc(`${label} ${value}`)}"><i style="width:${(clamp(o.bar, 0, 1) * 100).toFixed(1)}%;--i:0"></i></div>` : '';
+  return `<div class="kpi"${hook}><div class="k" title="${esc(label)}">${esc(label)}</div><div class="vr"><div class="v${cls ? ` ${cls}` : ''}">${value}</div><span class="dl" aria-hidden="true"></span></div>` +
+    `${bar}<div class="n" title="${note}">${note}</div><div class="sl"></div></div>`;
 }
 
-function kpiRow(d) {
+// The three live cards shared by the Overview row and the Savings row; withBar adds the mini bar.
+function coreKpis(d, withBar) {
   const sv = isObj(d.savings) ? d.savings : {};
   const rtk = isObj(sv.rtk) ? sv.rtk : {};
   const cache = isObj(sv.cache) ? sv.cache : {};
-  const mem = isObj(d.claudeMem) ? d.claudeMem : {};
   const share = delegationModel(sv).share;
+  const bar = (v) => (withBar ? v : NaN);
+  return kpi('RTK 절감 토큰 (7일)', compactKo(rtk.saved7d), `전체 ${compactKo(rtk.savedAll)} · ${pctValue(rtk.savedPct)}`, '', { key: 'rtk', u: 'n', bar: bar(Number.isFinite(rtk.savedPct) ? rtk.savedPct / 100 : NaN) }) +
+    kpi('캐시 적중률 (7일)', pct01(cache.hitRate7d), `≈ 입력 ${compactKo(cache.savedInputTokens7d)} 미청구`, '', { key: 'hit', u: 'p', bar: bar(cache.hitRate7d) }) +
+    kpi('실행 위임 비율', pct01(share), '메인+서브 출력 중 Sonnet·Haiku 서브에이전트 비율', '', { key: 'share', u: 'p', bar: bar(share) });
+}
+
+function kpiRow(d) {
+  const mem = isObj(d.claudeMem) ? d.claudeMem : {};
   const agents = arr(isObj(d.routing) ? d.routing.agents : null).filter((a) => typeof a.expected === 'string' && a.expected !== '');
   const okN = agents.filter((a) => a.verdict === 'ok').length;
   const up = reach(mem);
   return `<div class="kpis">` +
-    kpi('RTK 절감 토큰 (7일)', compactKo(rtk.saved7d), `전체 ${compactKo(rtk.savedAll)} · ${pctValue(rtk.savedPct)}`) +
-    kpi('캐시 적중률 (7일)', pct01(cache.hitRate7d), `≈ 입력 ${compactKo(cache.savedInputTokens7d)} 미청구`) +
-    kpi('실행 위임 비율', pct01(share), '메인+서브 출력 중 Sonnet·Haiku 서브에이전트 비율') +
+    coreKpis(d, false) +
     kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준') +
     kpi('claude-mem 상태', up.label, `워커 ${txt(mem.version)}`, up.st === 'missing' ? 'bad' : '') + `</div>`;
+}
+
+// Four small cards for the Savings tab: value, one mini bar, one short note.
+function savingsKpis(d) {
+  const sv = isObj(d.savings) ? d.savings : {};
+  const pony = isObj(sv.ponytail) ? sv.ponytail : {};
+  const outPct = Number.isFinite(pony.outputTokensPct) ? clamp(pony.outputTokensPct, 0, 100) : NaN;
+  return `<div class="kpis k4">` +
+    coreKpis(d, true) +
+    kpi('Ponytail 출력 토큰', Number.isFinite(outPct) ? pctValue(outPct) : DASH, Number.isFinite(outPct) ? `기준선 대비 ▼${fixed1(100 - outPct)}%` : DASH, '', { bar: Number.isFinite(outPct) ? outPct / 100 : NaN }) +
+    `</div>`;
+}
+
+// Running-now summary chip (global over all sessions). data-m lets the live script flash it when the count changes.
+function runInfo(d) {
+  const sessions = arr(isObj(d.orchestration) ? d.orchestration.sessions : null);
+  const run = sessions.reduce((a, x) => a + arr(x.agents).filter((g) => g.live === true).length, 0);
+  return { run, live: sessions.filter((x) => x.live === true).length };
+}
+
+function runChip(d) {
+  const r = runInfo(d);
+  return `<p class="chip" data-m="run">${r.run > 0 ? '<span class="pip live" aria-hidden="true"></span>' : ''}지금 실행 중 <b>${r.run}</b><span>세션 ${r.live}개 활성</span></p>`;
 }
 
 // ---------- Flowchart (root node, stem, tree of subagent nodes) ----------
@@ -659,33 +776,58 @@ function tokenGroups(days) {
   const by = new Map();
   for (const r of days) {
     const key = typeof r.date === 'string' ? r.date : '';
-    if (!by.has(key)) by.set(key, { date: key, fam: { opus: 0, sonnet: 0, haiku: 0, other: 0 }, total: 0 });
+    if (!by.has(key)) by.set(key, { date: key, fam: { opus: 0, sonnet: 0, haiku: 0, other: 0 }, total: 0, inp: 0, cr: 0, cc: 0 });
     const g = by.get(key);
     const out = nz(r.output);
     g.fam[family(r.model)] += out;
     g.total += out;
+    g.inp += nz(r.input);
+    g.cr += nz(r.cacheRead);
+    g.cc += nz(r.cacheCreation);
   }
   return [...by.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
-// Stacked columns by family in a fixed-height box; y max = tallest total + 10%.
+// Day cache hit rate (0..1) from the summed token counts; NaN when the day has no input.
+function dayHit(g) {
+  const den = g.inp + g.cr + g.cc;
+  return den > 0 ? g.cr / den : NaN;
+}
+
+function dayKo(d) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(d);
+  return m ? `${Number(m[1])}월 ${Number(m[2])}일` : DASH;
+}
+
+// Stacked columns by family in a fixed-height box (y max = tallest total + 10%), plus a thin cache-hit line on a right 0-100% axis.
+// The line is drawn per column as a segment from this column's centre to the next one, so it stays aligned with the flex layout.
 function colChart(groups, h, label) {
   const max = Math.max(0, ...groups.map((g) => g.total));
   if (!(max > 0 && Number.isFinite(max))) return noData();
+  const hits = groups.map(dayHit);
+  const anyHit = hits.some(Number.isFinite);
+  const y = (v) => (h * (1 - clamp(v, 0, 1))).toFixed(1);
   const cols = groups.map((g, gi) => {
     const segs = [...FAMILY_ORDER].reverse()
       .filter((f) => g.fam[f] > 0)
       .map((f) => `<i class="sg f-${f}" style="height:${((g.fam[f] / (max * 1.1)) * h).toFixed(1)}px" title="${esc(`${famLabel(f)} ${fmtInt(g.fam[f])}`)}"></i>`).join('');
     const day = g.date ? g.date.slice(5).replace('-', '/') : DASH;
-    return `<div class="cd" style="--i:${gi}"><div class="stk" style="height:${h}px"><span class="cv-v">${compactKo(g.total)}</span>${segs}</div><span class="cl">${esc(day)}</span></div>`;
+    const hv = hits[gi];
+    let line = '';
+    if (Number.isFinite(hv)) {
+      const seg = Number.isFinite(hits[gi + 1]) ? `<line x1="0" y1="${y(hv)}" x2="100%" y2="${y(hits[gi + 1])}"/>` : '';
+      line = `<svg class="hl">${seg}<circle cx="0" cy="${y(hv)}" r="3.5" tabindex="0"><title>${esc(`${dayKo(g.date)} 캐시 적중률 ${pct01(hv)} · 출력 ${compactKo(g.total)}`)}</title></circle></svg>`;
+    }
+    return `<div class="cd" data-d="${esc(g.date)}" style="--i:${gi}"><div class="stk" style="height:${h}px">${segs}${line}</div>` +
+      `<span class="cl">${esc(day)}<span class="cv-v">${compactKo(g.total)}</span></span></div>`;
   }).join('');
-  const dayKo = (d) => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(d); return m ? `${Number(m[1])}월 ${Number(m[2])}일` : DASH; };
-  const sum = `${label}: ${groups.map((g) => `${dayKo(g.date)} ${compactKo(g.total)}`).join(', ')}`;
-  return `<div class="cols" role="img" aria-label="${esc(sum)}">${cols}</div>`;
+  const sum = `${label}: ${groups.map((g, i) => `${dayKo(g.date)} ${compactKo(g.total)}${Number.isFinite(hits[i]) ? ` 적중률 ${pct01(hits[i])}` : ''}`).join(', ')}`;
+  const axis = anyHit ? `<div class="yax" style="height:${h + 14}px" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>` : '';
+  return `<div class="chart"><div class="cols" role="group" aria-label="${esc(sum)}">${cols}</div>${axis}</div>`;
 }
 
 const FAM_ITEMS = FAMILY_ORDER.map((f) => `<li class="lg">${sw(f)}${famLabel(f)}</li>`).join('');
-const FAM_LEGEND = `<ul class="legend">${FAM_ITEMS}</ul>`;
+const TOK_LEGEND = `<ul class="legend">${FAM_ITEMS}<li class="lg"><i class="sw ln" aria-hidden="true"></i>캐시 적중률 (우축)</li></ul>`;
 
 function tokenTable(days, t) {
   const rows = days.map((r) => `<tr>${td(txt(r.date))}${td(txt(r.model))}${td(fmtInt(r.input), 1)}${td(fmtInt(r.output), 1)}` +
@@ -724,9 +866,9 @@ function viewOverview(d) {
     panel('일별 출력 토큰', tk, (s) => {
       const days = arr(s.days);
       if (days.length === 0) return noData();
-      return colChart(tokenGroups(days), 96, '최근 7일 일별 출력 토큰, 계열별 누적') + FAM_LEGEND;
+      return colChart(tokenGroups(days), 96, '최근 7일 일별 출력 토큰, 계열별 누적') + TOK_LEGEND;
     }, { hint: '최근 7일' });
-  const right = panel('최근 세션 흐름', orch, () => (first ? sessionBlock(first, 4, true) : noData()), { hint: '가장 최근 세션' }) +
+  const right = panel('최근 세션 흐름', orch, () => (first ? runChip(d) + sessionBlock(first, 4, true) : noData()), { hint: '가장 최근 세션' }) +
     panel('상태 점검', {}, () => overviewChecklist(d));
   return `${kpiRow(d)}<div class="ov"><div class="col">${left}</div><div class="col">${right}</div></div>`;
 }
@@ -736,21 +878,38 @@ function viewOrchestration(d) {
     const all = arr(s.sessions);
     const block = (x) => sessionBlock(x, 6, false);
     const older = all.slice(3);
-    return flowLegend() + all.slice(0, 3).map(block).join('') +
+    return runChip(d) + flowLegend() + all.slice(0, 3).map(block).join('') +
       (older.length ? details(`이전 세션 ${older.length}개`, older.map(block).join('')) : '');
   }, { hint: '최근 7일 · 최신순 · 계획·검증 Opus, 실행 Sonnet/Haiku', isEmpty: (s) => arr(s.sessions).length === 0 });
 }
 
-function agentRow(a) {
-  const parts = familyParts(arr(a.models));
+// Expected-vs-actual matrix: one row per agent, columns Opus / Sonnet / Haiku. Dot size = share of the agent's messages.
+const MX_FAMS = ['opus', 'sonnet', 'haiku'];
+
+function matrixRow(a) {
   const name = typeof a.agentType === 'string' ? a.agentType : '';
-  const exp = typeof a.expected === 'string' && a.expected !== '' ? a.expected : '';
-  const ef = family(exp);
-  const expHtml = !exp ? `<span class="exp">${DASH}</span>` : ef === 'other' ? `<span class="exp">기대 ${esc(exp)}</span>` : `<span class="exp f-${ef}"><i class="dot"></i>기대 ${famLabel(ef)}</span>`;
-  const bar = stack(parts, `${name} 실제 메시지`) || '<span class="cap">데이터 없음</span>';
-  return `<div class="rt"><span class="nm" title="${esc(name)}">${txt(a.agentType)}</span>` +
-    `${expHtml}${bar}` +
-    `<span class="runs">실행 ${fmtInt(a.runs)}</span>${verdictBadge(a.verdict)}</div>`;
+  const exp = typeof a.expected === 'string' ? a.expected : '';
+  const ef = exp ? family(exp) : 'other';
+  const msgs = { opus: 0, sonnet: 0, haiku: 0, other: 0 };
+  for (const m of arr(a.models)) msgs[family(m.model)] += nz(m.messages);
+  const total = FAMILY_ORDER.reduce((x, f) => x + msgs[f], 0);
+  const pc = (v) => (v <= 0 || total <= 0 ? DASH : v / total < 0.005 ? '<1%' : `${Math.round((v / total) * 100)}%`);
+  const cells = MX_FAMS.map((f) => {
+    const v = msgs[f];
+    const mm = f !== ef && v > 0 && ef !== 'other';
+    const size = v > 0 ? Math.round(6 + (v / total) * 16) : 0;
+    return `<span class="mc f-${f}${f === ef ? ' ex' : ''}${mm ? ' mm' : ''}"><span class="mdw">${v > 0 ? `<i class="md" style="width:${size}px;height:${size}px"></i>` : ''}</span><span class="mp">${pc(v)}</span></span>`;
+  }).join('');
+  const verdict = pick(VERDICT, a.verdict, { cls: 'info', label: DASH });
+  const aria = `${name || DASH}, 기대 ${ef === 'other' ? DASH : famLabel(ef)}, ${MX_FAMS.map((f) => `${famLabel(f)} ${pc(msgs[f])}`).join(', ')}${msgs.other > 0 ? `, 기타 ${pc(msgs.other)}` : ''}, 실행 ${fmtInt(a.runs)}회, ${verdict.label}`;
+  return `<div class="mr" role="img" aria-label="${esc(aria)}"><span class="who"><span class="nm" title="${esc(name)}">${txt(a.agentType)}</span>` +
+    `<span class="sb">실행 ${fmtInt(a.runs)} ${badge(verdict.cls, verdict.label)}${msgs.other > 0 ? `<span>기타 ${pc(msgs.other)}</span>` : ''}</span></span>${cells}</div>`;
+}
+
+function matrix(list, bare) {
+  const head = `<div class="mr mh" aria-hidden="true"><span></span>${MX_FAMS.map((f) => `<span>${famDot(f)}</span>`).join('')}</div>`;
+  return `<div class="mx">${head}${list.map(matrixRow).join('')}</div>` +
+    (bare ? '' : `<p class="cap">점 크기 = 에이전트 메시지 중 비율 · 테두리 = 기대 모델 · 황갈색 점 = 기대와 다른 모델</p>`);
 }
 
 function viewRouting(d) {
@@ -770,9 +929,9 @@ function viewRouting(d) {
     const na = agents.filter(isNa);
     const rest = agents.filter((a) => !isNa(a));
     const exact = table(['진입점', '모델', '메시지'], main.map((r) => `<tr>${td(txt(r.entrypoint))}${td(txt(r.model))}${td(fmtInt(r.messages), 1)}</tr>`));
-    return `<h3 class="sub">서브에이전트 (기대 모델 대비 실제 메시지)</h3>` + FAM_LEGEND +
-      (rest.length ? `<div>${rest.map(agentRow).join('')}</div>` : noData()) +
-      (na.length ? details(`해당 없음 에이전트 ${na.length}개`, `<div>${na.map(agentRow).join('')}</div>`) : '') +
+    return `<h3 class="sub">서브에이전트 (기대 모델 대비 실제 메시지)</h3>` +
+      (rest.length ? matrix(rest) : noData()) +
+      (na.length ? details(`해당 없음 에이전트 ${na.length}개`, matrix(na, true)) : '') +
       mainBlock + bgBlock + details('메인 스레드 정확한 수치', exact);
   }, { hint: Number.isFinite(d.routing?.windowDays) ? `최근 ${d.routing.windowDays}일` : '최근 7일' });
 }
@@ -782,40 +941,39 @@ function viewTokens(d) {
     const days = arr(s.days);
     if (days.length === 0) return noData();
     const t = isObj(s.totals) ? s.totals : {};
-    const chart = `<h3 class="sub">일별 출력 토큰 (계열별)</h3>` + colChart(tokenGroups(days), 160, '최근 7일 일별 출력 토큰, 계열별 누적') + FAM_LEGEND;
+    const chart = `<h3 class="sub">일별 출력 토큰 (계열별)</h3>` + colChart(tokenGroups(days), 160, '최근 7일 일별 출력 토큰, 계열별 누적') + TOK_LEGEND;
     const side = `<div class="donut">${ring(t.hitRate, pct01(t.hitRate), '캐시 적중률')}` +
       `<div><p class="big">${pct01(t.hitRate)}</p><p class="cap">캐시 적중률 (7일)</p></div></div>` +
       `<div class="tiles">` +
-      [['입력', t.input], ['출력', t.output], ['캐시 읽기', t.cacheRead], ['캐시 생성', t.cacheCreation]]
-        .map(([l, v]) => `<div class="tile"><span class="n">${compactKo(v)}</span><span class="l">${l}</span></div>`).join('') + `</div>`;
+      [['입력', t.input], ['출력', t.output, 'out'], ['캐시 읽기', t.cacheRead], ['캐시 생성', t.cacheCreation]]
+        .map(([l, v, k]) => `<div class="tile"${k ? ` data-m="${k}" data-u="n"` : ''}><span class="n">${compactKo(v)}</span><span class="l">${l}</span>${k ? '<div class="sl"><span class="dl" aria-hidden="true"></span></div>' : ''}</div>`).join('') + `</div>`;
     return `<div class="grid2"><div class="col">${chart}</div><div class="col">${side}</div></div>` +
       details('정확한 수치 (표)', tokenTable(days, t));
   }, { hint: '로컬 날짜 · 메시지 ID로 중복 제거' });
 }
 
-function ubar(label, frac, value, wide) {
+function ubar(label, frac, value, wide, cls) {
   const w = clamp(Number.isFinite(frac) ? frac : 0, 0, 1) * 100;
-  return `<div class="ubar${wide ? ' wide' : ''}"><span class="ubar-l" title="${label}">${label}</span>` +
+  return `<div class="ubar${wide ? ' wide' : ''}${cls ? ` ${cls}` : ''}"><span class="ubar-l" title="${label}">${label}</span>` +
     `<span class="ubar-track" aria-hidden="true"><span class="ubar-fill" style="width:${w.toFixed(1)}%"></span></span>` +
     `<span class="ubar-v">${value}</span></div>`;
 }
 
 function rtkPanel(d) {
-  const rtkTop = isObj(d.rtk) ? d.rtk : {};
   return panel('RTK', d.rtk, (s) => {
     const sum = isObj(s.summary) ? s.summary : {};
-    const cmds = arr(s.topCommands);
+    const cmds = arr(s.topCommands).sort((a, b) => parseSaved(b.saved) - parseSaved(a.saved));
     const vals = cmds.map((c) => parseSaved(c.saved));
     const max = Math.max(0, ...vals);
     const bars = (from, to) => cmds.slice(from, to).map((c, i) =>
-      ubar(txt(c.command), max > 0 ? vals[from + i] / max : 0, `${txt(c.saved)} · ${txt(c.pct)}`)).join('');
+      ubar(txt(c.command), max > 0 ? vals[from + i] / max : 0, `<b>${txt(c.saved)}</b> <i>${txt(c.pct)}</i>`, false, 'rtk')).join('');
     const frac = Number.isFinite(sum.savedPct) ? sum.savedPct / 100 : null;
     return `<div class="donut">${ring(frac, pctValue(sum.savedPct), '절감률')}` +
       `<div><p class="big">${compactKo(sum.savedTokens)}</p><p class="cap">절감 토큰 · 명령 ${fmtInt(sum.commands)}개</p></div></div>` +
       `<h3 class="sub">상위 명령 (절감 토큰)</h3>` +
       (cmds.length ? `<div class="ubars">${bars(0, 5)}</div>` : noData()) +
       (cmds.length > 5 ? details(`나머지 명령 ${cmds.length - 5}개`, `<div class="ubars">${bars(5, cmds.length)}</div>`) : '');
-  }, { hint: Object.keys(rtkTop).length ? 'RTK가 줄인 명령 출력' : '' });
+  }, { hint: isObj(d.rtk) && Object.keys(d.rtk).length ? 'RTK가 줄인 명령 출력' : '' });
 }
 
 function viewSavings(d) {
@@ -845,7 +1003,7 @@ function viewSavings(d) {
   }, { hint: '기준선 = 스킬 없는 실행' });
   const del = panel('실행 위임', d.savings, (s) => delegationBlock(s),
     { hint: '최근 7일 출력 토큰, 전체 대비 비율' });
-  return `<div class="grid2"><div class="col">${rtkPanel(d)}${del}</div><div class="col">${cache}${mem}${pony}</div></div>`;
+  return `${savingsKpis(d)}<div class="grid2"><div class="col">${rtkPanel(d)}${del}</div><div class="col">${cache}${mem}${pony}</div></div>`;
 }
 
 function viewSettings(d) {
@@ -906,13 +1064,88 @@ var next=cur==='dark'?'light':'dark';r.setAttribute('data-theme',next);
 try{localStorage.setItem('monitor-theme',next)}catch(e){}});
 })();`;
 
+// Key numbers for the live script. Numbers only (NaN becomes null); day keys must look like YYYY-MM-DD.
+function metrics(d) {
+  const sv = isObj(d.savings) ? d.savings : {};
+  const tk = isObj(d.tokens) ? d.tokens : {};
+  const n = (v) => (Number.isFinite(v) ? v : null);
+  const r1 = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+  const days = {};
+  for (const g of tokenGroups(arr(tk.days))) if (/^\d{4}-\d{2}-\d{2}$/.test(g.date)) days[g.date] = g.total;
+  const ri = runInfo(d);
+  return {
+    rtk: n(isObj(sv.rtk) ? sv.rtk.saved7d : null),
+    out: n(isObj(tk.totals) ? tk.totals.output : null),
+    hit: r1((isObj(sv.cache) ? sv.cache.hitRate7d : NaN) * 100),
+    share: r1(delegationModel(sv).share * 100),
+    live: ri.live, run: ri.run, days,
+  };
+}
+
+// JSON for a <script type="application/json">: "<" is escaped so "</script>" can never close the tag.
+function metricsJson(d) {
+  let m;
+  try {
+    m = metrics(d);
+  } catch {
+    m = {};
+  }
+  return JSON.stringify(m).replace(/</g, '\\u003c');
+}
+
+// Live changes: compares the JSON blob with the previous snapshot (sessionStorage, last 30) and shows deltas, a glow and sparklines.
+const LIVE_SCRIPT = String.raw`try{(function(){
+var el=document.getElementById('m');if(!el)return;
+var cur;try{cur=JSON.parse(el.textContent)}catch(e){return}
+if(!cur||typeof cur!=='object')return;
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var KEYS=['rtk','out','hit','share','live','run'];
+var hist=[];try{hist=JSON.parse(sessionStorage.getItem('monitor-hist')||'[]');if(!Array.isArray(hist))hist=[];hist=hist.filter(function(h){return h&&typeof h==='object'})}catch(e){hist=[]}
+var prev=hist.length?hist[hist.length-1]:null;if(!prev||typeof prev!=='object')prev=null;
+function num(v){return typeof v==='number'&&isFinite(v)}
+function f1(x){return String(Math.round(x*10)/10)}
+function ko(a){return a>=1e8?f1(a/1e8)+'억':a>=1e4?f1(a/1e4)+'만':String(Math.round(a))}
+function delta(u,a,b){var d=a-b;
+if(u==='p'){d=Math.round(d*10)/10;return d?(d>0?'▲':'▼')+f1(Math.abs(d))+'%p':''}
+d=Math.round(d);return d?(d>0?'+':'-')+ko(Math.abs(d)):''}
+var changed=false,i;
+if(prev){for(i=0;i<KEYS.length;i++){if(cur[KEYS[i]]!==prev[KEYS[i]])changed=true}
+var pd=prev.days||{},cd=cur.days||{};for(var k in cd){if(cd[k]!==pd[k])changed=true}}
+function flash(n){if(reduce)return;n.classList.add('hot');setTimeout(function(){n.classList.remove('hot')},600)}
+function spark(box,key){
+var pts=hist.concat([cur]).map(function(h){return h[key]}).filter(num);
+if(pts.length<2||!box)return;
+var lo=Math.min.apply(null,pts),hi=Math.max.apply(null,pts),r=hi-lo,ns='http://www.w3.org/2000/svg';
+var xy=pts.map(function(v,j){return (j*(64/(pts.length-1))).toFixed(1)+','+(r?(14-(v-lo)/r*12):8).toFixed(1)}).join(' ');
+var old=box.querySelector('svg');if(old)box.removeChild(old);
+var s=document.createElementNS(ns,'svg');s.setAttribute('width','64');s.setAttribute('height','16');s.setAttribute('viewBox','0 0 64 16');
+s.setAttribute('role','img');s.setAttribute('aria-label','최근 '+pts.length+'회 추이: '+f1(pts[0])+' → '+f1(pts[pts.length-1]));
+var p=document.createElementNS(ns,'polyline');p.setAttribute('points',xy);s.appendChild(p);box.appendChild(s)}
+var nodes=document.querySelectorAll('[data-m]');
+for(i=0;i<nodes.length;i++){(function(n){var key=n.getAttribute('data-m'),u=n.getAttribute('data-u');
+var a=cur[key],b=prev?prev[key]:null,t='';
+if(prev&&num(a)&&num(b)&&a!==b){t=u?delta(u,a,b):'';if(t||!u)flash(n)}
+var dl=n.querySelector('.dl');
+if(dl&&t){dl.textContent=t;if(reduce)dl.className+=' on';else requestAnimationFrame(function(){requestAnimationFrame(function(){dl.className+=' on'})})}
+spark(n.querySelector('.sl'),key)})(nodes[i])}
+if(prev){var days=document.querySelectorAll('.cd[data-d]');
+for(i=0;i<days.length;i++){var dd=days[i].getAttribute('data-d');if(cur.days&&prev.days&&cur.days[dd]!==prev.days[dd])flash(days[i])}}
+hist.push(cur);if(hist.length>30)hist=hist.slice(-30);
+try{sessionStorage.setItem('monitor-hist',JSON.stringify(hist))}catch(e){}
+var lc=document.getElementById('lc');
+if(lc){var t2=null;try{t2=sessionStorage.getItem('monitor-lc')}catch(e){}
+if(changed){var n=new Date(),p2=function(x){return String(x).padStart(2,'0')};t2=p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());
+try{sessionStorage.setItem('monitor-lc',t2)}catch(e){}}
+if(t2)lc.textContent=t2}
+})()}catch(e){}`;
+
 function sideNav() {
   let html = '';
   for (const t of TABS) {
     if (t.grp) html += `<div class="grp">${esc(t.grp)}</div>`;
     html += `<button type="button" data-tab="${t.id}"${t.id === 'ov' ? ' aria-current="page"' : ''}>${esc(t.label)}</button>`;
   }
-  return `<nav class="side" aria-label="화면 탭">${html}</nav>`;
+  return `<nav class="side" aria-label="화면 탭"><div class="trk">${html}</div></nav>`;
 }
 
 // Runs a view builder; a throw becomes "데이터 없음" so one bad field never blanks the page.
@@ -927,7 +1160,7 @@ function safe(fn, d) {
 export function render(data) {
   const d = isObj(data) ? data : {};
   const sec = Number.isFinite(d.refreshSec) && d.refreshSec > 0 ? Math.min(86400, Math.max(1, Math.round(d.refreshSec))) : 0;
-  const mode = sec ? `<span class="st live"><span class="pip"></span>실시간 · ${sec}초마다</span>` : badge('info', '스냅샷');
+  const mode = sec ? `<span class="st live"><span class="pip"></span>실시간 · ${sec}초마다<span class="lcw">&nbsp;· 마지막 변경 <span id="lc">${esc(fmtHms(d.generatedAt))}</span></span></span>` : badge('info', '스냅샷');
   const views = [viewOverview, viewOrchestration, viewRouting, viewTokens, viewSavings, viewSettings];
   const sections = TABS.map((t, i) =>
     `<section class="view" id="v-${t.id}" aria-label="${esc(t.label)}"${i === 0 ? '' : ' hidden'}>${safe(views[i], d)}</section>`).join('\n');
@@ -947,12 +1180,14 @@ ${sideNav()}
 <header class="top">
 <div class="brand"><span class="mark" aria-hidden="true">✻</span><h1>클로드 설정 모니터</h1></div>
 <div class="meta"><time>${esc(fmtKo(d.generatedAt, true))}</time>${mode}<button class="btn" id="theme" type="button" aria-label="테마 전환 (밝게/어둡게)">테마</button></div>
+${sec ? `<i class="prog" style="animation-duration:${sec}s" aria-hidden="true"></i>` : ''}
 </header>
 <main class="stage" id="stage">
 ${sections}
 </main>
 </div>
-<script>${BODY_SCRIPT}${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}</script>
+<script type="application/json" id="m">${metricsJson(d)}</script>
+<script>${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}</script>
 </body>
 </html>
 `;
