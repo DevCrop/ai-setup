@@ -183,6 +183,9 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   await pointer('wt/ahead', gw('ahead')); // not an ancestor
   await fs.mkdir(gw('risky'), { recursive: true });
   await pointer('wt/risky', gw('risky')); // merged, but repo config can run programs
+  await fs.mkdir(gw('withsub'), { recursive: true });
+  await pointer('wt/withsub', gw('withsub')); // merged, has .gitmodules
+  await f.put('wt/withsub/.gitmodules', 5);
   await fs.mkdir(gw('wtrisky'), { recursive: true });
   await pointer('wt/wtrisky', gw('wtrisky')); // risky only in its per-worktree config
   await pointer('repo/.claude/worktrees/live', gw('live')); // live Claude session
@@ -190,8 +193,8 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   await fs.mkdir(path.join(repo, '.git', 'modules', 'sub'), { recursive: true });
 
   const { git, calls } = fakeGit(repo, {
-    listed: [[f.p('wt', 'merged'), 'h-merged'], [f.p('wt', 'dirtyone'), 'h-dirty'], [f.p('wt', 'ahead'), 'h-ahead'], [f.p('repo', '.claude', 'worktrees', 'live'), 'h-live'], [f.p('wt', 'risky'), 'h-risky'], [f.p('wt', 'wtrisky'), 'h-wtrisky']],
-    ancestors: ['h-merged', 'h-dirty', 'h-live', 'h-risky', 'h-wtrisky'],
+    listed: [[f.p('wt', 'merged'), 'h-merged'], [f.p('wt', 'dirtyone'), 'h-dirty'], [f.p('wt', 'ahead'), 'h-ahead'], [f.p('repo', '.claude', 'worktrees', 'live'), 'h-live'], [f.p('wt', 'risky'), 'h-risky'], [f.p('wt', 'wtrisky'), 'h-wtrisky'], [f.p('wt', 'withsub'), 'h-withsub']],
+    ancestors: ['h-merged', 'h-dirty', 'h-live', 'h-risky', 'h-wtrisky', 'h-withsub'],
     risky: [f.p('wt', 'risky')],
     wtRisky: [f.p('wt', 'wtrisky')],
     dirty: [f.p('wt', 'dirtyone')],
@@ -210,8 +213,13 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   assert.equal(risky.action, 'report');
   assert.equal(risky.safety, 'manual');
   assert.match(risky.reason, /외부 프로그램 실행 항목/);
-  assert.ok(!calls.some(([c, cwd]) => c === 'status --porcelain' && cwd === f.p('wt', 'risky')), 'status must not run');
+  assert.ok(!calls.some(([c, cwd]) => c === 'status --porcelain --ignore-submodules=all' && cwd === f.p('wt', 'risky')), 'status must not run');
   assert.equal(by(f.p('wt', 'wtrisky')).action, 'report');
+  const sub = by(f.p('wt', 'withsub'));
+  assert.equal(sub.action, 'report');
+  assert.equal(sub.safety, 'manual');
+  assert.match(sub.reason, /서브모듈이 있어/);
+  assert.ok(!calls.some(([c, cwd]) => c.startsWith('status') && cwd === f.p('wt', 'withsub')));
   assert.equal(by(f.p('wt', 'dirtyone')), undefined);
   assert.equal(by(f.p('wt', 'ahead')), undefined);
   assert.equal(by(f.p('repo', '.claude', 'worktrees', 'live')), undefined);
@@ -220,9 +228,9 @@ test('orphan-worktree: rules (a), (b), (c); submodules and .claude/worktrees are
   assert.equal(pr.path, repo);
   assert.equal(pr.how, `git -C "${repo}" worktree prune`);
   assert.equal(pr.action, 'command');
-  assert.equal(out.length, 6);
+  assert.equal(out.length, 7);
   // git status is run inside the worktree, remove/ancestor checks in the parent
-  assert.ok(calls.some(([c, cwd]) => c === 'status --porcelain' && cwd === f.p('wt', 'merged')));
+  assert.ok(calls.some(([c, cwd]) => c === 'status --porcelain --ignore-submodules=all' && cwd === f.p('wt', 'merged')));
 });
 
 test('orphan-worktree: git failures flag nothing for listed-state rules', async (t) => {

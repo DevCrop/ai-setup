@@ -287,6 +287,16 @@ test('verify: orphan worktree (a) missing gitdir, (b) merged+clean via git, dirt
     assert.deepEqual(b.entry.argv, GIT.concat(['-C', parent, 'worktree', 'remove', '--', f.d('wt2')]));
     assert.equal(b.entry.action, 'run');
     assert.equal((await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(true) }))).ok, false);
+    // every git status call ignores submodules (their config could run programs)
+    const seen = [];
+    await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: (a) => { seen.push(a); return git(false)(a); } }));
+    const statuses = seen.filter((a) => a[5] === 'status');
+    assert.ok(statuses.length >= 1 && statuses.every((a) => a.includes('--ignore-submodules=all')));
+    // a worktree with .gitmodules is skipped before any git call
+    await f.write(f.d('wt2', '.gitmodules'), '[submodule "x"]\n');
+    const sm = await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(false) }));
+    assert.equal(sm.ok, false);
+    assert.equal(sm.reason, '서브모듈이 있어 건너뜀');
     assert.equal((await verifyItem({ id: 'b', category: 'orphan-worktree', path: f.d('wt2') }, f.mk({ probe: git(false, false) }))).ok, false);
   } finally { await f.done(); }
 });

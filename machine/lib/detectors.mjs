@@ -263,15 +263,18 @@ export async function detectOrphanWorktree(env) {
         const anc = await env.git(['merge-base', '--is-ancestor', entryReal.head, br], p.repoDir);
         if (!anc.ok) continue;
         // A repo config that can run external programs (filters, fsmonitor, hooks, ...) makes `git status` unsafe: do not run it.
-        if (await configRisk(env, dir)) {
+        // Config that can run programs, or submodules (status would recurse into them): never run status, hand it to the user.
+        const noCheck = (await configRisk(env, dir)) ? '저장소 설정에 외부 프로그램 실행 항목이 있어 자동 확인하지 않았습니다'
+          : (await exists(path.join(dir, '.gitmodules'))) ? '서브모듈이 있어 자동 확인하지 않았습니다' : null;
+        if (noCheck) {
           out.push(junk('orphan-worktree', z.node, {
             score: 0.3, label: '고아 워크트리', safety: 'manual', action: 'report',
-            reason: '저장소 설정에 외부 프로그램 실행 항목이 있어 자동 확인하지 않았습니다',
+            reason: noCheck,
             how: `직접 확인 후 git worktree remove "${z.node.p}" (원본 저장소 ${p.repoDir}에서 실행)`,
           }));
           continue;
         }
-        const status = await env.git(['status', '--porcelain'], dir);
+        const status = await env.git(['status', '--porcelain', '--ignore-submodules=all'], dir);
         if (!status.ok || status.out.trim()) continue;
         why = `작업이 모두 ${br} 브랜치에 병합되었고 변경 사항이 없는 워크트리입니다.`;
         how = `git worktree remove "${z.node.p}" (원본 저장소 ${p.repoDir}에서 실행, 변경 사항이 있으면 거부됨)`;

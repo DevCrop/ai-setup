@@ -305,6 +305,7 @@ async function planWorktree(p, ctx) {
   if (!gst.isFile() || gst.size > 4096) return { reject: '.git 포인터 파일이 올바르지 않음' };
   const m = /^gitdir:\s*(.+)$/m.exec(await fs.readFile(gitEntry, 'utf8'));
   if (!m) return { reject: '.git 포인터 파일에 gitdir 줄이 없음' };
+  if (await exists(W.join(p, '.gitmodules'))) return { reject: '서브모듈이 있어 건너뜀' };
   const gitdir = W.resolve(p, m[1].trim());
   // 1. structure first: <parent>\.git\worktrees\<id>
   const wtDir = W.dirname(gitdir), parentGit = W.dirname(wtDir), parent = W.dirname(parentGit);
@@ -324,7 +325,7 @@ async function planWorktree(p, ctx) {
   if (!def) return { reject: '기본 브랜치를 찾을 수 없음' };
   if ((await q(parent, 'merge-base', '--is-ancestor', head, def)).code !== 0) return { reject: `HEAD가 ${def}에 병합되지 않음` };
   for (const dir of [p, parent]) { const risk = await configRisk(dir, ctx); if (risk) return { reject: risk }; } // before status and remove
-  const st = await q(p, 'status', '--porcelain');
+  const st = await q(p, 'status', '--porcelain', '--ignore-submodules=all');
   if (st.code !== 0 || st.stdout.trim() !== '') return { reject: '작업 트리가 깨끗하지 않음' };
   return { kind: 'run', argv: git('-C', parent, 'worktree', 'remove', '--', p) };
 }
