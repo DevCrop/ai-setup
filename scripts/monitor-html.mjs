@@ -262,20 +262,24 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--fg); }
 
 .mx { display: grid; }
-.mr { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(56px, 84px)); gap: var(--sp-2); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); min-width: 0; }
-.mr.mh { padding-top: 0; font-size: var(--t-xs); } .mr.mh span { justify-self: center; }
+.mr { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(64px, 112px)); gap: var(--sp-1); align-items: stretch; border-bottom: 1px solid var(--line); min-width: 0; }
+.mr > .who { padding: var(--sp-2) 0; align-self: center; }
+.mr.mh { font-size: var(--t-xs); color: var(--muted); } .mr.mh span { padding: 0 var(--sp-2) var(--sp-1); }
 .mr:last-child { border-bottom: 0; padding-bottom: 0; }
 .who { display: grid; gap: 2px; min-width: 0; }
 .who .nm { font-size: var(--t-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .who .sb { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2); font-size: var(--t-xs); color: var(--muted); }
-.mc { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 40px; border: 1px solid transparent; border-radius: var(--r-md); font-size: 11px; color: var(--muted); }
-.mc.ex { border-color: var(--line-strong); }
-.mdw { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; }
-.md { display: block; border-radius: 50%; background: var(--fc); }
-.mc.mm .md { background: var(--warn); } .mc.mm .mp { color: var(--warn); }
+.mc { display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: var(--sp-2); font-size: var(--t-xs); }
+.mc.ex { background: color-mix(in srgb, var(--fc) 9%, transparent); box-shadow: inset 0 2px 0 var(--fc); }
+.mp { font-weight: 600; color: var(--fg); line-height: 1; }
+.mc.z .mp { font-weight: 400; color: var(--faint); }
+.mb { display: block; height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; }
+.mb i { display: block; height: 100%; border-radius: 2px; background: var(--fc); }
+.mc.mm .mp { color: var(--warn); }
+.mc.mm .mb i { background: repeating-linear-gradient(-45deg, var(--warn) 0 3px, color-mix(in srgb, var(--warn) 45%, transparent) 3px 5px); }
 @media (max-width: 640px) {
-  .mr { grid-template-columns: minmax(0, 1fr) repeat(3, 52px); gap: var(--sp-1); }
-  .mc { flex-direction: column; gap: 0; min-height: 48px; }
+  .mr { grid-template-columns: minmax(0, 1fr) repeat(3, 56px); gap: 2px; }
+  .mc { padding: var(--sp-2) 6px; }
 }
 
 /* 5 views: orchestration flowchart. Neutral root and node cards; 1px grey connectors: a stem, a trunk on the left, a bus per row, a tick into each node. */
@@ -868,7 +872,7 @@ function viewOrchestration(d) {
   }, { hint: '최근 7일 · 최신순 · 계획·검증 Opus, 실행 Sonnet/Haiku', isEmpty: (s) => arr(s.sessions).length === 0 });
 }
 
-// Expected-vs-actual matrix: one row per agent, columns Opus / Sonnet / Haiku. Dot size = share of the agent's messages.
+// Expected-vs-actual matrix: one row per agent, columns Opus / Sonnet / Haiku. Bar length = share of the agent's messages.
 const MX_FAMS = ['opus', 'sonnet', 'haiku'];
 
 function matrixRow(a) {
@@ -882,8 +886,8 @@ function matrixRow(a) {
   const cells = MX_FAMS.map((f) => {
     const v = msgs[f];
     const mm = f !== ef && v > 0 && ef !== 'other';
-    const size = v > 0 ? Math.round(6 + (v / total) * 16) : 0;
-    return `<span class="mc f-${f}${f === ef ? ' ex' : ''}${mm ? ' mm' : ''}"><span class="mdw">${v > 0 ? `<i class="md" style="width:${size}px;height:${size}px"></i>` : ''}</span><span class="mp">${pc(v)}</span></span>`;
+    const w = v > 0 ? Math.max(3, Math.round((v / total) * 100)) : 0;
+    return `<span class="mc f-${f}${f === ef ? ' ex' : ''}${mm ? ' mm' : ''}${v > 0 ? '' : ' z'}"><span class="mp">${pc(v)}</span><span class="mb"><i style="width:${w}%"></i></span></span>`;
   }).join('');
   const verdict = pick(VERDICT, a.verdict, { cls: 'info', label: DASH });
   const aria = `${name || DASH}, 기대 ${ef === 'other' ? DASH : famLabel(ef)}, ${MX_FAMS.map((f) => `${famLabel(f)} ${pc(msgs[f])}`).join(', ')}${msgs.other > 0 ? `, 기타 ${pc(msgs.other)}` : ''}, 실행 ${fmtInt(a.runs)}회, ${verdict.label}`;
@@ -892,9 +896,9 @@ function matrixRow(a) {
 }
 
 function matrix(list, bare) {
-  const head = `<div class="mr mh" aria-hidden="true"><span></span>${MX_FAMS.map((f) => `<span>${famDot(f)}</span>`).join('')}</div>`;
+  const head = `<div class="mr mh" aria-hidden="true"><span></span>${MX_FAMS.map((f) => `<span class="f-${f}">${famDot(f)}</span>`).join('')}</div>`;
   return `<div class="mx">${head}${list.map(matrixRow).join('')}</div>` +
-    (bare ? '' : `<p class="cap">점 크기 = 에이전트 메시지 중 비율 · 테두리 = 기대 모델 · 황갈색 점 = 기대와 다른 모델</p>`);
+    (bare ? '' : `<p class="cap">막대 = 에이전트 메시지 중 비율 · 옅은 칸 = 기대 모델 · 빗금 황갈색 = 기대와 다른 모델</p>`);
 }
 
 function viewRouting(d) {
