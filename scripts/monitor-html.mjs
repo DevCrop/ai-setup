@@ -261,25 +261,23 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 .hl circle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--fg); }
 
-.mx { display: grid; }
-.mr { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(64px, 112px)); gap: var(--sp-1); align-items: stretch; border-bottom: 1px solid var(--line); min-width: 0; }
-.mr > .who { padding: var(--sp-2) 0; align-self: center; }
-.mr.mh { font-size: var(--t-xs); color: var(--muted); } .mr.mh span { padding: 0 var(--sp-2) var(--sp-1); }
-.mr:last-child { border-bottom: 0; padding-bottom: 0; }
+.ledger { display: grid; }
+.lr { display: grid; grid-template-columns: minmax(96px, 1fr) 76px minmax(0, 2.4fr) 64px; gap: var(--sp-4); align-items: center; padding: var(--sp-3) 0; border-top: 1px solid var(--line); min-width: 0; }
+.lr.lh { border-top: 0; padding: 0 0 var(--sp-2); font-size: var(--t-xs); color: var(--faint); }
+.lr.lh span:last-child, .hit { text-align: right; }
+.lr .stack { height: 6px; }
+.act { display: grid; gap: 6px; min-width: 0; }
+.act .sh { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who { display: grid; gap: 2px; min-width: 0; }
 .who .nm { font-size: var(--t-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.who .sb { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2); font-size: var(--t-xs); color: var(--muted); }
-.mc { display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: var(--sp-2); font-size: var(--t-xs); }
-.mc.ex { background: color-mix(in srgb, var(--fc) 9%, transparent); box-shadow: inset 0 2px 0 var(--fc); }
-.mp { font-weight: 600; color: var(--fg); line-height: 1; }
-.mc.z .mp { font-weight: 400; color: var(--faint); }
-.mb { display: block; height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; }
-.mb i { display: block; height: 100%; border-radius: 2px; background: var(--fc); }
-.mc.mm .mp { color: var(--warn); }
-.mc.mm .mb i { background: repeating-linear-gradient(-45deg, var(--warn) 0 3px, color-mix(in srgb, var(--warn) 45%, transparent) 3px 5px); }
+.who .sb { font-size: var(--t-xs); color: var(--muted); }
+.exp { font-size: var(--t-sm); }
+.hit { font-size: 20px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.hit.off { color: var(--warn); }
 @media (max-width: 640px) {
-  .mr { grid-template-columns: minmax(0, 1fr) repeat(3, 56px); gap: 2px; }
-  .mc { padding: var(--sp-2) 6px; }
+  .lr { grid-template-columns: minmax(0, 1fr) auto 52px; grid-template-areas: "who exp hit" "act act act"; gap: var(--sp-2) var(--sp-3); }
+  .lr .who { grid-area: who; } .lr .exp { grid-area: exp; } .lr .act { grid-area: act; } .lr .hit { grid-area: hit; }
+  .lr.lh { display: none; }
 }
 
 /* 5 views: orchestration flowchart. Neutral root and node cards; 1px grey connectors: a stem, a trunk on the left, a bus per row, a tick into each node. */
@@ -872,33 +870,33 @@ function viewOrchestration(d) {
   }, { hint: '최근 7일 · 최신순 · 계획·검증 Opus, 실행 Sonnet/Haiku', isEmpty: (s) => arr(s.sessions).length === 0 });
 }
 
-// Expected-vs-actual matrix: one row per agent, columns Opus / Sonnet / Haiku. Bar length = share of the agent's messages.
-const MX_FAMS = ['opus', 'sonnet', 'haiku'];
-
+// Expected-vs-actual ledger: one row per agent. The bar splits its messages by family; off-plan families are hatched.
+// The figure on the right is the share that ran on the expected family, which is what routing is about.
 function matrixRow(a) {
-  const name = typeof a.agentType === 'string' ? a.agentType : '';
   const exp = typeof a.expected === 'string' ? a.expected : '';
   const ef = exp ? family(exp) : 'other';
   const msgs = { opus: 0, sonnet: 0, haiku: 0, other: 0 };
   for (const m of arr(a.models)) msgs[family(m.model)] += nz(m.messages);
   const total = FAMILY_ORDER.reduce((x, f) => x + msgs[f], 0);
   const pc = (v) => (v <= 0 || total <= 0 ? DASH : v / total < 0.005 ? '<1%' : `${Math.round((v / total) * 100)}%`);
-  const cells = MX_FAMS.map((f) => {
-    const v = msgs[f];
-    const mm = f !== ef && v > 0 && ef !== 'other';
-    const w = v > 0 ? Math.max(3, Math.round((v / total) * 100)) : 0;
-    return `<span class="mc f-${f}${f === ef ? ' ex' : ''}${mm ? ' mm' : ''}${v > 0 ? '' : ' z'}"><span class="mp">${pc(v)}</span><span class="mb"><i style="width:${w}%"></i></span></span>`;
-  }).join('');
+  const known = ef !== 'other';
+  const parts = FAMILY_ORDER.filter((f) => msgs[f] > 0).map((f) => ({ fam: f, value: msgs[f], hatch: known && f !== ef }));
+  const share = parts.map((x) => `${famLabel(x.fam)} ${pc(x.value)}`).join(' · ');
+  const hit = known && total > 0 ? msgs[ef] / total : null;
+  const tone = hit === null ? '' : hit >= 0.95 ? '' : ' off';
   const verdict = pick(VERDICT, a.verdict, { cls: 'info', label: DASH });
-  const aria = `${name || DASH}, 기대 ${ef === 'other' ? DASH : famLabel(ef)}, ${MX_FAMS.map((f) => `${famLabel(f)} ${pc(msgs[f])}`).join(', ')}${msgs.other > 0 ? `, 기타 ${pc(msgs.other)}` : ''}, 실행 ${fmtInt(a.runs)}회, ${verdict.label}`;
-  return `<div class="mr" role="img" aria-label="${esc(aria)}"><span class="who"><span class="nm" title="${esc(name)}">${txt(a.agentType)}</span>` +
-    `<span class="sb">실행 ${fmtInt(a.runs)} ${badge(verdict.cls, verdict.label)}${msgs.other > 0 ? `<span>기타 ${pc(msgs.other)}</span>` : ''}</span></span>${cells}</div>`;
+  const bar = stack(parts, `${typeof a.agentType === 'string' ? a.agentType : ''} 실제 메시지`) || '<div class="stack"></div>';
+  return `<div class="lr"><div class="who"><span class="nm" title="${esc(a.agentType)}">${txt(a.agentType)}</span>` +
+    `<span class="sb">${fmtInt(a.runs)}회 · ${esc(verdict.label)}</span></div>` +
+    `<div class="exp">${known ? famDot(ef) : DASH}</div>` +
+    `<div class="act">${bar}<span class="sh">${esc(share || DASH)}</span></div>` +
+    `<div class="hit${tone}">${hit === null ? DASH : pc(msgs[ef])}</div></div>`;
 }
 
 function matrix(list, bare) {
-  const head = `<div class="mr mh" aria-hidden="true"><span></span>${MX_FAMS.map((f) => `<span class="f-${f}">${famDot(f)}</span>`).join('')}</div>`;
-  return `<div class="mx">${head}${list.map(matrixRow).join('')}</div>` +
-    (bare ? '' : `<p class="cap">막대 = 에이전트 메시지 중 비율 · 옅은 칸 = 기대 모델 · 빗금 황갈색 = 기대와 다른 모델</p>`);
+  const head = `<div class="lr lh" aria-hidden="true"><span>에이전트</span><span>기대</span><span>실제 메시지</span><span>기대 적중</span></div>`;
+  return `<div class="ledger">${head}${list.map(matrixRow).join('')}</div>` +
+    (bare ? '' : `<p class="cap">빗금 = 기대와 다른 모델 · 기대 적중 = 기대 모델로 실행된 메시지 비율</p>`);
 }
 
 function viewRouting(d) {
