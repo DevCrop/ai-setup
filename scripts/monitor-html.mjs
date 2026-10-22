@@ -26,12 +26,12 @@ const SUB_ORDER = ['sonnet', 'haiku', 'opus', 'other'];
 const ROLE_LABEL = { main: '메인', subagent: '서브에이전트', 'claude-mem': 'claude-mem 관찰자', sdk: 'SDK' };
 
 const TABS = [
-  { id: 'ov', grp: '요약', label: '개요' },
-  { id: 'orch', grp: '구조', label: '오케스트레이션' },
-  { id: 'route', grp: null, label: '모델 라우팅' },
-  { id: 'tok', grp: '사용량', label: '토큰' },
-  { id: 'sav', grp: null, label: '절감 효과' },
-  { id: 'set', grp: '상태', label: '설정 상태' },
+  { id: 'ov', label: '개요' },
+  { id: 'orch', label: '오케스트레이션' },
+  { id: 'route', label: '모델 라우팅' },
+  { id: 'tok', label: '토큰' },
+  { id: 'sav', label: '절감 효과' },
+  { id: 'set', label: '설정 상태' },
 ];
 
 
@@ -44,35 +44,37 @@ function treeCss(n, scope) {
 }
 
 const CSS = `
-/* 1 tokens (legacy dashboard). Colour budget: accent only for brand, active nav, live dots and the Opus data colour; the rest is grey. */
+/* 1 tokens. Quiet instrument panel: paper in light, warm graphite in dark. Accent only for brand, live dots, the donut subagent arc and the Opus data colour. */
 :root {
-  --bg: #faf9f5; --panel: #ffffff; --line: #e8e6dc; --line-strong: #d3d0c3; --fg: #141413; --muted: #5e5d59; --faint: #7a786f;
-  --accent: #d77757; --accent-ink: #b9532f; --fill: #f0eee6;
-  --warn: #8f6420; --bad: #b04a38;
+  --bg: #faf9f5; --panel: #ffffff; --raise: #ffffff; --line: #e8e6dc; --line-strong: #d3d0c3; --fg: #141413; --muted: #5e5d59; --faint: #7a786f;
+  --accent: #d77757; --accent-ink: #b9532f; --fill: #f0eee6; --hl: rgba(215, 119, 87, .10); --glow: 4%; --shadow: 0 1px 2px rgba(20, 20, 19, .04);
+  --warn: #8f6420; --bad: #b04a38; --ok: #3f7a55;
   --f-opus: #d77757; --f-sonnet: #7391b3; --f-haiku: #74a085; --f-other: #a09c92; --hatch: rgba(255, 255, 255, .55);
   --sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   --serif: "Source Serif 4", "Noto Serif KR", Georgia, "Batang", serif;
   --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "D2Coding", "Malgun Gothic", Menlo, monospace;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
-  --gap: 16px; --pad: 16px; --edge: 24px; --max: 1440px; --ctl: 36px;
+  --gap: 16px; --pad: 20px; --edge: 24px; --max: 1200px; --ctl: 36px;
   --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
-  --t-xs: 12px; --t-sm: 13px; --t-md: 14px; --t-lg: 16px; --t-h1: 20px;
+  --t-xs: 12px; --t-sm: 13px; --t-md: 14px; --t-lg: 16px;
   --lh: 1.6; --ease: cubic-bezier(.22, .61, .36, 1);
 }
-@media (max-width: 760px) { :root { --gap: 12px; --pad: 12px; --edge: 16px; --ctl: 40px; } }
+@media (max-width: 760px) { :root { --pad: 14px; --edge: 16px; --ctl: 40px; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #1f1e1d; --panel: #262624; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
-  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --fill: #33322f;
+  --bg: #1f1e1d; --panel: #262624; --raise: #403f3b; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
+  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --ok: #86b497; --fill: #33322f; --hl: rgba(215, 119, 87, .12); --glow: 6%; --shadow: none;
   --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #1f1e1d; --panel: #262624; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
-  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --fill: #33322f;
+  --bg: #1f1e1d; --panel: #262624; --raise: #403f3b; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
+  --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --ok: #86b497; --fill: #33322f; --hl: rgba(215, 119, 87, .12); --glow: 6%; --shadow: none;
   --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; }
 
 /* 2 base */
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 400 var(--t-md)/var(--lh) var(--sans); font-variant-numeric: tabular-nums; -webkit-text-size-adjust: 100%; }
+html { min-height: 100%; background-color: var(--bg);
+  background-image: radial-gradient(ellipse 70% 480px at 50% 0, color-mix(in srgb, var(--accent) var(--glow), transparent), transparent), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, repeat; }
+body { margin: 0; min-height: 100vh; color: var(--fg); font: 400 var(--t-md)/var(--lh) var(--sans); font-variant-numeric: tabular-nums; -webkit-text-size-adjust: 100%; }
 button { font: inherit; cursor: pointer; }
 a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -80,56 +82,48 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 .hatch { background-image: repeating-linear-gradient(45deg, transparent 0 4px, var(--hatch) 4px 8px); }
 .f-opus { --fc: var(--f-opus); } .f-sonnet { --fc: var(--f-sonnet); } .f-haiku { --fc: var(--f-haiku); } .f-other { --fc: var(--f-other); }
 
-/* 3 layout: sidebar + header + one scrolling stage; below 1100 the sidebar is a tab bar under the header */
-.app { display: grid; grid-template-columns: 208px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "side top" "side stage"; min-height: 100%; }
-@media (min-width: 1100px) { .app { height: 100%; } .stage { overflow-y: auto; } }
-.side { grid-area: side; background: var(--panel); border-right: 1px solid var(--line); padding: var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: 2px; align-content: start; overflow-y: auto; }
-.side .grp { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: var(--sp-4) var(--sp-3) var(--sp-1); }
-.side .grp:first-child { padding-top: var(--sp-1); }
-.trk { display: contents; }
-.side button { display: flex; align-items: center; width: 100%; min-height: 32px; text-align: left; font-size: var(--t-sm); color: var(--muted); background: none; border: 0; border-radius: var(--r-md); padding: 0 var(--sp-3); transition: background-color .15s, color .15s; }
-.side button:hover { color: var(--fg); background: color-mix(in srgb, var(--fill) 55%, transparent); }
-.side button[aria-current="page"] { color: var(--fg); font-weight: 500; background: var(--fill); }
-.side button:focus-visible { outline-offset: -2px; }
-.top { grid-area: top; position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3) var(--edge); background: var(--bg); border-bottom: 1px solid var(--line); min-width: 0; }
-.brand { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-.mark { color: var(--accent); font-size: var(--t-lg); }
-.brand h1 { margin: 0; font-family: var(--serif); font-size: var(--t-h1); font-weight: 500; line-height: 1.3; white-space: nowrap; }
-.meta { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+/* 3 layout: one sticky top bar (brand, segmented tabs, live status) above one centred column */
+.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 86%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.topin { max-width: calc(var(--max) + 2 * var(--edge)); margin-inline: auto; padding: var(--sp-3) var(--edge); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "brand tabs meta"; align-items: center; gap: var(--sp-3) var(--sp-5); min-width: 0; }
+.brand { grid-area: brand; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.mark { color: var(--accent); font-family: var(--serif); font-size: var(--t-lg); }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; white-space: nowrap; }
+.tabs { grid-area: tabs; justify-self: start; display: flex; gap: 2px; max-width: 100%; min-width: 0; overflow-x: auto; background: var(--fill); border-radius: var(--r-md); padding: 3px; scrollbar-width: none; }
+.tabs button { flex: none; white-space: nowrap; min-height: 32px; font-size: var(--t-sm); color: var(--muted); background: none; border: 0; border-radius: var(--r-sm); padding: 0 var(--sp-3); transition: background-color .15s, color .15s; }
+.tabs button:hover { color: var(--fg); }
+.tabs button[aria-current="page"] { color: var(--fg); font-weight: 500; background: var(--raise); box-shadow: 0 1px 2px rgba(20, 20, 19, .12), 0 0 0 1px var(--line); }
+.tabs button:focus-visible { outline-offset: -2px; }
+.meta { grid-area: meta; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .meta time { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; }
 .prog { position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; pointer-events: none; }
-.stage { grid-area: stage; min-width: 0; min-height: 0; padding: var(--gap) var(--edge) var(--edge); }
+.stage { padding: var(--gap) var(--edge) var(--sp-5); min-width: 0; }
 .view { width: 100%; max-width: var(--max); margin-inline: auto; display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
-.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); }
-.kpis.k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.ov { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
+.g12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
+.c8 { grid-column: span 8; } .c4 { grid-column: span 4; }
+.g22 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
 .grid2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
-@media (max-width: 1099px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "top" "side" "stage"; align-content: start; }
-  .side { position: sticky; top: 0; z-index: 6; flex-direction: row; overflow: visible; background: var(--bg); border-right: 0; border-bottom: 1px solid var(--line); padding: var(--sp-2) var(--edge); }
-  .trk { display: flex; flex: 1 1 auto; min-width: 0; gap: 2px; overflow-x: auto; background: var(--fill); border-radius: var(--r-md); padding: 3px; scrollbar-width: none; }
-  .side .grp { display: none; }
-  .side button { white-space: nowrap; flex: none; width: auto; min-height: 40px; border-radius: var(--r-sm); }
-  .side button:hover { background: none; color: var(--fg); }
-  .side button[aria-current="page"] { background: var(--panel); box-shadow: 0 1px 2px rgba(20, 20, 19, .14), 0 0 0 1px var(--line); }
-  .top { position: relative; }
-  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .kpis.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.band { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow); }
+.band.k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1239px) {
+  .topin { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand meta" "tabs tabs"; gap: var(--sp-2) var(--sp-4); }
+  .tabs { justify-self: stretch; }
+  .tabs button { min-height: 40px; }
+}
+@media (max-width: 899px) {
+  .g12, .g22 { grid-template-columns: minmax(0, 1fr); }
+  .c8, .c4 { grid-column: 1 / -1; }
+  .band, .band.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .band > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .ov { grid-template-columns: minmax(0, 1fr); }
-  .top { flex-wrap: nowrap; gap: var(--sp-2); padding: var(--sp-2) var(--edge); }
-  .brand { gap: var(--sp-2); }
-  .brand h1 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; }
-  .meta { gap: var(--sp-2); flex: none; }
+  .topin { padding: var(--sp-2) var(--edge); }
+  .meta { gap: var(--sp-2); }
   .meta time { font-size: 11px; }
   .lcw { display: none; }
-  .cd .cl { font-size: 10px; } .yax { width: 3em; font-size: 10px; }
+  .cd .cl { font-size: 10px; } .cd .cv-v { font-size: 9px; letter-spacing: -.02em; } .sh { flex-wrap: wrap; } .yax { width: 3em; font-size: 10px; }
   .meta .btn { min-height: 32px; padding: 0 var(--sp-2); }
-  .kpi .v { font-size: 22px; }
+  .kpi .v { font-size: 26px; }
   .dlines { font-size: var(--t-xs); }
   .dlines b { min-width: 5em; }
 }
@@ -143,15 +137,16 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 .pip { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .live .pip, .pip.live { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
-@media (prefers-reduced-motion: reduce) { .live .pip, .pip.live { animation: none !important; } .prog { display: none; } .dl, .kpi::after, .cd::after, .chip::after, .side button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .live .pip, .pip.live { animation: none !important; } .prog { display: none; } .dl, .kpi, .tabs button { transition: none; } }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--fc, var(--faint)); flex: none; }
 .fc { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--fg); white-space: nowrap; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--ctl); font-size: var(--t-sm); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-1) var(--sp-3); }
 .btn:hover { border-color: var(--faint); }
 
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--pad); min-width: 0; display: flex; flex-direction: column; gap: var(--sp-3); overflow: hidden; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: var(--pad); min-width: 0; display: flex; flex-direction: column; gap: var(--sp-3); overflow: hidden; }
+.panel > .donut { margin-block: auto; }
 .ph { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
-.ph h2 { margin: 0; font-family: var(--serif); font-size: var(--t-lg); font-weight: 500; line-height: 1.4; }
+.ph h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; line-height: 1.4; }
 .ph .hint { font-size: var(--t-xs); color: var(--muted); min-width: 0; text-align: right; }
 .ph .rt-end { display: flex; align-items: baseline; gap: var(--sp-3); min-width: 0; }
 .cap { margin: 0; color: var(--muted); font-size: var(--t-xs); }
@@ -165,26 +160,29 @@ details.fold[open] summary { margin-bottom: var(--sp-3); }
 .tile { display: grid; gap: 2px; align-content: start; min-width: 0; }
 .tile .n { font-size: 20px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
 .tile .l { font-size: var(--t-xs); color: var(--muted); }
-.kpi { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); padding: var(--pad); display: grid; gap: var(--sp-1); align-content: start; min-width: 0; }
+.kpi { background: var(--panel); padding: var(--pad); display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; transition: background-color 1.2s ease; }
+.kpi.hot { background: var(--hl); transition: none; }
 .kpi .k { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vr { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; }
+.kpi .v { font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; overflow-wrap: anywhere; }
+.kpi .v.bad { color: var(--bad); }
 .dl { font-size: var(--t-xs); color: var(--muted); opacity: 0; transition: opacity .4s; white-space: nowrap; }
-.dl:empty { display: none; } .dl.on { opacity: 1; }
-.sl { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 16px; margin-top: var(--sp-1); }
+.dl:empty { display: none; } .dl.on { opacity: 1; } .dl.pos { color: var(--ok); } .dl.neg { color: var(--warn); }
+.ft { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-1); min-width: 0; }
+.kpi .n { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sl { display: flex; align-items: center; justify-content: flex-end; flex: none; gap: var(--sp-2); }
 .sl svg { flex: none; margin-left: auto; overflow: visible; }
 .sl polyline { fill: none; stroke: var(--faint); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.tile .sl { justify-content: flex-start; margin-top: var(--sp-1); min-height: 16px; }
 .mb { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: var(--sp-1) 0; }
 .mb i { display: block; height: 100%; border-radius: 2px; background: var(--faint); }
-.chip { display: inline-flex; align-items: center; gap: var(--sp-2); width: max-content; max-width: 100%; margin: 0; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--t-xs); color: var(--muted); }
-.chip b { font-weight: 500; color: var(--fg); }
-.kpi, .cd, .chip { position: relative; }
-.kpi::after, .cd::after, .chip::after { content: ""; position: absolute; inset: -2px; border-radius: calc(var(--r-lg) + 2px); box-shadow: 0 0 0 2px var(--accent), 0 0 14px 2px var(--accent); opacity: 0; transition: opacity .3s; pointer-events: none; }
-.cd::after { border-radius: var(--r-sm); }
-.hot::after { opacity: .35; }
-.kpi .v { font-size: 24px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
-.kpi .v.bad { color: var(--bad); }
-.kpi .n { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 760px) { .kpi { padding: var(--sp-3); } }
+.runline { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--t-xs); color: var(--muted); }
+.runline b { font-weight: 500; color: var(--fg); }
+.runline .pip { color: var(--accent); }
+.lrow { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; min-height: 32px; font-size: var(--t-sm); border-bottom: 1px solid var(--line); }
+.lrow:last-child { border-bottom: 0; }
+.lrow .ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.lrow .lv { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; } .lrow .lv.warn { color: var(--warn); } .lrow .lv.bad { color: var(--bad); }
 
 .stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--line); }
 .stack i { display: block; height: 100%; background-color: var(--fc); }
@@ -220,7 +218,7 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 .pitem .what { overflow-wrap: anywhere; font-weight: 500; min-width: 0; }
 .pitem .ev { grid-column: 2 / -1; color: var(--muted); font-size: var(--t-xs); overflow-wrap: anywhere; min-width: 0; }
 .dt { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
-.dt.warn { background: var(--warn); } .dt.bad { background: var(--bad); }
+.dt.ok { background: var(--ok); } .dt.warn { background: var(--warn); } .dt.bad { background: var(--bad); }
 
 @media (max-width: 640px) {
   .ubar.wide { grid-template-columns: minmax(64px, 90px) minmax(0, 1fr); }
@@ -248,7 +246,7 @@ i.sw { background-color: var(--fc); display: inline-block; width: 8px; height: 8
 .dn { width: 120px; height: 120px; flex: none; }
 .dn circle { fill: none; stroke-width: 14; stroke: var(--fc); } .dn circle.tr { stroke: var(--line); }
 .dn .dv { fill: var(--fg); font-size: 22px; font-weight: 500; } .dn .dk { fill: var(--muted); font-size: 11px; }
-.d-main { --fc: var(--faint); } .d-sub { --fc: var(--accent); } .d-bg { --fc: var(--line-strong); }
+.d-main { --fc: var(--faint); } .d-sub { --fc: var(--accent); } .d-bg { --fc: color-mix(in srgb, var(--faint) 50%, var(--panel)); }
 .dlg { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); font-size: var(--t-sm); flex: 1 1 180px; min-width: 0; }
 .dlg li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto; gap: var(--sp-2); align-items: center; }
 .dlg .nm { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -282,11 +280,11 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
 
 /* 5 views: orchestration flowchart. Neutral root and node cards; 1px grey connectors: a stem, a trunk on the left, a bus per row, a tick into each node. */
 .tree { min-width: 0; }
-.root { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); width: max-content; max-width: 100%; padding: 10px var(--sp-3); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: var(--t-sm); }
+.root { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); width: max-content; max-width: 100%; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--line); border-radius: 999px; background: var(--fill); font-size: var(--t-sm); }
 .root b { font-weight: 500; }
 .n3 { font-size: var(--t-xs); color: var(--muted); overflow-wrap: anywhere; }
 .n3.diff { color: var(--warn); }
-.stem { position: relative; height: 28px; width: 1px; margin-left: 15px; background: var(--line-strong); }
+.stem { position: relative; height: 28px; width: 1px; margin-left: 24px; background: var(--line-strong); }
 .stem span { position: absolute; left: 10px; top: 4px; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .nodes { --n: 2; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); column-gap: 16px; row-gap: 28px; margin: 14px 0 0 32px; }
 .nd { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 10px var(--sp-3); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); min-width: 0; }
@@ -298,13 +296,11 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
 .nd::after { content: ""; position: absolute; top: -16px; left: 50%; width: 1px; height: 10px; background: var(--line-strong); pointer-events: none; }
 .nd .ah { position: absolute; top: -6px; left: calc(50% - 4px); border: 4px solid transparent; border-top: 5px solid var(--line-strong); border-bottom: 0; }
 .nd .tr { display: none; position: absolute; top: -16px; bottom: -16px; left: -19px; width: 1px; background: var(--line-strong); pointer-events: none; }
-.nd.run::before { background: repeating-linear-gradient(to right, var(--accent) 0 4px, transparent 4px 8px) 0 0 / 8px 1px repeat-x; }
-.nd.run::after { background: repeating-linear-gradient(to bottom, var(--accent) 0 4px, transparent 4px 8px) 0 0 / 1px 8px repeat-y; }
-.nd.run .ah { border-top-color: var(--accent); }
 @media (max-width: 640px) { ${treeCss(2, '.nodes:not(.cmp)')} }
 @media (min-width: 641px) and (max-width: 1099px) { .nodes:not(.cmp) { --n: 3; } ${treeCss(3, '.nodes:not(.cmp)')} }
 @media (min-width: 1100px) { .nodes:not(.cmp) { --n: 4; } ${treeCss(4, '.nodes:not(.cmp)')} }
-${treeCss(2, '.nodes.cmp')}
+@media (max-width: 1099px) { ${treeCss(2, '.nodes.cmp')} }
+@media (min-width: 1100px) { .nodes.cmp { --n: 4; } ${treeCss(4, '.nodes.cmp')} }
 .sess { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .sess + .sess { border-top: 1px solid var(--line); padding-top: var(--sp-5); }
 .sh { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-1) var(--sp-3); min-width: 0; font-size: var(--t-sm); }
@@ -321,8 +317,6 @@ ${treeCss(2, '.nodes.cmp')}
 @keyframes prog { to { transform: scaleX(1); } }
 @keyframes ndin { from { opacity: 0; transform: translateY(8px); } }
 @keyframes draw { from { stroke-dashoffset: var(--a); } }
-@keyframes dashx { to { background-position: 8px 0; } }
-@keyframes dashy { to { background-position: 0 8px; } }
 @media (prefers-reduced-motion: no-preference) {
   .view.fade { animation: fadein .15s ease; }
   .anim .dn { animation: fadein .5s both; }
@@ -337,10 +331,6 @@ ${treeCss(2, '.nodes.cmp')}
   .anim .nd { animation: ndin .4s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 120ms); }
   .anim .nd::before { transform-origin: left; animation: grow .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
   .anim .nd::after, .anim .nd .tr { transform-origin: top; animation: growy .3s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 120ms); }
-  .nd.run::before { animation: dashx 2.4s linear infinite; }
-  .nd.run::after { animation: dashy 2.4s linear infinite; }
-  .anim .nd.run::before { animation: grow .35s var(--ease) both, dashx 2.4s linear infinite; animation-delay: calc(var(--i, 0) * 50ms + 80ms), 0s; }
-  .anim .nd.run::after { animation: growy .3s var(--ease) both, dashy 2.4s linear infinite; animation-delay: calc(var(--i, 0) * 50ms + 120ms), 0s; }
 }
 `;
 
@@ -510,7 +500,7 @@ function panel(title, sec, body, o = {}) {
   const st = statusOf(status);
   const hint = o.hint ? `<span class="hint">${esc(o.hint)}</span>` : '';
   const flag = status === 'ok' ? '' : badge(st.cls, st.label);
-  return `<section class="panel"><div class="ph"><h2>${esc(title)}</h2>` +
+  return `<section class="panel${o.cls ? ` ${o.cls}` : ''}"><div class="ph"><h2>${esc(title)}</h2>` +
     `<span class="rt-end">${hint}${flag}</span></div>${content}</section>`;
 }
 
@@ -641,7 +631,7 @@ function kpi(label, value, note, cls, o = {}) {
   const hook = o.key ? ` data-m="${o.key}" data-u="${o.u || 'n'}"` : '';
   const bar = Number.isFinite(o.bar) ? `<div class="mb" role="img" aria-label="${esc(`${label} ${value}`)}"><i style="width:${(clamp(o.bar, 0, 1) * 100).toFixed(1)}%;--i:0"></i></div>` : '';
   return `<div class="kpi"${hook}><div class="k" title="${esc(label)}">${esc(label)}</div><div class="vr"><div class="v${cls ? ` ${cls}` : ''}">${value}</div><span class="dl" aria-hidden="true"></span></div>` +
-    `${bar}<div class="n" title="${note}">${note}</div><div class="sl"></div></div>`;
+    `${bar}<div class="ft"><div class="n" title="${note}">${note}</div><div class="sl"></div></div></div>`;
 }
 
 // The three live cards shared by the Overview row and the Savings row; withBar adds the mini bar.
@@ -661,7 +651,7 @@ function kpiRow(d) {
   const agents = arr(isObj(d.routing) ? d.routing.agents : null).filter((a) => typeof a.expected === 'string' && a.expected !== '');
   const okN = agents.filter((a) => a.verdict === 'ok').length;
   const up = reach(mem);
-  return `<div class="kpis">` +
+  return `<div class="kpis band">` +
     coreKpis(d, false) +
     kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준') +
     kpi('claude-mem 상태', up.label, `워커 ${txt(mem.version)}`, up.st === 'missing' ? 'bad' : '') + `</div>`;
@@ -672,7 +662,7 @@ function savingsKpis(d) {
   const sv = isObj(d.savings) ? d.savings : {};
   const pony = isObj(sv.ponytail) ? sv.ponytail : {};
   const outPct = Number.isFinite(pony.outputTokensPct) ? clamp(pony.outputTokensPct, 0, 100) : NaN;
-  return `<div class="kpis k4">` +
+  return `<div class="kpis band k4">` +
     coreKpis(d, true) +
     kpi('Ponytail 출력 토큰', Number.isFinite(outPct) ? pctValue(outPct) : DASH, Number.isFinite(outPct) ? `기준선 대비 ▼${fixed1(100 - outPct)}%` : DASH, '', { bar: Number.isFinite(outPct) ? outPct / 100 : NaN }) +
     `</div>`;
@@ -687,7 +677,7 @@ function runInfo(d) {
 
 function runChip(d) {
   const r = runInfo(d);
-  return `<p class="chip" data-m="run">${r.run > 0 ? '<span class="pip live" aria-hidden="true"></span>' : ''}지금 실행 중 <b>${r.run}</b><span>세션 ${r.live}개 활성</span></p>`;
+  return `<p class="runline"><span class="pip${r.run > 0 ? ' live' : ''}" aria-hidden="true"></span><span>지금 실행 중 <b>${r.run}</b> · 세션 ${r.live}</span></p>`;
 }
 
 // ---------- Flowchart (root node, stem, tree of subagent nodes) ----------
@@ -744,8 +734,7 @@ function sessionBlock(sess, maxNodes, compact) {
   const models = arr(isObj(sess.main) ? sess.main.models : null).filter((m) => Number.isFinite(m.messages));
   const top = models.reduce((best, m) => (best === null || m.messages > best.messages ? m : best), null);
   const mf = top ? family(top.model) : 'other';
-  const root = `<div class="root"><b>메인 스레드</b>${top ? famDot(mf) : DASH}` +
-    `<span class="n3">계획 · 조율</span>${sess.live === true ? '<span class="pip live" title="진행 중"></span>' : ''}</div>`;
+  const root = `<div class="root"><b>메인 스레드</b><span class="n3">·</span>${top ? famDot(mf) : DASH}</div>`;
   const tv = (v, d) => (Number.isFinite(v) ? v : d);
   const items = arr(sess.agents).map((a, i) => ({ a, i, t: parseTime(a.start) }))
     .sort((x, y) => tv(x.t, 1e18) - tv(y.t, 1e18) || x.i - y.i)
@@ -766,7 +755,7 @@ function sessionBlock(sess, maxNodes, compact) {
 
 function flowLegend() {
   return `<ul class="legend" aria-label="범례"><li class="lg"><span aria-hidden="true">↓</span>위임</li>` +
-    `<li class="lg"><span class="pip live" aria-hidden="true"></span>진행 중 (점선 흐름)</li>` +
+    `<li class="lg"><span class="pip live" aria-hidden="true"></span>진행 중</li>` +
     `${FAM_ITEMS}</ul><p class="cap">계획 = 메인(Opus) → 실행 = Sonnet·Haiku → 검증 = Opus (reviewer·qa)</p>`;
 }
 
@@ -839,38 +828,34 @@ function tokenTable(days, t) {
 
 // ---------- Views ----------
 
-function groupStatus(items) {
-  if (items.length === 0) return 'missing';
-  if (items.some((i) => i.status === 'missing')) return 'missing';
-  return items.every((i) => i.status === 'ok') ? 'ok' : 'warn';
-}
-
+// Compact status list: one line per item (dot, name, state on the right).
 function overviewChecklist(d) {
   const plugins = arr(isObj(d.plugins) ? d.plugins.items : null);
   const hooks = arr(isObj(d.hooks) ? d.hooks.items : null);
   const mem = isObj(d.claudeMem) ? d.claudeMem : null;
-  const count = (items) => `${items.filter((i) => i.status === 'ok').length}/${items.length} 정상`;
+  const row = (status, name, state) => {
+    const st = statusOf(status);
+    return `<div class="lrow"><span class="dt ${st.cls}" aria-hidden="true"></span><span class="ln" title="${name}">${name}</span><span class="lv ${st.cls}">${state}</span></div>`;
+  };
+  const items = (list, label) => (list.length ? list.map((i) => row(i.status, txt(i.name), esc(statusOf(i.status).label))).join('') : row('missing', label, '데이터 없음'));
   const up = mem ? reach(mem) : null;
-  return `<div class="pitems">` +
-    checkRow(groupStatus(plugins), '플러그인', plugins.length ? count(plugins) : '데이터 없음') +
-    checkRow(groupStatus(hooks), '훅', hooks.length ? count(hooks) : '데이터 없음') +
-    checkRow(up ? up.st : 'missing', 'claude-mem 워커', up ? `${up.label} · 버전 ${txt(mem.version)}` : '데이터 없음') +
-    `</div>`;
+  return `<div class="pitems">` + items(plugins, '플러그인') + items(hooks, '훅') +
+    row(up ? up.st : 'missing', 'claude-mem 워커', up ? `${esc(up.label)} · ${txt(mem.version)}` : '데이터 없음') + `</div>`;
 }
 
 function viewOverview(d) {
   const orch = isObj(d.orchestration) ? d.orchestration : null;
   const first = orch ? arr(orch.sessions)[0] : undefined;
   const tk = isObj(d.tokens) ? d.tokens : null;
-  const left = panel('실행 위임', d.savings, (s) => delegationBlock(s), { hint: '최근 7일 출력 토큰 · 전체 대비' }) +
-    panel('일별 출력 토큰', tk, (s) => {
-      const days = arr(s.days);
-      if (days.length === 0) return noData();
-      return colChart(tokenGroups(days), 96, '최근 7일 일별 출력 토큰, 계열별 누적') + TOK_LEGEND;
-    }, { hint: '최근 7일' });
-  const right = panel('최근 세션 흐름', orch, () => (first ? runChip(d) + sessionBlock(first, 4, true) : noData()), { hint: '가장 최근 세션' }) +
-    panel('상태 점검', {}, () => overviewChecklist(d));
-  return `${kpiRow(d)}<div class="ov"><div class="col">${left}</div><div class="col">${right}</div></div>`;
+  const daily = panel('일별 출력 토큰', tk, (s) => {
+    const days = arr(s.days);
+    if (days.length === 0) return noData();
+    return colChart(tokenGroups(days), 128, '최근 7일 일별 출력 토큰, 계열별 누적') + TOK_LEGEND;
+  }, { hint: '최근 7일', cls: 'c8' });
+  const deleg = panel('실행 위임', d.savings, (s) => delegationBlock(s), { hint: '7일 출력 토큰', cls: 'c4' });
+  const flow = panel('최근 세션 흐름', orch, () => (first ? runChip(d) + sessionBlock(first, 4, true) : noData()), { hint: '가장 최근 세션', cls: 'c8' });
+  const check = panel('상태 점검', {}, () => overviewChecklist(d), { cls: 'c4' });
+  return `${kpiRow(d)}<div class="g12">${daily}${deleg}${flow}${check}</div>`;
 }
 
 function viewOrchestration(d) {
@@ -982,8 +967,9 @@ function viewSavings(d) {
   const cache = panel('캐시', sub('cache'), (s) => {
     const hit = s.hitRate7d;
     return `<div class="donut">${ring(hit, pct01(hit), '캐시 적중률')}` +
-      `<div><p class="big">≈ ${compactKo(s.savedInputTokens7d)}</p><p class="cap">전체 가격으로 청구되지 않은 입력 토큰 (7일)</p>` +
-      `<p class="cap">캐시 읽기 ${fmtInt(s.cacheRead7d)}</p></div></div>`;
+      `<div><p class="big">≈ ${compactKo(s.savedInputTokens7d)}</p><p class="cap">미청구 입력 토큰 (7일)</p></div></div>` +
+      `<div class="tiles"><div class="tile"><span class="n">${compactKo(s.cacheRead7d)}</span><span class="l">캐시 읽기</span></div>` +
+      `<div class="tile"><span class="n">${pct01(hit)}</span><span class="l">적중률</span></div></div>`;
   }, { hint: '이 PC 측정' });
   const mem = panel('claude-mem', sub('claudeMem'), (s) => {
     const since = fmtKo(s.since, true);
@@ -1001,9 +987,7 @@ function viewSavings(d) {
     return `<div>${on}</div><div class="ubars">${lines}</div>` +
       `<p class="cap">공개 벤치마크 수치, 이 PC 측정 아님 · ${txt(s.source)}</p>`;
   }, { hint: '기준선 = 스킬 없는 실행' });
-  const del = panel('실행 위임', d.savings, (s) => delegationBlock(s),
-    { hint: '최근 7일 출력 토큰, 전체 대비 비율' });
-  return `${savingsKpis(d)}<div class="grid2"><div class="col">${rtkPanel(d)}${del}</div><div class="col">${cache}${mem}${pony}</div></div>`;
+    return `${savingsKpis(d)}<div class="g22">${rtkPanel(d)}${pony}${cache}${mem}</div>`;
 }
 
 function viewSettings(d) {
@@ -1035,7 +1019,7 @@ const HEAD_SCRIPT = `try{var t=localStorage.getItem('monitor-theme');if(t==='lig
 // Tabs follow location.hash (ids are not element ids, so the browser never jumps); the theme choice is stored in localStorage.
 const BODY_SCRIPT = String.raw`(function(){
 var ids=${JSON.stringify(TABS.map((t) => t.id))};
-var btns=document.querySelectorAll('.side button');
+var btns=document.querySelectorAll('.tabs button');
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 // First visit of a tab in this browser session plays the entrance animation; reloads and revisits render static.
 function seen(id){if(/[?&]static/.test(location.search))return true;try{var s=sessionStorage.getItem('monitor-seen')||'';if((','+s+',').indexOf(','+id+',')>=0)return true;sessionStorage.setItem('monitor-seen',s?s+','+id:id);return false}catch(e){return true}}
@@ -1056,7 +1040,7 @@ function top(){var s=document.getElementById('stage');if(s)s.scrollTop=0;window.
 btns.forEach(function(b){b.addEventListener('click',function(){location.hash=b.getAttribute('data-tab')})});
 window.addEventListener('hashchange',function(){show(true);top()});
 show(false);
-try{var ac=document.querySelector('.side button[aria-current]');if(ac)ac.scrollIntoView({inline:'nearest',block:'nearest'})}catch(e){}
+try{var ac=document.querySelector('.tabs button[aria-current]');if(ac)ac.scrollIntoView({inline:'nearest',block:'nearest'})}catch(e){}
 var tb=document.getElementById('theme');
 if(tb)tb.addEventListener('click',function(){var r=document.documentElement;
 var cur=r.getAttribute('data-theme')||(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
@@ -1111,7 +1095,7 @@ d=Math.round(d);return d?(d>0?'+':'-')+ko(Math.abs(d)):''}
 var changed=false,i;
 if(prev){for(i=0;i<KEYS.length;i++){if(cur[KEYS[i]]!==prev[KEYS[i]])changed=true}
 var pd=prev.days||{},cd=cur.days||{};for(var k in cd){if(cd[k]!==pd[k])changed=true}}
-function flash(n){if(reduce)return;n.classList.add('hot');setTimeout(function(){n.classList.remove('hot')},600)}
+function flash(n){if(reduce)return;n.classList.add('hot');setTimeout(function(){n.classList.remove('hot')},300)}
 function spark(box,key){
 var pts=hist.concat([cur]).map(function(h){return h[key]}).filter(num);
 if(pts.length<2||!box)return;
@@ -1124,12 +1108,10 @@ var p=document.createElementNS(ns,'polyline');p.setAttribute('points',xy);s.appe
 var nodes=document.querySelectorAll('[data-m]');
 for(i=0;i<nodes.length;i++){(function(n){var key=n.getAttribute('data-m'),u=n.getAttribute('data-u');
 var a=cur[key],b=prev?prev[key]:null,t='';
-if(prev&&num(a)&&num(b)&&a!==b){t=u?delta(u,a,b):'';if(t||!u)flash(n)}
+if(prev&&num(a)&&num(b)&&a!==b){t=u?delta(u,a,b):'';if(t&&n.classList.contains('kpi'))flash(n)}
 var dl=n.querySelector('.dl');
-if(dl&&t){dl.textContent=t;if(reduce)dl.className+=' on';else requestAnimationFrame(function(){requestAnimationFrame(function(){dl.className+=' on'})})}
+if(dl&&t){dl.textContent=t;dl.className+=a>b?' pos':' neg';if(reduce)dl.className+=' on';else requestAnimationFrame(function(){requestAnimationFrame(function(){dl.className+=' on'})})}
 spark(n.querySelector('.sl'),key)})(nodes[i])}
-if(prev){var days=document.querySelectorAll('.cd[data-d]');
-for(i=0;i<days.length;i++){var dd=days[i].getAttribute('data-d');if(cur.days&&prev.days&&cur.days[dd]!==prev.days[dd])flash(days[i])}}
 hist.push(cur);if(hist.length>30)hist=hist.slice(-30);
 try{sessionStorage.setItem('monitor-hist',JSON.stringify(hist))}catch(e){}
 var lc=document.getElementById('lc');
@@ -1139,13 +1121,9 @@ try{sessionStorage.setItem('monitor-lc',t2)}catch(e){}}
 if(t2)lc.textContent=t2}
 })()}catch(e){}`;
 
-function sideNav() {
-  let html = '';
-  for (const t of TABS) {
-    if (t.grp) html += `<div class="grp">${esc(t.grp)}</div>`;
-    html += `<button type="button" data-tab="${t.id}"${t.id === 'ov' ? ' aria-current="page"' : ''}>${esc(t.label)}</button>`;
-  }
-  return `<nav class="side" aria-label="화면 탭"><div class="trk">${html}</div></nav>`;
+function tabsNav() {
+  const html = TABS.map((t) => `<button type="button" data-tab="${t.id}"${t.id === 'ov' ? ' aria-current="page"' : ''}>${esc(t.label)}</button>`).join('');
+  return `<nav class="tabs" aria-label="화면 탭">${html}</nav>`;
 }
 
 // Runs a view builder; a throw becomes "데이터 없음" so one bad field never blanks the page.
@@ -1175,17 +1153,17 @@ export function render(data) {
 <noscript><style>.view[hidden]{display:flex !important}</style></noscript>
 </head>
 <body>
-<div class="app">
-${sideNav()}
 <header class="top">
+<div class="topin">
 <div class="brand"><span class="mark" aria-hidden="true">✻</span><h1>클로드 설정 모니터</h1></div>
-<div class="meta"><time>${esc(fmtKo(d.generatedAt, true))}</time>${mode}<button class="btn" id="theme" type="button" aria-label="테마 전환 (밝게/어둡게)">테마</button></div>
+${tabsNav()}
+<div class="meta">${sec ? '' : `<time>${esc(fmtKo(d.generatedAt, true))}</time>`}${mode}<button class="btn" id="theme" type="button" aria-label="테마 전환 (밝게/어둡게)">테마</button></div>
+</div>
 ${sec ? `<i class="prog" style="animation-duration:${sec}s" aria-hidden="true"></i>` : ''}
 </header>
 <main class="stage" id="stage">
 ${sections}
 </main>
-</div>
 <script type="application/json" id="m">${metricsJson(d)}</script>
 <script>${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}</script>
 </body>
