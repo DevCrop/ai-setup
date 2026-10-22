@@ -8,14 +8,15 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveCacheDir, CACHE_TOOLS } from './lib/caches.mjs';
 import { isDenied, defaultEnv, norm, secretFile } from './lib/deny.mjs';
-import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './lib/rules.mjs';
+import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf,
+  OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, versionOf, newestOf, compareVersions } from './lib/rules.mjs';
 import { realListInstalledApps } from './lib/detectors.mjs';
 
 const W = path.win32;
-export const CATEGORIES = ['temp', 'pkg-cache', 'dev-artifact', 'orphan-worktree', 'plugin-cache', 'appdata-orphan', 'recycle-bin', 'crash-dump', 'vm-disk', 'browser-cache', 'shader-cache', 'app-cache', 'system-cleanup', 'old-download'];
-const REPORT = new Set(['recycle-bin', 'vm-disk', 'system-cleanup', 'old-download']);
+export const CATEGORIES = ['temp', 'pkg-cache', 'dev-artifact', 'orphan-worktree', 'plugin-cache', 'appdata-orphan', 'recycle-bin', 'crash-dump', 'vm-disk', 'browser-cache', 'shader-cache', 'app-cache', 'system-cleanup', 'old-download', 'ai-old-version', 'ai-temp', 'editor-state', 'ai-history'];
+const REPORT = new Set(['recycle-bin', 'vm-disk', 'system-cleanup', 'old-download', 'ai-history']);
 const SAFETY = { safe: '삭제해도 됨', check: '확인 후 삭제', manual: '직접 판단' }; // display only, never used for decisions
-const REPORT_TEXT = { 'system-cleanup': 'Windows 디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)', 'old-download': '다운로드 폴더는 보호됨 — 직접 확인 후 삭제하세요', 'recycle-bin': 'Windows에서 직접 휴지통을 비우세요', 'vm-disk': '직접 정리하세요' };
+const REPORT_TEXT = { 'system-cleanup': 'Windows 디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)', 'old-download': '다운로드 폴더는 보호됨 — 직접 확인 후 삭제하세요', 'recycle-bin': 'Windows에서 직접 휴지통을 비우세요', 'vm-disk': '직접 정리하세요', 'ai-history': '대화 기록이라 자동으로 지우지 않습니다 — 직접 확인하세요' };
 const LABEL = { recycle: '휴지통 이동', run: '명령 실행', report: '보고만' };
 const ADMIN_MSG = '관리자 권한 필요 — 건너뜀';
 const DAY = 864e5;
@@ -34,7 +35,7 @@ const CLEAN = {
 const DEV_DIRS = new Set(['node_modules', '.venv', 'venv', 'dist', 'build', '.next', 'target']);
 const BROWSER_DIRS = new Set(['cache', 'code cache', 'gpucache', 'cache2']);
 const MARKERS = ['package.json', 'pyproject.toml', 'Cargo.toml', '.git'];
-export const SHIMS = new Set(['npm', 'pnpm', 'yarn', 'bun']); // .cmd shims on Windows
+export const SHIMS = new Set(['npm', 'pnpm', 'yarn', 'bun', 'claude']); // .cmd shims on Windows
 const RUNNABLE = new Set([...SHIMS, 'pip', 'uv', 'dotnet', 'git']);
 // Every git call starts with this: a repo's config must not make git run a hook program (fsmonitor).
 const GIT = ['git', '-c', 'core.fsmonitor=false'];
@@ -379,6 +380,38 @@ async function orphanReject(p, u, ctx) {
   return matchesApp(W.basename(p), apps) ? '설치된 앱과 이름이 비슷함' : null;
 }
 
+/** Names of the claude CLI version the user is running (`claude --version`), or null when it cannot be resolved. */
+async function runningClaudeVersion(ctx) {
+  if (ctx.claudeVersion === undefined) {
+    try {
+      const r = await ctx.probe(['claude', '--version']);
+      ctx.claudeVersion = r.code === 0 ? (/(\d+\.\d+\.\d+)/.exec(r.stdout || '')?.[1] ?? null) : null;
+    } catch { ctx.claudeVersion = null; }
+  }
+  return ctx.claudeVersion;
+}
+
+/** ai-old-version: a direct child of an old-version root that is not the newest of its group (recomputed from disk). */
+async function planOldVersion(item, p, st, ctx) {
+  const np = norm(p), parent = norm(W.dirname(p)), name = W.basename(p);
+  const hit = OLD_VERSION_ROOTS(ctx.env).find((r) => norm(r.root) === parent);
+  if (!hit) return { reject: 'AI 도구 버전 폴더의 직속 항목이 아님' };
+  const key = groupKey(name, hit.kind), ver = versionOf(name, hit.kind);
+  if (key === null || ver === null) return { reject: '버전을 해석할 수 없음 — 건너뜀' };
+  let names;
+  try { names = await fs.readdir(hit.root); } catch (e) { return { reject: errReason(e) }; }
+  const group = names.filter((n) => groupKey(n, hit.kind) === key);
+  if (group.length < 2) return { reject: '같은 그룹에 버전이 하나뿐이라 건너뜀' };
+  const keep = newestOf(group, hit.kind);
+  if (!keep) return { reject: '최신 버전을 정할 수 없음 — 건너뜀' };
+  if (compareVersions(ver, versionOf(keep, hit.kind)) >= 0) return { reject: '그룹에서 가장 최신 버전이라 건너뜀' }; // also equal versions (other platform builds)
+  if (hit.kind === 'claude-cli') {
+    const running = await runningClaudeVersion(ctx);
+    if (running && compareVersions(ver, running) === 0) return { reject: '실행 중인 claude 버전이라 건너뜀' };
+  }
+  return { kind: 'recycle' };
+}
+
 /** Category rules. Returns {reject} or {kind:'recycle'|'run'|'report', argv?}. */
 async function planFor(item, p, st, ctx) {
   const { env } = ctx;
@@ -421,6 +454,17 @@ async function planFor(item, p, st, ctx) {
       if (!la || !np.startsWith(la + '\\') || !((st.isDirectory() && base === 'crashdumps') || (st.isFile() && base.endsWith('.dmp')))) return { reject: 'LOCALAPPDATA의 CrashDumps/*.dmp가 아님' };
       return { kind: 'recycle' };
     }
+    case 'ai-old-version': return planOldVersion(item, p, st, ctx);
+    case 'ai-temp': {
+      const hit = AI_TEMP_ROOTS(env).find((r) => norm(r.root) === parent);
+      if (!hit) return { reject: 'AI 도구 임시/캐시 폴더의 직속 항목이 아님' };
+      return { kind: 'recycle', minAgeDays: hit.minAgeDays, tier: hit.tier };
+    }
+    case 'editor-state': {
+      const hit = EDITOR_STATE_ROOTS(env).find((r) => norm(r.root) === parent);
+      if (!hit || !st.isDirectory()) return { reject: '에디터 workspaceStorage의 직속 폴더가 아님' };
+      return { kind: 'recycle', minAgeDays: hit.minAgeDays };
+    }
     case 'browser-cache':
       if (!st.isDirectory() || !BROWSER_DIRS.has(base) || ![env.appData, env.localAppData].filter(Boolean).map(norm).some((r) => np.startsWith(r + '\\'))) return { reject: '브라우저 캐시 폴더가 아님' };
       return { kind: 'recycle' };
@@ -444,6 +488,7 @@ const tempProtected = (name) => name.toLowerCase() === 'claude' || /^machine-map
 async function childrenRootOk(category, p, env) {
   const np = norm(p), la = env.localAppData;
   if (category === 'temp') return (await tempRoots(env)).includes(np);
+  if (category === 'crash-dump') return CRASH_EXTRA(env).map(norm).includes(np);
   if (category === 'shader-cache') {
     return !!la && [['D3DSCache'], ['NVIDIA', 'DXCache'], ['NVIDIA', 'GLCache'], ['AMD', 'DxCache']].map((x) => norm(W.join(la, ...x))).includes(np);
   }
@@ -486,6 +531,11 @@ async function reportOnly(item, p, st, ctx) {
         const ok = [['SoftwareDistribution', 'Download'], ['Logs', 'CBS'], ['ServiceProfiles', 'NetworkService', 'AppData', 'Local', 'Microsoft', 'Windows', 'DeliveryOptimization']].map((x) => norm(W.join(w, ...x)));
         return ok.includes(np) ? null : '허용된 Windows 정리 위치가 아님';
       }
+      case 'ai-history': {
+        const h = env.home;
+        const ok = [['.codex', 'sessions'], ['.codex', 'archived_sessions'], ['.claude', 'projects']].map((x) => norm(W.join(h, ...x)));
+        return ok.includes(np) || /\\node_modules\\@anthropic-ai\\claude-code$/.test(np) ? null : '대화 기록/전역 설치 위치가 아님';
+      }
       case 'old-download': return (!st || st.isFile()) && np.startsWith(norm(W.join(env.home, 'Downloads')) + '\\') ? null : '다운로드 폴더 안의 파일이 아님';
     }
     return '알 수 없는 category';
@@ -493,7 +543,8 @@ async function reportOnly(item, p, st, ctx) {
   if (bad) return no(bad);
   let size = null, unreadable = 0;
   if (st) { try { const u = await du(p, { scanSensitive: false }); size = u.size; unreadable = u.unreadable; } catch { /* size unknown */ } }
-  return { ok: true, entry: { item, category: item.category, action: 'report', kind: 'report', path: p, isDir: !!st?.isDirectory(), size, unreadable } };
+  const note = item.category === 'ai-history' && base === 'claude-code' ? 'native 설치가 있으면 npm uninstall -g @anthropic-ai/claude-code 로 제거할 수 있습니다 (직접 실행)' : undefined;
+  return { ok: true, entry: { item, category: item.category, action: 'report', kind: 'report', path: p, isDir: !!st?.isDirectory(), size, unreadable, note } };
 }
 
 /** @returns {{ok:true, entry}|{ok:false, reason}} */
@@ -512,7 +563,7 @@ export async function verifyItem(item, ctx) {
   try {
     if (norm(await fs.realpath(p)) !== norm(p)) return no('실제 경로와 다름 (링크 또는 8.3 단축 이름)');
   } catch (e) { if (!report) return no(errReason(e)); }
-  if (['temp', 'shader-cache', 'app-cache'].includes(item.category)) return verifyChildren(item, p, st, ctx);
+  if (['temp', 'shader-cache', 'app-cache'].includes(item.category) || (item.category === 'crash-dump' && CRASH_EXTRA(env).some((r) => norm(r) === norm(p)))) return verifyChildren(item, p, st, ctx);
   if (report) return reportOnly(item, p, st, ctx);
   const d = isDenied(p, env);
   if (d.denied) return no(`거부: ${d.reason}`);
@@ -525,6 +576,8 @@ export async function verifyItem(item, ctx) {
   if (u.sensitive) return no(`거부: 민감 파일 포함 (${W.relative(p, u.sensitive)})`);
   if (u.gitDir && !(await env.isOrphanGit(p))) return no('거부: .git 폴더 포함');
   if (plan.orphan) { const why = await orphanReject(p, u, ctx); if (why) return no(why); }
+  if (plan.minAgeDays && ctx.now - u.newest < plan.minAgeDays * DAY) return no(`${plan.minAgeDays}일 이내에 수정되어 건너뜀`);
+  entry.tier = plan.tier;
   entry.size = u.size;
   entry.unreadable = u.unreadable;
   entry.maxPath = u.maxPath;
@@ -550,8 +603,8 @@ export function printList(entries, rejected, out) {
     if (e.action !== 'report') total += e.size ?? 0;
     const extra = e.argv ? `  → ${e.argv.join(' ')}`
       : e.children ? `  (하위 ${e.children.length}개${e.ageFilter ? ', 1일 이상 지난 것만' : ''}; 건너뜀 ${e.skipped})`
-      : e.action === 'report' ? `  (${REPORT_TEXT[e.category]})` : '';
-    out(`[${LABEL[e.action]}] [${SAFETY[tierOf(e.category)]}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
+      : e.action === 'report' ? `  (${e.note ?? REPORT_TEXT[e.category]})` : '';
+    out(`[${LABEL[e.action]}] [${SAFETY[e.tier ?? tierOf(e.category)]}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
   }
   if (rejected.length) out('거부/제외된 항목:');
   for (const r of rejected) out(`[거부] ${r.path}  — ${r.reason}`);

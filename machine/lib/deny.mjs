@@ -2,6 +2,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { AI_TEMP_ROOTS } from './rules.mjs';
 
 const W = path.win32;
 
@@ -97,13 +98,25 @@ export function isDenied(p, envIn = {}) {
   const claude = norm(join(home, '.claude'));
   if (within(claude)) {
     const rel = s.slice(claude.length + 1).split('\\');
-    // only exactly plugins/cache/<market>/<plugin>/<version> is allowed, not deeper
-    if (!(rel[0] === 'plugins' && rel[1] === 'cache' && rel.length === 5)) return yes('~/.claude (plugin 캐시 버전 폴더만 허용)');
+    // only exactly plugins/cache/<market>/<plugin>/<version> and the direct children of plugins/.trash are allowed, not deeper
+    const version = rel[0] === 'plugins' && rel[1] === 'cache' && rel.length === 5;
+    const trashChild = rel[0] === 'plugins' && rel[1] === '.trash' && rel.length === 3;
+    if (!version && !trashChild) return yes('~/.claude (plugin 캐시 버전 폴더와 plugins/.trash 하위 항목만 허용)');
+  }
+  const codex = norm(join(home, '.codex'));
+  if (within(codex)) {
+    // allowed: direct children of the AI temp roots, and anything inside ~/.codex/worktrees/<id>; auth, sessions, config stay denied
+    const parentOf = s.slice(0, s.lastIndexOf('\\'));
+    const tempChild = AI_TEMP_ROOTS(env).some((r) => norm(r.root).startsWith(codex + '\\') && norm(r.root) === parentOf);
+    const worktree = s.startsWith(codex + '\\worktrees\\');
+    if (!tempChild && !worktree) return yes('~/.codex (임시/캐시 하위 항목과 worktrees만 허용)');
   }
   if (within(join(home, '.claude-mem'))) return yes('~/.claude-mem');
 
   if (s === norm(env.tmp)) return yes('임시 폴더 자체 (하위 항목만 허용)');
-  if (within(join(env.tmp, 'claude'))) return yes('실행 중인 Claude 세션 폴더');
+  const tmpClaude = norm(join(env.tmp, 'claude'));
+  // the folder itself and anything deeper stay protected; only its direct children (old session scratch) may be handled
+  if (within(tmpClaude) && (s === tmpClaude || s.slice(tmpClaude.length + 1).includes('\\'))) return yes('실행 중인 Claude 세션 폴더');
   if (within(join(env.tmp, 'machine-map.html'))) return yes('machine-map.html');
   if (within(env.repo)) return yes('ai-setup 저장소');
   return { denied: false, reason: '' };

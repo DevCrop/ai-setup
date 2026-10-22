@@ -11,6 +11,8 @@
     { "id": "recycle-bin:C:\\$Recycle.Bin", "category": "recycle-bin", "path": "C:\\$Recycle.Bin", "size": 2000000000, "safety": "manual" },
     { "id": "dev-artifact:C:\\Windows\\System32", "category": "dev-artifact", "path": "C:\\Windows\\System32", "size": 1, "safety": "safe" },
     { "id": "app-cache:C:\\Users\\edn_y\\AppData\\Roaming\\Code", "category": "app-cache", "path": "C:\\Users\\edn_y\\AppData\\Roaming\\Code", "size": 1, "safety": "safe" },
+    { "id": "ai-history:C:\\Users\\edn_y\\.claude\\projects", "category": "ai-history", "path": "C:\\Users\\edn_y\\.claude\\projects", "size": 1, "safety": "manual" },
+    { "id": "ai-temp:C:\\Users\\edn_y\\.codex\\.tmp", "category": "ai-temp", "path": "C:\\Users\\edn_y\\.codex\\.tmp", "size": 1, "safety": "safe" },
     { "id": "bad:relative", "category": "rm -rf /", "path": "..\\..\\Users", "size": 0, "how": "del /s /q C:\\" }
   ]
 }
