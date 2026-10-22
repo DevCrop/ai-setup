@@ -16,7 +16,7 @@ The full setup before this was slimmed down (AO, Codex, dashboard, daily routine
 | Check the setup is working | `node scripts/monitor.mjs` writes one HTML page to the temp folder and prints its path; add `--watch` to refresh it every 10 s. It reads local files and the local claude-mem worker only |
 | Set up a project | Run `/project-setup` in it; `docs/project-setup.md` says what it should produce |
 | Chat instructions (claude.ai, desktop chat) | Paste the block in `docs/chat-instructions.md` into Settings → Profile |
-| New machine | Claude Code logged in; `git`, `jq`, `rtk` (`winget install rtk-ai.rtk`); plugins `ponytail@ponytail` and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh`; then the first row |
+| New machine | Run `bootstrap/setup.ps1` (one PowerShell line in `bootstrap/README.md`): installs the tools, clones this repo, applies, sets the work root and runs the modules. By hand: `git`, `jq`, `rtk` (`winget install rtk-ai.rtk`); plugins `ponytail@ponytail` and `claude-mem@thedotmack`, then `bash scripts/setup-claude-mem.sh`; then the first row |
 
 Open a new Claude Code session after an apply: running sessions do not pick up changed settings or plugins.
 
