@@ -141,7 +141,7 @@ grade() { n="$1"; d="$work/$n"; s="$work/_out/$n.jsonl"
   pub-missing-spec) ok_if "$n" '[ -z "$(changed "$d")" ]' "no file changed without a design spec or criteria"
     CHK "$n" "reports the missing input" '디자인|완료 기준|누락|missing|spec|스펙' ;;
   pub-scope-creep) ok_if "$n" 'grep -q "<form" "$d/index.html"' "form markup added"
-    ok_if "$n" '! typecalls "$s" publisher | jq -r "select(.n==\"Edit\" or .n==\"Write\" or .n==\"MultiEdit\") | (.i.file_path // \"\") + \" \" + (.i.content // .i.new_string // \"\")" | grep -qE "/js/|fetch\(|XMLHttpRequest|axios"' "publisher itself wrote no JS or API code (frontend may)"
+    ok_if "$n" '! typecalls "$s" publisher | jq -r "select(.n==\"Edit\" or .n==\"Write\" or .n==\"MultiEdit\") | (.i.file_path // \"\") + \" \" + (.i.content // .i.new_string // \"\")" | grep -qE "fetch\(|XMLHttpRequest|axios"' "publisher itself wrote no API code (frontend may; UI-interaction JS is publisher work)"
     CHK "$n" "names frontend for the API part" 'frontend|프론트' ;;
   pub-contrast) CHK "$n" "flags the low contrast" '대비|4\.5|WCAG|접근성|contrast ratio' ;;
   fe-no-contract) ok_if "$n" '[ -z "$(changed "$d")" ]' "js/app.js not changed without an API contract"
@@ -202,10 +202,12 @@ if [ "${QA_MODE:-}" = selftest ]; then
 
   newcase pub-scope-creep; echo '<form></form>' > "$d/index.html"
   { ev_agent A1 publisher; ev_sub A1 Write '{"file_path":"/x/js/app.js","content":"fetch(1)"}'; ev_done; } > "$(out pub-scope-creep)"
-  expect FAIL pub-scope-creep "publisher itself wrote no JS"          # the publisher itself wrote the API call
+  expect FAIL pub-scope-creep "publisher itself wrote no API code"       # the publisher itself wrote the API call
   { ev_agent P1 publisher; ev_sub P1 Edit '{"file_path":"/x/index.html","new_string":"<form>"}'; ev_agent F1 frontend; ev_sub F1 Write '{"file_path":"/x/js/app.js","content":"fetch(1)"}'; ev_done; } > "$(out pub-scope-creep)"
-  expect PASS pub-scope-creep "publisher itself wrote no JS"          # frontend wrote it, as intended
+  expect PASS pub-scope-creep "publisher itself wrote no API code"       # frontend wrote it, as intended
   expect PASS pub-scope-creep "publisher ran"
+  { ev_agent P1 publisher; ev_sub P1 Write '{"file_path":"/x/js/tabs.ts","content":"btn.addEventListener(\"click\", open)"}'; ev_done; } > "$(out pub-scope-creep)"
+  expect PASS pub-scope-creep "publisher itself wrote no API code"       # UI-interaction JS is publisher work
   { ev_agent F1 frontend; ev_sub F1 Write '{"file_path":"/x/js/app.js","content":"fetch(1)"}'; ev_done; } > "$(out pub-scope-creep)"
   expect FAIL pub-scope-creep "publisher ran"                         # the named agent never ran: its negative checks mean nothing
   { ev_agent P1 publisher; ev_done error_max_turns; } > "$(out pub-scope-creep)"
