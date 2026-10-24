@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { collect, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
+import { collect, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -63,7 +63,7 @@ test('readExpectedModels reads the real agent frontmatter', () => {
 });
 
 test('every section has a status', () => {
-  for (const k of ['routing', 'tokens', 'rtk', 'plugins', 'claudeMem', 'hooks']) {
+  for (const k of ['routing', 'tokens', 'rtk', 'plugins', 'claudeMem', 'hooks', 'setup']) {
     assert.ok(['ok', 'warn', 'missing'].includes(data[k].status), k);
   }
   assert.equal(data.generatedAt, NOW);
@@ -274,4 +274,108 @@ test('rtk end to end with a fake rtk: summary, 7-day saved sum and top commands'
     { command: 'rtk git status', count: 2, saved: '1.0K', pct: '10.0%' },
   ]);
   assert.deepEqual(d.savings.rtk, { saved7d: 1500, savedAll: 9000, savedPct: 45.5 });
+});
+
+// A throwaway copy of the repo's agents, skills and apply.sh, so a test can rename a rule or change a model.
+function setupRepo() {
+  const r = fs.mkdtempSync(path.join(tmp, 'repo-'));
+  for (const sub of ['claude/agents', 'claude/skills', 'scripts/apply.sh']) fs.cpSync(path.join(repo, sub), path.join(r, sub), { recursive: true });
+  return r;
+}
+const orchFile = (r) => path.join(r, 'claude', 'skills', 'orchestrate', 'SKILL.md');
+const edit = (f, fn) => fs.writeFileSync(f, fn(fs.readFileSync(f, 'utf8')));
+
+test('setup: parses the real orchestrate rules and agent frontmatter', () => {
+  const s = data.setup;
+  assert.equal(s.rules.delegate.length, 4);
+  assert.deepEqual(s.rules.delegate[1].agents, ['explorer']);
+  assert.deepEqual(s.rules.routing.find((x) => x.agent === 'publisher').part, 'Static markup, CSS, templates');
+  assert.deepEqual(s.rules.lanes.filter((l) => l.model === 'opus').length, 2); // main thread and verifiers stay separate
+  assert.deepEqual(s.rules.lanes.find((l) => l.model === 'haiku').agents, ['explorer', 'publisher', 'worker']);
+  assert.equal(s.rules.failure.length, 3);
+  assert.deepEqual(s.agents.find((a) => a.name === 'frontend').skills, ['ui-baseline', 'frontend-design']);
+  assert.ok(s.skills.includes('orchestrate'));
+  // The test home has no agents/ or skills/: every repo file is drift, with relative paths only.
+  assert.ok(s.drift.some((x) => x.path === 'agents/worker.md' && x.kind === 'missing'));
+  assert.ok(s.drift.every((x) => !path.isAbsolute(x.path) && !x.path.includes('..')));
+});
+
+test('setup: a renamed section is null on its own and renders 규칙을 읽지 못함; other sections still render', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const r = setupRepo();
+  edit(orchFile(r), (t) => t.replace('Model lanes:', 'Model choice:').replace('When a delegated part fails:', 'On failure:'));
+  const s = collectSetupFlow(home, r);
+  assert.equal(s.rules.lanes, null);
+  assert.equal(s.rules.failure, null);
+  assert.equal(s.rules.delegate.length, 4);
+  assert.equal(s.status, 'warn');
+  const html = render({ ...data, setup: s });
+  assert.ok(html.includes('규칙을 읽지 못함 · <code>orchestrate/SKILL.md</code> “Model lanes”'));
+  assert.ok(html.includes('“When a delegated part fails”'));
+  assert.ok(html.includes('독립 작업 병렬 실행'));
+  // A missing SKILL.md leaves all four sections null without throwing.
+  fs.rmSync(orchFile(r));
+  assert.deepEqual(collectSetupFlow(home, r).rules, { delegate: null, routing: null, lanes: null, failure: null });
+});
+
+test('setup: a changed agent model and a new rule show in the diagram without code changes', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const r = setupRepo();
+  edit(path.join(r, 'claude', 'agents', 'worker.md'), (t) => t.replace(/^model: haiku$/m, 'model: sonnet'));
+  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - A long migration nobody should watch: `worker`.'));
+  const s = collectSetupFlow(home, r);
+  assert.equal(s.agents.find((a) => a.name === 'worker').model, 'sonnet');
+  assert.equal(s.rules.delegate.length, 5);
+  const html = render({ ...data, setup: s });
+  const card = html.match(/<div class="ag f-(\w+)[^"]*"[^>]*><div class="a1"><b>worker<\/b>.*?<\/div><\/div>/);
+  assert.equal(card[1], 'sonnet');
+  assert.ok(card[0].includes('규칙: Haiku')); // the lane in SKILL.md still says Haiku
+  assert.ok(html.includes('A long migration nobody should watch: `worker`.')); // unknown bullet shown as its own text
+});
+
+test('setup: usage badge shows 7-day runs and flags the actual model when it differs', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const html = render(data);
+  const card = (n) => html.match(new RegExp(`<div class="ag [^"]*"[^>]*><div class="a1"><b>${n}</b>.*?</div></div>`))[0];
+  assert.match(card('worker'), /^<div class="ag f-haiku off"/);
+  assert.ok(card('worker').includes('7일 3회') && card('worker').includes('실제 Sonnet'));
+  assert.ok(card('reviewer').includes('실제 일치'));
+  assert.ok(!card('reviewer').includes('u warn'));
+  assert.ok(html.includes('data-tab="flow"') && html.includes('id="v-flow"'));
+});
+
+test('setup: drift is clean when home matches the repo, home-only extras are ignored, a changed file is flagged', () => {
+  const h = fs.mkdtempSync(path.join(tmp, 'live-'));
+  fs.cpSync(path.join(repo, 'claude', 'agents'), path.join(h, 'agents'), { recursive: true });
+  fs.cpSync(path.join(repo, 'claude', 'skills'), path.join(h, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(h, 'skills', 'synced'));
+  fs.writeFileSync(path.join(h, 'skills', 'synced', 'x.md'), 'x');
+  assert.deepEqual(collectSetupFlow(h, repo).drift, []);
+  edit(path.join(h, 'agents', 'qa.md'), (t) => t.replace('model: opus', 'model: sonnet'));
+  assert.deepEqual(collectSetupFlow(h, repo).drift, [{ path: 'agents/qa.md', kind: 'differs' }]);
+});
+
+test('parseOrchestrate: lenient on CRLF and stray text, empty input gives all null', () => {
+  const t = '1. Delegate when:\r\n   - A: `explorer`.\r\n2. Keep inline.\r\n   - not this\r\n';
+  assert.deepEqual(parseOrchestrate(t).delegate, [{ text: 'A: `explorer`.', agents: ['explorer'] }]);
+  assert.deepEqual(parseOrchestrate(''), { delegate: null, routing: null, lanes: null, failure: null });
+});
+
+test('setup render: malformed setup data is escaped, empty sections say 규칙을 읽지 못함, overrides are not flagged', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const bad = '"><img src=x onerror=alert(1)>';
+  const html = render({ setup: { status: 'ok', agents: [{ name: bad, model: bad, skills: [bad], description: bad }], rules: { lanes: [{ text: 'Opus, the main thread', model: bad, agents: [] }], delegate: [], failure: [] }, skills: [bad], drift: [{ path: bad, kind: bad }] } });
+  assert.ok(!html.includes('<img'));
+  assert.ok(html.includes('“Delegate when”') && html.includes('“When a delegated part fails”'));
+  const override = render({ ...data, routing: { ...data.routing, agents: [{ agentType: 'worker', expected: 'haiku', runs: 1, verdict: 'override', models: [{ model: 'claude-sonnet-5-5', messages: 2 }] }] } });
+  const card = override.match(/<div class="ag [^"]*"[^>]*><div class="a1"><b>worker<\/b>.*?<\/div><\/div>/)[0];
+  assert.ok(card.includes('수동 지정 Sonnet') && !card.includes('u warn'));
+});
+
+test('setup render: a new bullet whose words overlap an old label keeps its own text', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const r = setupRepo();
+  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - Work that would block the main thread: `worker`.'));
+  const html = render({ ...data, setup: collectSetupFlow(home, r) });
+  assert.ok(html.includes('<b>Work that would block the main thread: `worker`.</b>'));
 });
