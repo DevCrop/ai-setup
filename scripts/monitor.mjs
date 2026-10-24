@@ -73,6 +73,7 @@ export function parseTranscriptLine(line) {
 export function readAgents(repo = REPO) {
   const dir = path.join(repo, 'claude', 'agents');
   const out = [];
+  if (!fs.existsSync(dir)) return out; // run outside the repo: no expected models, verdicts become n/a
   for (const f of fs.readdirSync(dir).sort()) {
     if (!f.endsWith('.md')) continue;
     const head = fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/);
@@ -421,10 +422,13 @@ export function rtkSection(r) {
   return { status: r.summary && r.topCommands.length ? 'ok' : 'warn', note, summary: r.summary, topCommands: r.topCommands };
 }
 
+const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
 export function collectPlugins(home, repo = REPO) {
   const pins = [];
-  const mk = readJson(path.join(repo, 'claude', 'settings.json')).extraKnownMarketplaces || {};
-  for (const [mkt, v] of Object.entries(mk)) {
+  let mk = null;
+  try { mk = readJson(path.join(repo, 'claude', 'settings.json')).extraKnownMarketplaces || {}; } catch { /* run outside the repo: no pins */ }
+  for (const [mkt, v] of Object.entries(mk || {})) {
     for (const p of v?.source?.plugins || []) {
       if (typeof p?.name === 'string') pins.push({ key: `${p.name}@${mkt}`, ref: p.source?.ref ?? null, sha: p.source?.sha ?? null });
     }
@@ -433,7 +437,9 @@ export function collectPlugins(home, repo = REPO) {
   try { installed = readJson(path.join(home, 'plugins', 'installed_plugins.json')).plugins || {}; }
   catch { return { status: 'missing', note: 'installed_plugins.json not readable.', items: [] }; }
   let enabledMap = {};
-  try { enabledMap = readJson(path.join(home, 'settings.json')).enabledPlugins || {}; } catch { /* treated as not enabled */ }
+  try { const e = readJson(path.join(home, 'settings.json')).enabledPlugins; if (isPlainObj(e)) enabledMap = e; } catch { /* treated as not enabled */ }
+  // Without the repo's pins, list the enabled plugins and check only that they are installed.
+  if (!mk) for (const [key, on] of Object.entries(enabledMap)) if (on === true && key.length <= 120) pins.push({ key, ref: null, sha: null });
   const items = pins.map((p) => {
     const inst = installed[p.key]?.[0];
     const enabled = enabledMap[p.key] === true;
@@ -448,6 +454,7 @@ export function collectPlugins(home, repo = REPO) {
     }
     return item;
   });
+  if (!mk) return { status: 'warn', note: 'claude/settings.json not readable next to the script; versions not compared with pins.', items };
   return { status: items.some((i) => i.status !== 'ok') ? 'warn' : 'ok', note: items.length ? '' : 'No pins found in claude/settings.json.', items };
 }
 
@@ -558,7 +565,7 @@ export async function collect(opts = {}) {
   let scanErr = null;
   try { scan = await scanTranscripts(home, nowMs, opts.cache); } catch (e) { scanErr = e; }
   const noScan = (extra) => ({ status: 'missing', note: `No transcripts readable (${scanErr?.code || 'error'}).`, ...extra });
-  const expected = () => readExpectedModels();
+  const expected = () => readExpectedModels(opts.repo);
   const routing = await guard(() => (scan ? buildRouting(scan, expected()) : noScan({ windowDays: WINDOW_DAYS, mainThread: [], background: [], agents: [] })), { windowDays: WINDOW_DAYS, mainThread: [], background: [], agents: [] });
   const tokens = await guard(() => (scan ? buildTokens(scan) : noScan({ days: [], totals: null })), { days: [], totals: null });
   const orchestration = await guard(() => (scan ? buildOrchestration(scan, expected()) : noScan({ sessions: [] })), { sessions: [] });
@@ -570,7 +577,7 @@ export async function collect(opts = {}) {
     refreshSec: opts.refreshSec ?? null,
     routing, tokens,
     rtk: rtkSection(rtkRaw),
-    plugins: await guard(() => collectPlugins(home), { items: [] }),
+    plugins: await guard(() => collectPlugins(home, opts.repo), { items: [] }),
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
     savings, orchestration,
