@@ -27,6 +27,7 @@ const ROLE_LABEL = { main: '메인', subagent: '서브에이전트', 'claude-mem
 
 const TABS = [
   { id: 'ov', label: '개요' },
+  { id: 'flow', label: '구조' },
   { id: 'orch', label: '오케스트레이션' },
   { id: 'route', label: '모델 라우팅' },
   { id: 'tok', label: '토큰' },
@@ -312,6 +313,52 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
 .sh .sid, .sh .st { flex: none; }
 .more { font-size: var(--t-xs); color: var(--muted); margin: 0; }
 
+/* 5b views: setup structure. One vertical flow (task, main loop, decision, model lanes, verification, done); agent cards tinted by model family. */
+.flow { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.fbox { width: min(100%, 560px); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel); text-align: center; min-width: 0; }
+.fbox.pill { width: auto; max-width: 100%; border-radius: 999px; padding: 6px var(--sp-4); background: var(--fill); font-size: var(--t-sm); }
+.fbox.end { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); color: var(--ok); font-weight: 500; }
+.fbox h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; display: flex; justify-content: center; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.fbox .fs { margin: 2px 0 0; font-size: var(--t-xs); color: var(--muted); }
+.fmain { border-color: color-mix(in srgb, var(--fc) 50%, var(--line)); background: color-mix(in srgb, var(--fc) 7%, var(--panel)); }
+.fl { position: relative; width: 1px; height: 30px; background: var(--line-strong); flex: none; }
+.fl::after { content: ""; position: absolute; bottom: 0; left: -4px; border: 4px solid transparent; border-top: 5px solid var(--line-strong); border-bottom: 0; }
+.fl span { position: absolute; left: 10px; top: 6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.fdec { width: min(100%, 720px); padding: var(--sp-3) var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--r-lg); background: var(--fill); display: grid; gap: var(--sp-2); min-width: 0; }
+.fdec h3 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); }
+.fdec h3 svg { flex: none; }
+.fdec h3 svg path { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; }
+.trig { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--sp-2); }
+.trig li { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); font-size: var(--t-sm); display: grid; gap: 2px; min-width: 0; }
+.trig li b { font-weight: 500; overflow-wrap: anywhere; }
+.trig .to { font-size: var(--t-xs); color: var(--muted); font-family: var(--mono); overflow-wrap: anywhere; }
+.fdec .no { margin: 0; font-size: var(--t-xs); color: var(--muted); text-align: center; }
+.lanes { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--gap); align-items: start; }
+.lanes.one { width: min(100%, 720px); }
+.lane { display: grid; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-lg); border: 1px solid color-mix(in srgb, var(--fc) 35%, var(--line)); background: color-mix(in srgb, var(--fc) 6%, var(--panel)); min-width: 0; }
+.lane .lh2 { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--t-sm); margin: 0; }
+.lane .lh2 b { font-family: var(--serif); font-size: var(--t-lg); font-weight: 600; }
+.lane .lh2 span { color: var(--muted); font-size: var(--t-xs); }
+.lane .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--sp-2); }
+.ag { display: grid; gap: 4px; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--fc); min-width: 0; }
+.ag.off { border-color: var(--warn); border-left-color: var(--warn); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 35%, transparent); }
+.ag .a1 { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.ag .a1 b { font-family: var(--mono); font-size: var(--t-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ag .a1 span { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; }
+.ag .a2 { font-size: var(--t-xs); color: var(--muted); overflow-wrap: anywhere; }
+.use { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-2); font-size: var(--t-xs); }
+.use .u { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 999px; background: var(--fill); color: var(--muted); white-space: nowrap; }
+.use .u.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--panel)); font-weight: 500; }
+.unread { margin: 0; padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--warn); border-radius: var(--r-md); color: var(--warn); font-size: var(--t-sm); text-align: center; }
+.unread code { font-family: var(--mono); font-size: var(--t-xs); }
+.fail { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-2); counter-reset: fs; }
+.fail li { counter-increment: fs; flex: 1 1 180px; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2); align-items: start; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); font-size: var(--t-sm); }
+.fail li::before { content: counter(fs); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--fill); color: var(--muted); }
+.fail li.stop { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); color: var(--bad); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.chips li { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: var(--t-xs); max-width: 100%; overflow-wrap: anywhere; }
+.chips li i { font-style: normal; color: var(--muted); }
+
 /* Motion: entrance only when a tab is shown for the first time in this browser session (script adds .anim); all off for reduced motion. */
 @keyframes grow { from { transform: scaleX(0); } }
 @keyframes growy { from { transform: scaleY(0); } }
@@ -328,7 +375,7 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
   .anim .stk .sg { transform-origin: bottom; animation: growy .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
   .anim .cv-v { animation: fadein .4s .5s both; }
   .anim .ring .fg { animation: draw .9s var(--ease) both; }
-  .anim .root { animation: ndin .4s var(--ease) both; }
+  .anim .root, .anim .flow { animation: ndin .4s var(--ease) both; }
   .anim .stem { transform-origin: top; animation: growy .3s .15s var(--ease) both; }
   .anim .nd { animation: ndin .4s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 120ms); }
   .anim .nd::before { transform-origin: left; animation: grow .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
@@ -1014,6 +1061,151 @@ function viewSettings(d) {
   return `<div class="grid2"><div class="col">${plugins}</div><div class="col">${hooks}</div><div class="col">${mem}</div></div>`;
 }
 
+// ---------- Setup structure (구조) ----------
+// Structure comes from d.setup (parsed from the repo each run). The Korean labels below only rename bullets they recognise;
+// any other bullet is shown as its own text, so a new or reworded rule still appears without a code change.
+
+// Patterns are anchored to the current wording so a new bullet is never hidden under an old label.
+const TRIGGER_KO = [[/^the user asks\b/i, '사용자가 요청'], [/^verification\b/i, '검증 · 항상 별도'], [/^a broad search\b/i, '넓은 탐색·읽기'], [/^independent parts\b/i, '독립 작업 병렬 실행']];
+const FAIL_KO = [[/^a haiku executor fails\b/i, 'Haiku가 같은 기준에서 2번 실패 → Sonnet으로 다시'], [/^sonnet fails\b/i, 'Sonnet도 2번 실패 → 메인이 직접 맡고 별도 검토'], [/^verification fails\b/i, '검증 실패 → 지적 사항을 실행자에게 한 번 돌려보냄']];
+const LANE_KO = [[/^opus verifies\b/i, '검증'], [/^sonnet executes\b/i, '판단이 필요한 코딩'], [/^haiku executes\b/i, '정해진 작업 실행'], [/^opus, the main thread\b/i, '메인 루프']];
+const relabel = (map, text) => (map.find(([re]) => re.test(text)) || [null, null])[1];
+
+function unread(section) {
+  return `<p class="unread">규칙을 읽지 못함 · <code>orchestrate/SKILL.md</code> “${esc(section)}”</p>`;
+}
+
+// Korean role word from a description such as "백엔드. Server code ...", else empty.
+function roleKo(desc) {
+  const head = typeof desc === 'string' ? desc.split('.')[0] : '';
+  return /[가-힣]/.test(head) && head.length <= 12 ? head : '';
+}
+
+// Last-7-days badge: runs and the actual family vs the agent's own model. Off-plan families are highlighted.
+function usageBadge(a, ra) {
+  if (!ra) return '<span class="u">사용 기록 없음</span>';
+  const runs = `<span class="u">7일 ${fmtInt(nz(ra.runs))}회</span>`;
+  const fams = new Map();
+  for (const m of arr(ra.models)) fams.set(family(m.model), (fams.get(family(m.model)) || 0) + nz(m.messages));
+  // The verdict comes from buildRouting, so a per-call override or an agent without a model is not flagged here either.
+  const exp = family(a.model);
+  const others = [...fams].filter(([f]) => f !== exp).sort((x, y) => y[1] - x[1]).map(([f]) => famLabel(f)).join('·');
+  if (ra.verdict === 'mismatch') return runs + `<span class="u warn" title="기대 ${esc(famLabel(exp))}">실제 ${esc(others)}</span>`;
+  if (ra.verdict === 'override') return runs + `<span class="u">수동 지정${others ? ` ${esc(others)}` : ''}</span>`;
+  return ra.verdict === 'ok' ? `${runs}<span class="u">실제 일치</span>` : runs;
+}
+
+function agentCard(a, ra, laneModel, part) {
+  const f = family(a.model);
+  const usage = usageBadge(a, ra);
+  const off = usage.includes('u warn');
+  const ruleDiff = laneModel && laneModel !== f ? `<span class="u warn">규칙: ${esc(famLabel(laneModel))}</span>` : '';
+  const role = roleKo(a.description);
+  const sk = Array.isArray(a.skills) ? a.skills.filter((x) => typeof x === 'string') : [];
+  const skills = sk.length ? `스킬 ${sk.map(esc).join(', ')}` : '';
+  return `<div class="ag f-${f}${off || ruleDiff ? ' off' : ''}" title="${esc(a.description)}"><div class="a1"><b>${txt(a.name)}</b>${role ? `<span>${esc(role)}</span>` : ''}</div>` +
+    (part ? `<div class="a2">${esc(part)}</div>` : '') + (skills ? `<div class="a2">${skills}</div>` : '') + `<div class="use">${usage}${ruleDiff}</div></div>`;
+}
+
+function lane(fam, hint, cards) {
+  return `<div class="lane f-${fam}"><p class="lh2"><b>${esc(famLabel(fam))}</b>${hint ? `<span>${esc(hint)}</span>` : ''}</p><div class="cards">${cards}</div></div>`;
+}
+
+function setupFlow(s, d) {
+  const rules = isObj(s.rules) ? s.rules : {};
+  const agents = arr(s.agents).filter((a) => typeof a.name === 'string');
+  const routed = new Map(arr(isObj(d.routing) ? d.routing.agents : null).map((r) => [r.agentType, r]));
+  const lanes = Array.isArray(rules.lanes) ? arr(rules.lanes) : null;
+  const laneOf = new Map();
+  for (const l of lanes || []) for (const n of Array.isArray(l.agents) ? l.agents : []) laneOf.set(n, l);
+  const delegate = Array.isArray(rules.delegate) && rules.delegate.length ? arr(rules.delegate) : null;
+  // Verifiers: agents named in a verification bullet or lane; without either, fall back to the agent name.
+  const verifyNames = new Set([...(delegate || []), ...(lanes || [])].filter((b) => /verif/i.test(b.text)).flatMap((b) => (Array.isArray(b.agents) ? b.agents : [])));
+  const isVerify = (a) => (verifyNames.size ? verifyNames.has(a.name) : /review|qa|verif/i.test(a.name));
+  const mainLane = (lanes || []).find((l) => !(Array.isArray(l.agents) && l.agents.length) && /main|inline/i.test(l.text));
+  const mainFam = family(mainLane?.model);
+  const routes = Array.isArray(rules.routing) ? arr(rules.routing) : null;
+  const partOf = new Map((routes || []).map((x) => [x.agent, x.part]));
+  const card = (a) => agentCard(a, routed.get(a.name), laneOf.get(a.name)?.model ?? null, partOf.get(a.name));
+
+  const trig = delegate
+    ? `<ul class="trig">${delegate.map((b) => {
+      const ko = relabel(TRIGGER_KO, b.text);
+      const to = Array.isArray(b.agents) && b.agents.length ? `<span class="to">→ ${b.agents.map(esc).join(', ')}</span>` : '';
+      return `<li title="${esc(b.text)}"><b>${esc(ko || b.text)}</b>${to}</li>`;
+    }).join('')}</ul>`
+    : unread('Delegate when');
+  const exec = agents.filter((a) => !isVerify(a));
+  const ver = agents.filter(isVerify);
+  const byFam = (list) => ['haiku', 'sonnet', 'opus', 'other'].map((f) => [f, list.filter((a) => family(a.model) === f)]).filter(([, l]) => l.length);
+  const hintFor = (list) => {
+    const l = laneOf.get(list[0].name);
+    return l ? relabel(LANE_KO, l.text) || '' : '';
+  };
+  const execLanes = byFam(exec).map(([f, l]) => lane(f, hintFor(l), l.map(card).join(''))).join('');
+  const verLanes = byFam(ver).map(([f, l]) => lane(f, hintFor(l) || '검증', l.map(card).join(''))).join('');
+
+  return `<div class="flow" role="group" aria-label="작업 흐름: 요청, 메인 루프, 위임 판단, 실행, 검증, 완료">` +
+    `<div class="fbox pill">작업 요청</div><div class="fl"></div>` +
+    `<div class="fbox fmain f-${mainFam}"><h3>${famDot(mainFam)}메인 루프</h3><p class="fs">기본은 직접 처리 · 읽고, 계획하고, 코드를 씁니다</p></div><div class="fl"></div>` +
+    `<div class="fdec"><h3><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 1.5 16.5 9 9 16.5 1.5 9Z"/></svg>맡길까?</h3>${trig}` +
+    `<p class="no">하나도 해당 없으면 → 메인이 직접 끝냅니다</p></div>` +
+    `<div class="fl"><span>맡김</span></div>` +
+    (lanes ? '' : unread('Model lanes')) + (routes ? '' : unread('Part | Agent')) +
+    (execLanes ? `<div class="lanes">${execLanes}</div>` : '<p class="empty">실행 에이전트 없음</p>') +
+    `<div class="fl"><span>결과 확인</span></div>` +
+    (verLanes ? `<div class="lanes one">${verLanes}</div>` : '<p class="empty">검증 에이전트 없음</p>') +
+    `<div class="fl"></div><div class="fbox pill end">완료</div></div>` +
+    `<ul class="legend" aria-label="범례">${FAMILY_ORDER.slice(0, 3).map((f) => `<li class="lg">${sw(f)}${famLabel(f)}</li>`).join('')}` +
+    `<li class="lg"><i class="sw" style="--fc:var(--warn)" aria-hidden="true"></i>주황 테두리·배지 = 기대와 다른 모델로 실행됨</li></ul>` +
+    `<p class="cap">칸 색 = 에이전트 파일의 model · 배지 = 최근 7일 실행 기록 · 카드에 마우스를 올리면 원문 설명</p>`;
+}
+
+function failStrip(s) {
+  const steps = Array.isArray(s.rules?.failure) ? arr(s.rules.failure).filter((b) => typeof b.text === 'string') : [];
+  if (!steps.length) return unread('When a delegated part fails');
+  const items = steps.map((b) => `<li title="${esc(b.text)}">${esc(relabel(FAIL_KO, b.text) || b.text)}</li>`);
+  if (/\bstop\b/i.test(steps[steps.length - 1].text)) items.push('<li class="stop">그래도 실패 → 멈추고 사용자에게 보고</li>');
+  return `<ol class="fail">${items.join('')}</ol>`;
+}
+
+function setupChips(s, d) {
+  const preload = new Map();
+  for (const a of arr(s.agents)) for (const k of Array.isArray(a.skills) ? a.skills : []) preload.set(k, [...(preload.get(k) || []), a.name]);
+  const skills = (Array.isArray(s.skills) ? s.skills : []).filter((k) => typeof k === 'string');
+  const skillChips = skills.length ? `<ul class="chips">${skills.map((k) => `<li>${esc(k)}${preload.has(k) ? `<i>· ${esc(preload.get(k).join(', '))}</i>` : ''}</li>`).join('')}</ul>` : noData();
+  const dot = (st) => `<span class="dt ${statusOf(st).cls}" aria-hidden="true"></span>`;
+  const plugins = arr(isObj(d.plugins) ? d.plugins.items : null).map((p) => `<li>${dot(p.status)}${txt(p.name)}<i>${txt(p.installedVersion)}</i></li>`);
+  const hooks = arr(isObj(d.hooks) ? d.hooks.items : null).map((h) => `<li>${dot(h.status)}${txt(h.name)}</li>`);
+  const mem = isObj(d.claudeMem) ? d.claudeMem : null;
+  if (mem) plugins.push(`<li>${dot(reach(mem).st)}claude-mem 워커<i>${esc(reach(mem).label)}</i></li>`);
+  return `<h3 class="sub">스킬 (· 미리 불러오는 에이전트)</h3>${skillChips}` +
+    `<h3 class="sub">플러그인</h3>${plugins.length ? `<ul class="chips">${plugins.join('')}</ul>` : noData()}` +
+    `<h3 class="sub">훅</h3>${hooks.length ? `<ul class="chips">${hooks.join('')}</ul>` : noData()}`;
+}
+
+function driftBlock(s) {
+  const list = arr(s.drift);
+  const n = Number.isFinite(s.driftCount) ? s.driftCount : list.length;
+  if (!n) return `<p class="runline"><span class="dt ok" aria-hidden="true"></span>repo와 ~/.claude가 같습니다</p>`;
+  const kind = { missing: '없음', differs: '다름' };
+  return `<p class="cap">${fmtInt(n)}개 파일이 다릅니다 · <code>bash scripts/apply.sh</code>로 맞춤</p><div class="pitems">` +
+    list.map((x) => `<div class="lrow"><span class="dt warn" aria-hidden="true"></span><span class="ln" title="${esc(x.path)}">${txt(x.path)}</span><span class="lv warn">${esc(pick(kind, x.kind, DASH))}</span></div>`).join('') +
+    `</div>${n > list.length ? `<p class="more">외 ${fmtInt(n - list.length)}개</p>` : ''}`;
+}
+
+function viewSetup(d) {
+  // Each panel gets its own status so drift does not flag the diagram and an unread rule does not flag the drift list.
+  const s = isObj(d.setup) ? d.setup : null;
+  const r = s && isObj(s.rules) ? s.rules : {};
+  const sub = (bad) => (s ? { ...s, status: s.status === 'missing' ? 'missing' : bad ? 'warn' : 'ok' } : null);
+  const flow = panel('설정 구조', sub(!r.delegate || !r.lanes || !r.routing), (x) => setupFlow(x, d), { hint: '실행할 때마다 repo 파일에서 읽음' });
+  const fail = panel('실패하면', sub(!r.failure), failStrip, { hint: '위임한 일이 실패할 때 순서' });
+  const chips = panel('켜져 있는 구성', sub(false), (x) => setupChips(x, d));
+  const drift = panel('repo ↔ ~/.claude', sub(s && (s.driftCount > 0 || arr(s.drift).length > 0)), driftBlock, { hint: 'agents · 설치 대상 스킬' });
+  return `${flow}${fail}<div class="g22">${chips}${drift}</div>`;
+}
+
 // ---------- Page ----------
 
 const HEAD_SCRIPT = `try{var t=localStorage.getItem('monitor-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}`;
@@ -1141,7 +1333,7 @@ export function render(data) {
   const d = isObj(data) ? data : {};
   const sec = Number.isFinite(d.refreshSec) && d.refreshSec > 0 ? Math.min(86400, Math.max(1, Math.round(d.refreshSec))) : 0;
   const mode = sec ? `<span class="st live"><span class="pip"></span>실시간 · ${sec}초마다<span class="lcw">&nbsp;· 마지막 변경 <span id="lc">${esc(fmtHms(d.generatedAt))}</span></span></span>` : badge('info', '스냅샷');
-  const views = [viewOverview, viewOrchestration, viewRouting, viewTokens, viewSavings, viewSettings];
+  const views = [viewOverview, viewSetup, viewOrchestration, viewRouting, viewTokens, viewSavings, viewSettings];
   const sections = TABS.map((t, i) =>
     `<section class="view" id="v-${t.id}" aria-label="${esc(t.label)}"${i === 0 ? '' : ' hidden'}>${safe(views[i], d)}</section>`).join('\n');
   return `<!DOCTYPE html>

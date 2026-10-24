@@ -64,7 +64,7 @@ oklch is perceptually even, so equal lightness steps look equal across hues. Bui
 ## Avoid
 
 - Purple-to-blue gradient on a white page. It is the single most recognizable default.
-- Pure `#000` text on pure `#fff` everywhere; soften both (e.g. ink `#16130f` on paper `#f6f2ea`).
+- Pure `#000` text on pure `#fff` everywhere; soften both (e.g. ink `#1c2024` on `#f4f5f2`).
 - A rainbow of accents with equal weight, or a different color per section.
 - Gray text so light it fails 4.5:1 for the sake of "elegance".
 
