@@ -422,6 +422,8 @@ export function rtkSection(r) {
   return { status: r.summary && r.topCommands.length ? 'ok' : 'warn', note, summary: r.summary, topCommands: r.topCommands };
 }
 
+const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
 export function collectPlugins(home, repo = REPO) {
   const pins = [];
   let mk = null;
@@ -435,9 +437,9 @@ export function collectPlugins(home, repo = REPO) {
   try { installed = readJson(path.join(home, 'plugins', 'installed_plugins.json')).plugins || {}; }
   catch { return { status: 'missing', note: 'installed_plugins.json not readable.', items: [] }; }
   let enabledMap = {};
-  try { enabledMap = readJson(path.join(home, 'settings.json')).enabledPlugins || {}; } catch { /* treated as not enabled */ }
+  try { const e = readJson(path.join(home, 'settings.json')).enabledPlugins; if (isPlainObj(e)) enabledMap = e; } catch { /* treated as not enabled */ }
   // Without the repo's pins, list the enabled plugins and check only that they are installed.
-  if (!mk) for (const [key, on] of Object.entries(enabledMap)) if (on === true) pins.push({ key: key.slice(0, 120), ref: null, sha: null });
+  if (!mk) for (const [key, on] of Object.entries(enabledMap)) if (on === true && key.length <= 120) pins.push({ key, ref: null, sha: null });
   const items = pins.map((p) => {
     const inst = installed[p.key]?.[0];
     const enabled = enabledMap[p.key] === true;
@@ -452,7 +454,7 @@ export function collectPlugins(home, repo = REPO) {
     }
     return item;
   });
-  if (!mk) return { status: 'warn', note: 'claude/settings.json not found next to the script; versions not compared with pins.', items };
+  if (!mk) return { status: 'warn', note: 'claude/settings.json not readable next to the script; versions not compared with pins.', items };
   return { status: items.some((i) => i.status !== 'ok') ? 'warn' : 'ok', note: items.length ? '' : 'No pins found in claude/settings.json.', items };
 }
 

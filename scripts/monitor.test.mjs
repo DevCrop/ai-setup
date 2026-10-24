@@ -392,3 +392,15 @@ test('collect outside the repo: plugins and sessions still show when claude/ is 
   assert.ok(d.plugins.items.every((i) => i.enabled && i.installedVersion && i.pinnedRef === null && i.status === 'ok'));
   assert.match(d.plugins.note, /not compared/);
 });
+
+test('collectPlugins outside the repo ignores an array enabledPlugins and over-long keys', async () => {
+  const { collectPlugins } = await import('./monitor.mjs');
+  const bare = fs.mkdtempSync(path.join(tmp, 'bare-'));
+  const h = fs.mkdtempSync(path.join(tmp, 'home-'));
+  fs.mkdirSync(path.join(h, 'plugins'));
+  fs.writeFileSync(path.join(h, 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: {} }));
+  fs.writeFileSync(path.join(h, 'settings.json'), JSON.stringify({ enabledPlugins: [true, 'x'] }));
+  assert.deepEqual(collectPlugins(h, bare).items, []);
+  fs.writeFileSync(path.join(h, 'settings.json'), JSON.stringify({ enabledPlugins: { ['a'.repeat(300)]: true } }));
+  assert.deepEqual(collectPlugins(h, bare).items, []);
+});
