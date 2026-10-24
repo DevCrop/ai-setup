@@ -28,7 +28,7 @@ mk() { # fixture: an agency site with an SCSS tree, a TS class and a small Node 
   printf "import { DatabaseSync } from 'node:sqlite';\n\nexport function openDb() {\n  const db = new DatabaseSync(':memory:');\n  db.exec('CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');\n  db.prepare('INSERT INTO items (name) VALUES (?)').run('스케일링');\n  return db;\n}\n" > server/db.mjs
   printf "import { createServer } from 'node:http';\nimport { openDb } from './db.mjs';\n\nexport function createApp(db = openDb()) {\n  return createServer((req, res) => {\n    if (req.method === 'GET' && req.url === '/api/items') {\n      res.writeHead(200, { 'Content-Type': 'application/json' });\n      return res.end(JSON.stringify(db.prepare('SELECT id, name FROM items').all()));\n    }\n    res.writeHead(404).end();\n  });\n}\n" > server/app.mjs
   printf "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createApp } from './app.mjs';\n\ntest('GET /api/items lists items', async () => {\n  const app = createApp().listen(0);\n  const { port } = app.address();\n  const res = await fetch(\`http://127.0.0.1:\${port}/api/items\`);\n  assert.equal(res.status, 200);\n  assert.equal((await res.json()).length, 1);\n  app.close();\n});\n" > server/app.test.mjs
-  printf "// Cart total in won.\nexport function total(lines) {\n  return lines.reduce((sum, l) => sum + l.price, 0);\n}\n" > server/cart.mjs
+  printf "// Cart total in won. lines: [{ price, qty }]\nexport function total(lines) {\n  return lines.reduce((sum, l) => sum + l.price, 0);\n}\n" > server/cart.mjs
   printf '# Design: landing\n- Sections: hero (h1 "편안한 치과 진료", sub copy, CTA button "예약하기"), features (3 cards: 무통 마취, 야간 진료, 주차 가능).\n- Tokens: use the variables in scss/abstracts/_variables.scss only.\n- Layout: one column under 768px, features in 3 columns above.\n' > docs/design-landing.md
   printf '# Design: FAQ accordion\n- 3 questions under the heading "자주 묻는 질문"; one panel open at a time; keyboard operable.\n- Tokens: abstracts variables only.\n' > docs/design-accordion.md
   git -c core.autocrlf=false add -A && git -c core.autocrlf=false -c user.email=e@e -c user.name=e commit -qm init
@@ -58,13 +58,13 @@ run)
   total=0; max=0
   for r in $(seq 1 "$runs"); do for c in $CASES; do
     node "$repo/evals/check.mjs" "$c" "$out/$c-$r" "$out/_out/$c-$r.jsonl" | tee "$out/_out/$c-$r.check"
-    s="$(sed -n 's/^score \([0-9]*\)\/\([0-9]*\)$/\1 \2/p' "$out/_out/$c-$r.check")"; total=$((total + ${s% *})); max=$((max + ${s#* }))
+    s="$(sed -n 's/^score \([0-9]*\)\/\([0-9]*\)$/\1 \2/p' "$out/_out/$c-$r.check")"; [ -n "$s" ] || s="0 0"; total=$((total + ${s% *})); max=$((max + ${s#* }))
   done; done
   printf '{"label":"%s","runs":%s,"score":%s,"max":%s}\n' "$label" "$runs" "$total" "$max" | tee "$out/summary.json"
   ;;
 judge)
-  work="${1:?work-dir}"; a="${2:?labelA}"; b="${3:?labelB}"; wins_a=0; wins_b=0; ties=0
-  diffof() { ( cd "$1" && git add -A -N . 2>/dev/null; git diff HEAD -- . ':!*.jsonl' | head -c 40000 ); }
+  work="${1:?work-dir}"; a="${2:?labelA}"; b="${3:?labelB}"; wins_a=0; wins_b=0; ties=0; none=0
+  diffof() { ( cd "$1" 2>/dev/null || { echo "(no run dir)"; exit 0; }; git add -A -N . 2>/dev/null; git diff HEAD -- . ':!*.jsonl' | head -c 40000 ); }
   for c in $CASES; do
     if [ $((RANDOM % 2)) -eq 0 ]; then x="$a"; y="$b"; else x="$b"; y="$a"; fi
     p="두 결과물(X, Y)은 같은 과제를 다른 설정으로 수행한 git diff다. 어느 쪽인지 추측하지 말고 품질만 비교해라.
@@ -75,12 +75,12 @@ judge)
 $(diffof "$work/$x/$c-1")
 === Y ===
 $(diffof "$work/$y/$c-1")"
-    v="$(printf '%s' "$p" | claude -p --model opus --max-turns 1 --no-session-persistence 2>/dev/null | grep -o '{"winner"[^}]*}' | tail -1)"
-    w="$(printf '%s' "$v" | sed -n 's/.*"winner":"\([XYtie]*\)".*/\1/p')"
-    case "$w" in X) [ "$x" = "$a" ] && wins_a=$((wins_a + 1)) || wins_b=$((wins_b + 1)) ;; Y) [ "$y" = "$a" ] && wins_a=$((wins_a + 1)) || wins_b=$((wins_b + 1)) ;; tie) ties=$((ties + 1)) ;; *) echo "INFO  $c: judge gave no verdict" ;; esac
+    v="$(printf '%s' "$p" | claude -p --model opus --tools "" --max-turns 1 --no-session-persistence 2>>"$work/judge.err" | grep -o '{[[:space:]]*"winner"[^}]*}' | tail -1)"
+    w="$(printf '%s' "$v" | sed -n 's/.*"winner"[[:space:]]*:[[:space:]]*"\([XYtie]*\)".*/\1/p')"
+    case "$w" in X) [ "$x" = "$a" ] && wins_a=$((wins_a + 1)) || wins_b=$((wins_b + 1)) ;; Y) [ "$y" = "$a" ] && wins_a=$((wins_a + 1)) || wins_b=$((wins_b + 1)) ;; tie) ties=$((ties + 1)) ;; *) none=$((none + 1)); echo "INFO  $c: judge gave no verdict (see judge.err)" ;; esac
     echo "JUDGE $c: X=$x Y=$y $v"
   done
-  printf '{"a":"%s","b":"%s","wins_a":%s,"wins_b":%s,"ties":%s}\n' "$a" "$b" "$wins_a" "$wins_b" "$ties" | tee "$work/judge-$a-vs-$b.json"
+  printf '{"a":"%s","b":"%s","wins_a":%s,"wins_b":%s,"ties":%s,"none":%s}\n' "$a" "$b" "$wins_a" "$wins_b" "$ties" "$none" | tee "$work/judge-$a-vs-$b.json"
   ;;
 selftest)
   work="${1:?work-dir}"; mkdir -p "$work" && work="$(cd "$work" && pwd -W 2>/dev/null || pwd)"; fails=0; : > "$work/empty.jsonl"
@@ -90,7 +90,8 @@ selftest)
     [ "${s%/*}" != "${s#*/}" ] && echo "PASS  bare $c scores $s" || { echo "FAIL  bare $c scores $s"; fails=$((fails + 1)); }
   done
   d="$work/good-bugfix"; mk "$d" >/dev/null  # a correct fix with a regression test must get full marks
-  rm "$d/server/app.test.mjs"  # node:sqlite needs Node 22.13+; CI runners may be older
+  # node:sqlite needs Node 22.13+ and CI runners may be older: drop that test and commit it, so only the fix shows as changed
+  git -C "$d" rm -q server/app.test.mjs && git -C "$d" -c user.email=e@e -c user.name=e commit -qm "drop sqlite test"
   printf "export function total(lines) {\n  return lines.reduce((sum, l) => sum + l.price * l.qty, 0);\n}\n" > "$d/server/cart.mjs"
   printf "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { total } from './cart.mjs';\ntest('total multiplies by qty', () => assert.equal(total([{ price: 100, qty: 3 }]), 300));\n" > "$d/server/cart.test.mjs"
   s="$(score bugfix "$d" "$work/empty.jsonl")"; [ "${s%/*}" = "${s#*/}" ] && echo "PASS  good bugfix scores $s" || { echo "FAIL  good bugfix scores $s"; fails=$((fails + 1)); }

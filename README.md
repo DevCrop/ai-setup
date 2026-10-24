@@ -27,7 +27,7 @@ Open a new Claude Code session after an apply: running sessions do not pick up c
 
 ## Checks
 
-`bash scripts/qa-apply.sh`, `qa-hooks-session.sh`, `qa-statusline.sh`, `qa-setup-claude-mem.sh`, `qa-monitor.sh` `QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"` and `bash scripts/eval.sh selftest "$(mktemp -d)"` run without a model (CI runs them). `scripts/eval.sh run` and `judge` score the live setup on five fixed web-agency tasks (`evals/check.mjs` grades them) and compare two setups blind; see the script header. `qa-role-agents.sh` in real mode and `qa-project-setup.sh` need the claude CLI.
+`bash scripts/qa-apply.sh`, `qa-hooks-session.sh`, `qa-statusline.sh`, `qa-setup-claude-mem.sh`, `qa-monitor.sh`, `QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"` and `bash scripts/eval.sh selftest "$(mktemp -d)"` run without a model (CI runs them). `scripts/eval.sh run` and `judge` score the live setup on five fixed web-agency tasks (`evals/check.mjs` grades them) and compare two setups blind; see the script header. `qa-role-agents.sh` in real mode and `qa-project-setup.sh` need the claude CLI.
 
 ## Changing this repo
 
