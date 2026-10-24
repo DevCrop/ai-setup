@@ -1,7 +1,7 @@
 ---
 name: designer
 description: 디자인. Turns Figma frames or docs/spec-*.md into a design spec at docs/design-<topic>.md with tokens, layout and component states. Not for markup or styles (use publisher), not for choosing the client's taste (the main loop sets it with the user).
-tools: Read, Grep, Glob, Write, mcp__plugin_design_figma__*, mcp__plugin_figma_figma__*
+tools: Read, Grep, Glob, Edit, Write, mcp__plugin_design_figma__*, mcp__plugin_figma_figma__*
 model: sonnet
 color: cyan
 effort: high
