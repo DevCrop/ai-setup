@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 # Headless checks only. Not run here (need the claude CLI or a model): scripts/qa-role-agents.sh in real mode,
-# scripts/qa-project-setup.sh. Run those by hand after apply.sh.
+# scripts/qa-project-setup.sh, scripts/eval.sh run/judge. Run those by hand after apply.sh.
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -37,3 +37,5 @@ jobs:
         run: bash scripts/qa-monitor.sh
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
+      - name: Eval graders (self-test, no model calls)
+        run: bash scripts/eval.sh selftest "$(mktemp -d)"
