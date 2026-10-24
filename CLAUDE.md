@@ -8,7 +8,7 @@ Source of truth for the global Claude Code setup: `claude/` is copied into `~/.c
 - Syntax: `bash -n scripts/*.sh claude/*.sh claude/hooks/*.sh` and `jq empty claude/settings.json`.
 
 ## Rules
-- Scope is Ponytail, RTK, claude-mem, subagents (Opus plans and verifies, Sonnet and Haiku execute) and their skills, two session hooks and the status line. Do not add tooling outside that without the user asking.
+- Scope is Ponytail, RTK, claude-mem, subagents (Opus works inline; subagents for parallel parts, broad searches, verification, or on request) and their skills, two session hooks and the status line. Do not add tooling outside that without the user asking.
 - Keep `claude/CLAUDE.md` under 200 lines.
 - Never commit credentials or `.env*`.
 - Every commit has a body that gives the reason and how the change was checked.

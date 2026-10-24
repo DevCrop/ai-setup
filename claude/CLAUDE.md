@@ -20,7 +20,7 @@
 - Never declare completion from your own judgment; confirm with a command result, a test, or a source check.
 
 ## Orchestration
-- Opus plans, decides and verifies and does not write code; Sonnet and Haiku execute (the agents' `model` field). Lanes and the failure path are in the `orchestrate` skill.
+- Work in the main loop by default: Opus plans, decides and writes the code itself, loading skills as needed. Delegate to subagents only for independent parallel parts, a broad search, verification, or when the user asks for subagents. The `orchestrate` skill has the details, model lanes and failure path.
 - Verification is done by a separate reviewer subagent with explicit criteria. The author does not verify its own output.
 - Consult the advisor before committing to an approach, on a recurring error, and before declaring a task done.
 - Retry limit: two attempts on the same error. Then stop, state the exact error, suggest /rewind, and wait for the user. Delegated parts follow the `orchestrate` skill's failure path instead.
