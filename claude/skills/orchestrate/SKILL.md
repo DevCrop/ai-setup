@@ -4,7 +4,7 @@ description: Use when deciding whether to delegate, when splitting work across s
 when_to_use: Requests such as 서브에이전트로 나눠서 해줘, 에이전트한테 맡겨, 병렬 에이전트로 돌려, 이 작업 위임해도 돼, split this across subagents, delegate this to agents.
 ---
 
-Work in the main loop by default: the main thread reads, plans and writes the code itself, loading skills (`frontend-design`, `ui-baseline`, ...) when a task needs them. Every handoff loses detail in the brief and the summary back, and each delegate pays a start-up cost (about 43K prompt tokens written to the cache in the one call measured). Delegate only a part that earns it.
+Work in the main loop by default: the main thread reads, plans and writes the code itself, loading skills (`publishing`, `frontend-design`, `ui-baseline`, ...) when a task needs them. Every handoff loses detail in the brief and the summary back, and each delegate pays a start-up cost (about 43K prompt tokens written to the cache in the one call measured). Delegate only a part that earns it.
 
 1. Delegate when one of these holds, and only that part:
    - Independent parts that can run at the same time, own different files and need little from this conversation; each returns a compact result.
@@ -17,8 +17,8 @@ Work in the main loop by default: the main thread reads, plans and writes the co
 
    | Part | Agent |
    |---|---|
-   | Static markup, CSS, templates | `publisher` |
-   | Client logic, state, API calls | `frontend` |
+   | Markup, SCSS/CSS, templates, UI-interaction TS (tabs, accordion, modal, slider) | `publisher` |
+   | Client state, API calls, business logic | `frontend` |
    | Server code, API, database | `backend` |
    | Run it and check behavior | `qa` |
    | Diff against written criteria | `reviewer` |
