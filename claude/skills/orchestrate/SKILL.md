@@ -32,7 +32,7 @@ Work in the main loop by default: the main thread reads, plans and writes the co
    - Launch independent delegates in one message so they run at the same time.
    - Run a long delegate in the background and keep working; its report arrives as a message, so do not poll or sleep. In a non-interactive run (`claude -p`) it cannot ask for permission, so its tools must already be allowed.
    - If two delegates cannot be kept off the same files, give each `isolation: worktree` (a temporary git worktree), or split by file instead. The worktree branches from the default branch, so the delegate does not see uncommitted work.
-6. Give `qa` and `reviewer` the criteria and the changed file list only, never the author's reasoning or a verdict to confirm.
+6. Give `qa` and `reviewer` the criteria and the changed file list only, never the author's reasoning or a verdict to confirm. For a code change, the `developing` skill's `references/review-checklist.md` is part of the reviewer's criteria.
 7. A delegate's report is a claim. Check the evidence it cites before relaying it as done. If a delegate stops because an input is missing (an API contract, a design spec, a criterion), get that input from the user or from a file in the repo. Never invent it and put it in a new brief: that turns a guess into an instruction. If you cannot get it, report the stop and what is missing. A delegate cannot ask the user: it puts its open questions and the reason it stopped at the top of its report. A report from a delegate that used all its turns (maxTurns) is partial: do not relay it as done; split the part smaller or resume it (it continues where it stopped).
 8. Model lanes:
    - Opus, the main thread at medium effort: plans, decides and does the inline work.

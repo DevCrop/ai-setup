@@ -212,5 +212,24 @@ if [ -f "$sk" ]; then
 else refs_bad="SKILL.md missing"; fi
 [ -z "$refs_bad" ] && pass "14d every references/*.md path in frontend-design/SKILL.md exists" || bad "14d referenced file missing:$refs_bad"
 
+# 15. developing is copied and dry-run names it; its body (preloaded into backend and frontend) is under 4500 bytes and every
+#     references/ path it names exists in the repo
+newcfg; apply >/dev/null
+[ -f "$cfg/skills/developing/SKILL.md" ] && [ -f "$cfg/skills/developing/references/review-checklist.md" ] \
+  && pass "15a developing SKILL.md and references/ are copied" || bad "15a developing SKILL.md or references/ not copied"
+newcfg; out="$(dryrun)"
+printf '%s' "$out" | grep -q "would write: skills/developing" && pass "15a dry run on a fresh install names skills/developing" || bad "15a dry run does not name skills/developing ($out)"
+sk="$repo/claude/skills/developing/SKILL.md"; close="$(fmclose "$sk" 2>/dev/null)"
+body="$([ -f "$sk" ] && [ -n "$close" ] && tail -n +$((close + 1)) "$sk" | LC_ALL=C wc -c | tr -d ' ')"
+[ -n "$body" ] && [ "$body" -le 4500 ] 2>/dev/null && pass "15b developing body is $body bytes (max 4500)" \
+  || bad "15b developing body is ${body:-missing} bytes, or SKILL.md or its closing --- is missing (max 4500)"
+refs_bad=""
+if [ -f "$sk" ]; then
+  for r in $(grep -o 'references/[A-Za-z0-9._-]*\.md' "$sk" | sort -u); do
+    [ -f "$repo/claude/skills/developing/$r" ] || refs_bad="$refs_bad $r"
+  done
+else refs_bad="SKILL.md missing"; fi
+[ -z "$refs_bad" ] && pass "15c every references/*.md path in developing/SKILL.md exists" || bad "15c referenced file missing:$refs_bad"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]
