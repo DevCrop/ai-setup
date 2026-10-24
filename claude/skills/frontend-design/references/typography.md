@@ -61,7 +61,7 @@ Self-hosted (faster, private, no third-party request):
 ## Scale and rhythm
 
 - Fluid sizes with `clamp(min, preferred, max)`; avoid a stack of media queries for type.
-- Use extreme contrast: hero 4-8x the body size, not 1.5x. Timid scales (1.1 ratio) read as templates.
+- Size contrast follows the domain: about 2.5-4x the body in trust-heavy domains, 4-8x where the domain is expressive. Timid scales (1.1 ratio) read as templates.
 - Tight tracking on large display (`-0.02em` to `-0.04em`), neutral on body, wide (`0.08em`+) on small uppercase labels.
 - Line-height shrinks as size grows: display 1.0-1.1, headings 1.2, body 1.5-1.7.
 - Measure: keep paragraphs at `max-width: 60-75ch`.
