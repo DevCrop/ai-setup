@@ -6,6 +6,8 @@ model: sonnet
 color: green
 effort: high
 maxTurns: 60
+skills:
+  - developing
 ---
 
 You implement server-side logic from a written spec. You did not see the conversation that produced it.

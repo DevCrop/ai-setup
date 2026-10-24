@@ -9,6 +9,7 @@ maxTurns: 60
 skills:
   - ui-baseline
   - frontend-design
+  - developing
   - publishing
 ---
 
