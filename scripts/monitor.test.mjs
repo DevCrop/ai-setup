@@ -379,3 +379,16 @@ test('setup render: a new bullet whose words overlap an old label keeps its own 
   const html = render({ ...data, setup: collectSetupFlow(home, r) });
   assert.ok(html.includes('<b>Work that would block the main thread: `worker`.</b>'));
 });
+
+test('collect outside the repo: plugins and sessions still show when claude/ is not next to the script', async () => {
+  const bare = fs.mkdtempSync(path.join(tmp, 'bare-'));
+  const d = await collect({ home, now: NOW, env: ENV, repo: bare });
+  assert.equal(d.orchestration.status, data.orchestration.status);
+  assert.equal(d.orchestration.sessions.length, data.orchestration.sessions.length);
+  assert.ok(d.orchestration.sessions.flatMap((s) => s.agents).every((a) => a.verdict === 'n/a' || a.verdict === 'no data'));
+  assert.notEqual(d.routing.status, 'missing');
+  assert.equal(d.plugins.status, 'warn');
+  assert.deepEqual(d.plugins.items.map((i) => i.name).sort(), ['claude-mem@thedotmack', 'ponytail@ponytail']);
+  assert.ok(d.plugins.items.every((i) => i.enabled && i.installedVersion && i.pinnedRef === null && i.status === 'ok'));
+  assert.match(d.plugins.note, /not compared/);
+});
