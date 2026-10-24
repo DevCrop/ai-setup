@@ -562,6 +562,8 @@ test('ai-temp: per-root junk sized by children older than the root minimum age',
   await f.put(path.join(c, '.tmp', 'old', 'a'), 100, 3);
   await f.put(path.join(c, '.tmp', 'new', 'a'), 900, 0);
   await f.put(path.join(c, 'cache', 'x.bin'), 40, 2);
+  await f.put(path.join(c, '.tmp', 'busy.lock'), 5000, 3); // lock/guard files are skipped
+  await f.put(path.join(c, '.tmp', 'run.GUARD'), 5000, 3);
   await f.put(path.join('home', '.claude', 'plugins', '.trash', 'gone', 'a'), 30, 0);
   await f.put(path.join('tmp', 'claude', 'old-session', 'a'), 70, 20);
   await f.put(path.join('tmp', 'claude', 'young-session', 'a'), 700, 10); // under 14 days

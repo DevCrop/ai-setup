@@ -129,7 +129,10 @@ export const CRASH_EXTRA = (env) => (env?.appData ? ['Code', 'Cursor'].map((app)
 export const CODEX_WT_MIN_IDLE_DAYS = 14;
 
 /** Folder name Claude Code uses for a working directory: ":", "\", "/" and "." become "-" (D:\a\.b -> D--a--b). */
-export const claudeSessionSlug = (cwd) => String(cwd ?? '').replace(/[:\\/.]/g, '-');
+export const claudeSessionSlug = (cwd) => String(cwd ?? '').replace(/[^A-Za-z0-9]/g, '-');
+
+/** AI temp children with these names (lock/guard files of a running tool) are never recycled. */
+export const AI_TEMP_SKIP = /\.(lock|guard)$/i;
 
 /** Version of the running Claude Code CLI (`claude --version`), or null when it cannot be resolved. probe(argv) is read-only. */
 export async function runningClaudeVersion(probe) {

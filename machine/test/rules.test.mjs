@@ -8,7 +8,7 @@ import { resolveCacheDir } from '../lib/caches.mjs';
 const W = path.win32;
 
 test('rules: exports and constants', () => {
-  assert.deepEqual(Object.keys(rules).sort(), ['AI_TEMP_ROOTS', 'APPDATA_MIN_AGE_DAYS', 'APPDATA_MIN_BYTES', 'APPDATA_SKIP', 'APP_CACHE_DIRS', 'APP_CACHE_PATHS', 'CODEX_WT_MIN_IDLE_DAYS', 'CRASH_EXTRA',
+  assert.deepEqual(Object.keys(rules).sort(), ['AI_TEMP_ROOTS', 'AI_TEMP_SKIP','APPDATA_MIN_AGE_DAYS', 'APPDATA_MIN_BYTES', 'APPDATA_SKIP', 'APP_CACHE_DIRS', 'APP_CACHE_PATHS', 'CODEX_WT_MIN_IDLE_DAYS', 'CRASH_EXTRA',
     'DEV_MIN_AGE_DAYS', 'EDITOR_STATE_ROOTS', 'ELECTRON_APPS', 'OLD_VERSION_ROOTS', 'activeExtensionVersions', 'claudeSessionSlug', 'compareVersions', 'extGroup', 'groupKey', 'newestOf',
     'runningClaudeVersion', 'tierOf', 'versionOf']);
   assert.equal(rules.APPDATA_MIN_BYTES, 50 * 2 ** 20);
@@ -191,6 +191,10 @@ test('deny: Claude/Codex state stays protected except the named children', () =>
 test('claudeSessionSlug and runningClaudeVersion', async () => {
   assert.equal(rules.claudeSessionSlug('D:\\project\\ai-setup\\.claude\\worktrees\\x'), 'D--project-ai-setup--claude-worktrees-x');
   assert.equal(rules.claudeSessionSlug(undefined), '');
+  // every non-alphanumeric character becomes "-": underscore, space, Korean, parentheses
+  assert.equal(rules.claudeSessionSlug('C:\\Users\\edn_y\\my app'), 'C--Users-edn-y-my-app');
+  assert.equal(rules.claudeSessionSlug('D:\\프로젝트\\a_b (1)'), 'D-------a-b--1-');
+  assert.ok(rules.AI_TEMP_SKIP.test('x.lock') && rules.AI_TEMP_SKIP.test('X.GUARD') && !rules.AI_TEMP_SKIP.test('lock') && !rules.AI_TEMP_SKIP.test('a.lock.d'));
   const probe = (r) => async () => r;
   assert.equal(await rules.runningClaudeVersion(probe({ code: 0, stdout: '2.1.51 (Claude Code)\n' })), '2.1.51');
   assert.equal(await rules.runningClaudeVersion(probe({ code: 1, stdout: '2.1.51' })), null);

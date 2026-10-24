@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 import { pkey } from './walk.mjs';
 import { resolveCacheDir, CACHE_TOOLS } from './caches.mjs';
 import { isDenied } from './deny.mjs';
-import { OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, newestOf, versionOf, compareVersions, extGroup, CODEX_WT_MIN_IDLE_DAYS, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './rules.mjs';
+import { OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, newestOf, versionOf, compareVersions, extGroup, CODEX_WT_MIN_IDLE_DAYS, AI_TEMP_SKIP, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './rules.mjs';
 
 const DAY = 86400e3;
 const MB = 1024 * 1024;
@@ -615,7 +615,7 @@ async function staleChildrenJunk(env, root, minAgeDays, fields, opts = {}) {
   let size = 0;
   let newest = 0;
   for (const c of await childEntries(env, root, opts)) {
-    if (opts.skipNames?.has(c.name.toLowerCase()) || now - c.m < minAgeDays * DAY) continue;
+    if (opts.skipNames?.has(c.name.toLowerCase()) || opts.skipRe?.test(c.name) || now - c.m < minAgeDays * DAY) continue;
     size += c.s;
     if (c.m > newest) newest = c.m;
   }
@@ -677,7 +677,7 @@ export async function detectAiTemp(env) {
       category: 'ai-temp', score: tier === 'safe' ? 0.9 : 0.7, safety: tier, label, effect, action: 'recycle',
       reason: minAgeDays ? `AI 도구가 남긴 임시 파일 중 ${minAgeDays}일 넘게 쓰이지 않은 것들입니다.` : 'AI 도구가 남긴 임시 파일입니다.',
       how: '오래된 항목만 휴지통으로 이동 (사용 중인 파일은 건너뜀)',
-    }, { skipNames });
+    }, { skipNames, skipRe: AI_TEMP_SKIP }); // *.lock / *.guard files mark live work
     if (j) out.push(j);
   }
   return out;

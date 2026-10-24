@@ -10,7 +10,7 @@ import { resolveCacheDir, CACHE_TOOLS } from './lib/caches.mjs';
 import { isDenied, defaultEnv, norm, secretFile } from './lib/deny.mjs';
 import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf,
   OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, versionOf, newestOf, compareVersions,
-  CODEX_WT_MIN_IDLE_DAYS, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, extGroup } from './lib/rules.mjs';
+  CODEX_WT_MIN_IDLE_DAYS, AI_TEMP_SKIP, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, extGroup } from './lib/rules.mjs';
 import { realListInstalledApps } from './lib/detectors.mjs';
 
 const W = path.win32;
@@ -511,7 +511,7 @@ async function verifyChildren(item, p, st, ctx) {
   let skipped = 0, size = 0;
   const one = async (e) => {
     const cp = W.join(p, e.name);
-    if (e.isSymbolicLink() || (temp && tempProtected(e.name)) || (claudeScratch && isCurrentSessionDir(e.name, ctx.cwd)) || isDenied(cp, env).denied) return void skipped++;
+    if (e.isSymbolicLink() || (temp && tempProtected(e.name)) || (claudeScratch && isCurrentSessionDir(e.name, ctx.cwd)) || (aiTemp && AI_TEMP_SKIP.test(e.name)) || isDenied(cp, env).denied) return void skipped++;
     try {
       const u = await du(cp);
       if (u.sensitive || (u.gitDir && !(await env.isOrphanGit(cp))) || (ageDays && u.newest > now - ageDays * DAY)) return void skipped++;

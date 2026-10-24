@@ -821,10 +821,11 @@ test('ai-temp: the AI temp roots are accepted, their old-enough children are rec
   const f = await fixture();
   try {
     const cx = f.d('home', '.codex'), tc = W.join(f.env.tmp, 'claude'), trash = f.d('home', '.claude', 'plugins', '.trash');
-    const cwd = f.d('proj', 'sub');
-    const slug = (p) => p.replace(/[:\\/.]/g, '-');
+    const cwd = f.d('proj', 'my sub_dir');
+    const slug = (p) => p.replace(/[^A-Za-z0-9]/g, '-');
     const mk = async (p, days) => { await f.write(W.join(p, 'a.bin'), 'x'); await f.age(p, days); };
     await mk(W.join(cx, '.tmp', 'old'), 3); await mk(W.join(cx, '.tmp', 'new'), 0.2);
+    await mk(W.join(cx, '.tmp', 'busy.lock'), 3); await mk(W.join(cx, '.tmp', 'x.GUARD'), 3); // lock/guard names are never recycled
     await f.write(W.join(cx, '.tmp', 'withenv', '.env'), 'S=1'); await f.age(W.join(cx, '.tmp', 'withenv'), 5);
     await f.write(W.join(cx, '.tmp', 'repo', 'r', '.git', 'HEAD')); await f.age(W.join(cx, '.tmp', 'repo'), 5);
     await mk(W.join(cx, 'cache', 'old'), 3);

@@ -45,7 +45,7 @@ const ctxFor = (env, cwd) => makeCtx({
   env, cwd, probe: env.probe, run: async () => ({ code: 0, stdout: '', stderr: '' }), recycle: async (l) => l.map(() => ({ ok: true })),
   listInstalledApps: async () => [], driveOk: async () => true, driveTotal: async () => 1e15,
 });
-const slug = (c) => c.replace(/[:\\/.]/g, '-');
+const slug = (c) => c.replace(/[^A-Za-z0-9]/g, '-');
 const base = (c) => c.children.map((x) => W.basename(x.path)).sort();
 
 test('detector output for the AI tool categories is accepted by verifyItem', opts, async () => {
