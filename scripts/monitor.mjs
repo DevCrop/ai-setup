@@ -69,18 +69,90 @@ export function parseTranscriptLine(line) {
   };
 }
 
-// Expected model per agent type from the `model:` frontmatter of <repo>/claude/agents/*.md.
-export function readExpectedModels(repo = REPO) {
+// Frontmatter of each <repo>/claude/agents/*.md: model (family, raw value, or null when absent), description and preloaded skills.
+export function readAgents(repo = REPO) {
   const dir = path.join(repo, 'claude', 'agents');
-  const out = {};
-  for (const f of fs.readdirSync(dir)) {
+  const out = [];
+  for (const f of fs.readdirSync(dir).sort()) {
     if (!f.endsWith('.md')) continue;
     const head = fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/);
     const end = head.indexOf('---', 1);
-    const line = head.slice(1, end < 0 ? 0 : end).find((l) => /^model:/.test(l));
-    out[f.slice(0, -3)] = line ? family(line) || line.slice(6).trim() || null : null;
+    const fm = head.slice(1, end < 0 ? 0 : end);
+    const val = (k) => { const l = fm.find((x) => x.startsWith(`${k}:`)); return l ? l.slice(k.length + 1).trim() : null; };
+    const m = val('model');
+    const si = fm.findIndex((l) => /^skills:/.test(l));
+    const skills = [];
+    if (si >= 0) for (const l of fm.slice(si + 1)) { const s = l.match(/^\s+-\s+(\S+)/); if (!s) break; skills.push(s[1].slice(0, 60)); }
+    out.push({ name: f.slice(0, -3), model: m ? family(m) || m || null : null, description: (val('description') || '').slice(0, 300), skills });
   }
   return out;
+}
+
+// Expected model per agent type from the `model:` frontmatter of <repo>/claude/agents/*.md.
+export function readExpectedModels(repo = REPO) {
+  return Object.fromEntries(readAgents(repo).map((a) => [a.name, a.model]));
+}
+
+// Indented "- " bullets of the numbered SKILL.md item whose line matches `re`; null when no line matches.
+// Collection ends at the next numbered item or heading; table rows and blank lines inside the item are skipped.
+function itemBullets(lines, re) {
+  const i = lines.findIndex((l) => re.test(l));
+  if (i < 0) return null;
+  const out = [];
+  for (const l of lines.slice(i + 1)) {
+    if (/^\s*\d+\.\s/.test(l) || /^#/.test(l)) break;
+    const b = l.match(/^\s+-\s+(.*)$/);
+    if (b) out.push(b[1].trim());
+  }
+  return out.length ? out : null;
+}
+
+const ticks = (s) => [...s.matchAll(/`([a-z][\w-]*)`/g)].map((m) => m[1]);
+
+// Lenient parse of claude/skills/orchestrate/SKILL.md. Each section is null on its own when its anchor line is missing.
+export function parseOrchestrate(text) {
+  const lines = String(text).split(/\r?\n/);
+  const bullets = (re) => itemBullets(lines, re)?.map((t) => ({ text: t.slice(0, 400), agents: ticks(t) })) ?? null;
+  const routing = [];
+  for (const l of lines) {
+    const m = l.match(/^\s*\|\s*([^|]+?)\s*\|\s*`([a-z][\w-]*)`\s*\|\s*$/);
+    if (m) routing.push({ part: m[1].slice(0, 120), agent: m[2] });
+  }
+  const lanes = itemBullets(lines, /model lanes/i)?.map((t) => ({ model: family(t.split(/[\s,:]/)[0]) || null, text: t.slice(0, 400), agents: ticks(t) })) ?? null;
+  return { delegate: bullets(/delegate when/i), routing: routing.length ? routing : null, lanes, failure: bullets(/delegated part fails/i) };
+}
+
+// Text files under dir, relative with forward slashes.
+const listFiles = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir, { recursive: true }).map((r) => slash(String(r))).filter((r) => fs.statSync(path.join(dir, r)).isFile()) : []);
+const sameText = (a, b) => { try { return fs.readFileSync(a, 'utf8').replace(/\r\n/g, '\n') === fs.readFileSync(b, 'utf8').replace(/\r\n/g, '\n'); } catch { return false; } };
+
+// Setup structure for the 구조 tab: agents, orchestration rules and skills from the repo, plus drift against the live ~/.claude.
+// Drift is checked repo -> home only, for agents/ and the skills apply.sh installs; home-only extras are never flagged. Paths stay relative.
+export function collectSetupFlow(home, repo = REPO) {
+  const agents = readAgents(repo);
+  let rules = { delegate: null, routing: null, lanes: null, failure: null };
+  try { rules = parseOrchestrate(fs.readFileSync(path.join(repo, 'claude', 'skills', 'orchestrate', 'SKILL.md'), 'utf8')); } catch { /* all four stay null */ }
+  const skillsDir = path.join(repo, 'claude', 'skills');
+  const skills = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  let applied = skills;
+  try {
+    const items = fs.readFileSync(path.join(repo, 'scripts', 'apply.sh'), 'utf8').match(/^items="([^"]*)"/m)?.[1];
+    if (items) applied = items.split(/\s+/).filter((t) => t.startsWith('skills/')).map((t) => t.slice(7));
+  } catch { /* compare every repo skill */ }
+  const drift = [];
+  for (const sub of ['agents', ...applied.map((s) => `skills/${s}`)]) {
+    for (const rel of listFiles(path.join(repo, 'claude', sub))) {
+      const live = path.join(home, sub, rel);
+      if (!fs.existsSync(live)) drift.push({ path: `${sub}/${rel}`, kind: 'missing' });
+      else if (!sameText(path.join(repo, 'claude', sub, rel), live)) drift.push({ path: `${sub}/${rel}`, kind: 'differs' });
+    }
+  }
+  const unread = Object.entries(rules).filter(([, v]) => !v).map(([k]) => k);
+  return {
+    status: unread.length || drift.length ? 'warn' : 'ok',
+    note: unread.length ? `Rules not parsed: ${unread.join(', ')}.` : '',
+    agents, rules, skills, drift: drift.slice(0, 50), driftCount: drift.length,
+  };
 }
 
 // Parses the "By Command" rows of plain `rtk gain`; the command column is fixed-width and may contain spaces.
@@ -502,6 +574,7 @@ export async function collect(opts = {}) {
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
     savings, orchestration,
+    setup: await guard(() => collectSetupFlow(home, opts.repo), { agents: [], rules: { delegate: null, routing: null, lanes: null, failure: null }, skills: [], drift: [], driftCount: 0 }),
   };
 }
 

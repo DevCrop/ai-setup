@@ -1,14 +1,14 @@
-# Backgrounds and depth: atmosphere instead of flat fills
+# Surfaces and depth
 
-Use when a page or section looks flat, a solid color feels empty, or you need layered surfaces, texture, and shadows.
+Use when a page or section needs surface levels, depth, imagery or texture.
 
 ## Rule zero
 
-If the project already has a background or surface policy (color and shadow tokens, documented elevation levels, a design system), follow it and stop reading. The guidance below applies when nothing exists. Match whatever you build to the chosen aesthetic: a brutalist page wants hard patterns and flat borders, an editorial page wants quiet paper grain, a futuristic page may want glow.
+If the project already has a background or surface policy (color and shadow tokens, documented elevation levels, a design system), follow it and stop reading. The guidance below applies when nothing exists. Match whatever you build to the chosen direction and domain. Start with tonal sections (alternating surface levels), real imagery and subtle tonal gradients. Glows, grain and patterns are optional seasoning for expressive domains only; leave them out of trust-heavy domains (medical, finance, legal, public services, B2B tools).
 
-## Build atmosphere in layers
+## Layered gradients (expressive domains only)
 
-Stack several `background-image` layers, topmost first, over a base color. Derive every color from the palette tokens so the background belongs to the page.
+When an expressive direction calls for atmosphere, stack a few `background-image` layers, topmost first, over a base color. Derive every color from the palette tokens so the background belongs to the page.
 
 ```css
 .hero {
@@ -22,7 +22,7 @@ Stack several `background-image` layers, topmost first, over a base color. Deriv
 
 Keep gradient stops low in opacity and few in number. A mesh effect comes from two to four soft radial gradients at different positions, not from saturated rainbows.
 
-## Grain
+## Grain (expressive domains only)
 
 A faint noise layer removes the digital smoothness of gradients. Generate it with an inline SVG, so no image file is needed:
 
@@ -41,7 +41,7 @@ A faint noise layer removes the digital smoothness of gradients. Generate it wit
 
 Use the pseudo-element so the grain never intercepts clicks, and keep opacity between 0.03 and 0.08. Tile a small SVG rather than filtering a full-viewport element.
 
-## Geometric patterns
+## Geometric patterns (expressive domains only)
 
 Pure CSS patterns suit technical, editorial, or brutalist directions:
 
@@ -59,7 +59,7 @@ Grids (two perpendicular `linear-gradient` lines with `background-size`), dots (
 
 - Define three or four surface levels (base, raised, overlay) with a slightly different background each, rather than one color everywhere.
 - Use one consistent shadow scale as tokens (`--shadow-1` through `--shadow-3`). Raise blur and offset together, and keep opacity low. Tint shadows with the background hue instead of pure black.
-- Choose borders or shadows per component family, not both on everything. Borders feel crisp and flat; shadows feel soft and physical. A 1px low-contrast border plus a small shadow is a safe pairing for cards.
+- Choose borders or shadows per component family, not both on everything. Borders feel crisp and flat; shadows feel soft and physical. A low-contrast 1px border with a small shadow is fine for cards; never a hard border with a soft shadow.
 - Light comes from one direction. All shadows should fall the same way.
 
 ## Backdrop blur, sparingly
@@ -89,5 +89,5 @@ Text contrast must hold over the worst spot of the background, not the average. 
 - The default purple-to-blue gradient hero on white or near-black.
 - Glassmorphism on every card; it flattens hierarchy and hurts contrast.
 - Grain or patterns strong enough to lower text contrast or create visual vibration.
-- Decorative blobs and orbs unrelated to the content or brand.
+- Orbs, blobs, glowing suns and abstract CSS illustrations.
 - Mixing several shadow styles and several border radii without a scale.
