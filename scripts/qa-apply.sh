@@ -219,7 +219,7 @@ for s in $refskills; do
   [ -z "$refs_bad" ] && pass "14d every references/*.md path in $s/SKILL.md exists" || bad "14d $s referenced file missing:$refs_bad"
 done
 
-# 15. developing is copied and dry-run names it; its body (preloaded into backend and frontend) is under 4500 bytes and every
+# 15. developing is copied and dry-run names it; its body (preloaded into developer) is under 4500 bytes and every
 #     references/ path it names exists in the repo
 newcfg; apply >/dev/null
 [ -f "$cfg/skills/developing/SKILL.md" ] && [ -f "$cfg/skills/developing/references/review-checklist.md" ] \

@@ -56,7 +56,7 @@ abstract class BaseComponent<T> { /* lifecycle hooks nobody calls */ }
 new Accordion(el, { animation: "slide", duration: 300, onOpen, onClose, a11y: true });
 // a free-floating function file when the project uses classes
 export function initAccordion() { ... }
-// API calls or app state inside a UI class: that belongs to frontend
+// API calls or app state inside a UI class: that belongs to developer
 fetch("/api/faq").then(...);
 ```
 

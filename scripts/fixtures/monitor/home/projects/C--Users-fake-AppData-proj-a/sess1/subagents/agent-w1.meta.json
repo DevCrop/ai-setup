@@ -1,1 +1,1 @@
-{"agentType":"worker","description":"CANARY_DESC_42 do the thing","toolUseId":"t1","spawnDepth":1}
+{"agentType":"explorer","description":"CANARY_DESC_42 do the thing","toolUseId":"t1","spawnDepth":1}

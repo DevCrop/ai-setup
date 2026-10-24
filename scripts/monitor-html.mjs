@@ -745,7 +745,7 @@ function famDot(f) {
   return `<span class="fc f-${f}"><i class="dot"></i>${famLabel(f)}</span>`;
 }
 
-// Plan = main thread, execute = subagents, verify = reviewer/qa style agents.
+// Plan = main thread, execute = subagents, verify = reviewer-style agents (qa kept in the match for old transcripts).
 function phaseOf(a) {
   return typeof a.agentType === 'string' && /review|qa|verif/i.test(a.agentType) ? '검증' : '실행';
 }
@@ -805,7 +805,7 @@ function sessionBlock(sess, maxNodes, compact) {
 function flowLegend() {
   return `<ul class="legend" aria-label="범례"><li class="lg"><span aria-hidden="true">↓</span>위임</li>` +
     `<li class="lg"><span class="pip live" aria-hidden="true"></span>진행 중</li>` +
-    `${FAM_ITEMS}</ul><p class="cap">계획 = 메인(Opus) → 실행 = Sonnet·Haiku → 검증 = Opus (reviewer·qa)</p>`;
+    `${FAM_ITEMS}</ul><p class="cap">계획 = 메인(Opus) → 실행 = Sonnet·Haiku → 검증 = Opus (reviewer)</p>`;
 }
 
 // ---------- Tokens ----------

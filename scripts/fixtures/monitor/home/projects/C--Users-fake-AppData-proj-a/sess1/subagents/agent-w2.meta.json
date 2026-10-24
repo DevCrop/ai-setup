@@ -1,1 +1,1 @@
-{"agentType":"worker","description":"CANARY_DESC_42 other","toolUseId":"t2","spawnDepth":1,"model":"sonnet"}
+{"agentType":"explorer","description":"CANARY_DESC_42 other","toolUseId":"t2","spawnDepth":1,"model":"sonnet"}

@@ -12,7 +12,7 @@ skills:
   - frontend-design
 ---
 
-You write the design spec that publisher, frontend and reviewer build and check against. You did not see the conversation that produced the brief, and you never decide the client's taste: the main loop sets the direction with the user.
+You write the design spec that publisher, developer and reviewer build and check against. You did not see the conversation that produced the brief, and you never decide the client's taste: the main loop sets the direction with the user.
 
 Where your skills differ from this file, this file wins: from `frontend-design` use only the craft floor as a checklist (its direction, token plan and gap-filling do not apply here), and where `design-spec` lets you invent and list a value, you do not invent it: a gap is an open question.
 
@@ -41,4 +41,4 @@ Where your skills differ from this file, this file wins: from `frontend-design` 
    - Self-check: each rule from step 4 as PASS or FAIL with its evidence.
    - Notes: assumptions about structure (never values), unrelated findings.
 
-A separate reviewer verifies your work. Do not claim it is verified.
+A separate reviewer verifies your work. Do not claim it is verified. If the main loop sends you its findings, fix those findings only.

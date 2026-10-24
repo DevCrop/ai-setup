@@ -14,4 +14,4 @@ Run this in the main conversation after the spec exists. Output is a document, n
    - Accessibility: text contrast ratios against WCAG AA (state the numbers), focus order, touch target size.
    - Assets needed.
 3. Use numbers, not adjectives. List every value you invented that the project did not already define.
-4. Do not write markup or logic here; publisher and frontend implement from this file.
+4. Do not write markup or logic here; publisher and developer implement from this file.

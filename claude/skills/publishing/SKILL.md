@@ -1,6 +1,6 @@
 ---
 name: publishing
-description: 퍼블리싱. House publishing rules for markup, SCSS and UI interaction code (tabs, accordion, modal, slider) in any web project. Use whenever HTML, SCSS/CSS or interaction TS is written or changed, inline or by the publisher and frontend agents.
+description: 퍼블리싱. House publishing rules for markup, SCSS and UI interaction code (tabs, accordion, modal, slider) in any web project. Use whenever HTML, SCSS/CSS or interaction TS is written or changed, inline or by the publisher agent.
 when_to_use: Requests such as 퍼블리싱 해줘, 마크업 짜줘, SCSS 추가, 스타일 수정, 인터랙션 붙여줘, 탭 / 아코디언 / 모달 / 슬라이더 만들어줘, 컴포넌트 퍼블리싱, 화면 퍼블리싱, write the markup, add SCSS for this section, add an accordion, build a tab component, publish this page.
 ---
 
@@ -13,7 +13,7 @@ Before writing, read the SCSS entry file, `abstracts/` (its `fluid()`, color and
 1. **SCSS는 기존 파일링 구조 그대로 쓴다 ( ABSTRACT, BASE , LAYOUTS, COMPONENTS )**
    Each new style goes in the matching folder (abstracts emit no CSS; components get one partial each) and is registered in the existing entry or `_index.scss` the way its neighbours are; never migrate `@import`. A different existing structure wins; never a parallel tree. `references/scss.md`
 2. **TS의 경우 객체지향적으로 확장한다 ( 기본 PONYTAIL 및 기본 지침 준수 )**
-   One class per component or interaction: constructor(root, options), `init()`, `destroy()`, in the project's layout. Extend an existing base only for a second real use that exists now. Client state, API calls and business logic belong to `frontend`; React, Vue or Svelte follow the framework. `references/ts.md`
+   One class per component or interaction: constructor(root, options), `init()`, `destroy()`, in the project's layout. Extend an existing base only for a second real use that exists now. Client state, API calls and business logic belong to `developer`; React, Vue or Svelte follow the framework. `references/ts.md`
 3. **HTML 형식은 깔끔하게 웹표준에 맞추어 작성한다 ( 인터렉션일 경우 이를 유연하게 수정 )**
    Valid, semantic HTML per `ui-baseline`, with landmarks and heading order; no inline `style=`, `onclick=` or `<script>`. Interactive parts may add wrappers, the project's JS hooks and ARIA states, and stay valid. `references/html.md`
 4. **FLUID ( ) 사용 필수 => MIXIN에 있는거**
