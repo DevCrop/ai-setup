@@ -4,7 +4,7 @@ description: 개발. House rules for developer work — REST API, backend, datab
 when_to_use: Requests such as 개발해줘, API 만들어줘, 백엔드 구현, 엔드포인트 추가, DB 스키마, 대시보드 데이터, 결제 기능, 결제 연동, 웹훅, 보안 점검, CORS 설정, SQL 인젝션, 로그인 구현, 코드리뷰, SOLID, 리팩터링, build an API, add an endpoint, payment integration, webhook, security check, CORS, code review, SOLID.
 ---
 
-House rules for developer work. Precedence: the project's own conventions, then these rules, then generic advice. The global rules (`~/.claude/CLAUDE.md`: secrets, destructive actions, a test with each fix, Ponytail) and the `backend` agent's rules still apply; they are not repeated here. Each rule has Do, Don't and a Check; examples are in `references/`.
+House rules for developer work. Precedence: the project's own conventions, then these rules, then generic advice. The global rules (`~/.claude/CLAUDE.md`: secrets, destructive actions, a test with each fix, Ponytail) and the `developer` agent's rules still apply; they are not repeated here. Each rule has Do, Don't and a Check; examples are in `references/`.
 
 ## 1. Security baseline
 - Do: CORS from a fixed origin allowlist, preflight (`OPTIONS`) answered; SQL only via parameters or the ORM; validate input at the trust boundary (type, length, range); encode output (no raw HTML from user data); CSRF tokens when auth is a cookie session; passwords hashed with argon2 or bcrypt; secrets only in `.env`; rate limits on login and payment endpoints; production errors without stack traces.

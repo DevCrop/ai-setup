@@ -57,7 +57,8 @@ test('parseTranscriptLine skips malformed, non-assistant and synthetic lines and
 
 test('readExpectedModels reads the real agent frontmatter', () => {
   const e = readExpectedModels(repo);
-  assert.equal(e.worker, 'haiku');
+  assert.equal(e.explorer, 'haiku');
+  assert.equal(e.developer, 'sonnet');
   assert.equal(e.reviewer, 'opus');
   assert.equal(e.general, undefined);
 });
@@ -69,17 +70,17 @@ test('every section has a status', () => {
   assert.equal(data.generatedAt, NOW);
 });
 
-test('routing: worker on sonnet without meta model is a mismatch, meta model override is counted separately', () => {
+test('routing: explorer on sonnet without meta model is a mismatch, meta model override is counted separately', () => {
   const by = Object.fromEntries(data.routing.agents.map((a) => [a.agentType, a]));
-  assert.equal(by.worker.verdict, 'mismatch');
-  assert.equal(by.worker.runs, 3);
-  assert.equal(by.worker.overrides, 1);
-  assert.deepEqual(by.worker.models, [{ model: 'claude-sonnet-5-5', messages: 3 }, { model: 'claude-haiku-5-5', messages: 1 }]);
+  assert.equal(by.explorer.verdict, 'mismatch');
+  assert.equal(by.explorer.runs, 3);
+  assert.equal(by.explorer.overrides, 1);
+  assert.deepEqual(by.explorer.models, [{ model: 'claude-sonnet-5-5', messages: 3 }, { model: 'claude-haiku-5-5', messages: 1 }]);
   assert.equal(by.reviewer.verdict, 'ok');
   assert.equal(by['general-purpose'].verdict, 'n/a');
   assert.equal(by['general-purpose'].expected, null);
-  assert.equal(by.explorer.verdict, 'no data');
-  assert.equal(by.backend.verdict, 'ok');
+  assert.equal(by.designer.verdict, 'no data');
+  assert.equal(by.developer.verdict, 'ok');
   assert.equal(data.routing.windowDays, 7);
   assert.equal(data.routing.status, 'warn');
 });
@@ -206,9 +207,9 @@ test('orchestration: subagents attach to their own session, live flag follows th
   const o = data.orchestration;
   assert.deepEqual(o.sessions.map((s) => [s.sessionId, s.live]), [['sess2', true], ['sess1', false]]);
   const [s2, s1] = o.sessions;
-  assert.deepEqual(s2.agents.map((a) => [a.agentType, a.model, a.verdict, a.live, a.messages, a.output]), [['backend', 'claude-sonnet-5-5', 'ok', true, 1, 4]]);
+  assert.deepEqual(s2.agents.map((a) => [a.agentType, a.model, a.verdict, a.live, a.messages, a.output]), [['developer', 'claude-sonnet-5-5', 'ok', true, 1, 4]]);
   assert.deepEqual(s2.main, { models: [{ model: 'claude-opus-5-5', messages: 1 }], output: 7 });
-  assert.deepEqual(s1.agents.map((a) => a.agentType), ['worker', 'worker', 'reviewer', 'general-purpose']);
+  assert.deepEqual(s1.agents.map((a) => a.agentType), ['explorer', 'explorer', 'reviewer', 'general-purpose']);
   assert.deepEqual(s1.agents.map((a) => [a.verdict, a.override]), [['mismatch', false], ['override', true], ['ok', false], ['n/a', false]]);
   assert.equal(s1.main.output, 120);
   assert.equal(s1.agents[0].output, 15);
@@ -291,12 +292,12 @@ test('setup: parses the real orchestrate rules and agent frontmatter', () => {
   assert.deepEqual(s.rules.delegate[1].agents, ['explorer']);
   assert.deepEqual(s.rules.routing.find((x) => x.agent === 'publisher').part, 'Markup, SCSS/CSS, templates, UI-interaction TS (tabs, accordion, modal, slider)');
   assert.deepEqual(s.rules.lanes.filter((l) => l.model === 'opus').length, 2); // main thread and verifiers stay separate
-  assert.deepEqual(s.rules.lanes.find((l) => l.model === 'haiku').agents, ['explorer', 'publisher', 'worker']);
-  assert.equal(s.rules.failure.length, 3);
-  assert.deepEqual(s.agents.find((a) => a.name === 'frontend').skills, ['ui-baseline', 'frontend-design', 'developing', 'publishing']);
+  assert.deepEqual(s.rules.lanes.find((l) => l.model === 'haiku').agents, ['explorer']);
+  assert.equal(s.rules.failure.length, 2);
+  assert.deepEqual(s.agents.find((a) => a.name === 'developer').skills, ['developing']);
   assert.ok(s.skills.includes('orchestrate'));
   // The test home has no agents/ or skills/: every repo file is drift, with relative paths only.
-  assert.ok(s.drift.some((x) => x.path === 'agents/worker.md' && x.kind === 'missing'));
+  assert.ok(s.drift.some((x) => x.path === 'agents/explorer.md' && x.kind === 'missing'));
   assert.ok(s.drift.every((x) => !path.isAbsolute(x.path) && !x.path.includes('..')));
 });
 
@@ -321,24 +322,24 @@ test('setup: a renamed section is null on its own and renders 규칙을 읽지 �
 test('setup: a changed agent model and a new rule show in the diagram without code changes', async () => {
   const { render } = await import('./monitor-html.mjs');
   const r = setupRepo();
-  edit(path.join(r, 'claude', 'agents', 'worker.md'), (t) => t.replace(/^model: haiku$/m, 'model: sonnet'));
-  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - A long migration nobody should watch: `worker`.'));
+  edit(path.join(r, 'claude', 'agents', 'explorer.md'), (t) => t.replace(/^model: haiku$/m, 'model: sonnet'));
+  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - A long migration nobody should watch: `explorer`.'));
   const s = collectSetupFlow(home, r);
-  assert.equal(s.agents.find((a) => a.name === 'worker').model, 'sonnet');
+  assert.equal(s.agents.find((a) => a.name === 'explorer').model, 'sonnet');
   assert.equal(s.rules.delegate.length, 5);
   const html = render({ ...data, setup: s });
-  const card = html.match(/<div class="ag f-(\w+)[^"]*"[^>]*><div class="a1"><b>worker<\/b>.*?<\/div><\/div>/);
+  const card = html.match(/<div class="ag f-(\w+)[^"]*"[^>]*><div class="a1"><b>explorer<\/b>.*?<\/div><\/div>/);
   assert.equal(card[1], 'sonnet');
   assert.ok(card[0].includes('규칙: Haiku')); // the lane in SKILL.md still says Haiku
-  assert.ok(html.includes('A long migration nobody should watch: `worker`.')); // unknown bullet shown as its own text
+  assert.ok(html.includes('A long migration nobody should watch: `explorer`.')); // unknown bullet shown as its own text
 });
 
 test('setup: usage badge shows 7-day runs and flags the actual model when it differs', async () => {
   const { render } = await import('./monitor-html.mjs');
   const html = render(data);
   const card = (n) => html.match(new RegExp(`<div class="ag [^"]*"[^>]*><div class="a1"><b>${n}</b>.*?</div></div>`))[0];
-  assert.match(card('worker'), /^<div class="ag f-haiku off"/);
-  assert.ok(card('worker').includes('7일 3회') && card('worker').includes('실제 Sonnet'));
+  assert.match(card('explorer'), /^<div class="ag f-haiku off"/);
+  assert.ok(card('explorer').includes('7일 3회') && card('explorer').includes('실제 Sonnet'));
   assert.ok(card('reviewer').includes('실제 일치'));
   assert.ok(!card('reviewer').includes('u warn'));
   assert.ok(html.includes('data-tab="flow"') && html.includes('id="v-flow"'));
@@ -351,8 +352,8 @@ test('setup: drift is clean when home matches the repo, home-only extras are ign
   fs.mkdirSync(path.join(h, 'skills', 'synced'));
   fs.writeFileSync(path.join(h, 'skills', 'synced', 'x.md'), 'x');
   assert.deepEqual(collectSetupFlow(h, repo).drift, []);
-  edit(path.join(h, 'agents', 'qa.md'), (t) => t.replace('model: opus', 'model: sonnet'));
-  assert.deepEqual(collectSetupFlow(h, repo).drift, [{ path: 'agents/qa.md', kind: 'differs' }]);
+  edit(path.join(h, 'agents', 'reviewer.md'), (t) => t.replace('model: opus', 'model: sonnet'));
+  assert.deepEqual(collectSetupFlow(h, repo).drift, [{ path: 'agents/reviewer.md', kind: 'differs' }]);
 });
 
 test('parseOrchestrate: lenient on CRLF and stray text, empty input gives all null', () => {
@@ -367,17 +368,17 @@ test('setup render: malformed setup data is escaped, empty sections say 규칙�
   const html = render({ setup: { status: 'ok', agents: [{ name: bad, model: bad, skills: [bad], description: bad }], rules: { lanes: [{ text: 'Opus, the main thread', model: bad, agents: [] }], delegate: [], failure: [] }, skills: [bad], drift: [{ path: bad, kind: bad }] } });
   assert.ok(!html.includes('<img'));
   assert.ok(html.includes('“Delegate when”') && html.includes('“When a delegated part fails”'));
-  const override = render({ ...data, routing: { ...data.routing, agents: [{ agentType: 'worker', expected: 'haiku', runs: 1, verdict: 'override', models: [{ model: 'claude-sonnet-5-5', messages: 2 }] }] } });
-  const card = override.match(/<div class="ag [^"]*"[^>]*><div class="a1"><b>worker<\/b>.*?<\/div><\/div>/)[0];
+  const override = render({ ...data, routing: { ...data.routing, agents: [{ agentType: 'explorer', expected: 'haiku', runs: 1, verdict: 'override', models: [{ model: 'claude-sonnet-5-5', messages: 2 }] }] } });
+  const card = override.match(/<div class="ag [^"]*"[^>]*><div class="a1"><b>explorer<\/b>.*?<\/div><\/div>/)[0];
   assert.ok(card.includes('수동 지정 Sonnet') && !card.includes('u warn'));
 });
 
 test('setup render: a new bullet whose words overlap an old label keeps its own text', async () => {
   const { render } = await import('./monitor-html.mjs');
   const r = setupRepo();
-  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - Work that would block the main thread: `worker`.'));
+  edit(orchFile(r), (t) => t.replace('   - The user asks for subagents or a parallel run.', '   - The user asks for subagents or a parallel run.\n   - Work that would block the main thread: `explorer`.'));
   const html = render({ ...data, setup: collectSetupFlow(home, r) });
-  assert.ok(html.includes('<b>Work that would block the main thread: `worker`.</b>'));
+  assert.ok(html.includes('<b>Work that would block the main thread: `explorer`.</b>'));
 });
 
 test('collect outside the repo: plugins and sessions still show when claude/ is not next to the script', async () => {
