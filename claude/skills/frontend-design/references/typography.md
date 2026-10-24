@@ -30,7 +30,7 @@ Avoid pairing two similar faces (two geometric sans). Either commit to contrast 
 - Latin-only fonts have no Hangul. The browser silently falls back to a system face, breaking the design. If the content is Korean, choose a Hangul-capable font and put it in the stack explicitly.
 - Sans: Pretendard (best default for UI), Noto Sans KR, IBM Plex Sans KR.
 - Serif / editorial: Noto Serif KR, Nanum Myeongjo, Gowun Batang (softer, literary), Gowun Dodum.
-- Mixed pages: list the Latin display font first, then the Hangul font, so each script gets a deliberate face: `font-family: "Fraunces", "Noto Serif KR", serif;`
+- Mixed pages: list the Latin display font first, then the Hangul font, so each script gets a deliberate face: `font-family: "Newsreader", "Noto Serif KR", serif;`
 - Hangul needs slightly more line-height (1.6-1.8 body) and no negative tracking on body text. Use `word-break: keep-all` so words do not split mid-syllable-group.
 
 ## Loading
@@ -40,15 +40,15 @@ Google Fonts, with preconnect and swap:
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
 ```
 
 Self-hosted (faster, private, no third-party request):
 
 ```css
 @font-face {
-  font-family: "Fraunces";
-  src: url("/fonts/Fraunces-var.woff2") format("woff2");
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/BricolageGrotesque-var.woff2") format("woff2");
   font-weight: 100 900;
   font-display: swap;
 }
@@ -62,9 +62,9 @@ Self-hosted (faster, private, no third-party request):
 
 - Fluid sizes with `clamp(min, preferred, max)`; avoid a stack of media queries for type.
 - Size contrast follows the domain: about 2.5-4x the body in trust-heavy domains, 4-8x where the domain is expressive. Timid scales (1.1 ratio) read as templates.
-- Tight tracking on large display (`-0.02em` to `-0.04em`), neutral on body, wide (`0.08em`+) on small uppercase labels.
-- Line-height shrinks as size grows: display 1.0-1.1, headings 1.2, body 1.5-1.7.
-- Measure: keep paragraphs at `max-width: 60-75ch`.
+- Tight tracking on large display (`-0.02em` to `-0.04em`), neutral on body, wide (`0.08em`+) on small uppercase UI labels such as table headers, never as a label above a headline.
+- Line-height shrinks as size grows: display 1.0-1.1, headings 1.1-1.3, body 1.5-1.7 (Korean 1.6-1.8).
+- Measure: keep paragraphs at `max-width: 60-75ch` (Korean about 35-45 characters).
 - Tables and prices: `font-variant-numeric: tabular-nums` so columns align; `oldstyle-nums` suits editorial body.
 
 ## Example
@@ -91,7 +91,7 @@ h1 {
 h2 { font: 600 var(--step-3)/1.15 var(--font-display); letter-spacing: -0.02em; }
 p { max-width: 68ch; }
 td.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
-.eyebrow { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; }
+th { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; } /* UI labels only, not above headlines */
 ```
 
 Tailwind: define the same values in `theme.extend.fontFamily` / `fontSize` rather than using the default `font-sans`.
