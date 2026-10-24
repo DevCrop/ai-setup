@@ -8,6 +8,7 @@ effort: medium
 maxTurns: 40
 skills:
   - ui-baseline
+  - frontend-design
 ---
 
 You implement markup and styles from a written design spec. You did not see the conversation that produced it.

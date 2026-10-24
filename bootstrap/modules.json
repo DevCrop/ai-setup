@@ -1,0 +1,34 @@
+[
+  {
+    "name": "ai-setup",
+    "description": "Copy claude/ into the Claude config dir (apply.sh)",
+    "check": "scripts/apply.sh",
+    "run": [["bash", "scripts/apply.sh"]],
+    "optional": false
+  },
+  {
+    "name": "claude-plugins",
+    "description": "Install the ponytail and claude-mem plugins and set claude-mem options",
+    "check": "scripts/setup-claude-mem.sh",
+    "run": [
+      ["claude", "plugin", "install", "ponytail@ponytail"],
+      ["claude", "plugin", "install", "claude-mem@thedotmack"],
+      ["bash", "scripts/setup-claude-mem.sh"]
+    ],
+    "optional": true
+  },
+  {
+    "name": "monitor",
+    "description": "Write the setup monitor HTML page to the temp folder and print its path",
+    "check": "scripts/monitor.mjs",
+    "run": [["node", "scripts/monitor.mjs"]],
+    "optional": true
+  },
+  {
+    "name": "machine",
+    "description": "Read-only disk scan that renders a machine map (can take minutes)",
+    "check": "machine/scan.mjs",
+    "run": [["node", "machine/scan.mjs"]],
+    "optional": true
+  }
+]
