@@ -1,5 +1,6 @@
 // Shared thresholds and lists (see machine/CONTRACT.md) so scanner, cleaner and page agree.
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 const W = path.win32;
@@ -37,7 +38,7 @@ export const APP_CACHE_PATHS = (env) => [
 
 const SAFE = new Set(['temp', 'pkg-cache', 'crash-dump', 'browser-cache', 'shader-cache', 'app-cache', 'plugin-cache', 'ai-old-version']);
 // ai-temp is safe for some roots and "check" for others: use the root's own tier (AI_TEMP_ROOTS); this default is the cautious one.
-const CHECK = new Set(['dev-artifact', 'orphan-worktree', 'ai-temp', 'editor-state']);
+const CHECK = new Set(['dev-artifact', 'orphan-worktree', 'ai-temp']);
 
 /** Safety tier of a junk category; unknown categories are 'manual'. */
 export const tierOf = (category) => (SAFE.has(category) ? 'safe' : CHECK.has(category) ? 'check' : 'manual');
@@ -109,11 +110,10 @@ export const AI_TEMP_ROOTS = (env) => {
     out.push(
       { root: W.join(codex, '.tmp'), minAgeDays: 1, tier: 'safe' },
       { root: W.join(codex, 'cache'), minAgeDays: 1, tier: 'safe' },
-      { root: W.join(codex, '.sandbox-recovery'), minAgeDays: 7, tier: 'check' },
       { root: W.join(env.home, '.claude', 'plugins', '.trash'), minAgeDays: 0, tier: 'safe' },
     );
   }
-  if (env?.tmp) out.push({ root: W.join(env.tmp, 'claude'), minAgeDays: 7, tier: 'check' });
+  if (env?.tmp) out.push({ root: W.join(env.tmp, 'claude'), minAgeDays: 14, tier: 'check' });
   return out;
 };
 
@@ -124,3 +124,36 @@ export const EDITOR_STATE_ROOTS = (env) => (env?.appData
 
 /** Extra crash-report folders (recycle their children). */
 export const CRASH_EXTRA = (env) => (env?.appData ? ['Code', 'Cursor'].map((app) => W.join(env.appData, app, 'Crashpad')) : []);
+
+// Codex worktrees (~/.codex/worktrees) are never touched while anything in them changed within this many days.
+export const CODEX_WT_MIN_IDLE_DAYS = 14;
+
+/** Folder name Claude Code uses for a working directory: ":", "\", "/" and "." become "-" (D:\a\.b -> D--a--b). */
+export const claudeSessionSlug = (cwd) => String(cwd ?? '').replace(/[:\\/.]/g, '-');
+
+/** Version of the running Claude Code CLI (`claude --version`), or null when it cannot be resolved. probe(argv) is read-only. */
+export async function runningClaudeVersion(probe) {
+  try {
+    const r = await probe(['claude', '--version']);
+    return r?.code === 0 ? /(\d+\.\d+\.\d+)/.exec(r.stdout || '')?.[1] ?? null : null;
+  } catch { return null; }
+}
+
+/**
+ * Extensions the editor lists as installed in `<extRoot>\extensions.json` (the only content read here): a Set of lowercase
+ * folder names and `id@version` strings. Missing, oversized or invalid JSON gives an empty set.
+ */
+export async function activeExtensionVersions(extRoot) {
+  const out = new Set();
+  try {
+    const f = W.join(extRoot, 'extensions.json');
+    if ((await fsp.stat(f)).size > 5e6) return out;
+    const list = JSON.parse(await fsp.readFile(f, 'utf8'));
+    for (const x of Array.isArray(list) ? list : []) {
+      const loc = [x?.relativeLocation, x?.location?.fsPath, x?.location?.path].find((v) => typeof v === 'string' && v);
+      if (loc) out.add(W.basename(loc.replace(/\//g, '\\')).toLowerCase());
+      if (typeof x?.identifier?.id === 'string' && typeof x?.version === 'string') out.add(`${x.identifier.id}@${x.version}`.toLowerCase());
+    }
+  } catch { /* missing or invalid: nothing is known to be in use */ }
+  return out;
+}

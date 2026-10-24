@@ -42,7 +42,7 @@ const DENY_CASES = [
   ['C:\\Users\\me\\.claude\\plugins\\.trash', true], ['C:\\Users\\me\\.claude\\plugins\\.trash\\old', false], ['C:\\Users\\me\\.claude\\plugins\\.trash\\old\\x', true],
   ['C:\\Users\\me\\.claude\\projects', true], ['C:\\Users\\me\\.claude\\projects\\p1', true], ['C:\\Users\\me\\.claude\\plugins\\installed_plugins.json', true],
   ['C:\\Users\\me\\.codex', true], ['C:\\Users\\me\\.codex\\.tmp', true], ['C:\\Users\\me\\.codex\\.tmp\\x', false], ['C:\\Users\\me\\.codex\\.tmp\\x\\y', true],
-  ['C:\\Users\\me\\.codex\\cache', true], ['C:\\Users\\me\\.codex\\cache\\x', false], ['C:\\Users\\me\\.codex\\.sandbox-recovery\\x', false],
+  ['C:\\Users\\me\\.codex\\cache', true], ['C:\\Users\\me\\.codex\\cache\\x', false], ['C:\\Users\\me\\.codex\\.sandbox-recovery\\x', true], ['C:\\Users\\me\\.codex\\.sandbox-recovery', true],
   ['C:\\Users\\me\\.codex\\sessions', true], ['C:\\Users\\me\\.codex\\sessions\\2026', true], ['C:\\Users\\me\\.codex\\archived_sessions\\x', true],
   ['C:\\Users\\me\\.codex\\auth.json', true], ['C:\\Users\\me\\.codex\\config.toml', true],
   ['C:\\Users\\me\\.codex\\worktrees', true], ['C:\\Users\\me\\.codex\\worktrees\\ab12\\repo', false], ['C:\\Users\\me\\.codex\\worktrees\\ab12\\repo\\.git', true],
@@ -807,66 +807,99 @@ test('ai-old-version: only non-newest direct children, recomputed per group from
     const cur = f.d('home', '.cursor', 'extensions');
     await mkdirs(f, W.join(cur, 'x.y-1.0.0'), W.join(cur, 'x.y-2.0.0'));
     accept(await v(W.join(cur, 'x.y-1.0.0')));
+    // a version the editor lists in extensions.json is in use: refused by folder name or by id@version; bad JSON blocks nothing
+    await f.write(W.join(ext, 'extensions.json'), JSON.stringify([{ identifier: { id: 'pub.c' }, version: '0.9.0' }, { relativeLocation: 'pub.a-1.0.0-win32-x64' }]));
+    for (const n of ['pub.c-0.9.0', 'pub.a-1.0.0-win32-x64']) assert.match((await v(W.join(ext, n))).reason, /사용 중인 확장/, n);
+    await f.write(W.join(ext, 'extensions.json'), '{not json');
+    accept(await v(W.join(ext, 'pub.c-0.9.0')));
     // another category cannot borrow these paths
     assert.equal((await verifyItem({ id: 'a', category: 'ai-temp', path: W.join(cur, 'x.y-1.0.0') }, f.mk())).ok, false);
   } finally { await f.done(); }
 });
 
-test('ai-temp: direct children of the AI temp roots, old enough, never the protected state', opts, async () => {
+test('ai-temp: the AI temp roots are accepted, their old-enough children are recycled, protected state never', opts, async () => {
   const f = await fixture();
   try {
     const cx = f.d('home', '.codex'), tc = W.join(f.env.tmp, 'claude'), trash = f.d('home', '.claude', 'plugins', '.trash');
+    const cwd = f.d('proj', 'sub');
+    const slug = (p) => p.replace(/[:\\/.]/g, '-');
     const mk = async (p, days) => { await f.write(W.join(p, 'a.bin'), 'x'); await f.age(p, days); };
-    await f.write(W.join(cx, '.tmp', 'old', 'deeper', 'a.bin'), 'x'); // created first so aging 'old' below covers it
     await mk(W.join(cx, '.tmp', 'old'), 3); await mk(W.join(cx, '.tmp', 'new'), 0.2);
+    await f.write(W.join(cx, '.tmp', 'withenv', '.env'), 'S=1'); await f.age(W.join(cx, '.tmp', 'withenv'), 5);
+    await f.write(W.join(cx, '.tmp', 'repo', 'r', '.git', 'HEAD')); await f.age(W.join(cx, '.tmp', 'repo'), 5);
     await mk(W.join(cx, 'cache', 'old'), 3);
-    await mk(W.join(cx, '.sandbox-recovery', 'mid'), 3); await mk(W.join(cx, '.sandbox-recovery', 'old'), 10);
     await mk(W.join(trash, 'fresh'), 0);
-    await mk(W.join(tc, 'old-session'), 8); await mk(W.join(tc, 'live-session'), 2);
-    const ctx = f.mk();
+    await mk(W.join(tc, 'old-session'), 20); await mk(W.join(tc, 'mid-session'), 8);
+    await mk(W.join(tc, slug(cwd)), 30); await mk(W.join(tc, slug(f.d('proj'))), 30); // the running session and a project it sits in
+    const ctx = f.mk({ ctx: { cwd } });
     const v = (p) => verifyItem({ id: p, category: 'ai-temp', path: p }, ctx);
-    const ok = { [W.join(cx, '.tmp', 'old')]: 'safe', [W.join(cx, 'cache', 'old')]: 'safe', [W.join(cx, '.sandbox-recovery', 'old')]: 'check', [W.join(trash, 'fresh')]: 'safe', [W.join(tc, 'old-session')]: 'check' };
-    for (const [p, tier] of Object.entries(ok)) { const r = await v(p); accept(r); assert.deepEqual([r.entry.action, r.entry.tier], ['recycle', tier], p); }
-    assert.match((await v(W.join(cx, '.tmp', 'new'))).reason, /이내/); // < 1 day
-    assert.match((await v(W.join(cx, '.sandbox-recovery', 'mid'))).reason, /이내/); // < 7 days
-    assert.match((await v(W.join(tc, 'live-session'))).reason, /이내/); // < 7 days
-    // roots, deeper paths, and other Codex/Claude state are refused
+    const names = (r) => r.entry.children.map((c) => W.basename(c.path)).sort();
+    const roots = [
+      [W.join(cx, '.tmp'), 'safe', 1, ['old']],
+      [W.join(cx, 'cache'), 'safe', 1, ['old']],
+      [trash, 'safe', 0, ['fresh']],
+      [tc, 'check', 14, ['old-session']],
+    ];
+    for (const [p, tier, days, kids] of roots) {
+      const r = await v(p); accept(r);
+      assert.deepEqual([r.entry.action, r.entry.tier, r.entry.ageDays, names(r)], ['recycle', tier, days, kids], p);
+    }
+    // children, deeper paths and other Codex/Claude state are not roots
     await f.write(W.join(cx, 'sessions', '2026', 'rollout.jsonl')); await f.write(W.join(cx, 'auth.json'), '{}'); await f.write(f.d('home', '.claude', 'projects', 'p', 'a.jsonl'));
-    for (const p of [W.join(cx, '.tmp'), W.join(cx, 'cache'), tc, trash, W.join(cx, '.tmp', 'old', 'deeper'), W.join(cx, 'sessions'), W.join(cx, 'sessions', '2026'), W.join(cx, 'auth.json'), f.d('home', '.claude', 'projects', 'p'), f.d('home', '.claude', 'plugins')]) {
-      await f.age(p, 30);
+    await f.write(W.join(cx, '.sandbox-recovery', 'r', 'a.bin'));
+    for (const p of [W.join(cx, '.tmp', 'old'), W.join(tc, 'old-session'), W.join(trash, 'fresh'), W.join(cx, '.tmp', 'old', 'x'), cx, W.join(cx, 'sessions'), W.join(cx, 'sessions', '2026'), W.join(cx, '.sandbox-recovery'), W.join(cx, '.sandbox-recovery', 'r'), W.join(cx, 'auth.json'), f.d('home', '.claude', 'projects', 'p'), f.d('home', '.claude', 'plugins'), f.env.tmp]) {
       assert.equal((await v(p)).ok, false, p);
     }
-    // secrets and live repos inside a child block it
-    await f.write(W.join(cx, '.tmp', 'withenv', '.env'), 'S=1'); await f.age(W.join(cx, '.tmp', 'withenv'), 5);
-    assert.match((await v(W.join(cx, '.tmp', 'withenv'))).reason, /민감/);
-    await f.write(W.join(tc, 'repo-session', 'r', '.git', 'HEAD')); await f.age(W.join(tc, 'repo-session'), 20);
-    assert.equal((await v(W.join(tc, 'repo-session'))).ok, false);
-    // through main(): the confirmed run recycles exactly that one path
-    const file = await f.plan([{ id: 'o', category: 'ai-temp', path: W.join(cx, '.tmp', 'old') }, { id: 'n', category: 'ai-temp', path: W.join(cx, '.sandbox-recovery', 'mid') }]);
+    // through main(): the confirmed run recycles exactly the qualifying children
+    const file = await f.plan([{ id: 'a', category: 'ai-temp', path: W.join(cx, '.tmp') }, { id: 'b', category: 'ai-temp', path: tc }]);
     const calls = [], o = collect();
-    await main([file], { env: f.env, ...sys, recycle: async (l) => { calls.push(l); return l.map(() => ({ ok: true })); }, ask: async () => 'y', out: o.out });
-    assert.deepEqual(calls, [[{ path: W.join(cx, '.tmp', 'old'), dir: true }]]);
+    await main([file], { env: f.env, cwd, ...sys, recycle: async (l) => { calls.push(l); return l.map(() => ({ ok: true })); }, ask: async () => 'y', out: o.out });
+    assert.deepEqual(calls.flat().map((c) => c.path).sort(), [W.join(cx, '.tmp', 'old'), W.join(tc, 'old-session')].sort());
     // the listed safety label is the root's own tier
     const lo = collect();
-    await main([file, '--dry-run'], { env: f.env, out: lo.out });
-    assert.match(lo.lines.join('\n'), /\[삭제해도 됨\].*\.tmp\\old/);
+    await main([file, '--dry-run'], { env: f.env, cwd, out: lo.out });
+    const text = lo.lines.join('\n');
+    assert.match(text, /\[삭제해도 됨\].*\.tmp.*<ai-temp>/);
+    assert.match(text, /\[확인 후 삭제\].*claude.*<ai-temp>.*14일 이상/);
   } finally { await f.done(); }
 });
 
-test('editor-state: workspaceStorage hash folders untouched for 90 days', opts, async () => {
+test('codex worktrees: a dev-artifact with changes inside the last 14 days is skipped', opts, async () => {
+  const f = await fixture();
+  try {
+    const wt = f.d('home', '.codex', 'worktrees');
+    for (const id of ['ab12', 'cd34']) { await f.write(W.join(wt, id, 'repo', 'package.json'), '{}'); await f.write(W.join(wt, id, 'repo', 'node_modules', 'x.js')); await f.age(W.join(wt, id), 200); }
+    await f.write(W.join(wt, 'cd34', 'repo', 'node_modules', 'fresh.js')); // changed just now
+    const ctx = f.mk();
+    const v = (p) => verifyItem({ id: p, category: 'dev-artifact', path: p }, ctx);
+    accept(await v(W.join(wt, 'ab12', 'repo', 'node_modules')));
+    const busy = await v(W.join(wt, 'cd34', 'repo', 'node_modules'));
+    assert.equal(busy.ok, false);
+    assert.match(busy.reason, /14일/);
+  } finally { await f.done(); }
+});
+
+test('editor-state is report-only: the workspaceStorage root or a hash folder is listed, never executed', opts, async () => {
   const f = await fixture();
   try {
     const ws = (app) => W.join(f.env.appData, app, 'User', 'workspaceStorage');
-    const mk = async (p, days) => { await f.write(W.join(p, 'state.vscdb')); await f.age(p, days); };
-    await mk(W.join(ws('Code'), 'hashold'), 120); await mk(W.join(ws('Code'), 'hashnew'), 10);
-    await mk(W.join(ws('Cursor'), 'hashold'), 100);
-    await mk(W.join(f.env.appData, 'Code', 'User', 'globalStorage', 'x'), 400);
-    await f.write(W.join(ws('Code'), 'file.txt')); await f.age(W.join(ws('Code'), 'file.txt'), 400);
+    await f.write(W.join(ws('Code'), 'hashold', 'state.vscdb'), '123'); await f.age(W.join(ws('Code'), 'hashold'), 120);
+    await f.write(W.join(ws('Cursor'), 'hashnew', 'state.vscdb'), '1');
+    await f.write(W.join(f.env.appData, 'Code', 'User', 'globalStorage', 'x', 'a'));
     const ctx = f.mk();
     const v = (p) => verifyItem({ id: p, category: 'editor-state', path: p }, ctx);
-    for (const p of [W.join(ws('Code'), 'hashold'), W.join(ws('Cursor'), 'hashold')]) { const r = await v(p); accept(r); assert.equal(r.entry.action, 'recycle'); }
-    assert.match((await v(W.join(ws('Code'), 'hashnew'))).reason, /이내/);
-    for (const p of [ws('Code'), W.join(f.env.appData, 'Code', 'User', 'globalStorage', 'x'), W.join(ws('Code'), 'file.txt'), W.join(ws('Code'), 'hashold', 'state.vscdb')]) assert.equal((await v(p)).ok, false, p);
+    for (const p of [ws('Code'), W.join(ws('Code'), 'hashold'), W.join(ws('Cursor'), 'hashnew')]) {
+      const r = await v(p); accept(r);
+      assert.equal(r.entry.action, 'report', p);
+    }
+    for (const p of [W.join(f.env.appData, 'Code', 'User', 'globalStorage', 'x'), W.join(ws('Code'), 'hashold', 'state.vscdb'), f.env.appData]) assert.equal((await v(p)).ok, false, p);
+    const file = await f.plan([{ id: 'a', category: 'editor-state', path: W.join(ws('Code'), 'hashold') }, { id: 'b', category: 'editor-state', path: ws('Cursor') }]);
+    const o = collect();
+    const never = async () => { throw new Error('executed'); };
+    assert.equal(await main([file], { env: f.env, recycle: never, run: never, ask: never, out: o.out }), 0);
+    const text = o.lines.join('\n');
+    assert.match(text, /\[직접 판단\].*<editor-state>/);
+    assert.match(text, /실행할 항목이 없습니다/);
   } finally { await f.done(); }
 });
 
@@ -921,19 +954,19 @@ test('the listed tier of the new categories follows tierOf / the root tier', opt
     await mkdirs(f, W.join(cli, '1.0.0'), W.join(cli, '1.1.0'));
     const hash = W.join(f.env.appData, 'Code', 'User', 'workspaceStorage', 'h');
     await f.write(W.join(hash, 's')); await f.age(hash, 100);
-    const rec = f.d('home', '.codex', '.sandbox-recovery', 'r');
+    const rec = f.d('home', '.codex', '.sandbox-recovery');
     await f.write(W.join(rec, 's')); await f.age(rec, 20);
     const file = await f.plan([
       { id: 'a', category: 'ai-old-version', path: W.join(cli, '1.0.0') },
       { id: 'b', category: 'editor-state', path: hash },
-      { id: 'c', category: 'ai-temp', path: rec },
+      { id: 'c', category: 'ai-history', path: rec },
     ]);
     const o = collect();
     assert.equal(await main([file, '--dry-run'], { env: f.env, out: o.out }), 0);
     const text = o.lines.join('\n');
     assert.match(text, /\[삭제해도 됨\].*1\.0\.0.*<ai-old-version>/);
-    assert.match(text, /\[확인 후 삭제\].*<editor-state>/);
-    assert.match(text, /\[확인 후 삭제\].*<ai-temp>/);
+    assert.match(text, /\[직접 판단\].*<editor-state>/);
+    assert.match(text, /\[직접 판단\].*\.sandbox-recovery.*<ai-history>/);
   } finally { await f.done(); }
 });
 

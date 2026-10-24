@@ -66,7 +66,9 @@ function client() {
     return e;
   };
 
-  // ---- tree preparation: parent links, junk lookup, heat ----
+  // ---- tree preparation: parent links, junk lookup ----
+  // _hot = score of junk that IS this folder (only those tiles get a heat fill);
+  // _rc/_cnt = reclaimable bytes / junk count inside the subtree (ancestors get a dot and a caption instead)
   const byPath = new Map();
   junk.forEach((j) => {
     const k = key(j.path);
@@ -81,16 +83,15 @@ function client() {
     let ownBest = 0;
     let ownSize = 0;
     if (own) own.forEach((j) => { ownBest = Math.max(ownBest, j.score); ownSize += j.size; });
-    let rc = 0, best = 0, cnt = 0;
+    let rc = 0, cnt = 0;
     for (const c of n.c || []) {
       prep(c, n, d + 1);
-      rc += c._rc; best = Math.max(best, c._best); cnt += c._cnt;
+      rc += c._rc; cnt += c._cnt;
     }
     n._own = own || null;
+    n._hot = ownBest;
     n._rc = own ? Math.min(n.s, ownSize) : rc; // own junk already contains its descendants
-    n._best = Math.max(best, ownBest);
     n._cnt = cnt + (own ? own.length : 0);
-    n._h = Math.max(ownBest, n.s > 0 ? (n._rc / n.s) * n._best : 0);
   })(root, null, 0);
 
   // deepest node whose path contains the given path
@@ -104,30 +105,27 @@ function client() {
     }
   };
 
-  // ---- header: scan info and one usage bar per drive ----
+  // ---- header: scan info, and one compact card per drive ----
   const sk = data.skipped || {};
   $('meta').textContent =
     '스캔 ' + new Date(ref).toLocaleString('ko-KR') +
     (data.durationMs ? ' · ' + Math.round(data.durationMs / 1000) + '초 걸림' : '') +
-    ' · 분석한 용량 ' + fmt(root.s) +
-    ' · 읽지 못한 폴더 ' + (sk.unreadable || 0).toLocaleString('ko-KR') + '개, 바로가기(링크) ' + (sk.reparse || 0).toLocaleString('ko-KR') + '개는 건너뜀';
+    ' · 읽지 못한 폴더 ' + (sk.unreadable || 0).toLocaleString('ko-KR') + '개는 건너뜀';
   (data.roots || []).forEach((r) => {
-    const li = el('li', 'drive');
-    li.appendChild(el('span', 'dn', r.path));
+    const card = el('li', 'drive');
+    const known = r.total != null && r.free != null && r.total > 0;
+    const top = el('div', 'drive-top');
+    top.appendChild(el('b', 'dn', r.path));
+    top.appendChild(el('span', 'df num', known ? fmt(r.free) + ' 남음' : '용량 정보 없음'));
+    card.appendChild(top);
     const bar = el('div', 'bar');
     const fill = el('span');
-    const known = r.total != null && r.free != null && r.total > 0;
-    const pct = known ? Math.max(0, Math.min(100, ((r.total - r.free) / r.total) * 100)) : 0;
-    fill.style.width = pct.toFixed(1) + '%';
+    fill.style.width = (known ? Math.max(0, Math.min(100, ((r.total - r.free) / r.total) * 100)) : 0).toFixed(1) + '%';
     bar.appendChild(fill);
     bar.setAttribute('role', 'img');
-    const txt = known
-      ? '사용 ' + fmt(r.total - r.free) + ' / 전체 ' + fmt(r.total) + ' · 남은 공간 ' + fmt(r.free)
-      : '용량 정보 없음';
-    bar.setAttribute('aria-label', r.path + ' ' + txt);
-    li.appendChild(bar);
-    li.appendChild(el('span', 'dt num', txt));
-    $('drives').appendChild(li);
+    bar.setAttribute('aria-label', r.path + (known ? ' 사용 ' + fmt(r.total - r.free) + ' / 전체 ' + fmt(r.total) + ', 남은 공간 ' + fmt(r.free) : ' 용량 정보 없음'));
+    card.appendChild(bar);
+    $('drives').appendChild(card);
   });
 
   // ---- squarified treemap ----
@@ -169,7 +167,7 @@ function client() {
   const withOwn = (n) => {
     const kids = (n.c || []).filter((c) => c.s > 0);
     const rem = n.s - (n.c || []).reduce((a, c) => a + c.s, 0);
-    if (rem > n.s * 0.01) kids.push({ n: '(이 폴더의 파일)', p: null, s: rem, m: n.m, _h: 0, _rc: 0, _cnt: 0, syn: true });
+    if (rem > n.s * 0.01) kids.push({ n: '(이 폴더의 파일)', p: null, s: rem, m: n.m, _hot: 0, _rc: 0, _cnt: 0, syn: true });
     return kids;
   };
 
@@ -179,9 +177,12 @@ function client() {
   let reveal = true; // tiles fade in once, on first paint
   const map = $('map');
   const tip = $('tip');
-  const GAP = 1, HEAD = 20;
+  const GAP = 1.5, HEAD = 22; // 3px between tiles
 
-  // name 14-28px by tile size, size line beneath; hidden when the tile is too small to read
+  // ancestor of junk: neutral tile with a dot and a caption (not a fill)
+  const inside = (node) => !node._own && node._rc > 0;
+
+  // name 14-28px by tile size, size beneath; hidden when the tile is too small to read
   function label(node, w, h) {
     if (w < 48 || h < 24) return null;
     const len = Math.max(3, Math.min(node.n.length, 18));
@@ -191,10 +192,14 @@ function client() {
     const nm = el('span', 'nm', node.n);
     nm.style.fontSize = fs.toFixed(1) + 'px';
     box.appendChild(nm);
-    if (h >= fs * 2.3 + 8 && w >= 56) {
+    const szh = Math.max(13, fs * 0.78);
+    if (h >= fs * 1.3 + szh * 1.3 + 8 && w >= 56) {
       const sz = el('span', 'sz num', fmt(node.s));
-      sz.style.fontSize = Math.max(13, fs * 0.78).toFixed(1) + 'px';
+      sz.style.fontSize = szh.toFixed(1) + 'px';
       box.appendChild(sz);
+      if (inside(node) && w >= 110 && h >= fs * 1.3 + szh * 2.6 + 12) {
+        box.appendChild(el('span', 'cap', '정리 가능 ' + fmt(node._rc)));
+      }
     }
     return box;
   }
@@ -215,12 +220,14 @@ function client() {
     b.style.top = r.y + GAP + 'px';
     b.style.width = Math.max(0, r.w - 2 * GAP) + 'px';
     b.style.height = Math.max(0, r.h - 2 * GAP) + 'px';
-    const pc = paint(node._h || 0);
+    const pc = paint(node._own ? node._hot : 0);
     b.style.background = pc.bg;
     b.style.color = pc.fg;
     b.setAttribute('aria-label', aria(node));
     if (node.c && node.c.length) b.classList.add('kids');
     if (node.syn) b.classList.add('syn');
+    if (node._own) b.classList.add('junk');
+    if (inside(node) && r.w >= 40 && r.h >= 40) b.classList.add('has');
     if (node === hl) b.classList.add('hl');
     return b;
   }
@@ -237,7 +244,7 @@ function client() {
     }
     const frag = document.createDocumentFragment();
     // level 0 = groups, level 1 = sub-groups (only when big enough), level 2 = leaf tiles
-    const MINW = [70, 120], MINH = [44, 60];
+    const MINW = [70, 120], MINH = [48, 64];
     const layout = (nodes, box, level) => {
       const rs = squarify(nodes.map((k) => k.s), box.x, box.y, box.w, box.h);
       nodes.forEach((node, i) => {
@@ -251,17 +258,13 @@ function client() {
           frag.appendChild(t);
           return;
         }
-        // group: backdrop in the page color, header strip, then children
-        const bg = el('div', 'gbg');
-        bg.style.cssText = 'left:' + (r.x + GAP) + 'px;top:' + (r.y + GAP) + 'px;width:' + (r.w - 2 * GAP) + 'px;height:' + (r.h - 2 * GAP) + 'px';
-        frag.appendChild(bg);
+        // group: its name sits as plain text above the group's tiles
         const hd = addBox(frag, node, { x: r.x, y: r.y, w: r.w, h: HEAD + 2 * GAP }, 'ghead' + (level ? ' sub' : ''));
         hd.style.background = '';
         hd.style.color = '';
-        hd.style.borderLeftColor = paint(node._h || 0).bg;
         hd.textContent = node.n + ' · ' + fmt(node.s);
         frag.appendChild(hd);
-        layout(sub, { x: r.x + GAP, y: r.y + HEAD + 2 * GAP, w: r.w - 2 * GAP, h: r.h - HEAD - 3 * GAP }, level + 1);
+        layout(sub, { x: r.x, y: r.y + HEAD + GAP, w: r.w, h: r.h - HEAD - GAP }, level + 1);
       });
     };
     layout(kids, { x: 0, y: 0, w: W, h: H }, 0);
@@ -346,6 +349,7 @@ function client() {
     'plugin-cache': '플러그인 캐시', 'appdata-orphan': '앱 데이터 찌꺼기', 'recycle-bin': '휴지통', 'crash-dump': '오류 덤프',
     'vm-disk': '가상 디스크', 'browser-cache': '브라우저 캐시', 'shader-cache': '그래픽 캐시', 'app-cache': '앱 캐시',
     'system-cleanup': '윈도우 시스템 파일', 'old-download': '오래된 다운로드',
+    'ai-old-version': 'AI 도구 옛 버전', 'ai-temp': 'AI 도구 임시 파일', 'editor-state': '편집기 작업 기록', 'ai-history': '대화·작업 기록',
   };
   const catName = (c) => CATS[c] || c;
   const TIERS = [['safe', '삭제해도 되는 것'], ['check', '확인 후 삭제'], ['manual', '직접 판단']];
@@ -367,7 +371,8 @@ function client() {
       .reduce((n, j) => n + j.size, 0);
 
   function refreshTotal() {
-    $('total').textContent = '선택 ' + sel.size + '개 · ' + fmt(sumOf([...sel].map((id) => jById.get(id))));
+    $('sel-n').textContent = '선택 ' + sel.size + '개';
+    $('total').textContent = fmt(sumOf([...sel].map((id) => jById.get(id))));
     $('export').disabled = sel.size === 0;
   }
 
@@ -402,9 +407,9 @@ function client() {
     const size = el('span', 'isz num', fmt(j.size));
 
     const meta = el('div', 'meta2');
-    const left = el('span');
+    const left = el('span', 'meta-l');
     left.appendChild(el('b', 'tag tag-' + tier, TAG[tier]));
-    left.appendChild(document.createTextNode(' · ' + age(j.mtime)));
+    left.appendChild(document.createTextNode(' ' + age(j.mtime)));
     meta.appendChild(left);
     const find = el('button', 'find', '지도에서 보기');
     find.type = 'button';
@@ -449,7 +454,7 @@ function client() {
       const items = sorted.filter((j) => tierOf(j) === tier && (!filter || j.category === filter));
       if (!items.length) return;
       shown += items.length;
-      const sec = el('section', 'sec sec-' + tier);
+      const sec = el('section', 'sec');
       const h = el('h3', null, title);
       h.appendChild(el('span', 'sub num', items.length + '개 · ' + fmt(sumOf(items))));
       sec.appendChild(h);
@@ -464,25 +469,60 @@ function client() {
     refreshTotal();
   }
 
-  // ---- category tabs (click = filter the panel) ----
-  function renderCats() {
+  // ---- category chips: one row = 전체 + top 5, the rest behind a "+N" popover ----
+  const pop = $('pop');
+  const closePop = () => {
+    pop.hidden = true;
+    const b = $('morechip');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  };
+  function pick(c) {
+    filter = c;
+    closePop();
+    renderCats();
+    renderList();
+  }
+  function renderCats(shown = 5) {
     const box = $('cats');
     box.textContent = '';
+    pop.textContent = '';
     const tot = new Map();
     junk.forEach((j) => tot.set(j.category, (tot.get(j.category) || 0) + j.size));
     if (!tot.size) return;
-    const tab = (text, on, fn) => {
-      const btn = el('button', 'tab', text);
+    const all = [...tot].sort((x, y) => y[1] - x[1]);
+    const chip = (parentEl, cls, name, size, on, fn) => {
+      const btn = el('button', cls);
       btn.type = 'button';
       btn.setAttribute('aria-pressed', String(on));
+      btn.appendChild(el('span', null, name));
+      if (size != null) btn.appendChild(el('span', 'csz num', size));
       btn.addEventListener('click', fn);
-      box.appendChild(btn);
+      parentEl.appendChild(btn);
+      return btn;
     };
-    tab('전체', filter === null, () => { filter = null; renderCats(); renderList(); });
-    [...tot].sort((x, y) => y[1] - x[1]).forEach(([c, v]) =>
-      tab(catName(c) + ' ' + fmt(v), filter === c, () => { filter = filter === c ? null : c; renderCats(); renderList(); })
-    );
+    chip(box, 'chip', '전체', null, filter === null, () => pick(null));
+    all.slice(0, shown).forEach(([c, v]) => chip(box, 'chip', catName(c), fmt(v), filter === c, () => pick(filter === c ? null : c)));
+    const rest = all.slice(shown);
+    if (rest.length) {
+      const m = chip(box, 'chip', '+' + rest.length, null, rest.some(([c]) => c === filter), () => {
+        if (!pop.hidden) { closePop(); return; }
+        pop.hidden = false;
+        m.setAttribute('aria-expanded', 'true');
+        const r = m.getBoundingClientRect();
+        pop.style.top = r.bottom + 6 + 'px';
+        pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + 'px';
+      });
+      m.id = 'morechip';
+      m.setAttribute('aria-label', '다른 종류 ' + rest.length + '개 더 보기');
+      m.setAttribute('aria-expanded', 'false');
+      m.setAttribute('aria-controls', 'pop');
+      rest.forEach(([c, v]) => chip(pop, 'pitem', catName(c), fmt(v), filter === c, () => pick(filter === c ? null : c)));
+    }
+    // desktop: keep the chips on one row without a scrollbar by moving the smallest into the popover
+    if (innerWidth > 900 && shown > 1 && box.scrollWidth > box.clientWidth + 1) renderCats(shown - 1);
   }
+  document.addEventListener('click', (e) => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#morechip')) closePop(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) { closePop(); const b = $('morechip'); if (b) b.focus(); } });
 
   // ---- plan export ----
   async function exportPlan() {
@@ -521,7 +561,6 @@ function client() {
   // one click: tick exactly the safe, non-report items and export
   const autoItems = junk.filter(isAuto);
   const autoSum = fmt(sumOf(autoItems));
-  $('auto-gb').textContent = autoSum;
   $('hero-v').textContent = autoSum;
   $('auto').disabled = autoItems.length === 0;
   $('auto').addEventListener('click', () => {
@@ -538,7 +577,7 @@ function client() {
     readTheme();
     const box = $('swatches');
     box.textContent = '';
-    [0, 0.15, 0.35, 0.55, 0.75, 1].forEach((h) => {
+    [0.1, 0.3, 0.5, 0.7, 0.9].forEach((h) => {
       const s = el('span');
       s.style.background = paint(h).bg;
       box.appendChild(s);
@@ -547,116 +586,132 @@ function client() {
 
   // ---- start ----
   let raf = 0;
-  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }).observe(map);
+  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { render(); closePop(); renderCats(); }); }).observe(map);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawLegend(); render(); });
   crumbs();
   drawLegend();
   render();
 }
 
-const NOISE =
-  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E")`;
-
 const CSS = `
 :root{
-  --bg:#F5F4EE;--surface:#FDFCF9;--rule:#E3E0D6;--text:#1F1E1D;--text-2:#4A4945;
-  --accent:#AD4F2C;--on-accent:#FFFFFF;--safe:#3F7D4E;--check:#8F5E12;--manual:#6B6A66;
-  --tile:#E9E6DB;--ink-dark:#141312;--ink-light:#FBFAF6;
+  --bg:#FAF9F5;--surface:#FFFFFF;--surface-2:#F5F4EE;--border:#E8E6DC;--text:#141413;--text-2:#5E5D59;
+  --accent:#B95A37;--on-accent:#FFFFFF;--accent-ink:#A24826;--accent-soft:#F3E3DA;
+  --safe:#2F6B3E;--safe-soft:#E4F0E6;--check:#8A5A0F;--check-soft:#F8EBCF;--manual:#5E5D59;--manual-soft:#EEECE5;
+  --tile:#EFEDE6;--ink-dark:#141312;--ink-light:#FBFAF6;
   --heat0:#F0C9A8;--heat1:#D97757;--heat2:#B5452D;
-  --noise:${NOISE};
-  --serif:Georgia,"Times New Roman","Batang",serif;
+  --display:"Tiempos Headline","Copernicus",Georgia,"Batang",serif;
   --sans:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --shadow:0 1px 2px rgba(0,0,0,.04);
 }
 @media (prefers-color-scheme:dark){
-  :root{--bg:#1F1E1C;--surface:#2A2927;--rule:#3A3936;--text:#F2F0E8;--text-2:#C9C6BC;
-    --accent:#D97757;--on-accent:#1F1E1D;--safe:#7DBE8C;--check:#E0B25A;--manual:#A8A69E;
+  :root{--bg:#262624;--surface:#30302E;--surface-2:#2B2A28;--border:#3D3C38;--text:#F5F4EE;--text-2:#C2C0B6;
+    --accent:#D97757;--on-accent:#1F1E1D;--accent-ink:#EE9A78;--accent-soft:#4A3329;
+    --safe:#8FD19E;--safe-soft:#26402C;--check:#E6BE6C;--check-soft:#473714;--manual:#C2C0B6;--manual-soft:#3A3935;
     --tile:#34332F;--heat0:#8A5A3E;--heat1:#C4613F;--heat2:#A23B24}
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{display:flex;flex-direction:column;background:var(--bg) var(--noise);color:var(--text);font:15px/1.5 var(--sans)}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--text);font:15px/1.5 var(--sans)}
 button{font:inherit;color:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.num{font-family:var(--serif);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
 
-.band{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px 32px;padding:16px 24px 10px}
-h1{font:700 28px/1.2 var(--serif);margin:0}
-.meta{margin:4px 0 0;color:var(--text-2);font-size:14px;max-width:100ch}
-.hero{margin:0;text-align:right;line-height:1.1;display:flex;align-items:baseline;justify-content:flex-end;gap:12px}
-.hero-k{font:600 18px var(--serif);color:var(--text-2)}
-#hero-v{font:700 40px/1 var(--serif);font-variant-numeric:tabular-nums;color:var(--accent)}
-.hero-cap{margin:4px 0 0;text-align:right;font-size:13px;color:var(--text-2)}
-.drives{list-style:none;margin:0;padding:0 24px 12px;max-width:820px;width:100%}
-.drive{display:grid;grid-template-columns:48px minmax(80px,1fr) auto;gap:4px 14px;align-items:center;min-height:26px;font-size:14px}
-.dn{font:700 15px var(--serif)}
-.bar{height:6px;background:var(--rule)}
-.bar span{display:block;height:100%;background:var(--text-2)}
-.dt{color:var(--text-2);font-size:14px}
+.band{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px 32px;padding:20px 24px 16px}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.mark{flex:none;color:var(--accent)}
+h1{font:500 26px/1.25 var(--display);margin:0}
+.meta{margin:2px 0 0;color:var(--text-2);font-size:13px}
+.stats{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.hero{padding:10px 18px 12px;min-width:200px}
+.hero-k{display:block;font-size:13px;color:var(--text-2)}
+#hero-v{display:block;font:500 44px/1.05 var(--display);font-variant-numeric:tabular-nums;color:var(--accent-ink)}
+.drives{display:flex;flex-wrap:wrap;gap:12px;list-style:none;margin:0;padding:0}
+.drive{min-width:150px;padding:12px 16px;display:flex;flex-direction:column;justify-content:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.drive-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.dn{font-size:15px}
+.df{font-size:13px;color:var(--text-2)}
+.bar{height:6px;border-radius:999px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px;background:var(--accent)}
 
-.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,30vw,460px);border-top:1px solid var(--rule)}
-.mapcol{display:flex;flex-direction:column;min-height:0;min-width:0;padding:8px 16px 12px 24px}
-.cats{display:flex;flex-wrap:wrap;align-items:center;gap:0 18px}
-.tab{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:6px 2px;min-height:44px;font-size:15px;color:var(--text-2)}
-.tab:hover{color:var(--text)}
-.tab[aria-pressed="true"]{color:var(--text);font-weight:700;border-bottom-color:var(--accent)}
-.navrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-height:44px}
-.up{background:var(--surface);border:1px solid var(--rule);border-radius:2px;padding:6px 12px;min-height:44px;font-size:15px}
+.body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,30vw,460px);gap:16px;padding:0 24px 20px}
+.mapcol{display:flex;flex-direction:column;min-height:0;min-width:0}
+.cats{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin}
+.chip,.pitem{display:inline-flex;align-items:center;gap:8px;flex:none;white-space:nowrap;min-height:44px;padding:0 16px;font-size:14px;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:999px}
+.chip:hover,.pitem:hover{border-color:var(--text-2)}
+.chip[aria-pressed="true"],.pitem[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.csz{color:var(--text-2);font-weight:400}
+.chip[aria-pressed="true"] .csz,.pitem[aria-pressed="true"] .csz{color:var(--accent-ink)}
+.pop{position:fixed;z-index:20;display:flex;flex-direction:column;gap:4px;padding:8px;max-height:60vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.pop[hidden]{display:none}
+.pitem{justify-content:space-between;border-radius:8px;background:transparent;border-color:transparent}
+.navrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-height:44px}
+.up{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0 14px;min-height:44px;font-size:14px}
 .up:disabled{opacity:.45;cursor:not-allowed}
 #crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:0 2px}
-.crumb{background:none;border:0;padding:8px 4px;min-height:44px;font-size:15px;color:var(--accent);text-decoration:none}
+.crumb{background:none;border:0;padding:8px 6px;min-height:44px;font-size:15px;color:var(--accent-ink);border-radius:8px}
 .crumb:hover{text-decoration:underline}
-.crumb[aria-current]{color:var(--text);font-weight:700;cursor:default;text-decoration:none}
+.crumb[aria-current]{color:var(--text);font-weight:600;cursor:default;text-decoration:none}
 .sep{color:var(--text-2)}
-.map{position:relative;flex:1;min-height:320px;background:var(--bg);overflow:hidden}
+.map{position:relative;flex:1;min-height:320px;overflow:hidden}
 .empty{color:var(--text);padding:24px;margin:0}
-.gbg{position:absolute;background:var(--bg)}
-.tile{position:absolute;margin:0;padding:0;border:0;color:var(--text);overflow:hidden;text-align:center;cursor:default;border-radius:0}
+.tile{position:absolute;margin:0;padding:0;border:0;color:var(--text);overflow:hidden;text-align:center;cursor:default;border-radius:6px}
 .tile.kids{cursor:zoom-in}
-.tile.kids::after{content:"";position:absolute;right:0;bottom:0;border:5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.5}
-.tile.syn{background-image:repeating-linear-gradient(45deg,rgba(127,127,127,.14) 0 6px,transparent 6px 12px)}
-.tile:hover{outline:2px solid var(--text);outline-offset:-2px;z-index:2}
+.tile.kids:hover .nm::after{content:" ›"}
+.tile.syn{background-image:repeating-linear-gradient(45deg,rgba(127,127,127,.12) 0 6px,transparent 6px 12px)}
+.tile:hover{outline:1.5px solid var(--accent);outline-offset:-1.5px;z-index:2}
+.tile.junk:hover{outline-color:var(--text)}
 .tile:focus-visible{outline:2px solid var(--text);outline-offset:-2px;z-index:3}
-.tile.hl{outline:3px solid var(--text);outline-offset:-3px;z-index:2;box-shadow:0 0 0 6px var(--bg) inset}
-.ghead{background:var(--rule);color:var(--text-2);border-left:3px solid transparent;text-align:left;padding:0 8px;font-size:12px;line-height:20px;white-space:nowrap;text-overflow:ellipsis;font-weight:600}
-.ghead.sub{font-weight:500}
-.lab{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 4px;pointer-events:none}
+.tile.hl{outline:3px solid var(--text);outline-offset:-3px;z-index:2}
+.tile.has::before,.dotmark{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.tile.has::before{position:absolute;top:8px;right:8px}
+.ghead{background:transparent;color:var(--text-2);border-radius:4px;text-align:left;padding:0 4px;font-size:12px;line-height:22px;white-space:nowrap;text-overflow:ellipsis;font-weight:500}
+.ghead:hover{outline-offset:-1px}
+.lab{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 6px;pointer-events:none}
 .nm{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sz{white-space:nowrap}
+.cap{display:inline-flex;align-items:center;gap:6px;margin-top:3px;font-size:13px;white-space:nowrap}
+.cap::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
 @keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
-.reveal .tile,.reveal .gbg{animation:pop .28s ease-out both}
-@media (prefers-reduced-motion:reduce){.reveal .tile,.reveal .gbg{animation:none}}
-.legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 0 0;color:var(--text-2);font-size:13px}
-#swatches{display:flex;gap:2px}
-#swatches span{display:block;width:30px;height:12px}
+.reveal .tile{animation:pop .28s ease-out both}
+@media (prefers-reduced-motion:reduce){.reveal .tile{animation:none}}
+.legend{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px 10px;padding:10px 0 0;color:var(--text-2);font-size:13px}
+#swatches{display:flex;gap:3px}
+#swatches span{display:block;width:26px;height:10px;border-radius:3px}
+.legend .dotmark{display:inline-block;margin-right:6px;vertical-align:baseline}
 
-.side{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border-left:1px solid var(--rule)}
-.side-top{padding:16px 20px 14px;border-bottom:1px solid var(--rule)}
-.auto-expl{margin:0 0 10px;font-size:15px}
-.btn{display:block;width:100%;border-radius:2px;padding:8px 14px;font-weight:700;font-size:16px;border:2px solid var(--accent)}
-.btn-ol{background:transparent;color:var(--accent);min-height:44px}
+.side{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.side-top{padding:20px 20px 16px}
+.auto-expl{margin:0 0 12px;font-size:15px}
+.btn{display:block;width:100%;border-radius:8px;padding:8px 16px;font-weight:600;font-size:16px;border:1.5px solid var(--accent)}
+.btn-ol{background:transparent;color:var(--accent-ink);border-color:var(--accent);min-height:44px}
+.btn-ol:hover{background:var(--accent-soft)}
 .btn-pri{background:var(--accent);color:var(--on-accent);min-height:48px}
+.btn-pri:hover{filter:brightness(.95)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-#junk-list{flex:1;min-height:120px;overflow:auto;padding:0 20px 12px}
-.none{color:var(--text-2)}
-.sec{margin-top:20px;border-left:3px solid var(--tier);padding-left:14px}
-.sec-safe{--tier:var(--safe)}.sec-check{--tier:var(--check)}.sec-manual{--tier:var(--manual)}
-.sec h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font:700 18px/1.3 var(--serif);margin:0 0 2px}
-.sec .sub{font-weight:400;font-size:15px;color:var(--text-2)}
+#junk-list{flex:1;min-height:120px;overflow:auto;padding:0 12px 8px}
+.none{color:var(--text-2);padding:0 8px}
+.sec{margin-top:12px}
+.sec h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font:500 17px/1.3 var(--display);margin:0;padding:10px 8px 6px}
+.sec .sub{font:400 13px var(--sans);color:var(--text-2)}
 .items{list-style:none;margin:0;padding:0}
-.item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;column-gap:12px;row-gap:3px;align-items:center;padding:14px 0;border-top:1px solid var(--rule)}
-.item:first-child{border-top-color:transparent}
+.item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;column-gap:12px;row-gap:3px;align-items:center;padding:14px 8px;border-radius:12px}
+.item:hover,.item:focus-within{background:var(--surface-2)}
 .item input{width:22px;height:22px;margin:0;accent-color:var(--accent)}
-.nm1{font-size:16px;font-weight:600;min-width:0;overflow-wrap:anywhere;cursor:pointer}
-.isz{font-size:18px;font-weight:700;white-space:nowrap}
 .item>*{min-width:0;overflow-wrap:anywhere}
+.nm1{font-size:16px;font-weight:600;cursor:pointer}
+.isz{font-size:15px;font-weight:600;white-space:nowrap}
 .meta2,.path,.eff,.hand{grid-column:2/4}
 .meta2{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--text-2)}
-.tag{font-weight:700}
-.tag-safe{color:var(--safe)}.tag-check{color:var(--check)}.tag-manual{color:var(--manual)}
-.find{background:none;border:0;padding:12px 0;margin:-12px 0;min-height:44px;font-size:13px;color:var(--accent);text-decoration:underline;white-space:nowrap}
+.tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:13px;font-weight:600;margin-right:4px}
+.tag-safe{color:var(--safe);background:var(--safe-soft)}
+.tag-check{color:var(--check);background:var(--check-soft)}
+.tag-manual{color:var(--manual);background:var(--manual-soft)}
+.find{background:none;border:0;padding:12px 4px;margin:-12px 0;min-height:44px;font-size:13px;color:var(--accent-ink);text-decoration:underline;white-space:nowrap;border-radius:8px}
 @media (hover:hover){.find{opacity:0}.item:hover .find,.item:focus-within .find,.find:focus-visible{opacity:1}}
-.path{display:flex;min-width:0;font:12.5px/1.4 var(--mono);color:var(--text-2)}
+.path{display:flex;font:12.5px/1.4 var(--mono);color:var(--text-2)}
 .ph{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pt{flex:0 1 auto;min-width:0;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item:focus-within .path{display:block;overflow-wrap:anywhere}
@@ -664,32 +719,33 @@ h1{font:700 28px/1.2 var(--serif);margin:0}
 .eff{font-size:14px;color:var(--text)}
 .efft{margin:0}
 .efft.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.more{background:none;border:0;padding:10px 0;margin:-12px 0;min-height:44px;font-size:13px;color:var(--accent);text-decoration:underline}
+.more{background:none;border:0;padding:10px 0;margin:-12px 0;min-height:44px;font-size:13px;color:var(--accent-ink);text-decoration:underline;border-radius:8px}
 .hand{margin:0;font-size:14px;color:var(--text)}
-.foot{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--rule);padding:14px 20px 16px}
-#total{margin:0 0 10px;font:700 22px/1.2 var(--serif);font-variant-numeric:tabular-nums}
+.foot{background:var(--surface);border-top:1px solid var(--border);padding:16px 20px 20px}
+.tot{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 12px}
+#sel-n{font-size:13px;color:var(--text-2)}
+#total{font:500 24px/1.2 var(--display);font-variant-numeric:tabular-nums}
 .cmdrow{display:flex;gap:8px;margin-top:12px;align-items:stretch}
-#cmd{flex:1;min-width:0;display:block;font:13px/1.4 var(--mono);background:var(--bg);border:1px solid var(--rule);padding:10px;overflow-x:auto;white-space:nowrap;user-select:all}
-.copy{background:var(--surface);border:1px solid var(--text-2);border-radius:2px;padding:0 14px;min-height:44px;font-size:14px;font-weight:600}
+#cmd{flex:1;min-width:0;display:block;font:12.5px/1.4 var(--mono);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 10px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;user-select:all}
+.copy{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0 16px;min-height:44px;font-size:14px;font-weight:600}
+.copy:hover{border-color:var(--text-2)}
 .foot-note{margin:10px 0 0;font-size:13px;color:var(--text-2)}
 #status{margin:6px 0 0;font-size:13px;color:var(--text);min-height:1.5em}
-#tip{position:fixed;z-index:10;max-width:420px;pointer-events:none;background:#111;color:#F4F2EA;border:1px solid #555;border-radius:2px;padding:8px 10px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#tip{position:fixed;z-index:30;max-width:420px;pointer-events:none;background:#1F1E1D;color:#F5F4EE;border:1px solid #4A4945;border-radius:8px;padding:10px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 #tip[hidden]{display:none}
-.tp{font-weight:700;word-break:break-all}
+.tp{font-weight:600;word-break:break-all}
 .tm{color:#C9C7BD}
-.tj{margin-top:6px;padding-top:6px;border-top:1px solid #444}
+.tj{margin-top:6px;padding-top:6px;border-top:1px solid #4A4945}
 @media (max-width:900px){
   html,body{height:auto}
-  .band,.mapcol{padding-left:16px;padding-right:16px}
-  .drives{padding:0 16px 12px}
-  .hero{justify-content:flex-start}
-  .hero-cap{text-align:left}
-  .body{display:block}
+  .band{padding:16px 16px 12px}
+  .stats{width:100%}
+  .hero{flex:1 1 100%}
+  .drive{flex:1 1 140px}
+  .body{display:block;padding:0 16px 16px}
   .map{height:60vh;flex:none}
-  .side{border-left:0;border-top:1px solid var(--rule)}
+  .side{margin-top:16px}
   #junk-list{overflow:visible}
-  .drive{grid-template-columns:48px minmax(60px,1fr)}
-  .dt{grid-column:1/-1}
 }
 `;
 
@@ -706,16 +762,21 @@ export function renderPage(data) {
 </head>
 <body>
 <header class="band">
-  <div>
-    <h1>이 PC의 디스크 지도</h1>
-    <p id="meta" class="meta"></p>
+  <div class="brand">
+    <svg class="mark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 1.5v6.5M12 16v6.5M1.5 12H8M16 12h6.5M4.6 4.6l4.6 4.6M14.8 14.8l4.6 4.6M19.4 4.6l-4.6 4.6M9.2 14.8l-4.6 4.6"/></svg>
+    <div>
+      <h1>이 PC의 디스크 지도</h1>
+      <p id="meta" class="meta"></p>
+    </div>
   </div>
-  <div>
-    <p class="hero"><span class="hero-k">정리 가능</span><strong id="hero-v">0 B</strong></p>
-    <p class="hero-cap">안전하게 지울 수 있는 용량</p>
+  <div class="stats">
+    <div class="card hero">
+      <span class="hero-k">정리 가능 · 안전하게 지울 수 있는 용량</span>
+      <strong id="hero-v">0 B</strong>
+    </div>
+    <ul id="drives" class="drives" aria-label="드라이브별 사용량"></ul>
   </div>
 </header>
-<ul id="drives" class="drives" aria-label="드라이브별 사용량"></ul>
 <div class="body">
   <main class="mapcol">
     <div id="cats" class="cats" role="group" aria-label="종류별 정리 가능 용량 (누르면 오른쪽 목록이 그 종류만 보입니다)"></div>
@@ -724,24 +785,25 @@ export function renderPage(data) {
       <nav id="crumbs" aria-label="현재 위치"></nav>
     </div>
     <div id="map" class="map" role="group" aria-label="폴더 크기 지도. 상자가 클수록 용량이 큽니다"></div>
-    <div class="legend"><span>정상</span><span id="swatches" aria-hidden="true"></span><span>정리 가능 높음</span><span>(주황~빨강일수록 지워도 안전한 용량이 많습니다)</span></div>
+    <div class="legend"><span class="dotmark" aria-hidden="true"></span><span>안에 정리할 것이 있는 폴더</span><span>옅음</span><span id="swatches" aria-hidden="true"></span><span>진함 = 지워도 되는 정도</span></div>
   </main>
   <aside class="side" aria-labelledby="side-h">
     <div class="side-top">
       <h2 id="side-h" hidden>정리할 수 있는 항목</h2>
-      <p class="auto-expl">'삭제해도 되는 것'만 한 번에 골라 계획 파일을 저장합니다. 지금 고르면 <strong id="auto-gb" class="num">0 B</strong>입니다.</p>
+      <p class="auto-expl">'삭제해도 되는 것'만 한 번에 골라 계획 파일을 저장합니다.</p>
       <button id="auto" type="button" class="btn btn-ol">안전한 것만 자동 선택</button>
     </div>
     <div id="junk-list"></div>
     <div class="foot">
-      <p id="total">선택 0개 · 0 B</p>
-      <button id="export" type="button" class="btn btn-pri">정리 계획 저장 (machine-plan.json)</button>
+      <p class="tot"><span id="sel-n">선택 0개</span><strong id="total">0 B</strong></p>
+      <button id="export" type="button" class="btn btn-pri">정리 계획 저장</button>
       <div class="cmdrow"><code id="cmd" tabindex="0">node machine/clean.mjs machine-plan.json</code><button id="copy" type="button" class="copy">복사</button></div>
       <p id="status" role="status"></p>
-      <p class="foot-note">이 화면은 아무것도 지우지 않습니다. 터미널에서 위 명령을 실행하면 삭제 전에 한 번 더 확인합니다.</p>
+      <p class="foot-note">이 화면은 아무것도 지우지 않습니다. 위 명령은 삭제 전에 한 번 더 확인합니다.</p>
     </div>
   </aside>
 </div>
+<div id="pop" class="pop" role="group" aria-label="나머지 종류" hidden></div>
 <div id="tip" role="tooltip" hidden></div>
 <script id="scan-data" type="application/json">${escapeJson(data)}</script>
 <script>(${client.toString()})();</script>

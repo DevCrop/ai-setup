@@ -8,8 +8,9 @@ import { resolveCacheDir } from '../lib/caches.mjs';
 const W = path.win32;
 
 test('rules: exports and constants', () => {
-  assert.deepEqual(Object.keys(rules).sort(), ['AI_TEMP_ROOTS', 'APPDATA_MIN_AGE_DAYS', 'APPDATA_MIN_BYTES', 'APPDATA_SKIP', 'APP_CACHE_DIRS', 'APP_CACHE_PATHS', 'CRASH_EXTRA',
-    'DEV_MIN_AGE_DAYS', 'EDITOR_STATE_ROOTS', 'ELECTRON_APPS', 'OLD_VERSION_ROOTS', 'compareVersions', 'extGroup', 'groupKey', 'newestOf', 'tierOf', 'versionOf']);
+  assert.deepEqual(Object.keys(rules).sort(), ['AI_TEMP_ROOTS', 'APPDATA_MIN_AGE_DAYS', 'APPDATA_MIN_BYTES', 'APPDATA_SKIP', 'APP_CACHE_DIRS', 'APP_CACHE_PATHS', 'CODEX_WT_MIN_IDLE_DAYS', 'CRASH_EXTRA',
+    'DEV_MIN_AGE_DAYS', 'EDITOR_STATE_ROOTS', 'ELECTRON_APPS', 'OLD_VERSION_ROOTS', 'activeExtensionVersions', 'claudeSessionSlug', 'compareVersions', 'extGroup', 'groupKey', 'newestOf',
+    'runningClaudeVersion', 'tierOf', 'versionOf']);
   assert.equal(rules.APPDATA_MIN_BYTES, 50 * 2 ** 20);
   assert.equal(rules.APPDATA_MIN_AGE_DAYS, 180);
   assert.equal(rules.DEV_MIN_AGE_DAYS, 90);
@@ -142,9 +143,8 @@ test('rules: OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA',
   assert.deepEqual(rules.AI_TEMP_ROOTS(e), [
     { root: 'C:\\Users\\me\\.codex\\.tmp', minAgeDays: 1, tier: 'safe' },
     { root: 'C:\\Users\\me\\.codex\\cache', minAgeDays: 1, tier: 'safe' },
-    { root: 'C:\\Users\\me\\.codex\\.sandbox-recovery', minAgeDays: 7, tier: 'check' },
     { root: 'C:\\Users\\me\\.claude\\plugins\\.trash', minAgeDays: 0, tier: 'safe' },
-    { root: 'C:\\Users\\me\\AppData\\Local\\Temp\\claude', minAgeDays: 7, tier: 'check' },
+    { root: 'C:\\Users\\me\\AppData\\Local\\Temp\\claude', minAgeDays: 14, tier: 'check' },
   ]);
   assert.deepEqual(rules.EDITOR_STATE_ROOTS(e), [
     { root: 'C:\\Users\\me\\AppData\\Roaming\\Code\\User\\workspaceStorage', minAgeDays: 90 },
@@ -157,7 +157,7 @@ test('rules: OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA',
 test('rules: tierOf for the AI categories', () => {
   assert.equal(rules.tierOf('ai-old-version'), 'safe');
   assert.equal(rules.tierOf('ai-temp'), 'check'); // cautious default; each AI_TEMP_ROOTS entry carries its own tier
-  assert.equal(rules.tierOf('editor-state'), 'check');
+  assert.equal(rules.tierOf('editor-state'), 'manual'); // report only
   assert.equal(rules.tierOf('ai-history'), 'manual');
 });
 
@@ -183,7 +183,34 @@ test('deny: Claude/Codex state stays protected except the named children', () =>
   const d = (p) => isDenied(p, e).denied;
   const cl = 'C:\\Users\\me\\.claude', cx = 'C:\\Users\\me\\.codex', tc = 'C:\\Users\\me\\AppData\\Local\\Temp\\claude';
   for (const p of [cl, W.join(cl, 'projects'), W.join(cl, 'projects', 'x'), W.join(cl, 'settings.json'), W.join(cl, 'plugins', '.trash'), W.join(cl, 'plugins', '.trash', 'a', 'b'),
-    cx, W.join(cx, 'sessions'), W.join(cx, 'archived_sessions', 'x'), W.join(cx, 'auth.json'), W.join(cx, 'config.toml'), W.join(cx, '.tmp'), W.join(cx, 'cache'), W.join(cx, '.tmp', 'a', 'b'),
+    W.join(cx, '.sandbox-recovery'), W.join(cx, '.sandbox-recovery', 'a'), cx, W.join(cx, 'sessions'), W.join(cx, 'archived_sessions', 'x'), W.join(cx, 'auth.json'), W.join(cx, 'config.toml'), W.join(cx, '.tmp'), W.join(cx, 'cache'), W.join(cx, '.tmp', 'a', 'b'),
     W.join(cx, 'worktrees'), tc, W.join(tc, 'a', 'b')]) assert.equal(d(p), true, p);
-  for (const p of [W.join(cl, 'plugins', '.trash', 'a'), W.join(cx, '.tmp', 'a'), W.join(cx, 'cache', 'a'), W.join(cx, '.sandbox-recovery', 'a'), W.join(cx, 'worktrees', 'id', 'repo'), W.join(tc, 'old-session')]) assert.equal(d(p), false, p);
+  for (const p of [W.join(cl, 'plugins', '.trash', 'a'), W.join(cx, '.tmp', 'a'), W.join(cx, 'cache', 'a'), W.join(cx, 'worktrees', 'id', 'repo'), W.join(tc, 'old-session')]) assert.equal(d(p), false, p);
+});
+
+test('claudeSessionSlug and runningClaudeVersion', async () => {
+  assert.equal(rules.claudeSessionSlug('D:\\project\\ai-setup\\.claude\\worktrees\\x'), 'D--project-ai-setup--claude-worktrees-x');
+  assert.equal(rules.claudeSessionSlug(undefined), '');
+  const probe = (r) => async () => r;
+  assert.equal(await rules.runningClaudeVersion(probe({ code: 0, stdout: '2.1.51 (Claude Code)\n' })), '2.1.51');
+  assert.equal(await rules.runningClaudeVersion(probe({ code: 1, stdout: '2.1.51' })), null);
+  assert.equal(await rules.runningClaudeVersion(probe({ code: 0, stdout: 'hello' })), null);
+  assert.equal(await rules.runningClaudeVersion(async () => { throw new Error('x'); }), null);
+});
+
+test('activeExtensionVersions reads only extensions.json and tolerates bad input', async () => {
+  const fs = await import('node:fs/promises'), os = await import('node:os');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ext-test-'));
+  try {
+    assert.equal((await rules.activeExtensionVersions(dir)).size, 0); // missing
+    await fs.writeFile(path.join(dir, 'extensions.json'), JSON.stringify([
+      { identifier: { id: 'Pub.A' }, version: '1.0.0', relativeLocation: 'pub.a-1.0.0-win32-x64' },
+      { location: { fsPath: 'c:\\x\\extensions\\pub.b-2.0.0' } }, null, 5]));
+    const s = await rules.activeExtensionVersions(dir);
+    assert.deepEqual([...s].sort(), ['pub.a-1.0.0-win32-x64', 'pub.a@1.0.0', 'pub.b-2.0.0']);
+    await fs.writeFile(path.join(dir, 'extensions.json'), '{not json');
+    assert.equal((await rules.activeExtensionVersions(dir)).size, 0);
+    await fs.writeFile(path.join(dir, 'extensions.json'), '{"a":1}');
+    assert.equal((await rules.activeExtensionVersions(dir)).size, 0);
+  } finally { await fs.rm(dir, { recursive: true, force: true }); }
 });

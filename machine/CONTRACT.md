@@ -85,9 +85,11 @@ Node 22, ESM `.mjs`, zero dependencies, Windows 10 first (paths may use `\`). Te
 | `app-cache` | Electron/desktop app caches under `%APPDATA%\<app>\{Cache,Code Cache,GPUCache,CachedData}` (Discord, Slack, Teams, Code, Cursor, Notion, Spotify…), `%LOCALAPPDATA%\Microsoft\Windows\INetCache`, `%LOCALAPPDATA%\Microsoft\Windows\WER` (error reports) | recycle children (skip locked) | 0.8 |
 | `system-cleanup` | `C:\Windows\SoftwareDistribution\Download`, `C:\Windows\Logs\CBS`, Delivery Optimization (`C:\Windows\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization`) — size if readable | report: "Windows 디스크 정리(cleanmgr) → 시스템 파일 정리" (needs admin) | 0.5 |
 | `ai-old-version` | old versions of AI tools and editor extensions; keep the newest per group: `~/.local/share/claude/versions/<v>` (Claude Code CLI), `%APPDATA%\Claude\claude-code\<v>` (Claude desktop's bundled CLI), `~/.vscode/extensions/<id>-<ver>[-win32-x64]` and `~/.cursor/extensions/…` (group by id, keep highest version) | recycle | 0.85 safe |
-| `ai-temp` | AI tool temp/cache: `~/.codex/.tmp` and `~/.codex/cache` children ≥1 day (safe); `~/.codex/.sandbox-recovery` children ≥7 days (check); `~/.claude/plugins/.trash` children (safe); old Claude Code session scratch `<tmp>\claude\<dir>` untouched ≥7 days (check; never the current session) | recycle | 0.7–0.9 |
-| `editor-state` | `%APPDATA%\{Code,Cursor}\User\workspaceStorage\<hash>` untouched ≥90 days (per-project editor state: undo history, chat panels) | recycle | 0.6 check |
-| `ai-history` | report only: `~/.codex/sessions`, `~/.codex/archived_sessions`, `~/.claude/projects` (conversation history), npm-global `@anthropic-ai/claude-code` when the native Claude Code install also exists (`npm uninstall -g @anthropic-ai/claude-code`) | report | 0.2 manual |
+| `ai-temp` | AI tool temp/cache, one item per ROOT (like `temp`; the cleaner recycles the qualifying children and exempts the root itself from the deny check): `~/.codex/.tmp` and `~/.codex/cache` children ≥1 day (safe); `~/.claude/plugins/.trash` children (safe); old Claude Code session scratch `<tmp>\claude\<dir>` untouched ≥14 days (check; never the dir of the current working directory's session) | recycle children | 0.7–0.9 |
+| `editor-state` | `%APPDATA%\{Code,Cursor}\User\workspaceStorage` children untouched ≥90 days — they hold per-project AI chat history, so report only | report | 0.3 manual |
+| `ai-history` | report only: `~/.codex/sessions`, `~/.codex/archived_sessions`, `~/.claude/projects` (conversation history), Cursor/Code `User\globalStorage` ≥1 GB, `~/.codex/.sandbox-recovery` (Codex runtime rollback backup), npm-global `@anthropic-ai/claude-code` when the native Claude Code install also exists (`npm uninstall -g @anthropic-ai/claude-code`) | report | 0.2 manual |
+
+Codex worktrees under `~/.codex/worktrees` are never touched while anything in them changed in the last 14 days (`CODEX_WT_MIN_IDLE_DAYS`, both sides). `ai-old-version` never picks the running `claude --version` or the extension version listed in the editor's `extensions/extensions.json`.
 | `old-download` | files in `~/Downloads` ≥ 100 MB untouched 90+ days, esp. `.exe .msi .zip .iso .7z` installers/archives (one junk per file) | report (Downloads is protected; user deletes by hand) | 0.3 |
 
 ## Plan JSON (page exports, clean.mjs reads)
@@ -102,4 +104,4 @@ Node 22, ESM `.mjs`, zero dependencies, Windows 10 first (paths may use `\`). Te
 
 Test fixtures named `.env*`, `.credentials*` or `*credentials*.json` are created at runtime in `fs.mkdtemp`, never committed (`.gitignore` drops them).
 
-Sizes and mtimes only. The only files whose content is read: `~/.claude/plugins/installed_plugins.json` and a worktree's `.git` pointer file (one `gitdir:` line). Never open `.credentials*` or `.env*`.
+Sizes and mtimes only. The only files whose content is read: `~/.claude/plugins/installed_plugins.json`, a worktree's `.git` pointer file (one `gitdir:` line), and `~/.vscode/extensions/extensions.json` / `~/.cursor/extensions/extensions.json` (which extension versions are active). Never open `.credentials*` or `.env*`.

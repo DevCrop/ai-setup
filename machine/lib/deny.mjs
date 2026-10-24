@@ -106,6 +106,7 @@ export function isDenied(p, envIn = {}) {
   const codex = norm(join(home, '.codex'));
   if (within(codex)) {
     // allowed: direct children of the AI temp roots, and anything inside ~/.codex/worktrees/<id>; auth, sessions, config stay denied
+    if (s === codex + '\\.sandbox-recovery' || s.startsWith(codex + '\\.sandbox-recovery\\')) return yes('~/.codex/.sandbox-recovery (Codex 복구 백업, 직접 판단)');
     const parentOf = s.slice(0, s.lastIndexOf('\\'));
     const tempChild = AI_TEMP_ROOTS(env).some((r) => norm(r.root).startsWith(codex + '\\') && norm(r.root) === parentOf);
     const worktree = s.startsWith(codex + '\\worktrees\\');
