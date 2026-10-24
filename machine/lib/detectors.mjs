@@ -9,13 +9,23 @@ import { execFile } from 'node:child_process';
 import { pkey } from './walk.mjs';
 import { resolveCacheDir, CACHE_TOOLS } from './caches.mjs';
 import { isDenied } from './deny.mjs';
-import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './rules.mjs';
+import { OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, newestOf, versionOf, compareVersions, extGroup, CODEX_WT_MIN_IDLE_DAYS, AI_TEMP_SKIP, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './rules.mjs';
 
 const DAY = 86400e3;
 const MB = 1024 * 1024;
 const slashKey = (p) => pkey(p).replace(/\\/g, '/').replace(/\/+$/, '');
 // <tmp>\claude holds live Claude session scratch (fixtures, repos): never flag anything inside it.
 const underClaudeTmp = (env, p) => !!env.tmp && `${slashKey(p)}/`.startsWith(`${slashKey(path.join(env.tmp, 'claude'))}/`);
+/** True when p is inside ~/.codex/worktrees/<id> and anything in that <id> folder changed within CODEX_WT_MIN_IDLE_DAYS (or it is unknown). */
+function codexWtBusy(env, p) {
+  if (!env.home) return false;
+  const base = `${slashKey(path.join(env.home, '.codex', 'worktrees'))}/`;
+  const k = slashKey(p);
+  if (!`${k}/`.startsWith(base)) return false;
+  const id = k.slice(base.length).split('/')[0];
+  const z = env.sizeOf(path.join(env.home, '.codex', 'worktrees', id));
+  return !z || (env.now ?? Date.now()) - z.m < CODEX_WT_MIN_IDLE_DAYS * DAY;
+}
 const exists = (p) => fs.stat(p).then(() => true, () => false);
 const realOr = async (p) => fs.realpath(p).catch(() => p);
 const dirNames = async (p) => (await fs.readdir(p, { withFileTypes: true }).catch(() => [])).filter((e) => e.isDirectory()).map((e) => e.name);
@@ -35,6 +45,10 @@ const EFFECT = {
   'shader-cache': '게임·그래픽 프로그램을 처음 켤 때 잠깐 더 느릴 수 있고, 곧 자동으로 다시 만들어집니다.',
   'app-cache': '앱이 필요한 것을 다시 내려받아 처음 열 때만 조금 느릴 수 있습니다. 로그인과 설정은 그대로입니다.',
   'system-cleanup': 'Windows 업데이트·로그 찌꺼기입니다. 관리자 권한의 Windows 디스크 정리로 안전하게 지울 수 있습니다.',
+  'ai-old-version': '새 버전이 이미 설치돼 있어 지워도 됩니다. 프로그램은 최신 버전으로 계속 동작합니다.',
+  'ai-temp': 'AI 도구가 남긴 임시 파일입니다. 지워도 필요할 때 다시 만들어집니다.',
+  'editor-state': '프로젝트별 편집기 상태와 AI 채팅 기록이 들어 있습니다. 필요 없는 프로젝트만 편집기에서 직접 정리하세요.',
+  'ai-history': '대화 기록입니다. 지우면 지난 대화를 다시 볼 수 없습니다 — 필요 없을 때만 직접 지우세요.',
   'old-download': '오래전에 받아 둔 파일입니다. 지우면 다시 받아야 할 수 있으니 필요한 파일인지 직접 확인하세요.',
 };
 
@@ -142,7 +156,7 @@ export async function detectDevArtifact(env, { days = DEV_MIN_AGE_DAYS, minBytes
   const out = [];
   for (const { node, parent } of env.idx.artifacts) {
     // shortcut: a project is the artifact's direct parent; monorepo nesting is judged by that folder only.
-    if (!parent.proj || node.s < minBytes || underClaudeTmp(env, node.p)) continue;
+    if (!parent.proj || node.s < minBytes || underClaudeTmp(env, node.p) || codexWtBusy(env, node.p)) continue;
     if (!parent.ms || now - parent.ms < days * DAY) continue;
     out.push(junk('dev-artifact', node, {
       score: 0.8, label: `개발 산출물 (${node.name})`, action: 'recycle',
@@ -258,6 +272,8 @@ export async function detectOrphanWorktree(env) {
         why = '원본 저장소의 worktree 목록에 없는 고아 워크트리 폴더입니다.';
         how = '휴지통으로 이동';
       } else if (!entryReal.prunable && !entryReal.locked && !entryReal.bare && entryReal.head) {
+        // Codex keeps live detached worktrees under ~/.codex/worktrees: only touch ones idle for 14+ days.
+        if (codexWtBusy(env, dir)) continue;
         const br = await defaultBranch(p);
         if (!br) continue;
         const anc = await env.git(['merge-base', '--is-ancestor', entryReal.head, br], p.repoDir);
@@ -415,6 +431,13 @@ export async function detectCrashDump(env) {
     });
     if (j) out.push(j);
   }
+  for (const d of CRASH_EXTRA(env)) {
+    const j = cacheJunk(env, d, {
+      category: 'crash-dump', score: 0.9, label: `${/[\\/]Cursor[\\/]/i.test(d) ? 'Cursor' : 'VS Code'} 충돌 보고서`, action: 'recycle',
+      reason: '편집기가 죽을 때 남긴 진단용 보고서입니다.', how: '내용물을 휴지통으로 이동 (사용 중인 파일은 건너뜀)',
+    });
+    if (j) out.push(j);
+  }
   if (env.localAppData) {
     const la = `${slashKey(env.localAppData)}/`;
     const inDumps = dirs.map((d) => `${slashKey(d)}/`);
@@ -558,11 +581,169 @@ export async function detectOldDownload(env, { minBytes = 100 * MB, days = 90 } 
     }));
 }
 
+// ---- AI tools and editors: ai-old-version, ai-temp, editor-state, ai-history ----
+/** Direct children of dir (files and folders, no symlinks) with the size/newest-mtime a recycle would free. */
+async function childEntries(env, dir, { ownMtime = false } = {}) {
+  const ents = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const out = [];
+  for (const e of ents) {
+    if (e.isSymbolicLink()) continue;
+    const p = path.join(dir, e.name);
+    let s;
+    let m;
+    if (e.isDirectory()) {
+      const z = env.sizeOf(p);
+      if (!z) continue;
+      ({ s, m } = z);
+      if (ownMtime) m = Math.max(m, Math.floor((await fs.stat(p).catch(() => null))?.mtimeMs ?? 0));
+    } else {
+      const st = await fs.lstat(p).catch(() => null);
+      if (!st) continue;
+      s = st.size;
+      m = Math.floor(st.mtimeMs);
+    }
+    out.push({ name: e.name, path: p, s, m });
+  }
+  return out;
+}
+
+/** One junk for a container dir whose old children get recycled: size/mtime cover only the qualifying children. */
+async function staleChildrenJunk(env, root, minAgeDays, fields, opts = {}) {
+  const z = env.sizeOf(root);
+  if (!z) return null;
+  const now = env.now ?? Date.now();
+  let size = 0;
+  let newest = 0;
+  for (const c of await childEntries(env, root, opts)) {
+    if (opts.skipNames?.has(c.name.toLowerCase()) || opts.skipRe?.test(c.name) || now - c.m < minAgeDays * DAY) continue;
+    size += c.s;
+    if (c.m > newest) newest = c.m;
+  }
+  return size > 0 ? junk(fields.category, z.node, { ...fields, size, mtime: newest }) : null;
+}
+
+// ai-old-version: keep the newest version per group, one junk per older folder/file.
+export async function detectAiOldVersion(env) {
+  const out = [];
+  const label = { 'claude-cli': 'Claude Code', 'claude-desktop-cc': 'Claude 데스크톱 내장 Claude Code', 'vscode-ext': 'VS Code 확장', 'cursor-ext': 'Cursor 확장' };
+  const running = await runningClaudeVersion(env.probe ?? (async () => ({ code: 1, stdout: '' })));
+  for (const { root, kind } of OLD_VERSION_ROOTS(env)) {
+    const kids = await childEntries(env, root);
+    const isExt = kind.endsWith('-ext');
+    const active = isExt ? await activeExtensionVersions(root) : new Set();
+    const groups = new Map();
+    for (const k of kids) {
+      const g = groupKey(k.name, kind);
+      if (g === null) continue; // unparseable names are never touched
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(k);
+    }
+    for (const members of groups.values()) {
+      const keep = newestOf(members.map((k) => k.name), kind);
+      if (!keep) continue;
+      const keepV = versionOf(keep, kind);
+      for (const k of members) {
+        // every build of the newest version (platform variants) stays
+        if (k.s <= 0 || compareVersions(versionOf(k.name, kind), keepV) === 0) continue;
+        if (!isExt && running && compareVersions(versionOf(k.name, kind), running) === 0) continue; // the CLI that is running now
+        const g = isExt ? extGroup(k.name) : null;
+        // the editor lists it as installed, by folder name or by id@version
+        if (active.has(k.name.toLowerCase()) || (g && active.has(`${g.id}@${g.version}`.toLowerCase()))) continue;
+        out.push(junk('ai-old-version', { p: k.path }, {
+          size: k.s, mtime: k.m, score: 0.85, safety: 'safe', action: 'recycle', label: `${label[kind]} 이전 버전 (${k.name})`,
+          reason: `같은 프로그램의 더 새로운 버전(${keep})이 이미 설치되어 있습니다.`,
+          how: '휴지통으로 이동 (사용 중인 파일은 건너뜀)',
+        }));
+      }
+    }
+  }
+  return out;
+}
+
+// ---- ai-temp ----
+export async function detectAiTemp(env) {
+  const out = [];
+  const names = [
+    [/[\\/]\.codex[\\/]\.tmp$/i, 'Codex 임시 파일', 'Codex가 작업 중에 잠깐 쓰고 남긴 임시 파일입니다. 지워도 필요할 때 다시 만들어집니다.'],
+    [/[\\/]\.codex[\\/]cache$/i, 'Codex 캐시', 'Codex가 빨리 동작하려고 저장한 캐시입니다. 지워도 필요할 때 다시 만들어집니다.'],
+    [/[\\/]\.claude[\\/]plugins[\\/]\.trash$/i, 'Claude 플러그인 휴지통', '플러그인을 지울 때 임시로 옮겨 둔 폴더입니다. 비워도 영향이 없습니다.'],
+    [/[\\/]claude$/i, '지난 Claude Code 세션 임시 폴더', '지난 Claude Code 작업이 남긴 임시 폴더입니다. 7일 넘게 쓰이지 않은 것만 지우며, 그 작업의 임시 산출물은 사라집니다.'],
+  ];
+  // The current working directory's Claude Code session scratch is never counted.
+  const skipNames = new Set([claudeSessionSlug(env.cwd ?? process.cwd()).toLowerCase()]);
+  for (const { root, minAgeDays, tier } of AI_TEMP_ROOTS(env)) {
+    const [, label, effect] = names.find(([re]) => re.test(root)) ?? [null, 'AI 도구 임시 파일', undefined];
+    const j = await staleChildrenJunk(env, root, minAgeDays, {
+      category: 'ai-temp', score: tier === 'safe' ? 0.9 : 0.7, safety: tier, label, effect, action: 'recycle',
+      reason: minAgeDays ? `AI 도구가 남긴 임시 파일 중 ${minAgeDays}일 넘게 쓰이지 않은 것들입니다.` : 'AI 도구가 남긴 임시 파일입니다.',
+      how: '오래된 항목만 휴지통으로 이동 (사용 중인 파일은 건너뜀)',
+    }, { skipNames, skipRe: AI_TEMP_SKIP }); // *.lock / *.guard files mark live work
+    if (j) out.push(j);
+  }
+  return out;
+}
+
+// ---- editor-state: stale per-project editor state; one junk per root, children recycled by the cleaner ----
+export async function detectEditorState(env) {
+  const out = [];
+  for (const { root, minAgeDays } of EDITOR_STATE_ROOTS(env)) {
+    const app = /[\\/]Cursor[\\/]/i.test(root) ? 'Cursor' : 'VS Code';
+    const j = await staleChildrenJunk(env, root, minAgeDays, {
+      category: 'editor-state', score: 0.3, safety: 'manual', action: 'report', label: `${app} 오래된 작업 영역 기록`,
+      reason: `${minAgeDays}일 넘게 열지 않은 프로젝트의 편집기 기록(되돌리기 내역, AI 채팅 기록 등)입니다.`,
+      how: '편집기에서 필요 없는 프로젝트만 직접 정리하세요.',
+      effect: '프로젝트별 편집기 상태와 AI 채팅 기록이 들어 있습니다. 필요 없는 프로젝트만 편집기에서 직접 정리하세요.',
+    }, { ownMtime: true });
+    if (j) out.push(j);
+  }
+  return out;
+}
+
+// ---- ai-history: report only ----
+export async function detectAiHistory(env, { minGlobalBytes = 1024 * MB } = {}) {
+  const out = [];
+  const histEffect = '대화 기록입니다. 지우면 지난 대화를 다시 볼 수 없습니다 — 필요 없을 때만 직접 지우세요.';
+  const base = { category: 'ai-history', score: 0.2, safety: 'manual', action: 'report' };
+  const add = (p, label, extra = {}) => {
+    const j = sized(env, p, { ...base, label, reason: '이전 대화·작업 기록이 쌓인 폴더입니다. 자동으로 지우지 않습니다.', how: '내용을 확인한 뒤 직접 정리하세요.', effect: histEffect, ...extra });
+    if (j) out.push(j);
+  };
+  if (env.home) {
+    add(path.join(env.home, '.codex', 'sessions'), 'Codex 대화 기록');
+    add(path.join(env.home, '.codex', 'archived_sessions'), 'Codex 보관된 대화 기록');
+    add(path.join(env.home, '.claude', 'projects'), 'Claude Code 대화 기록');
+    add(path.join(env.home, '.codex', '.sandbox-recovery'), 'Codex 샌드박스 복구 백업', {
+      reason: 'Codex 런타임을 되돌리기 위해 남겨 둔 백업입니다. 자동으로 지우지 않습니다.',
+      how: 'Codex에 문제가 없을 때만 직접 지우세요.',
+      effect: 'Codex 런타임 복구용 백업입니다. Codex가 다시 만들지 않으니 문제가 없을 때만 직접 지우세요.',
+    });
+  }
+  if (env.appData) {
+    const cursorEffect = 'Cursor 채팅·에이전트 기록과 확장 데이터입니다. 지우면 기록이 사라집니다 — Cursor 안에서 오래된 채팅을 지우는 게 안전합니다.';
+    const cursor = path.join(env.appData, 'Cursor', 'User', 'globalStorage');
+    if ((env.sizeOf(cursor)?.s ?? 0) >= minGlobalBytes) add(cursor, 'Cursor 채팅·에이전트 기록', { effect: cursorEffect, how: 'Cursor 안에서 오래된 채팅을 지우세요.' });
+    const code = path.join(env.appData, 'Code', 'User', 'globalStorage');
+    if ((env.sizeOf(code)?.s ?? 0) >= minGlobalBytes) {
+      add(code, 'VS Code 확장 데이터·기록', { effect: 'VS Code 확장 데이터와 채팅 기록입니다. 지우면 확장 설정과 기록이 사라집니다 — 필요 없을 때만 직접 지우세요.' });
+    }
+    // npm-global Claude Code is a duplicate once the native install exists.
+    if (env.home && (await exists(path.join(env.home, '.local', 'share', 'claude', 'versions')))) {
+      add(path.join(env.appData, 'npm', 'node_modules', '@anthropic-ai', 'claude-code'), 'npm 전역 Claude Code (중복 설치)', {
+        reason: '같은 Claude Code가 새 방식으로 이미 설치되어 있어 npm으로 설치한 것은 중복입니다.',
+        how: 'npm uninstall -g @anthropic-ai/claude-code',
+        effect: '이미 따로 설치된 Claude Code(claude)가 있어 지워도 계속 동작합니다. 직접 명령어로 제거하세요.',
+      });
+    }
+  }
+  return out;
+}
+
 export async function detectAll(env) {
   const parts = await Promise.all([
     detectTemp, detectPkgCache, detectDevArtifact, detectOrphanWorktree, detectPluginCache,
     detectAppdataOrphan, detectRecycleBin, detectCrashDump, detectVmDisk, detectBrowserCache,
     detectShaderCache, detectAppCache, detectSystemCleanup, detectOldDownload,
+    detectAiOldVersion, detectAiTemp, detectEditorState, detectAiHistory,
   ].map((f) => f(env)));
   const seen = new Set();
   const denyEnv = Object.fromEntries(Object.entries({
@@ -570,7 +751,7 @@ export async function detectAll(env) {
   }).filter(([, v]) => v !== undefined));
   return parts.flat().filter((j) => !seen.has(j.id) && seen.add(j.id)).map((j) => {
     // temp is exempt: its path is the temp dir itself, and clean.mjs only recycles children.
-    if (j.category === 'temp' || !isDenied(j.path, denyEnv).denied) return j;
+    if (['temp', 'ai-temp', 'ai-history'].includes(j.category) || !isDenied(j.path, denyEnv).denied) return j;
     return { ...j, action: 'report', safety: 'manual', score: Math.min(j.score, 0.3), reason: `${j.reason} (보호 폴더 안이라 자동 정리 대상이 아닙니다 — 직접 확인하세요)` };
   });
 }

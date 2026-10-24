@@ -509,3 +509,167 @@ test('temp: also scans %LOCALAPPDATA%\Temp when %TEMP% is relocated, and dedupes
   const same = await D.detectTemp(await f.env({ tmp: f.p(lt) }));
   assert.equal(same.filter((j) => j.path === f.p(lt)).length, 1);
 });
+
+test('orphan-worktree: ~/.codex/worktrees follow rule (b) only after 14 idle days', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const repo = f.p('repo');
+  const old = new Date(Date.now() - 20 * DAY);
+  const mk = async (id, ageDays) => {
+    const dir = path.join('home', '.codex', 'worktrees', id, 'repo');
+    const gd = path.join(repo, '.git', 'worktrees', id);
+    await fs.mkdir(gd, { recursive: true });
+    const fp = await f.put(path.join(dir, '.git'), 0);
+    await fs.writeFile(fp, `gitdir: ${gd.replace(/\\/g, '/')}
+`);
+    const when = new Date(Date.now() - ageDays * DAY);
+    await fs.utimes(fp, when, when);
+    return f.p(dir);
+  };
+  const idle = await mk('idle', 20);
+  const fresh = await mk('fresh', 1);
+  const { git } = fakeGit(repo, { listed: [[idle, 'h1'], [fresh, 'h2']], ancestors: ['h1', 'h2'] });
+  const out = await D.detectOrphanWorktree(await f.env({ git }));
+  assert.deepEqual(out.map((j) => j.path), [idle]);
+  assert.equal(out[0].action, 'command');
+  assert.ok(old);
+});
+
+test('ai-old-version: keeps the newest per group, never touches unparseable names', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.1', 'a'), 100);
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.9', 'a'), 100);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Claude', 'claude-code', '2.1.295', 'a'), 80);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Claude', 'claude-code', '2.1.299', 'a'), 80);
+  const ext = path.join('home', '.vscode', 'extensions');
+  await f.put(path.join(ext, 'pub.tool-1.0.0', 'a'), 50);
+  await f.put(path.join(ext, 'pub.tool-1.2.0-win32-x64', 'a'), 50);
+  await f.put(path.join(ext, 'pub.tool-1.2.0', 'a'), 50); // platform variant of the newest: kept too
+  await f.put(path.join(ext, 'pub.single-0.1.0', 'a'), 50); // only version of its id
+  await f.put(path.join(ext, 'extensions.json'), 50); // not a versioned folder
+  const out = await D.detectAiOldVersion(await f.env());
+  out.forEach(assertShape);
+  assert.deepEqual(out.map((j) => path.basename(j.path)).sort(), ['2.1.1', '2.1.295', 'pub.tool-1.0.0']);
+  assert.ok(out.every((j) => j.category === 'ai-old-version' && j.safety === 'safe' && j.action === 'recycle' && j.score === 0.85));
+  assert.equal(out.find((j) => j.path.endsWith('2.1.1')).size, 100);
+});
+
+test('ai-temp: per-root junk sized by children older than the root minimum age', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const c = path.join('home', '.codex');
+  await f.put(path.join(c, '.tmp', 'old', 'a'), 100, 3);
+  await f.put(path.join(c, '.tmp', 'new', 'a'), 900, 0);
+  await f.put(path.join(c, 'cache', 'x.bin'), 40, 2);
+  await f.put(path.join(c, '.tmp', 'busy.lock'), 5000, 3); // lock/guard files are skipped
+  await f.put(path.join(c, '.tmp', 'run.GUARD'), 5000, 3);
+  await f.put(path.join('home', '.claude', 'plugins', '.trash', 'gone', 'a'), 30, 0);
+  await f.put(path.join('tmp', 'claude', 'old-session', 'a'), 70, 20);
+  await f.put(path.join('tmp', 'claude', 'young-session', 'a'), 700, 10); // under 14 days
+  await f.put(path.join('tmp', 'claude', 'cur-slug', 'a'), 900, 20); // old files, but it is the current cwd's session
+  const out = await D.detectAiTemp(await f.env({ cwd: 'cur.slug' }));
+  out.forEach(assertShape);
+  const by = (suffix) => out.find((j) => j.path.endsWith(suffix));
+  assert.equal(by(path.join('.codex', '.tmp')).size, 100);
+  assert.equal(by(path.join('.codex', '.tmp')).safety, 'safe');
+  assert.equal(by(path.join('.codex', 'cache')).size, 40);
+  assert.ok(!by('.sandbox-recovery'), 'sandbox-recovery is ai-history now');
+  assert.equal(by(path.join('.claude', 'plugins', '.trash')).size, 30);
+  const claude = by(path.join('tmp', 'claude'));
+  assert.equal(claude.size, 70); // current-cwd session and young sessions are left alone
+  assert.equal(claude.safety, 'check');
+  assert.equal(out.length, 4);
+  // the cleaner recycles children of these roots, so detectAll must not downgrade the root itself
+  const all = await D.detectAll(await f.env());
+  assert.equal(all.find((j) => j.path === claude.path && j.category === 'ai-temp').action, 'recycle');
+});
+
+test('editor-state: stale workspaceStorage children, folder mtime counts as activity', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const ws = path.join('home', 'AppData', 'Roaming', 'Code', 'User', 'workspaceStorage');
+  await f.put(path.join(ws, 'oldhash', 'state.vscdb'), 200, 120);
+  await f.put(path.join(ws, 'touched', 'state.vscdb'), 300, 120); // old file, but the folder itself changed recently
+  await f.put(path.join(ws, 'fresh', 'state.vscdb'), 400, 1);
+  const old = new Date(Date.now() - 120 * DAY);
+  await fs.utimes(f.p(ws, 'oldhash'), old, old);
+  const out = await D.detectEditorState(await f.env());
+  out.forEach(assertShape);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].path, f.p(ws));
+  assert.equal(out[0].size, 200);
+  assert.equal(out[0].safety, 'manual');
+  assert.equal(out[0].action, 'report');
+  assert.equal(out[0].score, 0.3);
+  assert.match(out[0].effect, /AI 채팅 기록이 들어 있습니다/);
+});
+
+test('crash-dump: editor Crashpad folders (CRASH_EXTRA)', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Code', 'Crashpad', 'reports', 'a'), 100);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Cursor', 'Crashpad', 'reports', 'a'), 50);
+  const out = await D.detectCrashDump(await f.env());
+  out.forEach(assertShape);
+  assert.deepEqual(out.map((j) => [path.basename(path.dirname(j.path)), j.size]).sort(), [['Code', 100], ['Cursor', 50]]);
+});
+
+test('ai-history: report only; npm-global claude-code only when the native install exists', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  await f.put(path.join('home', '.codex', 'sessions', 'a'), 100);
+  await f.put(path.join('home', '.codex', 'archived_sessions', 'a'), 90);
+  await f.put(path.join('home', '.claude', 'projects', 'p', 'a'), 80);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Cursor', 'User', 'globalStorage', 'state.vscdb'), 70);
+  await f.put(path.join('home', 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', 'state.vscdb'), 60); // under 1 GB
+  await f.put(path.join('home', 'AppData', 'Roaming', 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'), 50);
+  await f.put(path.join('home', '.codex', '.sandbox-recovery', 'backup', 'a'), 40);
+  const opts = { minGlobalBytes: 65 }; // stands in for the 1 GB floor: Cursor (70) passes, Code (60) does not
+  const noNative = await D.detectAiHistory(await f.env(), opts);
+  assert.equal(noNative.length, 5); // codex x2, claude projects, sandbox-recovery, cursor globalStorage; no npm item, no small Code storage
+  assert.match(noNative.find((j) => j.path.endsWith('.sandbox-recovery')).effect, /Codex가 다시 만들지 않으니/);
+  assert.equal((await D.detectAiHistory(await f.env())).filter((j) => j.path.endsWith('globalStorage')).length, 0); // default floor is 1 GB
+  assert.ok(!noNative.some((j) => /Code\\User\\globalStorage|claude-code/.test(j.path)));
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.9', 'a'), 10);
+  const out = await D.detectAiHistory(await f.env(), opts);
+  out.forEach(assertShape);
+  assert.equal(out.length, 6);
+  assert.ok(out.every((j) => j.category === 'ai-history' && j.action === 'report' && j.safety === 'manual' && j.score === 0.2));
+  assert.equal(out.find((j) => j.path.endsWith('claude-code')).how, 'npm uninstall -g @anthropic-ai/claude-code');
+  assert.match(out.find((j) => j.path.endsWith('globalStorage')).effect, /Cursor 안에서 오래된 채팅을 지우는 게 안전합니다/);
+  assert.match(out.find((j) => j.path.endsWith('sessions')).effect, /지난 대화를 다시 볼 수 없습니다/);
+});
+
+test('ai-old-version: the running Claude CLI version and editor-listed extensions stay', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.1', 'a'), 100); // running
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.5', 'a'), 100); // old, not running
+  await f.put(path.join('home', '.local', 'share', 'claude', 'versions', '2.1.9', 'a'), 100); // newest
+  const ext = path.join('home', '.vscode', 'extensions');
+  await f.put(path.join(ext, 'pub.tool-1.0.0', 'a'), 50); // listed as installed
+  await f.put(path.join(ext, 'pub.tool-1.1.0', 'a'), 50); // unlisted old build
+  await f.put(path.join(ext, 'pub.tool-1.2.0', 'a'), 50);
+  await f.put(path.join(ext, 'pub.other-2.0.0-win32-x64', 'a'), 50); // listed only by id@version
+  await f.put(path.join(ext, 'pub.other-2.1.0', 'a'), 50);
+  await fs.writeFile(f.p(ext, 'extensions.json'), JSON.stringify([
+    { identifier: { id: 'pub.tool' }, version: '1.0.0', relativeLocation: 'pub.tool-1.0.0' },
+    { identifier: { id: 'pub.other' }, version: '2.0.0' },
+  ]));
+  const probe = async (argv) => (argv[0] === 'claude' ? { code: 0, stdout: '2.1.1 (Claude Code)\n' } : { code: 1, stdout: '' });
+  const out = await D.detectAiOldVersion(await f.env({ probe }));
+  assert.deepEqual(out.map((j) => path.basename(j.path)).sort(), ['2.1.5', 'pub.tool-1.1.0']);
+});
+
+test('dev-artifact: nothing inside a Codex worktree that changed within the idle window', async (t) => {
+  const f = await setup();
+  t.after(f.done);
+  const wt = (id) => path.join('home', '.codex', 'worktrees', id, 'repo');
+  await f.put(path.join(wt('idle'), 'package.json'), 5, 300);
+  await f.put(path.join(wt('idle'), 'node_modules', 'a'), 50, 300);
+  await f.put(path.join(wt('busy'), 'package.json'), 5, 300);
+  await f.put(path.join(wt('busy'), 'node_modules', 'a'), 50, 3); // recent change somewhere in the worktree
+  const out = await D.detectDevArtifact(await f.env(), { minBytes: 1 });
+  assert.deepEqual(out.map((j) => j.path), [f.p(wt('idle'), 'node_modules')]);
+});

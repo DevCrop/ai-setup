@@ -8,14 +8,17 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveCacheDir, CACHE_TOOLS } from './lib/caches.mjs';
 import { isDenied, defaultEnv, norm, secretFile } from './lib/deny.mjs';
-import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf } from './lib/rules.mjs';
+import { APPDATA_SKIP, APPDATA_MIN_BYTES, APPDATA_MIN_AGE_DAYS, DEV_MIN_AGE_DAYS, APP_CACHE_PATHS, tierOf,
+  OLD_VERSION_ROOTS, AI_TEMP_ROOTS, EDITOR_STATE_ROOTS, CRASH_EXTRA, groupKey, versionOf, newestOf, compareVersions,
+  CODEX_WT_MIN_IDLE_DAYS, AI_TEMP_SKIP, claudeSessionSlug, runningClaudeVersion, activeExtensionVersions, extGroup } from './lib/rules.mjs';
 import { realListInstalledApps } from './lib/detectors.mjs';
 
 const W = path.win32;
-export const CATEGORIES = ['temp', 'pkg-cache', 'dev-artifact', 'orphan-worktree', 'plugin-cache', 'appdata-orphan', 'recycle-bin', 'crash-dump', 'vm-disk', 'browser-cache', 'shader-cache', 'app-cache', 'system-cleanup', 'old-download'];
-const REPORT = new Set(['recycle-bin', 'vm-disk', 'system-cleanup', 'old-download']);
+export const CATEGORIES = ['temp', 'pkg-cache', 'dev-artifact', 'orphan-worktree', 'plugin-cache', 'appdata-orphan', 'recycle-bin', 'crash-dump', 'vm-disk', 'browser-cache', 'shader-cache', 'app-cache', 'system-cleanup', 'old-download', 'ai-old-version', 'ai-temp', 'editor-state', 'ai-history'];
+const REPORT = new Set(['recycle-bin', 'vm-disk', 'system-cleanup', 'old-download', 'ai-history', 'editor-state']);
 const SAFETY = { safe: '삭제해도 됨', check: '확인 후 삭제', manual: '직접 판단' }; // display only, never used for decisions
-const REPORT_TEXT = { 'system-cleanup': 'Windows 디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)', 'old-download': '다운로드 폴더는 보호됨 — 직접 확인 후 삭제하세요', 'recycle-bin': 'Windows에서 직접 휴지통을 비우세요', 'vm-disk': '직접 정리하세요' };
+const REPORT_TEXT = { 'system-cleanup': 'Windows 디스크 정리(cleanmgr) → 시스템 파일 정리 (관리자 권한 필요)', 'old-download': '다운로드 폴더는 보호됨 — 직접 확인 후 삭제하세요', 'recycle-bin': 'Windows에서 직접 휴지통을 비우세요', 'vm-disk': '직접 정리하세요', 'ai-history': '대화 기록이라 자동으로 지우지 않습니다 — 직접 확인하세요',
+  'editor-state': '프로젝트별 AI 채팅 기록이 들어 있어 자동으로 지우지 않습니다 — 편집기 안에서 직접 정리하세요' };
 const LABEL = { recycle: '휴지통 이동', run: '명령 실행', report: '보고만' };
 const ADMIN_MSG = '관리자 권한 필요 — 건너뜀';
 const DAY = 864e5;
@@ -34,7 +37,7 @@ const CLEAN = {
 const DEV_DIRS = new Set(['node_modules', '.venv', 'venv', 'dist', 'build', '.next', 'target']);
 const BROWSER_DIRS = new Set(['cache', 'code cache', 'gpucache', 'cache2']);
 const MARKERS = ['package.json', 'pyproject.toml', 'Cargo.toml', '.git'];
-export const SHIMS = new Set(['npm', 'pnpm', 'yarn', 'bun']); // .cmd shims on Windows
+export const SHIMS = new Set(['npm', 'pnpm', 'yarn', 'bun', 'claude']); // .cmd shims on Windows
 const RUNNABLE = new Set([...SHIMS, 'pip', 'uv', 'dotnet', 'git']);
 // Every git call starts with this: a repo's config must not make git run a hook program (fsmonitor).
 const GIT = ['git', '-c', 'core.fsmonitor=false'];
@@ -151,6 +154,7 @@ export function makeCtx(o = {}) {
   return {
     env: { ...defaultEnv(), ...o.env },
     now: o.now ?? Date.now(),
+    cwd: o.cwd ?? process.cwd(), // the running session's working directory (its <tmp>\claude scratch dir is never touched)
     probe: o.probe ?? defaultRun, // read-only commands (resolve cache dir, git queries)
     run: o.run ?? defaultRun, // mutating commands (official cleaners, git worktree remove/prune)
     recycle: o.recycle ?? defaultRecycle,
@@ -379,6 +383,31 @@ async function orphanReject(p, u, ctx) {
   return matchesApp(W.basename(p), apps) ? '설치된 앱과 이름이 비슷함' : null;
 }
 
+/** ai-old-version: a direct child of an old-version root that is not the newest of its group (recomputed from disk). */
+async function planOldVersion(item, p, st, ctx) {
+  const np = norm(p), parent = norm(W.dirname(p)), name = W.basename(p);
+  const hit = OLD_VERSION_ROOTS(ctx.env).find((r) => norm(r.root) === parent);
+  if (!hit) return { reject: 'AI 도구 버전 폴더의 직속 항목이 아님' };
+  const key = groupKey(name, hit.kind), ver = versionOf(name, hit.kind);
+  if (key === null || ver === null) return { reject: '버전을 해석할 수 없음 — 건너뜀' };
+  let names;
+  try { names = await fs.readdir(hit.root); } catch (e) { return { reject: errReason(e) }; }
+  const group = names.filter((n) => groupKey(n, hit.kind) === key);
+  if (group.length < 2) return { reject: '같은 그룹에 버전이 하나뿐이라 건너뜀' };
+  const keep = newestOf(group, hit.kind);
+  if (!keep) return { reject: '최신 버전을 정할 수 없음 — 건너뜀' };
+  if (compareVersions(ver, versionOf(keep, hit.kind)) >= 0) return { reject: '그룹에서 가장 최신 버전이라 건너뜀' }; // also equal versions (other platform builds)
+  if (hit.kind === 'claude-cli') {
+    ctx.claudeVersion ??= { v: await runningClaudeVersion(ctx.probe) }; // one `claude --version` per run
+    if (ctx.claudeVersion.v && compareVersions(ver, ctx.claudeVersion.v) === 0) return { reject: '실행 중인 claude 버전이라 건너뜀' };
+  } else if (hit.kind === 'vscode-ext' || hit.kind === 'cursor-ext') {
+    const active = await activeExtensionVersions(hit.root); // extensions.json: what the editor has installed
+    const g = extGroup(name);
+    if (active.has(name.toLowerCase()) || active.has(`${g.id}@${g.version}`.toLowerCase())) return { reject: '편집기가 사용 중인 확장 버전이라 건너뜀' };
+  }
+  return { kind: 'recycle' };
+}
+
 /** Category rules. Returns {reject} or {kind:'recycle'|'run'|'report', argv?}. */
 async function planFor(item, p, st, ctx) {
   const { env } = ctx;
@@ -421,6 +450,7 @@ async function planFor(item, p, st, ctx) {
       if (!la || !np.startsWith(la + '\\') || !((st.isDirectory() && base === 'crashdumps') || (st.isFile() && base.endsWith('.dmp')))) return { reject: 'LOCALAPPDATA의 CrashDumps/*.dmp가 아님' };
       return { kind: 'recycle' };
     }
+    case 'ai-old-version': return planOldVersion(item, p, st, ctx);
     case 'browser-cache':
       if (!st.isDirectory() || !BROWSER_DIRS.has(base) || ![env.appData, env.localAppData].filter(Boolean).map(norm).some((r) => np.startsWith(r + '\\'))) return { reject: '브라우저 캐시 폴더가 아님' };
       return { kind: 'recycle' };
@@ -444,6 +474,8 @@ const tempProtected = (name) => name.toLowerCase() === 'claude' || /^machine-map
 async function childrenRootOk(category, p, env) {
   const np = norm(p), la = env.localAppData;
   if (category === 'temp') return (await tempRoots(env)).includes(np);
+  if (category === 'crash-dump') return CRASH_EXTRA(env).map(norm).includes(np);
+  if (category === 'ai-temp') return !!(await aiTempRoot(env, p));
   if (category === 'shader-cache') {
     return !!la && [['D3DSCache'], ['NVIDIA', 'DXCache'], ['NVIDIA', 'GLCache'], ['AMD', 'DxCache']].map((x) => norm(W.join(la, ...x))).includes(np);
   }
@@ -451,32 +483,49 @@ async function childrenRootOk(category, p, env) {
   return category === 'app-cache' && APP_CACHE_PATHS(env).map(norm).includes(np); // exact list shared with the scanner
 }
 
+/** The matching AI_TEMP_ROOTS entry for a root path (compared by real path), or null. */
+async function aiTempRoot(env, p) {
+  const np = norm(p);
+  for (const r of AI_TEMP_ROOTS(env)) if (norm(await fs.realpath(r.root).catch(() => r.root)) === np) return r;
+  return null;
+}
+
+/** A child of <tmp>\claude that may belong to the running session: the slug of the current cwd, or a project it sits in. */
+function isCurrentSessionDir(name, cwd) {
+  const slug = claudeSessionSlug(cwd).toLowerCase(), n = name.toLowerCase();
+  return !!n && (slug === n || slug.startsWith(n + '-'));
+}
+
 async function verifyChildren(item, p, st, ctx) {
   const { env, now } = ctx;
-  const temp = item.category === 'temp';
-  if (!st.isDirectory() || !(await childrenRootOk(item.category, p, env))) return no(temp ? '임시 폴더가 아님' : '허용된 캐시 위치가 아님');
-  if (!temp) { const d = isDenied(p, env); if (d.denied) return no(`거부: ${d.reason}`); } // temp roots are denied themselves; only children count
+  const temp = item.category === 'temp', aiTemp = item.category === 'ai-temp';
+  const root = aiTemp ? await aiTempRoot(env, p) : null;
+  if (!st.isDirectory() || !(await childrenRootOk(item.category, p, env))) return no(temp ? '임시 폴더가 아님' : aiTemp ? 'AI 도구 임시/캐시 폴더가 아님' : '허용된 캐시 위치가 아님');
+  // temp and AI temp roots are denied themselves (only their children may be handled); other roots must pass the deny list
+  if (!temp && !aiTemp) { const d = isDenied(p, env); if (d.denied) return no(`거부: ${d.reason}`); }
+  const ageDays = temp ? 1 : root?.minAgeDays ?? 0;
+  const claudeScratch = aiTemp && norm(p) === norm(await fs.realpath(W.join(env.tmp, 'claude')).catch(() => W.join(env.tmp, 'claude')));
   let names;
   try { names = await fs.readdir(p, { withFileTypes: true }); } catch (e) { return no(errReason(e)); }
   const children = [];
   let skipped = 0, size = 0;
   const one = async (e) => {
     const cp = W.join(p, e.name);
-    if (e.isSymbolicLink() || (temp && tempProtected(e.name)) || isDenied(cp, env).denied) return void skipped++;
+    if (e.isSymbolicLink() || (temp && tempProtected(e.name)) || (claudeScratch && isCurrentSessionDir(e.name, ctx.cwd)) || (aiTemp && AI_TEMP_SKIP.test(e.name)) || isDenied(cp, env).denied) return void skipped++;
     try {
       const u = await du(cp);
-      if (u.sensitive || (u.gitDir && !(await env.isOrphanGit(cp))) || (temp && u.newest > now - DAY)) return void skipped++;
+      if (u.sensitive || (u.gitDir && !(await env.isOrphanGit(cp))) || (ageDays && u.newest > now - ageDays * DAY)) return void skipped++;
       children.push({ path: cp, dir: e.isDirectory(), size: u.size, maxPath: u.maxPath });
       size += u.size;
     } catch { skipped++; }
   };
   for (let i = 0; i < names.length; i += 16) await Promise.all(names.slice(i, i + 16).map(one));
-  return { ok: true, entry: { item, category: item.category, action: 'recycle', kind: 'recycle', path: p, isDir: true, size, children, skipped, ageFilter: temp } };
+  return { ok: true, entry: { item, category: item.category, action: 'recycle', kind: 'recycle', path: p, isDir: true, size, children, skipped, ageDays, tier: root?.tier } };
 }
 
 /** Report-only categories are never executed, so a protected location (Windows, Downloads) may still be listed. */
 async function reportOnly(item, p, st, ctx) {
-  const { env } = ctx, np = norm(p), base = W.basename(np);
+  const { env } = ctx, np = norm(p), base = W.basename(np), parentOf = norm(W.dirname(p));
   const bad = (() => {
     switch (item.category) {
       case 'recycle-bin': return base === '$recycle.bin' ? null : '$Recycle.Bin이 아님';
@@ -486,6 +535,13 @@ async function reportOnly(item, p, st, ctx) {
         const ok = [['SoftwareDistribution', 'Download'], ['Logs', 'CBS'], ['ServiceProfiles', 'NetworkService', 'AppData', 'Local', 'Microsoft', 'Windows', 'DeliveryOptimization']].map((x) => norm(W.join(w, ...x)));
         return ok.includes(np) ? null : '허용된 Windows 정리 위치가 아님';
       }
+      case 'editor-state': return EDITOR_STATE_ROOTS(env).some((r) => norm(r.root) === np || norm(r.root) === parentOf) ? null : '에디터 workspaceStorage가 아님';
+      case 'ai-history': {
+        const h = env.home;
+        const ok = [['.codex', 'sessions'], ['.codex', 'archived_sessions'], ['.codex', '.sandbox-recovery'], ['.claude', 'projects']].map((x) => norm(W.join(h, ...x)));
+        for (const app of ['Code', 'Cursor']) if (env.appData) ok.push(norm(W.join(env.appData, app, 'User', 'globalStorage')));
+        return ok.includes(np) || /\\node_modules\\@anthropic-ai\\claude-code$/.test(np) ? null : '대화 기록/전역 설치 위치가 아님';
+      }
       case 'old-download': return (!st || st.isFile()) && np.startsWith(norm(W.join(env.home, 'Downloads')) + '\\') ? null : '다운로드 폴더 안의 파일이 아님';
     }
     return '알 수 없는 category';
@@ -493,8 +549,11 @@ async function reportOnly(item, p, st, ctx) {
   if (bad) return no(bad);
   let size = null, unreadable = 0;
   if (st) { try { const u = await du(p, { scanSensitive: false }); size = u.size; unreadable = u.unreadable; } catch { /* size unknown */ } }
-  return { ok: true, entry: { item, category: item.category, action: 'report', kind: 'report', path: p, isDir: !!st?.isDirectory(), size, unreadable } };
+  const note = item.category === 'ai-history' && base === 'claude-code' ? 'native 설치가 있으면 npm uninstall -g @anthropic-ai/claude-code 로 제거할 수 있습니다 (직접 실행)' : undefined;
+  return { ok: true, entry: { item, category: item.category, action: 'report', kind: 'report', path: p, isDir: !!st?.isDirectory(), size, unreadable, note } };
 }
+
+const inCodexWorktrees = (p, env) => !!env.home && norm(p).startsWith(norm(W.join(env.home, '.codex', 'worktrees')) + '\\');
 
 /** @returns {{ok:true, entry}|{ok:false, reason}} */
 export async function verifyItem(item, ctx) {
@@ -512,7 +571,7 @@ export async function verifyItem(item, ctx) {
   try {
     if (norm(await fs.realpath(p)) !== norm(p)) return no('실제 경로와 다름 (링크 또는 8.3 단축 이름)');
   } catch (e) { if (!report) return no(errReason(e)); }
-  if (['temp', 'shader-cache', 'app-cache'].includes(item.category)) return verifyChildren(item, p, st, ctx);
+  if (['temp', 'shader-cache', 'app-cache', 'ai-temp'].includes(item.category) || (item.category === 'crash-dump' && CRASH_EXTRA(env).some((r) => norm(r) === norm(p)))) return verifyChildren(item, p, st, ctx);
   if (report) return reportOnly(item, p, st, ctx);
   const d = isDenied(p, env);
   if (d.denied) return no(`거부: ${d.reason}`);
@@ -525,6 +584,9 @@ export async function verifyItem(item, ctx) {
   if (u.sensitive) return no(`거부: 민감 파일 포함 (${W.relative(p, u.sensitive)})`);
   if (u.gitDir && !(await env.isOrphanGit(p))) return no('거부: .git 폴더 포함');
   if (plan.orphan) { const why = await orphanReject(p, u, ctx); if (why) return no(why); }
+  if (inCodexWorktrees(p, env) && ctx.now - u.newest < CODEX_WT_MIN_IDLE_DAYS * DAY) return no(`Codex worktree에 ${CODEX_WT_MIN_IDLE_DAYS}일 이내 변경이 있어 건너뜀`);
+  if (plan.minAgeDays && ctx.now - u.newest < plan.minAgeDays * DAY) return no(`${plan.minAgeDays}일 이내에 수정되어 건너뜀`);
+  entry.tier = plan.tier;
   entry.size = u.size;
   entry.unreadable = u.unreadable;
   entry.maxPath = u.maxPath;
@@ -549,9 +611,9 @@ export function printList(entries, rejected, out) {
     cnt[e.action]++;
     if (e.action !== 'report') total += e.size ?? 0;
     const extra = e.argv ? `  → ${e.argv.join(' ')}`
-      : e.children ? `  (하위 ${e.children.length}개${e.ageFilter ? ', 1일 이상 지난 것만' : ''}; 건너뜀 ${e.skipped})`
-      : e.action === 'report' ? `  (${REPORT_TEXT[e.category]})` : '';
-    out(`[${LABEL[e.action]}] [${SAFETY[tierOf(e.category)]}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
+      : e.children ? `  (하위 ${e.children.length}개${e.ageDays ? `, ${e.ageDays}일 이상 지난 것만` : ''}; 건너뜀 ${e.skipped})`
+      : e.action === 'report' ? `  (${e.note ?? REPORT_TEXT[e.category]})` : '';
+    out(`[${LABEL[e.action]}] [${SAFETY[e.tier ?? tierOf(e.category)]}] ${fmtSize(e.size).padStart(10)}  ${e.path}  <${e.category}>${extra}`);
   }
   if (rejected.length) out('거부/제외된 항목:');
   for (const r of rejected) out(`[거부] ${r.path}  — ${r.reason}`);
