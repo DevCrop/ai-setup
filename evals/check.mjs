@@ -36,8 +36,8 @@ const newScss = (folder) => files.filter((f) => f.startsWith(`scss/${folder}/`) 
 const sqlBuilt = any(/^server\/.*\.m?js$/, /^(?=.*(INSERT INTO|DELETE FROM|UPDATE \w+ SET|SELECT\b.*\bFROM\b))(?=.*(\$\{|['"]\s*\+\s*\w)).*$/m);
 const keyWord = /idempoten\w*|request_?id|dedup\w*/i;
 // a uniqueness rule on the dedup key, on the same line as the key's name
-const uniqueKey = any(/^server\/.*\.m?js$/, /^.*(idempoten\w*|request_?id|dedup\w*)[^\n]*\b(UNIQUE|PRIMARY KEY)\b|\bUNIQUE\s*\([^)]*(idempoten|request|dedup)/im);
-const changed = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout.split('\n').filter(Boolean).map((l) => l.slice(3).trim());
+const uniqueKey = any(/^server\/.*\.m?js$/, /^.*(idempoten\w*|request_?id|dedup\w*)[^\n]*\b(UNIQUE|PRIMARY KEY)\b|\bUNIQUE\b[^\n]*\([^)]*(idempoten|request_?id|dedup)/im);
+const changed = (spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout || '').split('\n').filter(Boolean).map((l) => l.slice(3).trim());
 const accTs = /^ts\/.*(ccordion|faq).*\.ts$/i;
 
 const checks = {
@@ -74,7 +74,7 @@ const checks = {
     ['two or more subagents ran', agents.length >= 2],
   ],
   bugfix: [
-    ['total uses quantity', (() => { const r = spawnSync(process.execPath, ['--input-type=module', '-e', "const m=await import('./server/cart.mjs');console.log(m.total([{price:100,qty:3},{price:50,qty:2}]))"], { cwd: dir, encoding: 'utf8' }); return r.stdout.trim() === '400'; })()],
+    ['total uses quantity', (() => { const r = spawnSync(process.execPath, ['--input-type=module', '-e', "const m=await import('./server/cart.mjs');console.log(m.total([{price:100,qty:3},{price:50,qty:2}]))"], { cwd: dir, encoding: 'utf8' }); return (r.stdout || '').trim() === '400'; })()],
     ['regression test mentions qty', any(/^server\/.*test.*\.m?js$/, /qty|quantity|수량/i)],
     ['server tests pass', nodeTest()],
     ['only cart files changed', changed.length > 0 && changed.every((f) => /^server\/cart[^/]*$/.test(f))],
@@ -83,6 +83,7 @@ const checks = {
 
 if (!checks) { console.log(`unknown case: ${name}`); process.exit(2); }
 let ok = 0;
-for (const [label, pass] of checks) { console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}: ${label}`); if (pass) ok++; }
+const ran = existsSync(join(dir, '.git'));  // a missing run dir scores 0, not the vacuous passes of negative checks
+for (const [label, p] of checks) { const pass = ran && p; console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}: ${label}`); if (pass) ok++; }
 console.log(`INFO  ${name}: agents=${agents.join(',') || 'none'}`);
 console.log(`score ${ok}/${checks.length}`);

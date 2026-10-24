@@ -58,7 +58,7 @@ run)
   total=0; max=0
   for r in $(seq 1 "$runs"); do for c in $CASES; do
     node "$repo/evals/check.mjs" "$c" "$out/$c-$r" "$out/_out/$c-$r.jsonl" | tee "$out/_out/$c-$r.check"
-    s="$(sed -n 's/^score \([0-9]*\)\/\([0-9]*\)$/\1 \2/p' "$out/_out/$c-$r.check")"; [ -n "$s" ] || s="0 0"; total=$((total + ${s% *})); max=$((max + ${s#* }))
+    s="$(sed -n 's/^score \([0-9]*\)\/\([0-9]*\)$/\1 \2/p' "$out/_out/$c-$r.check")"; [ -n "$s" ] || { [ "$c" = bugfix ] && s="0 4" || s="0 6"; }; total=$((total + ${s% *})); max=$((max + ${s#* }))
   done; done
   printf '{"label":"%s","runs":%s,"score":%s,"max":%s}\n' "$label" "$runs" "$total" "$max" | tee "$out/summary.json"
   ;;
