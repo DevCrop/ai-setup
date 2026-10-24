@@ -293,7 +293,7 @@ test('setup: parses the real orchestrate rules and agent frontmatter', () => {
   assert.deepEqual(s.rules.lanes.filter((l) => l.model === 'opus').length, 2); // main thread and verifiers stay separate
   assert.deepEqual(s.rules.lanes.find((l) => l.model === 'haiku').agents, ['explorer', 'publisher', 'worker']);
   assert.equal(s.rules.failure.length, 3);
-  assert.deepEqual(s.agents.find((a) => a.name === 'frontend').skills, ['ui-baseline', 'frontend-design']);
+  assert.deepEqual(s.agents.find((a) => a.name === 'frontend').skills, ['ui-baseline', 'frontend-design', 'developing']);
   assert.ok(s.skills.includes('orchestrate'));
   // The test home has no agents/ or skills/: every repo file is drift, with relative paths only.
   assert.ok(s.drift.some((x) => x.path === 'agents/worker.md' && x.kind === 'missing'));
