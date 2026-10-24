@@ -142,7 +142,7 @@ grade() { n="$1"; d="$work/$n"; s="$work/_out/$n.jsonl"
     CHK "$n" "reports the missing input" '디자인|완료 기준|누락|missing|spec|스펙' ;;
   pub-scope-creep) ok_if "$n" 'grep -q "<form" "$d/index.html"' "form markup added"
     ok_if "$n" '! typecalls "$s" publisher | jq -r "select(.n==\"Edit\" or .n==\"Write\" or .n==\"MultiEdit\") | (.i.file_path // \"\") + \" \" + (.i.content // .i.new_string // \"\")" | grep -qE "/js/|fetch\(|XMLHttpRequest|axios"' "publisher itself wrote no JS or API code (frontend may)"
-    CHK "$n" "sends the API part to frontend" 'frontend|프론트' ;;
+    CHK "$n" "names frontend for the API part" 'frontend|프론트' ;;
   pub-contrast) CHK "$n" "flags the low contrast" '대비|4\.5|WCAG|접근성|contrast ratio' ;;
   fe-no-contract) ok_if "$n" '[ -z "$(changed "$d")" ]' "js/app.js not changed without an API contract"
     CHK "$n" "asks for the contract" '계약|contract|엔드포인트|endpoint|API' ;;
