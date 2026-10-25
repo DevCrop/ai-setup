@@ -7,21 +7,11 @@ import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
 import { IpcRouter } from './ipc-router.js';
 import { StripWindow, MainWindow } from './windows.js';
-import { noticeFor } from './placement.js';
+import { gitBash, noticeFor } from './placement.js';
 
 const REPO = path.resolve(import.meta.dirname, '..', '..');
 
-// `bash` on PATH may be WSL; prefer Git Bash so apply.sh runs where the setup expects.
-function gitBash() {
-  const roots = [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs')];
-  const fixed = roots.filter(Boolean).map((r) => path.join(r, 'Git', 'bin', 'bash.exe'));
-  // Same fallback as bootstrap Get-GitBash: git.exe on PATH (scoop, custom dirs) -> ..inash.exe next to it.
-  const fromPath = (process.env.PATH || '').split(path.delimiter).filter(Boolean)
-    .filter((d) => fs.existsSync(path.join(d, 'git.exe'))).map((d) => path.join(d, '..', 'bin', 'bash.exe'));
-  // shortcut: never falls back to PATH `bash` (may be WSL, which would sync the wrong ~/.claude); C1 then fails visibly.
-  return [...fixed, ...fromPath].find((p) => fs.existsSync(p)) ?? 'git-bash-not-found';
-}
-const BASH = process.platform === 'win32' ? gitBash() : 'bash';
+const BASH = process.platform === 'win32' ? gitBash(process.env, fs.existsSync) : 'bash';
 const runner = (file, args, opts) => execRunner(file === 'bash' ? BASH : file, args, opts);
 
 if (!app.requestSingleInstanceLock()) {

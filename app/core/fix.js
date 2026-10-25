@@ -30,6 +30,7 @@ export class Fix {
   onChange = null; // set by Optimizer: called after every state change
   #previewId = null;
   #applyResult = null;
+  #previewing = false;
   #running = false; // true from the entry of apply()/restore() to its end, so the lock also covers the stale-check preview
 
   constructor(id) {
@@ -39,6 +40,8 @@ export class Fix {
 
   get restorable() { return false; }
   get running() { return this.#running; }
+  // A scan must not swap this object out while its preview is still computing (the result would land on an orphan).
+  get previewing() { return this.#previewing; }
   get backupPath() { return this.#applyResult?.backupPath ?? null; }
 
   #to(next, by) {
@@ -56,12 +59,15 @@ export class Fix {
   async preview() {
     this.#start('preview');
     let r;
+    this.#previewing = true;
     try {
       r = await this.doPreview();
     } catch (e) {
       if (this.state === S.proposed) this.#to(S.previewFailed, 'system'); // from a failed or previewed state the state stays
       this.#previewId = null;
       throw wrap(e, 'PREVIEW_FAILED');
+    } finally {
+      this.#previewing = false;
     }
     this.#previewId = r.previewId;
     this.#to(S.previewed, 'preview');

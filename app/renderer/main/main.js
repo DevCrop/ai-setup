@@ -544,7 +544,6 @@
     (function next(k) {
       if (batch !== b) return;
       if (k >= todo.length) {
-        if (!b.synced && todo.some(function (x) { return x.out === 'applied' && x.id.indexOf('C4:') === 0; })) return syncLive(b, function () { next(todo.length); });
         b.phase = 'result';
         announce('적용 끝'); redraw(); focusBatch();
         return loadFindings();
@@ -574,32 +573,6 @@
       });
     })(0);
   }
-  // C4 only writes the repo; to land it everywhere, rescan and run the C1 sync (apply.sh) in the same batch.
-  function syncLive(b, then) {
-    b.synced = true;
-    var it = { id: '', source: 'claude', title: '저장소 → 라이브 반영 (apply.sh)', ev: '', cached: false, diff: null, previewId: null, restorable: false, err: '', out: '', backup: null, rs: '', rmsg: '' };
-    b.items.push(it); b.i = b.items.length - 1; redraw();
-    var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
-    var findC1 = function (tries) {
-      return api.listFindings().then(function (res) {
-        var f = res && res.ok && res.data ? (res.data.findings || []).filter(function (x) { return x.checkId === 'C1' && batchable(x); })[0] : null;
-        if (f || tries <= 0) return f || null;
-        return wait(1500).then(function () { return findC1(tries - 1); });
-      });
-    };
-    (api.refresh ? api.refresh() : Promise.resolve()).then(function () { return findC1(8); }).then(function (f) {
-      if (!f) { it.out = 'skipped'; it.err = '반영할 차이를 찾지 못했습니다(이미 같을 수 있음).'; return; }
-      it.id = f.id;
-      return api.previewFix(f.id).then(function (res) {
-        if (!(res && res.ok)) { it.out = 'failed'; it.err = '미리보기 실패: ' + fail1(res); return; }
-        it.diff = res.data.diff; it.previewId = res.data.previewId;
-        return api.applyFix(f.id, it.previewId).then(function (r2) {
-          if (r2 && r2.ok) it.out = 'applied'; else { it.out = 'failed'; it.err = fail1(r2); }
-        });
-      });
-    }, function () { it.out = 'failed'; it.err = '요청을 처리하지 못했습니다'; }).then(then, then);
-  }
-
   function batchRestore() {
     var b = batch;
     if (!b || b.phase !== 'result' || b.restoring) return;
@@ -673,7 +646,6 @@
     } else if (b.phase === 'review') {
       ph.appendChild(el('span', 'hint', ok.length + '개 적용 가능' + (bad.length ? ' · 제외 ' + bad.length : '')));
       if (ok.some(function (x) { return x.source === 'claude'; })) body.appendChild(el('p', 'cap', 'Claude 항목: ' + CLAUDE_NOTE));
-      if (ok.some(function (x) { return x.id.indexOf('C4:') === 0; })) body.appendChild(el('p', 'cap', '설정 키를 저장소에 넣은 뒤 이어서 apply.sh로 라이브 ~/.claude까지 반영합니다.'));
       b.items.forEach(function (it) { ul.appendChild(batchItem(it, true)); });
       body.appendChild(ul);
       foot.appendChild(btn('취소', 'batch|cancel', batchCancel));

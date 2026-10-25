@@ -11,7 +11,7 @@ const MAX_FINDINGS = 200;
 // A fix in one of these states survives a scan, so "되돌리기" stays visible after the finding itself is gone.
 const KEEP = new Set([FixState.previewed, FixState.applying, FixState.applied, FixState.restoring, FixState.previewFailed, FixState.applyFailed, FixState.restoreFailed]);
 // applied is final for a fix that cannot be restored (C1): nothing is left to show, and the next drift gets a fresh fix.
-const keeps = (fix) => KEEP.has(fix.state) && !(fix.state === FixState.applied && !fix.restorable);
+const keeps = (fix) => fix.previewing || (KEEP.has(fix.state) && !(fix.state === FixState.applied && !fix.restorable));
 const BUSY = new Set([FixState.applying, FixState.restoring]);
 
 const order = (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.source.localeCompare(b.source) || a.id.localeCompare(b.id);
@@ -117,7 +117,7 @@ export class Optimizer {
     }
     // kept fixes whose finding is gone stay listed as "ok" so the user can still restore
     for (const [id, { finding, fix }] of this.#fixes) {
-      if (!seen.has(id) && keeps(fix) && fix.state !== FixState.previewed) out.push(finding.withSeverity('ok'));
+      if (!seen.has(id) && !fix.previewing && keeps(fix) && fix.state !== FixState.previewed) out.push(finding.withSeverity('ok'));
     }
     this.#fixes = new Map(out.filter((f) => f.fix).map((f) => [f.id, { finding: f, fix: f.fix }]));
     this.#findings = out.sort(order).slice(0, MAX_FINDINGS);

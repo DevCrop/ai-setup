@@ -203,3 +203,29 @@ test('L2: while one fix re-runs its preview inside apply, every other preview, a
   assert.equal(o.busyFindingId(), null);
   assert.equal(o.getFix('C1:slow').state, 'applied');
 });
+
+// F2: a scan that lands while a preview is still computing must not swap the fix object out from under it.
+test('F2: a scan during an in-flight preview keeps that fix, so the following apply works', async () => {
+  let gate = null;
+  let calls = 0;
+  class SlowFix extends MemFix {
+    // only the user's preview is slow; the stale check inside apply answers at once
+    async doPreview() { if (++calls === 1) await new Promise((r) => { gate = r; }); return { diff: 'd', previewId: PID }; }
+  }
+  const check = new (class extends Check {
+    id = 'X9';
+    source = 'codex';
+    run() { return [new Finding({ id: 'X1:slow', checkId: 'X1', source: 'codex', severity: 'warn', title: 't', detail: 'd', fix: new SlowFix('X1:slow') })]; }
+  })();
+  const o = new Optimizer({ checks: [check] });
+  tick(o);
+  const first = o.getFix('X1:slow');
+  const pending = o.preview('X1:slow');
+  await new Promise((r) => setImmediate(r));
+  tick(o); // scan while the preview waits
+  assert.equal(o.getFix('X1:slow'), first);
+  gate();
+  const { previewId } = await pending;
+  assert.equal(o.list()[0].fixState, 'previewed');
+  assert.equal((await o.apply('X1:slow', previewId)).fixState, 'applied');
+});

@@ -1,4 +1,5 @@
 // Pure helpers for main.js (no `electron` import, tested on CI).
+import path from 'node:path';
 
 // Saved strip position is reused only when the whole strip still lies inside one display's work area.
 export function savedPosition(saved, size, workAreas) {
@@ -18,4 +19,15 @@ export function noticeFor(prev, next) {
   if (nc.warn > pc.warn) return { title: 'Claude Monitor: 확인 필요', body: `확인할 항목이 ${nc.warn}건이 됐습니다.` };
   if (next.state === 'error' && prev.state !== 'error') return { title: 'Claude Monitor: 수집 오류', body: '설정을 3번 연속 읽지 못했습니다.' };
   return null;
+}
+
+// C1 runs apply.sh; `bash` on PATH may be WSL, which would sync the wrong ~/.claude. Same lookup as bootstrap
+// Get-GitBash: the usual install folders, then ..\bin\bash.exe next to a git.exe on PATH.
+// shortcut: never falls back to PATH `bash`; with no Git Bash the C1 preview fails visibly instead.
+export function gitBash(env, exists, p = path.win32) {
+  const roots = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA && p.join(env.LOCALAPPDATA, 'Programs')].filter(Boolean);
+  const fixed = roots.map((r) => p.join(r, 'Git', 'bin', 'bash.exe'));
+  const fromPath = (env.PATH || '').split(';').filter(Boolean)
+    .filter((d) => exists(p.join(d, 'git.exe'))).map((d) => p.join(d, '..', 'bin', 'bash.exe'));
+  return [...fixed, ...fromPath].find((f) => exists(f)) ?? 'git-bash-not-found';
 }
