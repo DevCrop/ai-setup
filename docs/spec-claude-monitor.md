@@ -1,0 +1,66 @@
+# Spec: Claude Monitor (데스크톱 앱)
+
+## Goal
+Claude Code와 Codex의 이 PC 설정을 자동으로 살펴, 작업 중에도 작업 표시줄 위 작은 상태 막대로 상태를 보여 주고, 누르면 앱 창(브라우저 아님)에서 자세히 보고 필요 없는 설정을 정리할 수 있게 한다. 어느 PC든 `bootstrap/setup.ps1` 한 번으로 같은 앱이 깔린다.
+
+## Users and scope
+- 사용자: 이 저장소 주인 한 명, 여러 Windows PC.
+- 앱 이름: Claude Monitor. 위치: 저장소 `app/`. Electron(버전 고정) + Node 20 이상.
+- v1 범위는 아래 "Requirements"의 v1 항목. "later"는 이번에 만들지 않고 확장 지점만 남긴다.
+
+## Requirements (사용자 요청 8가지 → 버전)
+1. Claude·Codex 내부 설정 자동 모니터링 — v1. Claude는 기존 `scripts/monitor.mjs`의 `collect()`를 그대로 쓴다. Codex는 `~/.codex`를 읽기 전용으로 본다.
+2. 필요·불필요 설정 점검 후 최적화 — v1: 점검(Check)이 발견(Finding)을 내고, 고칠 수 있는 것은 고침(Fix)을 제안한다. 자동 실행은 없다. 한 번에 하나, 미리보기 → 사용자가 누름 → 적용 → 되돌리기.
+3. 작업 표시줄 위 상태 막대 — v1.
+4. 앱 안의 깔끔한 화면 — v1: 기존 모니터 화면(7개 탭)을 앱 창 안에 보여 주고, 새 "최적화" 탭을 더한다. 1300줄짜리 기존 화면은 다시 쓰지 않는다.
+5. 필요한 설정을 지금보다 고도화 — v1은 점검 목록(아래)까지. 새 권장 설정 자동 제안은 later.
+6. 다른 PC에서도 — v1: bootstrap 모듈 하나로 설치·로그인 자동 시작.
+7. 객체지향 — v1: Source, Check, Finding, Fix, Optimizer 클래스(`docs/arch-claude-monitor.md`의 UML이 기준).
+8. 확장 고려 — v1: 새 점검은 `app/core/checks/`에 파일 하나 + 레지스트리 한 줄. 새 데이터 출처(Source)도 같은 방식.
+
+## Screens
+- Strip (상태 막대): 테두리 없는 작은 창, 항상 위, 작업 표시줄에 안 보임, 작업 영역 오른쪽 아래에 붙음, 끌어서 옮길 수 있음. 보이는 것: 상태 점과 글자(정상 / 확인 필요 N / 문제 N / 모니터 멈춤 / 수집 오류 / 시작 중), 라우팅 일치 a/b, 오늘 출력 토큰, 실행 중 세션·에이전트 수, Codex 상태 한 칸, 마지막 갱신 시각. 누르면 Main 창. 오른쪽 클릭 메뉴: 열기, 지금 새로 읽기, 오른쪽 아래로, 끝내기.
+- Main (앱 창): 앱 제목 "Claude Monitor", 작업 표시줄 아이콘 있음. 탭: 기존 7개 + "Codex" + "최적화".
+  - Codex 탭: 모델·추론 강도·승인·샌드박스 설정, 켜진 플러그인·MCP 수, 신뢰 프로젝트 수(없는 경로 수), 최근 7일 세션 수, 백업 파일 수.
+  - 최적화 탭: 발견 목록(심각도, 출처 Claude/Codex, 제목, 설명, 근거). 고칠 수 있는 항목은 "미리보기" → 바뀔 내용(diff) → "적용" → 적용 뒤 "되돌리기".
+- 상태별 모습: 정상, 경고, 문제, 데이터 없음, 모니터 멈춤(갱신이 3주기 넘게 없음), 수집 오류(연속 3회 실패), 적용 중, 적용 실패, 발견 0건. (Electron이 자기 Node로 돌기 때문에 "node 없음" 상태는 없다.)
+
+## Visual sources (designer는 여기 값만 쓴다)
+- 앱 창: `scripts/monitor-html.mjs`의 `:root` 토큰(밝게/어둡게 두 벌) — `--bg #faf9f5 / #1f1e1d`, `--panel`, `--line`, `--fg`, `--muted`, `--accent #d77757`, `--ok #3f7a55`, `--warn #8f6420`, `--bad #b04a38`, 간격 `--sp-1..6` (4·8·12·16·24·32), 반경 `--r-sm/md/lg` (6·8·12), 글자 `--t-xs..lg` (12·13·14·16), 글꼴 `--sans`, `--mono`.
+- 상태 막대: 높이 34px, 반경 8px, 좌우 여백 12px, 항목 간격 16px, 글자 12px. 작업 표시줄 테마를 따른다 — 밝게 `#F5F6F7` 배경, `#1B1C1F` 글자, `#5C5F66` 보조; 어둡게 `#202124`, `#ECEDEF`, `#A0A3AA`. 상태 점: 정상 `#2FA36B`, 경고 `#D9962B`, 문제 `#D9534B`, 멈춤 `#8A8D94`. (`scripts/monitor-bar.ps1`에서 가져온 값.)
+
+## Checks v1
+Claude (출처 `collect()` 결과와 저장소):
+- C1 설정 드리프트: 저장소 `claude/`와 `~/.claude`가 다름 → 고침: `bash scripts/apply.sh`(저장소 → 라이브, 허용된 방향).
+- C2 라우팅 불일치: 최근 7일 에이전트가 기대 모델과 다른 모델로 실행 → 보고만.
+- C3 모니터 구역 경고/없음(플러그인, 훅, claude-mem, RTK) → 보고만, 다음 할 일 문장 포함.
+- C4 라이브에만 있는 설정 키(저장소에 없는 `settings.json` 키) → 고침: 비밀 의심 키와 `env` 등을 뺀 키를 저장소 `claude/settings.json`에 추가(라이브는 안 씀, 되돌리기 가능). 가져올 키가 없으면 보고만. Claude 설정을 고치는 제안은 항상 "저장소 `claude/` 변경"으로 표시하고 라이브 파일은 직접 고치지 않는다.
+Codex (출처 `~/.codex`):
+- X1 없는 경로의 신뢰 프로젝트(`[projects.'<path>']` 경로가 사라짐, 임시 폴더 포함) → 고침: 그 표(헤더와 그 아래 키 줄)만 지움.
+- X2 오래된 설정 백업 파일(`config.toml.bak*`가 3개 이상) → 보고만.
+- X3 큰 로그 DB(`logs_*.sqlite`가 500MB 이상) → 보고만.
+
+## Safety rules
+- 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수·모델·시각만 센다(본문 금지).
+- Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
+- Claude 고침은 저장소에서 `apply.sh`를 돌리는 것뿐. 라이브 `~/.claude`를 직접 쓰지 않는다.
+- Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 로컬 파일만, CSP, 단일 인스턴스.
+
+## Acceptance criteria (v1 완료 기준)
+1. 로그인 뒤 Claude Monitor 프로세스 묶음이 하나만 돈다(두 번 실행해도 하나).
+2. 상태 막대가 항상 위에 있고, 모니터 멈춤·수집 오류 상태를 보여 준다.
+3. 상태 막대를 누르면 브라우저가 아닌 앱 창이 열린다.
+4. 최적화 탭이 Claude·Codex 발견을 설명과 함께 보여 준다.
+5. Codex 고침(X1)이 미리보기 → 적용(백업 생성) → 되돌리기까지 된다(가짜 `~/.codex` 테스트로 확인).
+6. Claude 고침(C1)은 `apply.sh` 실행만 하고 라이브 파일을 직접 쓰지 않는다(테스트로 확인).
+7. `bootstrap/setup.ps1 -Only claude-monitor`가 깨끗한 프로필에 설치·자동 시작을 만든다(-DryRun은 출력만).
+8. `app/` 핵심(Source·Check·Optimizer) `node --test`와 기존 검사 전부 통과(CI는 Electron 바이너리 없이).
+9. reviewer 지적 0건.
+
+## Out of scope (v1)
+새 권장 설정 자동 제안, Codex 설정의 다른 고침, 자동 업데이트, macOS·Linux, 앱 서명.
+
+## Changes
+- 2026-10-25 처음 작성.
+- 2026-10-25 developer 설계 반영: "node 없음" 대신 "수집 오류"; C1(apply.sh)은 되돌리기 없음(apply.sh가 백업을 남기지 않음), 되돌리기는 X1만; 심각도 C3 warn→warn, missing→bad, X2 info; 오른쪽 클릭 메뉴는 main의 기본 메뉴(app:strip-menu).
+- 2026-10-25 사용자 요청 반영: Codex 상세(codex:detail), 점검 X4(없는 훅 상태, 고침)·X5·X6, C4 고침, "최적화하기"(골라서 한꺼번에 미리보기 → 한 번 클릭 → 차례로 적용, 항목마다 백업, 모두 되돌리기; 위의 "모두 고치기 없음"은 이것으로 대체), 막대 위치 기억, 악화 시 데스크톱 알림, 한 화면 배치.

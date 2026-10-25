@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src file:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Claude 모니터 상태</title>
+<link rel="stylesheet" href="strip.css">
+</head>
+<body>
+<div class="strip" role="group" aria-label="Claude 모니터 상태">
+<span class="grip" aria-hidden="true"></span>
+<button class="body" id="body" type="button" title="누르면 열기 · 오른쪽 클릭: 메뉴">
+<span class="dot idle" id="dot" aria-hidden="true"></span>
+<span class="state" id="state" aria-live="polite">시작 중</span>
+<span class="sep" aria-hidden="true"></span>
+<span class="cell"><span class="lb">라우팅</span> <span id="route">—</span></span>
+<span class="cell"><span class="lb">오늘 출력</span> <span id="out">—</span></span>
+<span class="cell"><span class="lb">실행 중</span> <span id="live">—</span></span>
+<span class="cell cx"><span class="lb">Codex</span> <span class="dot idle" id="cdot" aria-hidden="true"></span><span class="sr" id="ctxt">상태 없음</span></span>
+<span class="sep" aria-hidden="true"></span>
+<time class="tm" id="time">—</time>
+</button>
+</div>
+<script src="strip.js"></script>
+</body>
+</html>

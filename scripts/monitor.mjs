@@ -587,7 +587,7 @@ export async function collect(opts = {}) {
 
 const SECTION_LABELS = { routing: '모델 라우팅', tokens: '토큰', rtk: 'RTK', plugins: '플러그인', claudeMem: 'claude-mem', hooks: '훅', savings: '절감', orchestration: '세션', setup: '설정 구조' };
 
-// Compact state for the desktop status bar (scripts/monitor-bar.ps1): counts and states only, never session text.
+// Compact state for the Claude Monitor strip (status.json): counts and states only, never session text.
 export function summarize(d) {
   const x = d && typeof d === 'object' ? d : {};
   const issues = [];
@@ -619,7 +619,7 @@ export function summarize(d) {
 }
 
 // Replace the file in one step so a reader never sees it missing or half written.
-function writeAtomic(file, text) {
+export function writeAtomic(file, text) {
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, text);
   try { fs.renameSync(tmp, file); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; }

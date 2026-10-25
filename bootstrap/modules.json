@@ -32,10 +32,10 @@
     "optional": true
   },
   {
-    "name": "monitor-bar",
-    "description": "Always-on-top monitor status bar above the taskbar, started at every login (Startup shortcut)",
-    "check": "scripts/monitor-install.ps1",
-    "run": [["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/monitor-install.ps1"]],
+    "name": "claude-monitor",
+    "description": "Claude Monitor desktop app: status strip above the taskbar and the main window, started at every login",
+    "check": "app/install.mjs",
+    "run": [["node", "app/install.mjs"]],
     "optional": true
   }
 ]
