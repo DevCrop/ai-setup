@@ -22,6 +22,7 @@ PowerShell을 열고(관리자 아님) 한 줄을 붙여 넣습니다. 실행 �
    - `claude-plugins`: `ponytail@ponytail`, `claude-mem@thedotmack` 설치 후 `bash scripts/setup-claude-mem.sh`
    - `monitor`: `node scripts/monitor.mjs` (설정 상태 페이지 경로 출력)
    - `machine`: `node machine/scan.mjs` (디스크 지도, 읽기만 함, 몇 분 걸릴 수 있음)
+   - `monitor-bar`: 작업 표시줄 위에 항상 떠 있는 작은 상태 막대를 만들고, 로그인할 때마다 켜지게 시작 프로그램에 바로 가기(`Claude monitor.lnk`)를 둡니다. 막대를 누르면 전체 모니터가 앱 창으로 열리고, 오른쪽 클릭으로 새로 읽기·다시 시작·닫기를 고릅니다. 이미 bootstrap을 돌린 PC는 `-Only monitor-bar`로 한 번만 실행하면 됩니다. 끄려면 시작 프로그램 폴더(`shell:startup`)에서 바로 가기를 지웁니다.
 
 끝에 단계별 표(step, status ok/skipped/failed, note)를 보여 줍니다. 한 단계가 실패해도 나머지는 계속하고, 뒤 단계가 그 단계에 기대는 경우만 건너뜁니다.
 
@@ -53,7 +54,7 @@ PowerShell을 열고(관리자 아님) 한 줄을 붙여 넣습니다. 실행 �
 ```
 
 - `check`: 저장소 기준 파일 경로. 없으면 "not available yet"으로 건너뜀(`""`이면 항상 실행)
-- `run`: 차례로 실행할 명령(첫 단어는 `bash`, `node`, `claude`, `git` 중 하나, `bash`는 Git Bash)
+- `run`: 차례로 실행할 명령(첫 단어는 `bash`, `node`, `claude`, `git`, `powershell` 중 하나, `bash`는 Git Bash)
 - `optional`: `false`면 실패 시 뒤 모듈을 건너뜀
 
 ## 검사

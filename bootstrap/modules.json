@@ -30,5 +30,12 @@
     "check": "machine/scan.mjs",
     "run": [["node", "machine/scan.mjs"]],
     "optional": true
+  },
+  {
+    "name": "monitor-bar",
+    "description": "Always-on-top monitor status bar above the taskbar, started at every login (Startup shortcut)",
+    "check": "scripts/monitor-install.ps1",
+    "run": [["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/monitor-install.ps1"]],
+    "optional": true
   }
 ]

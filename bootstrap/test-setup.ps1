@@ -50,12 +50,27 @@ foreach ($m in $mods) {
     foreach ($argv in $run) {
         if ($argv -isnot [array] -or $argv.Count -eq 0) { $shape = $false; continue }
         foreach ($a in $argv) { if ($a -isnot [string] -or -not $a) { $shape = $false } }
-        if ('bash', 'node', 'claude', 'git' -notcontains $argv[0]) { $shape = $false }
+        if ('bash', 'node', 'claude', 'git', 'powershell' -notcontains $argv[0]) { $shape = $false }
     }
 }
 Check 'every module has the right field types and a valid run list' $shape
 Check 'module names are unique' (@($names | Select-Object -Unique).Count -eq $names.Count)
-Check 'shipped modules present in order' ((($names | Select-Object -First 4) -join ',') -eq 'ai-setup,claude-plugins,monitor,machine')
+Check 'shipped modules present in order' ((($names | Select-Object -First 5) -join ',') -eq 'ai-setup,claude-plugins,monitor,machine,monitor-bar')
+
+# ---- monitor status bar scripts: they parse, and the installer's -DryRun writes nothing
+$repoRoot = Split-Path $dir
+foreach ($f in 'scripts\monitor-bar.ps1', 'scripts\monitor-install.ps1') {
+    $perr = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot $f), [ref]$null, [ref]$perr)
+    Check "$f parses" (@($perr).Count -eq 0)
+}
+$lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'Claude monitor.lnk'
+$lnkStamp = $null; if (Test-Path -LiteralPath $lnk) { $lnkStamp = (Get-Item -LiteralPath $lnk).LastWriteTimeUtc }
+$hostExe = (Get-Process -Id $PID).Path
+$io = & $hostExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\monitor-install.ps1') -DryRun 2>&1 | ForEach-Object { "$_" }
+$ioCode = $LASTEXITCODE
+$lnkSame = if ($lnkStamp) { (Get-Item -LiteralPath $lnk).LastWriteTimeUtc -eq $lnkStamp } else { -not (Test-Path -LiteralPath $lnk) }
+Check 'monitor-install -DryRun: exit 0, plan printed, shortcut untouched' (($ioCode -eq 0) -and ((@($io) -join "`n") -match '\[dry-run\] write shortcut') -and $lnkSame)
 
 # ---- dry-run: nothing written
 $cfg = Join-Path $HOME '.ai-setup\machine.json'
