@@ -108,5 +108,8 @@
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
     "desktop-commander@synced": false
-  }
+  },
+  "tui": "fullscreen",
+  "autoUpdatesChannel": "latest",
+  "skipWorkflowUsageWarning": true
 }

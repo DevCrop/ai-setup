@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { collect, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
+import { collect, summarize, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -404,4 +404,32 @@ test('collectPlugins outside the repo ignores an array enabledPlugins and over-l
   assert.deepEqual(collectPlugins(h, bare).items, []);
   fs.writeFileSync(path.join(h, 'settings.json'), JSON.stringify({ enabledPlugins: { ['a'.repeat(300)]: true } }));
   assert.deepEqual(collectPlugins(h, bare).items, []);
+});
+
+test('summarize: status bar state is counts only, worst section wins, garbage gives missing', () => {
+  const okSec = { status: 'ok' };
+  const base = { generatedAt: '2026-10-19T03:00:00.000Z', refreshSec: 30, routing: { status: 'ok', agents: [{ agentType: 'a', expected: 'opus', verdict: 'ok' }, { agentType: 'b', expected: 'haiku', verdict: 'mismatch' }, { agentType: 'general-purpose', expected: null, verdict: 'n/a' }, { agentType: 'c', expected: 'sonnet', verdict: 'no data' }] },
+    tokens: { status: 'ok', days: [{ date: '2026-10-19', output: 5 }, { date: '2026-10-19', output: 7 }, { date: '2026-10-18', output: 100 }], totals: { hitRate: 0.8 } },
+    rtk: okSec, plugins: okSec, claudeMem: { status: 'ok', reachable: true }, hooks: okSec, savings: okSec, setup: okSec,
+    orchestration: { status: 'ok', sessions: [{ live: true, description: 'CANARY_SECRET', agents: [{ live: true }, { live: false }] }, { live: false, agents: [{ live: true }] }] } };
+  const s = summarize(base);
+  assert.equal(s.status, 'ok');
+  assert.deepEqual(s.issues, []);
+  assert.deepEqual(s.routing, { ok: 1, total: 2 });
+  assert.deepEqual(s.live, { sessions: 1, agents: 2 });
+  assert.equal(s.todayOutput, 12);
+  assert.equal(s.cacheHit7d, 0.8);
+  assert.equal(s.claudeMem, true);
+  assert.ok(!JSON.stringify(s).includes('CANARY'));
+  const warn = summarize({ ...base, rtk: { status: 'warn' } });
+  assert.equal(warn.status, 'warn');
+  assert.deepEqual(warn.issues, [{ section: 'rtk', label: 'RTK', status: 'warn' }]);
+  const gone = summarize({ ...base, rtk: { status: 'warn' }, hooks: undefined });
+  assert.equal(gone.status, 'missing');
+  assert.equal(gone.issues.length, 2);
+  const junk = summarize(null);
+  assert.equal(junk.status, 'missing');
+  assert.equal(junk.issues.length, 9);
+  assert.deepEqual([junk.todayOutput, junk.cacheHit7d, junk.claudeMem, junk.generatedAt], [0, null, null, null]);
+  assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput']);
 });

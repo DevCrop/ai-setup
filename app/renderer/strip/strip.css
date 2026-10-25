@@ -1,0 +1,32 @@
+/* Strip tokens: values from the retired PowerShell bar (spec "Visual sources"). Light ok/warn dots are darkened to reach 3:1 (design Q26). */
+:root {
+  --s-bg: #f5f6f7; --s-fg: #1b1c1f; --s-muted: #5c5f66; --s-line: rgba(0, 0, 0, .10); --s-sep: rgba(0, 0, 0, .13);
+  --s-ok: #1e7f50; --s-warn: #a86b12; --s-bad: #d9534b; --s-idle: #8a8d94; --s-focus: #b9532f;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --s-bg: #202124; --s-fg: #ecedef; --s-muted: #a0a3aa; --s-line: rgba(255, 255, 255, .12); --s-sep: rgba(255, 255, 255, .18);
+    --s-ok: #2fa36b; --s-warn: #d9962b; --s-focus: #eb9575;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 34px; overflow: hidden; background: transparent; }
+body { font: 400 12px/1 "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", sans-serif; font-variant-numeric: tabular-nums; color: var(--s-fg); }
+.strip { display: flex; align-items: stretch; width: 100%; height: 34px; background: var(--s-bg); border: 1px solid var(--s-line); border-radius: 8px; overflow: hidden; }
+/* The grip is the only drag region: a drag region swallows clicks. */
+.grip { flex: none; width: 12px; -webkit-app-region: drag; cursor: move;
+  background: radial-gradient(circle, var(--s-muted) 1px, transparent 1.5px) 50% 50% / 4px 6px repeat-y; }
+.body { -webkit-app-region: no-drag; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 16px; padding: 0 12px 0 4px; margin: 0;
+  font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; }
+.body:focus-visible { outline: 2px solid var(--s-focus); outline-offset: -3px; }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--s-idle); }
+.dot.ok { background: var(--s-ok); } .dot.warn { background: var(--s-warn); } .dot.bad { background: var(--s-bad); } .dot.idle { background: var(--s-idle); }
+.state { flex: none; font-weight: 600; margin-left: -8px; }
+.sep { flex: none; width: 1px; height: 14px; background: var(--s-sep); margin: 0 -4px; }
+.cell { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx { flex: none; }
+.cx .dot { display: inline-block; vertical-align: middle; margin-left: 2px; }
+.lb { color: var(--s-muted); }
+.tm { flex: none; margin-left: auto; color: var(--s-muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

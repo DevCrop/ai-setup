@@ -1,0 +1,16 @@
+{
+  "name": "claude-monitor",
+  "productName": "Claude Monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop monitor and optimizer for the Claude Code and Codex setup on this PC",
+  "type": "module",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "44.7.0"
+  }
+}

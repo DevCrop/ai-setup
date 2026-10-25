@@ -35,6 +35,8 @@ jobs:
           bash scripts/qa-setup-claude-mem.sh
       - name: Monitor parsers
         run: bash scripts/qa-monitor.sh
+      - name: Claude Monitor core (no Electron binary)
+        run: cd app && node --test
       - name: Role-agent graders (self-test, no model calls)
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
       - name: Eval graders (self-test, no model calls)

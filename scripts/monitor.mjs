@@ -585,6 +585,46 @@ export async function collect(opts = {}) {
   };
 }
 
+const SECTION_LABELS = { routing: '모델 라우팅', tokens: '토큰', rtk: 'RTK', plugins: '플러그인', claudeMem: 'claude-mem', hooks: '훅', savings: '절감', orchestration: '세션', setup: '설정 구조' };
+
+// Compact state for the Claude Monitor strip (status.json): counts and states only, never session text.
+export function summarize(d) {
+  const x = d && typeof d === 'object' ? d : {};
+  const issues = [];
+  for (const [section, label] of Object.entries(SECTION_LABELS)) {
+    const s = x[section];
+    const st = s && typeof s === 'object' ? s.status : 'missing';
+    if (st !== 'ok') issues.push({ section, label, status: st === 'warn' ? 'warn' : 'missing' });
+  }
+  // only agents that ran in the window: 'no data' would read as a miss
+  const agents = (Array.isArray(x.routing?.agents) ? x.routing.agents : []).filter((a) => typeof a?.expected === 'string' && a.expected && a.verdict !== 'no data');
+  const sessions = Array.isArray(x.orchestration?.sessions) ? x.orchestration.sessions : [];
+  const today = dateStr(new Date(Date.parse(x.generatedAt) || Date.now()));
+  const days = Array.isArray(x.tokens?.days) ? x.tokens.days : [];
+  const hit = x.tokens?.totals?.hitRate;
+  return {
+    generatedAt: x.generatedAt ?? null,
+    refreshSec: x.refreshSec ?? null,
+    status: issues.some((i) => i.status === 'missing') ? 'missing' : issues.length ? 'warn' : 'ok',
+    issues,
+    routing: { ok: agents.filter((a) => a.verdict === 'ok').length, total: agents.length },
+    live: {
+      sessions: sessions.filter((s) => s?.live === true).length,
+      agents: sessions.reduce((n, s) => n + (Array.isArray(s?.agents) ? s.agents.filter((g) => g?.live === true).length : 0), 0),
+    },
+    todayOutput: days.filter((t) => t?.date === today).reduce((n, t) => n + (Number(t.output) || 0), 0),
+    cacheHit7d: Number.isFinite(hit) ? hit : null,
+    claudeMem: typeof x.claudeMem?.reachable === 'boolean' ? x.claudeMem.reachable : null,
+  };
+}
+
+// Replace the file in one step so a reader never sees it missing or half written.
+export function writeAtomic(file, text) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text);
+  try { fs.renameSync(tmp, file); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; }
+}
+
 // CLI args: [out.html] [--watch [sec]]; sec defaults to 10 and is at least 3.
 export function parseArgs(argv) {
   const a = argv.slice(2);
@@ -613,7 +653,9 @@ async function main() {
   for (;;) {
     const t0 = Date.now();
     try {
-      fs.writeFileSync(out, render(await collect({ cache, refreshSec: watch })));
+      const d = await collect({ cache, refreshSec: watch });
+      writeAtomic(out, render(d));
+      writeAtomic(path.join(path.dirname(out), 'status.json'), JSON.stringify(summarize(d)));
       console.log(`${new Date().toTimeString().slice(0, 8)} refreshed in ${Date.now() - t0} ms`);
     } catch (e) { console.error(`refresh failed: ${e?.message || e}`); }
     await new Promise((r) => setTimeout(r, watch * 1000));

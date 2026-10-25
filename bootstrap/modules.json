@@ -30,5 +30,12 @@
     "check": "machine/scan.mjs",
     "run": [["node", "machine/scan.mjs"]],
     "optional": true
+  },
+  {
+    "name": "claude-monitor",
+    "description": "Claude Monitor desktop app: status strip above the taskbar and the main window, started at every login",
+    "check": "app/install.mjs",
+    "run": [["node", "app/install.mjs"]],
+    "optional": true
   }
 ]

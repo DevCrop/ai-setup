@@ -1315,6 +1315,38 @@ try{sessionStorage.setItem('monitor-lc',t2)}catch(e){}}
 if(t2)lc.textContent=t2}
 })()}catch(e){}`;
 
+// Embed only (Electron shell): one screen, no page scroll. The page is a viewport-high flex column; panels scroll inside themselves.
+// Embed: the app window has room, so the token table opens instead of leaving the card empty.
+const EMBED_SCRIPT = `document.querySelectorAll('#v-tok details.fold').forEach(function(d){d.open=true});`;
+const EMBED_CSS = `
+body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh; min-height: 0; overflow: hidden; }
+.embed .stage { height: 100vh; padding: var(--gap) var(--edge); display: flex; flex-direction: column; overflow: hidden; }
+.embed .view:not([hidden]) { flex: 1 1 auto; min-height: 0; max-width: none; margin: 0; gap: var(--gap); }
+.embed .view > .band { flex: none; }
+.embed .kpi { padding: 8px var(--pad); gap: 0; }
+.embed .kpi .v { font-size: 22px; line-height: 1.25; }
+.embed .tile .n { font-size: 17px; } .embed .big { font-size: 20px; }
+.embed .ring { width: 72px; height: 72px; } .embed .dn { width: 96px; height: 96px; }
+.embed .panel { overflow: auto; gap: var(--sp-2); scrollbar-width: thin; }
+.embed .panel > * { flex-shrink: 0; }
+.embed .ph { position: sticky; top: calc(var(--pad) * -1); z-index: 1; margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 0; padding: var(--pad) var(--pad) var(--sp-1); background: var(--panel); }
+.embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2 { flex: 1 1 0; min-height: 0; }
+.embed .g12, .embed .g22, .embed .view > .grid2 { align-items: stretch; grid-auto-rows: minmax(0, 1fr); }
+.embed .g12 { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+.embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
+.embed .view > .grid2 > .col { min-height: 0; } .embed .view > .grid2 > .col > .panel { flex: 1 1 0; min-height: 0; }
+.embed .panel .grid2 { gap: var(--sp-3); }
+.embed .pitem { padding: var(--sp-2) 0; } .embed .lrow { min-height: 26px; } .embed .lr { padding: var(--sp-2) 0; }
+.embed .kv { padding: 6px 0; }
+.embed .sess + .sess { padding-top: var(--sp-3); } .embed .sess { gap: var(--sp-2); }
+@media (min-width: 900px) {
+  .embed #v-flow:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .embed #v-flow > .panel:first-child { grid-row: 1 / 3; }
+  .embed #v-flow > .panel:nth-child(2) { grid-column: 2; }
+  .embed #v-flow > .g22 { grid-column: 2; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
+}
+`;
+
 function tabsNav() {
   const html = TABS.map((t) => `<button type="button" data-tab="${t.id}"${t.id === 'ov' ? ' aria-current="page"' : ''}>${esc(t.label)}</button>`).join('');
   return `<nav class="tabs" aria-label="화면 탭">${html}</nav>`;
@@ -1329,7 +1361,9 @@ function safe(fn, d) {
   }
 }
 
-export function render(data) {
+// opts.embed: the Electron shell has its own tab bar, so the page drops its top bar; location.hash still picks the tab.
+export function render(data, opts) {
+  const embed = !!(opts && opts.embed);
   const d = isObj(data) ? data : {};
   const sec = Number.isFinite(d.refreshSec) && d.refreshSec > 0 ? Math.min(86400, Math.max(1, Math.round(d.refreshSec))) : 0;
   const mode = sec ? `<span class="st live"><span class="pip"></span>실시간 · ${sec}초마다<span class="lcw">&nbsp;· 마지막 변경 <span id="lc">${esc(fmtHms(d.generatedAt))}</span></span></span>` : badge('info', '스냅샷');
@@ -1342,24 +1376,24 @@ export function render(data) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>클로드 설정 모니터</title>
-<style>${CSS}</style>
+<style>${CSS}</style>${embed ? `<style>${EMBED_CSS}</style>` : ''}
 <script>${HEAD_SCRIPT}</script>
 <noscript><style>.view[hidden]{display:flex !important}</style></noscript>
 </head>
-<body>
-<header class="top">
+<body${embed ? ' class="embed"' : ''}>
+${embed ? '' : `<header class="top">
 <div class="topin">
 <div class="brand"><span class="mark" aria-hidden="true">✻</span><h1>클로드 설정 모니터</h1></div>
 ${tabsNav()}
 <div class="meta">${sec ? '' : `<time>${esc(fmtKo(d.generatedAt, true))}</time>`}${mode}<button class="btn" id="theme" type="button" aria-label="테마 전환 (밝게/어둡게)">테마</button></div>
 </div>
 ${sec ? `<i class="prog" style="animation-duration:${sec}s" aria-hidden="true"></i>` : ''}
-</header>
+</header>`}
 <main class="stage" id="stage">
 ${sections}
 </main>
 <script type="application/json" id="m">${metricsJson(d)}</script>
-<script>${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}</script>
+<script>${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}${embed ? EMBED_SCRIPT : ''}</script>
 </body>
 </html>
 `;

@@ -46,3 +46,6 @@ history.jsonl
 # OS and editor
 Thumbs.db
 .vscode/
+
+# App dependencies (installed by bootstrap)
+node_modules/
