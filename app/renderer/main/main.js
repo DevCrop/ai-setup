@@ -5,6 +5,8 @@
   var TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'opt'];
   var SEV = { bad: '문제', warn: '주의', info: '정보', ok: '정상' };
   var CLAUDE_NOTE = '저장소 claude/ 내용을 라이브 ~/.claude에 복사합니다(apply.sh). 되돌리기는 없습니다.';
+  // C4 writes only the repo settings.json and can be restored, so the apply.sh note is not for it.
+  function runsApplySh(f) { return f.source === 'claude' && f.id.indexOf('C4:') !== 0; }
 
   var status = null;       // last Status
   var findings = null;     // FindingDto[] | null (not loaded yet)
@@ -395,7 +397,7 @@
       if (s.err) li.appendChild(el('p', 'err', s.err));
       if (s.detail) li.appendChild(el('p', 'ev mono', s.detail));
       if (canPreview && s.open && s.diff != null) {
-        if (f.source === 'claude') li.appendChild(el('p', 'cap', CLAUDE_NOTE));
+        if (runsApplySh(f)) li.appendChild(el('p', 'cap', CLAUDE_NOTE));
         li.appendChild(diffBox(f, s.diff));
       }
     }
@@ -645,7 +647,7 @@
       body.appendChild(ul);
     } else if (b.phase === 'review') {
       ph.appendChild(el('span', 'hint', ok.length + '개 적용 가능' + (bad.length ? ' · 제외 ' + bad.length : '')));
-      if (ok.some(function (x) { return x.source === 'claude'; })) body.appendChild(el('p', 'cap', 'Claude 항목: ' + CLAUDE_NOTE));
+      if (ok.some(runsApplySh)) body.appendChild(el('p', 'cap', 'Claude 항목: ' + CLAUDE_NOTE));
       b.items.forEach(function (it) { ul.appendChild(batchItem(it, true)); });
       body.appendChild(ul);
       foot.appendChild(btn('취소', 'batch|cancel', batchCancel));
