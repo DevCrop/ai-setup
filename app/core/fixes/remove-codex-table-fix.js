@@ -46,18 +46,19 @@ export class RemoveCodexTableFix extends Fix {
   }
 
   doPreview() {
-    const { buf, text } = this.#read();
+    const { text } = this.#read();
     const r = removeTable(text, this.#parts);
     if (!r) throw new Error('table not found');
-    return { diff: r.removed.map((l) => `-${l}`).join('\n'), previewId: sha(buf) };
+    // previewId covers only this table, so applying another X1/X4 in the same batch does not make this one stale
+    return { diff: r.removed.map((l) => `-${l}`).join('\n'), previewId: sha(r.block) };
   }
 
   doApply(previewId) {
-    const { buf, text } = this.#read();
-    // Fix.apply compared the hash already; this narrows the window to the read just before the write.
-    if (sha(buf) !== previewId) throw new Error('config.toml changed');
+    const { text } = this.#read();
     const r = removeTable(text, this.#parts);
     if (!r) throw new Error('table not found');
+    // Fix.apply compared the hash already; this narrows the window to the read just before the write.
+    if (sha(r.block) !== previewId) throw new Error('the table changed');
     const dir = path.join(this.#home, 'backups', 'claude-monitor');
     fs.mkdirSync(dir, { recursive: true });
     const base = stamp(this.#clock());

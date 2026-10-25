@@ -578,7 +578,8 @@
   function batchRestore() {
     var b = batch;
     if (!b || b.phase !== 'result' || b.restoring) return;
-    var todo = b.items.filter(function (x) { return x.out === 'applied' && x.restorable && x.rs !== 'restored'; });
+    // newest first: each Codex restore checks the file hash right after its own apply, which a later apply changed
+    var todo = b.items.filter(function (x) { return x.out === 'applied' && x.restorable && x.rs !== 'restored'; }).reverse();
     if (!todo.length) return;
     b.restoring = true; b.ri = 0; b.rn = todo.length;
     announce('되돌리는 중'); redraw();
