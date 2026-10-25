@@ -117,7 +117,8 @@ export class Optimizer {
     }
     // kept fixes whose finding is gone stay listed as "ok" so the user can still restore
     for (const [id, { finding, fix }] of this.#fixes) {
-      if (!seen.has(id) && !fix.previewing && keeps(fix) && fix.state !== FixState.previewed) out.push(finding.withSeverity('ok'));
+      // a running apply/restore stays even in `previewed` (its stale check), so the busy lock and the journal entry hold
+      if (!seen.has(id) && (fix.running || (!fix.previewing && keeps(fix) && fix.state !== FixState.previewed))) out.push(finding.withSeverity('ok'));
     }
     this.#fixes = new Map(out.filter((f) => f.fix).map((f) => [f.id, { finding: f, fix: f.fix }]));
     this.#findings = out.sort(order).slice(0, MAX_FINDINGS);

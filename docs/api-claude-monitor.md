@@ -102,7 +102,7 @@ Status = {
     sessions7d:       number,                  // counted from file names or mtimes
     backups:          number                   // config.toml.bak* files
   },
-  busyFindingId: string | null       // the fix in applying or restoring, else null
+  busyFindingId: string | null       // the fix whose apply/restore call is running (its stale check included), else null
 }
 
 FindingDto = {
@@ -115,7 +115,8 @@ FindingDto = {
   evidence:   string[],              // max 20 items, each max 260: counts, key names, relative paths, Codex trust-table paths
   fixable:    boolean,
   restorable: boolean,               // false when not fixable
-  fixState:   FixState | null        // null when not fixable
+  fixState:   FixState | null,       // null when not fixable
+  recommended: boolean               // safe to apply by default (C1, X1, X4); false when not fixable
 }
 ```
 

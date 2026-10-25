@@ -20,7 +20,8 @@ test('X1: preview, apply writes the backup first, restore returns the original b
   const { diff, previewId } = await fix.preview();
   assert.equal(diff, [`-[projects.'${c.gone}']`, '-trust_level = "trusted"', '-api_key = ***'].join('\n'));
   assert.ok(!diff.includes(CANARY.projectKey));
-  assert.equal(previewId, createHash('sha256').update(original).digest('hex'));
+  const block = [`[projects.'${c.gone}']`, 'trust_level = "trusted"', `api_key = "${CANARY.projectKey}"`].join('\n') + '\n';
+  assert.equal(previewId, createHash('sha256').update(block).digest('hex')); // only this table, not the whole file
   assert.deepEqual(fs.readFileSync(c.config), original); // preview writes nothing
 
   const r = await fix.apply(previewId);
@@ -61,11 +62,11 @@ test('X1: CRLF line endings are kept', async () => {
   assert.ok(!/[^\r]\n/.test(after));
 });
 
-test('X1: PREVIEW_STALE when config.toml is edited between preview and apply; nothing written, no backup', async () => {
+test('X1: PREVIEW_STALE when its table is edited between preview and apply; nothing written, no backup', async () => {
   const c = fakeCodex();
   const fix = x1(c);
   const { previewId } = await fix.preview();
-  fs.appendFileSync(c.config, '\n# edited by codex\n');
+  fs.writeFileSync(c.config, fs.readFileSync(c.config, 'utf8').replace(`[projects.'${c.gone}']\n`, `[projects.'${c.gone}']\nnote = "edited by codex"\n`));
   const edited = fs.readFileSync(c.config);
   assert.equal(await code(fix.apply(previewId)), 'PREVIEW_STALE');
   assert.equal(fix.state, 'proposed');
@@ -222,7 +223,7 @@ test('X4: PREVIEW_STALE, RESTORE_CONFLICT and a missing table behave like X1; ba
   const c = fakeCodex();
   const a = x4(c);
   const { previewId } = await a.preview();
-  fs.appendFileSync(c.config, '\n# edited\n');
+  fs.writeFileSync(c.config, fs.readFileSync(c.config, 'utf8').replace('trusted_hash = "sha256:bbb"', 'trusted_hash = "sha256:ccc"'));
   assert.equal(await code(a.apply(previewId)), 'PREVIEW_STALE');
   const b = x4(c);
   await b.apply((await b.preview()).previewId);
@@ -231,4 +232,26 @@ test('X4: PREVIEW_STALE, RESTORE_CONFLICT and a missing table behave like X1; ba
   assert.equal(await code(x4(c, ['hooks', 'state', '/not/there:x:0:0']).preview()), 'PREVIEW_FAILED');
   assert.throws(() => x4(c, []), TypeError);
   assert.throws(() => x4(c, 'hooks'), TypeError);
+});
+
+// B2: "최적화하기" previews every pick first, then applies them in turn; one X1 must not make the next one stale.
+test('X1: two tables previewed together both apply, and a change inside the table still reads as stale', async () => {
+  const c = fakeCodex();
+  const other = path.join(path.dirname(c.gone), `${path.basename(c.gone)}-2`);
+  fs.appendFileSync(c.config, `\n[projects.'${other}']\ntrust_level = "trusted"\n`);
+  const a = x1(c);
+  const b = new RemoveCodexProjectFix({ id: 'X1:0123456789ab', codexHome: c.home, projectPath: other, clock });
+  const pa = (await a.preview()).previewId;
+  const pb = (await b.preview()).previewId;
+  await a.apply(pa);
+  assert.equal(b.state, 'previewed');
+  await b.apply(pb);
+  const after = fs.readFileSync(c.config, 'utf8');
+  assert.ok(!after.includes(`[projects.'${c.gone}']`) && !after.includes(`[projects.'${other}']`));
+
+  const d = fakeCodex();
+  const f = x1(d);
+  const p = (await f.preview()).previewId;
+  fs.writeFileSync(d.config, fs.readFileSync(d.config, 'utf8').replace('trust_level = "trusted"\napi_key', 'trust_level = "untrusted"\napi_key'));
+  assert.equal(await code(f.apply(p)), 'PREVIEW_STALE');
 });

@@ -30,7 +30,7 @@ export class Fix {
   onChange = null; // set by Optimizer: called after every state change
   #previewId = null;
   #applyResult = null;
-  #previewing = false;
+  #previewing = 0; // a count: overlapping previews of one fix must not clear each other
   #running = false; // true from the entry of apply()/restore() to its end, so the lock also covers the stale-check preview
 
   constructor(id) {
@@ -41,7 +41,7 @@ export class Fix {
   get restorable() { return false; }
   get running() { return this.#running; }
   // A scan must not swap this object out while its preview is still computing (the result would land on an orphan).
-  get previewing() { return this.#previewing; }
+  get previewing() { return this.#previewing > 0; }
   get backupPath() { return this.#applyResult?.backupPath ?? null; }
 
   #to(next, by) {
@@ -59,7 +59,7 @@ export class Fix {
   async preview() {
     this.#start('preview');
     let r;
-    this.#previewing = true;
+    this.#previewing += 1;
     try {
       r = await this.doPreview();
     } catch (e) {
@@ -67,7 +67,7 @@ export class Fix {
       this.#previewId = null;
       throw wrap(e, 'PREVIEW_FAILED');
     } finally {
-      this.#previewing = false;
+      this.#previewing -= 1;
     }
     this.#previewId = r.previewId;
     this.#to(S.previewed, 'preview');

@@ -35,15 +35,19 @@ Claude (출처 `collect()` 결과와 저장소):
 - C2 라우팅 불일치: 최근 7일 에이전트가 기대 모델과 다른 모델로 실행 → 보고만.
 - C3 모니터 구역 경고/없음(플러그인, 훅, claude-mem, RTK) → 보고만, 다음 할 일 문장 포함.
 - C4 라이브에만 있는 설정 키(저장소에 없는 `settings.json` 키) → 고침: 비밀 의심 키와 `env` 등을 뺀 키를 저장소 `claude/settings.json`에 추가(라이브는 안 씀, 되돌리기 가능). 가져올 키가 없으면 보고만. Claude 설정을 고치는 제안은 항상 "저장소 `claude/` 변경"으로 표시하고 라이브 파일은 직접 고치지 않는다.
+- C5 없는 훅 스크립트(`settings.json` 훅이 가리키는 스크립트 파일이 없음) → 보고만.
 Codex (출처 `~/.codex`):
 - X1 없는 경로의 신뢰 프로젝트(`[projects.'<path>']` 경로가 사라짐, 임시 폴더 포함) → 고침: 그 표(헤더와 그 아래 키 줄)만 지움.
 - X2 오래된 설정 백업 파일(`config.toml.bak*`가 3개 이상) → 보고만.
 - X3 큰 로그 DB(`logs_*.sqlite`가 500MB 이상) → 보고만.
+- X4 없는 파일을 가리키는 훅 상태(`[hooks.state.'<key>']`) → 고침: 그 표만 지움(백업, 되돌리기).
+- X5 켜졌지만 `command`도 `url`도 없는 MCP 서버 → 보고만.
+- X6 worktree가 20개 이상이거나 30일 넘은 것이 있음 → 보고만.
 
 ## Safety rules
 - 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수·모델·시각만 센다(본문 금지).
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
-- Claude 고침은 저장소에서 `apply.sh`를 돌리는 것뿐. 라이브 `~/.claude`를 직접 쓰지 않는다.
+- Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다.
 - Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 로컬 파일만, CSP, 단일 인스턴스.
 
 ## Acceptance criteria (v1 완료 기준)

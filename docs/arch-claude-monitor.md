@@ -164,7 +164,7 @@ Shapes (prose, the contract file has the wire form)
 - `CodexSource.collect(ctx)` reads `~/.codex` read-only. `data` is `{ config, backups, logs, sessions }` (see section 6).
 - `ctx` is `{ now, homes: { claude, codex }, repo, env, cache }`. Clock, paths and env are passed in, never read inside a Check.
 - `PreviewResult`: `{ diff: string, previewId: string }`. `ApplyResult`: `{ backupPath?: string }`. `RestoreResult`: `{ restored: true }`.
-- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`.
+- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `C5:hook-scripts`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`, `X4:<sha1 12 of the hook key>`, `X5:<server name>`, `X6:worktrees`.
 - `Fix` is a template: the public `preview/apply/restore` enforce the transition table of section 2 (one table, anything else throws `INVALID_STATE`), then call the protected `do*` of the subclass. `restorable` is false for `ApplyRepoFix`.
 - `Optimizer.run` keeps `Fix` objects that are in `previewed`, `applying`, `applied`, `restoring` or a failed state across scans (so "되돌리기" stays visible after the finding itself is gone) (a kept `previewed` fix lets the user read the diff past one refresh; `apply` recomputes the preview id, so a changed target answers `PREVIEW_STALE`); `proposed` fixes are replaced by fresh ones. Only one fix may be in `applying` or `restoring` at a time (`FIX_BUSY`). State lives in memory only.
 - `CommandRunner` is a function `(file, args, opts) -> Promise<{ code, stdout, stderr }>` passed to `ApplyRepoFix`; it is the test seam that lets a test prove `apply.sh` is the only command run. Same for the clock passed to `MonitorService` (fake timers) and the injected `ipcMain` of `IpcRouter`.
@@ -188,7 +188,7 @@ Output folder is `app.getPath('userData')` passed in by `main.js` (a per-user fo
 
 ## 2. Fix lifecycle
 
-Every fix goes one at a time: preview, then a user click on apply, then (X1 only) a user click on restore. There is no "fix all". The renderer sends only `findingId` and `previewId`; `IpcRouter` resolves the `Fix` through `Optimizer.getFix` and never takes paths, commands or diffs from the renderer.
+Every fix goes one at a time: preview, then a user click on apply, then (X1, X4 and C4) a user click on restore. "최적화하기" previews the picked fixes first and then applies them one after another through the same calls; it stops at the first `PREVIEW_STALE` or `FIX_BUSY`. X1/X4 preview ids hash only the target table, so applying one of them does not make the next one stale. The renderer sends only `findingId` and `previewId`; `IpcRouter` resolves the `Fix` through `Optimizer.getFix` and never takes paths, commands or diffs from the renderer.
 
 ```mermaid
 stateDiagram-v2
@@ -222,13 +222,13 @@ stateDiagram-v2
 
 Fix classes
 - `ApplyRepoFix` (C1): `preview` runs `bash scripts/apply.sh --dry-run` in the repo root and returns its output as `diff`; `previewId = sha256(output)`. `apply` re-runs the dry run, compares the hash, then runs `bash scripts/apply.sh`. It never opens a file under `~/.claude` for writing; the only command it may run is `bash scripts/apply.sh` with optional `--dry-run` (checked by a test with a fake `CommandRunner`). `ApplyResult` has no `backupPath`.
-- `RemoveCodexProjectFix` (X1): removes exactly one table `[projects.'<path>']`: the header line and the key lines after it up to the line before the next `[` or `[[` header; the blank separator line stays. Line endings of the file are preserved. `preview` returns the removed lines as `diff` (values of keys that match the secret pattern are masked as `***`; a `projects` table normally holds only `trust_level`) and `previewId = sha256(config.toml bytes)`. `apply` re-hashes `config.toml` (`PREVIEW_STALE` if it differs), copies it to `~/.codex/backups/claude-monitor/<YYYYMMDD-HHmmss>-config.toml`, writes the new text to a temp file in `~/.codex` and renames it over `config.toml`, then stores `backupPath` and the new hash in memory. `restore` checks that hash, copies the backup back the same way (temp file + rename). Known limit: Codex itself may write `config.toml` between the hash check and the rename; the window is milliseconds and the backup covers it.
+- `RemoveCodexProjectFix` (X1): removes exactly one table `[projects.'<path>']`: the header line and the key lines after it up to the line before the next `[` or `[[` header; the blank separator line stays. Line endings of the file are preserved. `preview` returns the removed lines as `diff` (values of keys that match the secret pattern are masked as `***`; a `projects` table normally holds only `trust_level`) and `previewId = sha256(raw text of that table)`, so edits elsewhere in the file (by Codex or by another X1/X4 apply) do not make it stale. `apply` re-reads `config.toml` and re-hashes the table (`PREVIEW_STALE` if it differs or is gone), copies it to `~/.codex/backups/claude-monitor/<YYYYMMDD-HHmmss>-config.toml`, writes the new text to a temp file in `~/.codex` and renames it over `config.toml`, then stores `backupPath` and the new hash in memory. `restore` checks that hash, copies the backup back the same way (temp file + rename). Known limit: Codex itself may write `config.toml` between the hash check and the rename; the window is milliseconds and the backup covers it.
 
 ## 3. Extension recipe
 
 Adding a check = 2 steps, one registry line.
-1. Create `app/core/checks/c5-something.js` with `export class C5Something extends Check` (set `id`, `source`, implement `run(snapshot)` returning `Finding[]`; add a test in `app/test/` using a fixture).
-2. Add one line to `app/core/checks/index.js`: `export { C5Something } from './c5-something.js';`
+1. Create `app/core/checks/c6-something.js` with `export class C6Something extends Check` (set `id`, `source`, implement `run(snapshot)` returning `Finding[]`; add a test in `app/test/` using a fixture).
+2. Add one line to `app/core/checks/index.js`: `export { C6Something } from './c6-something.js';`
 
 `index.js` holds only those export lines. `Optimizer` builds its registry with `Object.values(await import('./checks/index.js'))` and `new` on each, so there is no second list to edit. A test asserts that every export extends `Check` and that all `id` values are unique.
 
@@ -245,10 +245,14 @@ All finding texts shown to the user are Korean (project language); ids, evidence
 | C1 config drift | `C1ConfigDrift` (`c1-config-drift.js`) | claude | `data.setup.driftCount`, `data.setup.drift` (relative paths, max 10 as evidence) | `C1:drift` | warn when `driftCount > 0` | `ApplyRepoFix` |
 | C2 routing mismatch | `C2RoutingMismatch` (`c2-routing-mismatch.js`) | claude | `data.routing.agents` with `verdict === 'mismatch'` | one `C2:<agentType>` each (expected family, models seen as evidence) | warn | none |
 | C3 section health | `C3SectionHealth` (`c3-section-health.js`) | claude | `status` of `plugins`, `hooks`, `claudeMem`, `rtk` | one `C3:<section>` per section that is not `ok`; detail ends with a fixed next-step sentence per section | `warn` section status gives warn; `missing` gives bad (same order as `summarize()`) | none |
-| C4 live-only keys | `C4LiveOnlyKeys` (`c4-live-only-keys.js`) | claude | `liveOnlyKeys` from `ClaudeSource` | `C4:live-only` (key names as evidence) | info | none. The detail always says the change belongs in repo `claude/`, never in the live file |
+| C4 live-only keys | `C4LiveOnlyKeys` (`c4-live-only-keys.js`) | claude | `liveOnlyKeys` from `ClaudeSource` | `C4:live-only` (key names as evidence) | info | `AdoptLiveKeysFix`: copies the importable keys into repo `claude/settings.json` only (never the live file; secret-capable keys such as `env` are excluded), restorable |
+| C5 missing hook script | `C5MissingHookScript` (`c5-missing-hook-script.js`) | claude | `missingHookScripts` (live and repo hooks whose script file is missing) | `C5:hook-scripts` (scope, event, path; never the command text) | warn | none |
 | X1 missing trusted project | `X1MissingTrustedProject` (`x1-missing-trusted-project.js`) | codex | `data.config.projects` (path list), existence checked in `CodexSource` with `fs.existsSync` | one `X1:<sha1 12>` per vanished path (temp folders included) | warn | `RemoveCodexProjectFix` |
 | X2 stale backups | `X2StaleBackups` (`x2-stale-backups.js`) | codex | `data.backups` (names matching `config.toml.bak*`) | `X2:backups` when count >= 3 | info | none |
 | X3 large log db | `X3LargeLogDb` (`x3-large-log-db.js`) | codex | `data.logs` (`logs_*.sqlite` sizes from `fs.statSync`) | `X3:logs` when any size >= 500 MB | warn | none |
+| X4 missing hook state | `X4MissingHookState` (`x4-missing-hook-state.js`) | codex | `data.config.hookList` with `exists === false` | one `X4:<sha1 12>` per stale `[hooks.state.'<key>']` table | warn | `RemoveCodexTableFix` |
+| X5 MCP without transport | `X5McpNoTransport` (`x5-mcp-no-transport.js`) | codex | `data.config.mcpList` enabled with no `command` or `url` | one `X5:<name>` each | warn | none |
+| X6 many worktrees | `X6ManyWorktrees` (`x6-many-worktrees.js`) | codex | `data.worktrees` (count, oldest mtime) | `X6:worktrees` when count >= 20 or the oldest is over 30 days | info | none |
 
 The severities of C3 and X2 are proposals the spec does not fix; each is one constant in its check file.
 
@@ -303,10 +307,10 @@ Files and values the app never reads
 - Payloads and logs carry counts, states, key names and the paths of Codex trust tables only (X1 evidence). Main-process logs are key=value lines with counts and finding ids, never evidence text.
 
 `CodexSource` config reading (`core/toml-lite.js`): line based, two layers.
-1. Allowlist: values are returned only for the keys `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode` at the top level, `trust_level` in `projects` tables and `enabled` in `plugins.*` and `mcp_servers.*` tables (key names are the Codex names as the spec's wording implies; verify against a real `config.toml` when writing the fixture). Every other key yields its name only, or nothing; tables such as `mcp_servers.<name>` and `plugins.<name>` are only counted, and nested env tables (`mcp_servers.<name>.env`) are never read, since a name like `GITHUB_PAT` would pass a pattern filter.
+1. Allowlist: values are returned only for the keys in `SETTING_KEYS` of `toml-lite.js` (`model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `service_tier`, `approvals_reviewer`, `default_subagent_model`, `default_subagent_reasoning_effort`, `max_concurrent_threads_per_session`, `mcp_optional_startup_grace_ms`; from the top level or the first table that is not a secret, env, project, hook, plugin or MCP table), `trust_level` in `projects` tables and `enabled` in `plugins.*` and `mcp_servers.*` tables (key names are the Codex names as the spec's wording implies; verify against a real `config.toml` when writing the fixture). Every other key yields its name only, or nothing; tables such as `mcp_servers.<name>` and `plugins.<name>` are only counted, and nested env tables (`mcp_servers.<name>.env`) are never read, since a name like `GITHUB_PAT` would pass a pattern filter.
 2. Deny regex `/key|token|secret|password/i` on the key name: a matching key never returns a value, even if it were on the allowlist.
 Multi-line strings and arrays are skipped by their delimiters so a line inside a string is never mistaken for a header. Files larger than 1 MB are not read (the finding says so). shortcut: no full TOML grammar (inline tables and dotted keys on one line are not read), upgrade to a TOML library only if a check needs nested values.
-X2 and X3 use `readdir` and `stat` only (no file is opened). C4 returns key names only.
+X2 and X3 use `readdir` and `stat` only (no file is opened). The C4 finding carries key names only; its preview diff shows the values of the importable keys, which never include secret-capable keys.
 
 Electron switches (set in `main.js` and the two window classes)
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `webSecurity` left on, `enableRemoteModule` absent; both windows use the same `preload.cjs`; it exposes only the frozen `window.monitor` object of the contract, never `ipcRenderer` and never the IPC event object.

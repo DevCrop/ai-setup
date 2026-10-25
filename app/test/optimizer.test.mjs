@@ -229,3 +229,45 @@ test('F2: a scan during an in-flight preview keeps that fix, so the following ap
   assert.equal(o.list()[0].fixState, 'previewed');
   assert.equal((await o.apply('X1:slow', previewId)).fixState, 'applied');
 });
+
+test('F2: overlapping previews of one fix keep it marked until the last one ends', async () => {
+  const gates = [];
+  class GatedFix extends MemFix {
+    async doPreview() { await new Promise((r) => gates.push(r)); return { diff: 'd', previewId: PID }; }
+  }
+  const fix = new GatedFix('X1:twice');
+  const a = fix.preview();
+  const b = fix.preview();
+  await new Promise((r) => setImmediate(r));
+  gates[0]();
+  await a;
+  assert.equal(fix.previewing, true); // the second preview is still running
+  gates[1]();
+  await b;
+  assert.equal(fix.previewing, false);
+});
+
+// B1: the finding vanishes while apply waits on its stale-check preview; the running fix must keep the lock.
+test('B1: a scan during a running apply keeps that fix, so busyFindingId still names it', async () => {
+  let gate = null;
+  let calls = 0;
+  class SlowCheckFix extends MemFix {
+    async doPreview() { if (++calls === 2) await new Promise((r) => { gate = r; }); return { diff: 'd', previewId: PID }; }
+  }
+  const c = new (class extends Check {
+    id = 'C9';
+    source = 'claude';
+    on = true;
+    run() { return this.on ? [new Finding({ id: 'C1:drift', checkId: 'C1', source: 'claude', severity: 'warn', title: 't', detail: 'd', fix: new SlowCheckFix('C1:drift') })] : []; }
+  })();
+  const o = new Optimizer({ checks: [c] });
+  tick(o);
+  const { previewId } = await o.preview('C1:drift');
+  const pending = o.apply('C1:drift', previewId);
+  await new Promise((r) => setImmediate(r));
+  c.on = false;
+  tick(o); // the drift reads as gone for one scan while apply.sh --dry-run still runs
+  assert.equal(o.busyFindingId(), 'C1:drift');
+  gate();
+  assert.equal((await pending).fixState, 'applied');
+});
