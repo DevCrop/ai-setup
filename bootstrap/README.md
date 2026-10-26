@@ -12,6 +12,16 @@ PowerShell을 열고(관리자 아님) 한 줄을 붙여 넣습니다. 실행 �
 
 먼저 무엇을 할지만 보려면 끝에 `-DryRun`을 붙입니다(저장소를 아직 받지 않은 새 PC에서는 모듈 단계가 "clone 뒤에 생김"으로 건너뛰어집니다). 이미 저장소가 있으면 `powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap\setup.ps1`로 바로 실행해도 됩니다.
 
+## 맥에서 실행
+
+`setup.ps1`은 Windows 전용입니다. 맥은 터미널에서 아래 한 줄을 붙여 넣습니다. Homebrew가 없으면 먼저 깔고(맥 로그인 비밀번호를 물음), git, jq, node, rtk, Claude Code를 설치한 뒤 이 저장소를 `~/project/ai-setup`(`AI_SETUP_DIR`로 바꿈)에 받고 `apply.sh`와 플러그인 설치까지 합니다. 끝에 단계별 표를 보여 줍니다. 미리 보려면 끝에 `--dry-run`을 붙입니다. Claude Monitor 앱과 `machine` 모듈은 맥에서 돌리지 않습니다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/setup-mac.sh -o /tmp/ai-setup-mac.sh && bash /tmp/ai-setup-mac.sh
+```
+
+플러그인 단계가 로그인 전이라 실패했으면 `claude`로 로그인하고 세션을 한 번 열었다 닫은 뒤 같은 줄을 다시 실행합니다. 검사는 `bash scripts/qa-setup-mac.sh`(가짜 도구로 돌려서 아무것도 설치하지 않음)입니다.
+
 ## 하는 일 (순서대로)
 
 1. 도구: Git(Git Bash 포함), Node.js LTS, jq, rtk는 `winget`으로, Claude Code는 공식 설치 명령(`irm https://claude.ai/install.ps1 | iex`)으로 설치합니다. 이미 있으면 버전만 출력하고 넘어갑니다. winget이 약관 동의를 요구하면 자동으로 동의합니다. Git과 Node.js는 PC 전체에 설치되므로 Windows가 관리자 확인 창(UAC)을 띄울 수 있습니다.
