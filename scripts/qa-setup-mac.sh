@@ -30,6 +30,8 @@ for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebre
   printf '%s' "$out" | grep -qF "[dry-run] $p" || { ok=0; echo "  missing: $p"; }
 done
 [ "$ok" = 1 ] && pass "fresh dry run lists brew, the four tools, claude, clone and both plugins" || bad "fresh dry run plan ($out)"
+out_b="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin AI_SETUP_BRANCH=feat/x "$t/core/bash" "$s" --dry-run 2>&1)"
+printf '%s' "$out_b" | grep -qF "[dry-run] git clone -b feat/x https://github.com/DevCrop/ai-setup.git" && pass "AI_SETUP_BRANCH clones that branch" || bad "AI_SETUP_BRANCH ($out_b)"
 printf '%s' "$out" | grep -qE '^[a-z@-]+ +ok ' && bad "fresh dry run reports a planned step as ok ($out)" || pass "fresh dry run reports no step as ok"
 
 # Set-up Mac, real run: stubs for brew/rtk/claude/curl/node, real git and jq, a local clone as the repo.

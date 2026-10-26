@@ -5,7 +5,7 @@
 # Usage (new Mac, Terminal):
 #   curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/setup-mac.sh -o /tmp/ai-setup-mac.sh && bash /tmp/ai-setup-mac.sh
 # Options: --dry-run prints each step as "[dry-run] ..." and changes nothing. AI_SETUP_DIR sets the clone path
-# (default ~/project/ai-setup). AI_SETUP_UNAME overrides `uname -s` (tests only).
+# (default ~/project/ai-setup). AI_SETUP_BRANCH clones that branch instead of the default one (a new clone only). AI_SETUP_UNAME overrides `uname -s` (tests only).
 set -u
 dry=0
 case "${1:-}" in --dry-run) dry=1 ;; "") ;; *) echo "usage: bash setup-mac.sh [--dry-run]" >&2; exit 2 ;; esac
@@ -14,6 +14,7 @@ case "${1:-}" in --dry-run) dry=1 ;; "") ;; *) echo "usage: bash setup-mac.sh [-
 
 repo_url="https://github.com/DevCrop/ai-setup.git"
 repo="${AI_SETUP_DIR:-$HOME/project/ai-setup}"
+branch="${AI_SETUP_BRANCH:-}"
 summary=""
 note() { summary="$summary$(printf '%-22s %-8s %s' "$1" "$2" "$3")
 "; echo "[$1] $2 $3"; }
@@ -88,7 +89,8 @@ elif ! command -v git >/dev/null 2>&1 && [ "$dry" = 0 ]; then
   note repo failed "git is missing"
 else
   run mkdir -p "$(dirname "$repo")"
-  if run git clone "$repo_url" "$repo"; then note repo "$done_" "cloned to $repo"; else note repo failed "git clone"; fi
+  if [ -n "$branch" ]; then b=(-b "$branch"); else b=(); fi
+  if run git clone ${b[@]+"${b[@]}"} "$repo_url" "$repo"; then note repo "$done_" "cloned to $repo"; else note repo failed "git clone"; fi
 fi
 
 # ---- apply claude/ to ~/.claude
