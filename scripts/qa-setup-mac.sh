@@ -21,7 +21,7 @@ out="$(bash "$s" --bogus 2>&1)"; rc=$?
 
 # Fresh Mac, dry run: every step planned, nothing written.
 mkdir "$t/h1"
-out="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin "$t/core/bash" "$s" --dry-run 2>&1)"; rc=$?
+out="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin AI_SETUP_BREW_PATHS=/nonexistent "$t/core/bash" "$s" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ -z "$(ls -A "$t/h1")" ] && pass "fresh dry run: exit 0, HOME untouched" || bad "fresh dry run (rc=$rc; $(ls -A "$t/h1"); $out)"
 ok=1
 for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" "brew install git" "brew install jq" "brew install node" "brew install rtk" "brew install oven-sh/bun/bun" \
@@ -30,7 +30,7 @@ for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebre
   printf '%s' "$out" | grep -qF "[dry-run] $p" || { ok=0; echo "  missing: $p"; }
 done
 [ "$ok" = 1 ] && pass "fresh dry run lists brew, the five tools, claude, clone and both plugins" || bad "fresh dry run plan ($out)"
-out_b="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin AI_SETUP_BRANCH=feat/x "$t/core/bash" "$s" --dry-run 2>&1)"
+out_b="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin AI_SETUP_BREW_PATHS=/nonexistent AI_SETUP_BRANCH=feat/x "$t/core/bash" "$s" --dry-run 2>&1)"
 printf '%s' "$out_b" | grep -qF "[dry-run] git clone -b feat/x https://github.com/DevCrop/ai-setup.git" && pass "AI_SETUP_BRANCH clones that branch" || bad "AI_SETUP_BRANCH ($out_b)"
 printf '%s' "$out" | grep -qE '^[a-z@-]+ +ok ' && bad "fresh dry run reports a planned step as ok ($out)" || pass "fresh dry run reports no step as ok"
 

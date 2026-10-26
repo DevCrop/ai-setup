@@ -5,7 +5,7 @@
 # Usage (new Mac, Terminal):
 #   curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/setup-mac.sh -o /tmp/ai-setup-mac.sh && bash /tmp/ai-setup-mac.sh
 # Options: --dry-run prints each step as "[dry-run] ..." and changes nothing. AI_SETUP_DIR sets the clone path
-# (default ~/project/ai-setup). AI_SETUP_BRANCH clones that branch instead of the default one (a new clone only). AI_SETUP_UNAME overrides `uname -s` (tests only).
+# (default ~/project/ai-setup). AI_SETUP_BRANCH clones that branch instead of the default one (a new clone only). AI_SETUP_UNAME overrides `uname -s` and AI_SETUP_BREW_PATHS the brew locations it probes (tests only).
 set -u
 dry=0
 case "${1:-}" in --dry-run) dry=1 ;; "") ;; *) echo "usage: bash setup-mac.sh [--dry-run]" >&2; exit 2 ;; esac
@@ -23,7 +23,7 @@ run() { if [ "$dry" = 1 ]; then echo "[dry-run] $*"; else "$@"; fi; }
 if [ "$dry" = 1 ]; then done_=planned; else done_=ok; fi
 
 # ---- Homebrew (its installer also installs the Xcode command line tools, which bring git)
-for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+for b in ${AI_SETUP_BREW_PATHS:-/opt/homebrew/bin/brew /usr/local/bin/brew}; do
   command -v brew >/dev/null 2>&1 || { [ -x "$b" ] && eval "$("$b" shellenv)"; }
 done
 if command -v brew >/dev/null 2>&1; then
@@ -34,7 +34,7 @@ elif [ "$dry" = 1 ]; then
 else
   echo "[brew] installing Homebrew; it asks for your Mac login password"
   if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && { eval "$("$b" shellenv)"; break; }; done
+    for b in ${AI_SETUP_BREW_PATHS:-/opt/homebrew/bin/brew /usr/local/bin/brew}; do [ -x "$b" ] && { eval "$("$b" shellenv)"; break; }; done
     # Keep brew on PATH in new terminals (zsh is the macOS default shell).
     if command -v brew >/dev/null 2>&1 && ! grep -qs 'brew shellenv' "$HOME/.zprofile"; then
       echo "eval \"\$($(command -v brew) shellenv)\"" >> "$HOME/.zprofile"
