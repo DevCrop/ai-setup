@@ -24,12 +24,12 @@ mkdir "$t/h1"
 out="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin "$t/core/bash" "$s" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [ -z "$(ls -A "$t/h1")" ] && pass "fresh dry run: exit 0, HOME untouched" || bad "fresh dry run (rc=$rc; $(ls -A "$t/h1"); $out)"
 ok=1
-for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" "brew install git" "brew install jq" "brew install node" "brew install rtk" \
+for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" "brew install git" "brew install jq" "brew install node" "brew install rtk" "brew install oven-sh/bun/bun" \
          "curl -fsSL https://claude.ai/install.sh | bash" "git clone https://github.com/DevCrop/ai-setup.git $t/h1/project/ai-setup" \
          "claude -p ok" "claude plugin install ponytail@ponytail" "claude plugin install claude-mem@thedotmack"; do
   printf '%s' "$out" | grep -qF "[dry-run] $p" || { ok=0; echo "  missing: $p"; }
 done
-[ "$ok" = 1 ] && pass "fresh dry run lists brew, the four tools, claude, clone and both plugins" || bad "fresh dry run plan ($out)"
+[ "$ok" = 1 ] && pass "fresh dry run lists brew, the five tools, claude, clone and both plugins" || bad "fresh dry run plan ($out)"
 out_b="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin AI_SETUP_BRANCH=feat/x "$t/core/bash" "$s" --dry-run 2>&1)"
 printf '%s' "$out_b" | grep -qF "[dry-run] git clone -b feat/x https://github.com/DevCrop/ai-setup.git" && pass "AI_SETUP_BRANCH clones that branch" || bad "AI_SETUP_BRANCH ($out_b)"
 printf '%s' "$out" | grep -qE '^[a-z@-]+ +ok ' && bad "fresh dry run reports a planned step as ok ($out)" || pass "fresh dry run reports no step as ok"
@@ -37,7 +37,7 @@ printf '%s' "$out" | grep -qE '^[a-z@-]+ +ok ' && bad "fresh dry run reports a p
 # Set-up Mac, real run: stubs for brew/rtk/claude/curl/node, real git and jq, a local clone as the repo.
 mkdir -p "$t/stub" "$t/h2/project" "$t/mem"
 log="$t/calls.log"
-for c in brew node rtk claude curl; do printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$c" "$log" > "$t/stub/$c"; chmod +x "$t/stub/$c"; done
+for c in brew node rtk bun claude curl; do printf '#!/bin/sh\necho "%s $*" >> "%s"\n' "$c" "$log" > "$t/stub/$c"; chmod +x "$t/stub/$c"; done
 # Origin is a one-commit snapshot of HEAD on branch main: CI checks out a shallow, detached merge ref, which can be
 # neither pushed nor pulled with --ff-only. Everything stays offline; a missing fixture stops the test so the
 # script under test never falls back to cloning from GitHub.
@@ -56,7 +56,8 @@ out="$(run2 --dry-run)"; rc=$?
 out="$(run2)"; rc=$?
 [ "$rc" = 0 ] && [ -f "$t/h2/.claude/settings.json" ] && [ -f "$t/h2/.claude/CLAUDE.md" ] && pass "set-up Mac: exit 0, apply wrote ~/.claude" || bad "set-up run (rc=$rc; $out)"
 grep -q "claude plugin install ponytail@ponytail" "$log" && grep -q "claude plugin install claude-mem@thedotmack" "$log" \
-  && grep -q "^claude -p ok" "$log" && pass "a headless session registers the marketplaces, then both plugins install" || bad "plugin calls ($(cat "$log"))"
+  && grep -q "claude plugin update ponytail@ponytail" "$log" && grep -q "claude plugin update claude-mem@thedotmack" "$log" \
+  && grep -q "^claude -p ok" "$log" && pass "a headless session registers the marketplaces, then both plugins install and update to the pin" || bad "plugin calls ($(cat "$log"))"
 grep -q "^brew install" "$log" || grep -q "^curl" "$log" && bad "installed a tool that was already there ($(cat "$log"))" || pass "tools already on PATH are not reinstalled"
 [ "$(jq -r .CLAUDE_MEM_REDACT_ENABLED "$t/mem/settings.json")" = true ] && pass "claude-mem settings applied" || bad "claude-mem settings"
 

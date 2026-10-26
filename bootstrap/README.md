@@ -14,7 +14,7 @@ PowerShell을 열고(관리자 아님) 한 줄을 붙여 넣습니다. 실행 �
 
 ## 맥에서 실행
 
-`setup.ps1`은 Windows 전용입니다. 맥은 터미널에서 아래 한 줄을 붙여 넣습니다. Homebrew가 없으면 먼저 깔고(맥 로그인 비밀번호를 물음), git, jq, node, rtk, Claude Code를 설치한 뒤 이 저장소를 `~/project/ai-setup`(`AI_SETUP_DIR`로 바꿈)에 받고 `apply.sh`와 플러그인 설치까지 합니다. 끝에 단계별 표를 보여 줍니다. 미리 보려면 끝에 `--dry-run`을 붙입니다. Claude Monitor 앱과 `machine` 모듈은 맥에서 돌리지 않습니다.
+`setup.ps1`은 Windows 전용입니다. 맥은 터미널에서 아래 한 줄을 붙여 넣습니다. Homebrew가 없으면 먼저 깔고(맥 로그인 비밀번호를 물음), git, jq, node, rtk, bun(claude-mem이 씀), Claude Code를 설치한 뒤 이 저장소를 `~/project/ai-setup`(`AI_SETUP_DIR`로 바꿈)에 받고 `apply.sh`, 플러그인 설치와 고정 버전으로 업데이트까지 합니다. 끝에 단계별 표를 보여 줍니다. 미리 보려면 끝에 `--dry-run`을 붙입니다. Claude Monitor 앱과 `machine` 모듈은 맥에서 돌리지 않습니다.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/setup-mac.sh -o /tmp/ai-setup-mac.sh && bash /tmp/ai-setup-mac.sh

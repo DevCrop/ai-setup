@@ -43,14 +43,16 @@ else
   if command -v brew >/dev/null 2>&1; then note brew ok "installed"; else note brew failed "see the installer output above"; fi
 fi
 
-# ---- git, jq, node, rtk
-for f in git jq node rtk; do
+# ---- git, jq, node, rtk, bun
+# command:formula. claude-mem needs bun; without it its worker never starts (its own auto-install did not run on a real Mac).
+for e in git:git jq:jq node:node rtk:rtk bun:oven-sh/bun/bun; do
+  f="${e%%:*}"; formula="${e#*:}"
   if command -v "$f" >/dev/null 2>&1; then note "$f" ok "already on PATH"; continue; fi
   if ! command -v brew >/dev/null 2>&1; then
-    if [ "$dry" = 1 ]; then echo "[dry-run] brew install $f"; note "$f" planned "brew install $f"; else note "$f" failed "needs Homebrew"; fi
+    if [ "$dry" = 1 ]; then echo "[dry-run] brew install $formula"; note "$f" planned "brew install $formula"; else note "$f" failed "needs Homebrew"; fi
     continue
   fi
-  if run brew install "$f"; then note "$f" "$done_" "brew install $f"; else note "$f" failed "brew install $f"; fi
+  if run brew install "$formula"; then note "$f" "$done_" "brew install $formula"; else note "$f" failed "brew install $formula"; fi
 done
 # Another crate is also called rtk; the right one has `rtk gain`.
 if [ "$dry" = 0 ] && command -v rtk >/dev/null 2>&1 && ! rtk gain >/dev/null 2>&1; then
@@ -113,7 +115,8 @@ if command -v claude >/dev/null 2>&1 || [ "$dry" = 1 ]; then
     claude -p "ok" >/dev/null 2>&1 || true
   fi
   for p in ponytail@ponytail claude-mem@thedotmack; do
-    if run claude plugin install "$p"; then note "$p" "$done_" "installed"; else note "$p" failed "run 'claude' once (log in, then /exit), then re-run this script"; fi
+    # install leaves an older copy alone ("already installed"); update moves it to the version settings.json pins.
+    if run claude plugin install "$p" && run claude plugin update "$p"; then note "$p" "$done_" "installed, at the pinned version"; else note "$p" failed "run 'claude' once (log in, then /exit), then re-run this script"; fi
   done
   if [ "$dry" = 1 ]; then
     run bash "$repo/scripts/setup-claude-mem.sh"
