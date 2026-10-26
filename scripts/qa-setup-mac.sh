@@ -26,7 +26,7 @@ out="$(HOME="$t/h1" PATH="$t/core" AI_SETUP_UNAME=Darwin "$t/core/bash" "$s" --d
 ok=1
 for p in "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" "brew install git" "brew install jq" "brew install node" "brew install rtk" \
          "curl -fsSL https://claude.ai/install.sh | bash" "git clone https://github.com/DevCrop/ai-setup.git $t/h1/project/ai-setup" \
-         "claude plugin install ponytail@ponytail" "claude plugin install claude-mem@thedotmack"; do
+         "claude -p ok" "claude plugin install ponytail@ponytail" "claude plugin install claude-mem@thedotmack"; do
   printf '%s' "$out" | grep -qF "[dry-run] $p" || { ok=0; echo "  missing: $p"; }
 done
 [ "$ok" = 1 ] && pass "fresh dry run lists brew, the four tools, claude, clone and both plugins" || bad "fresh dry run plan ($out)"
@@ -56,7 +56,7 @@ out="$(run2 --dry-run)"; rc=$?
 out="$(run2)"; rc=$?
 [ "$rc" = 0 ] && [ -f "$t/h2/.claude/settings.json" ] && [ -f "$t/h2/.claude/CLAUDE.md" ] && pass "set-up Mac: exit 0, apply wrote ~/.claude" || bad "set-up run (rc=$rc; $out)"
 grep -q "claude plugin install ponytail@ponytail" "$log" && grep -q "claude plugin install claude-mem@thedotmack" "$log" \
-  && pass "both plugins installed through claude" || bad "plugin calls ($(cat "$log"))"
+  && grep -q "^claude -p ok" "$log" && pass "a headless session registers the marketplaces, then both plugins install" || bad "plugin calls ($(cat "$log"))"
 grep -q "^brew install" "$log" || grep -q "^curl" "$log" && bad "installed a tool that was already there ($(cat "$log"))" || pass "tools already on PATH are not reinstalled"
 [ "$(jq -r .CLAUDE_MEM_REDACT_ENABLED "$t/mem/settings.json")" = true ] && pass "claude-mem settings applied" || bad "claude-mem settings"
 

@@ -105,8 +105,15 @@ fi
 
 # ---- plugins (need a logged-in claude; apply.sh has already added their marketplaces to settings.json)
 if command -v claude >/dev/null 2>&1 || [ "$dry" = 1 ]; then
+  # Marketplaces declared in settings.json are only registered when a session starts; `plugin install` alone reports
+  # "not found in marketplace". One one-word headless session registers them (a few tokens; fails if not logged in).
+  if [ "$dry" = 1 ]; then
+    echo "[dry-run] claude -p ok"
+  elif ! claude plugin marketplace list 2>/dev/null | grep -q 'thedotmack'; then
+    claude -p "ok" >/dev/null 2>&1 || true
+  fi
   for p in ponytail@ponytail claude-mem@thedotmack; do
-    if run claude plugin install "$p"; then note "$p" "$done_" "installed"; else note "$p" failed "log in with 'claude', then re-run this script"; fi
+    if run claude plugin install "$p"; then note "$p" "$done_" "installed"; else note "$p" failed "run 'claude' once (log in, then /exit), then re-run this script"; fi
   done
   if [ "$dry" = 1 ]; then
     run bash "$repo/scripts/setup-claude-mem.sh"
