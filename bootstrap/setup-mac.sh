@@ -63,15 +63,20 @@ if command -v claude >/dev/null 2>&1; then
 elif [ "$dry" = 1 ]; then
   echo "[dry-run] curl -fsSL https://claude.ai/install.sh | bash"; note claude planned "native installer"
 elif curl -fsSL https://claude.ai/install.sh | bash && command -v claude >/dev/null 2>&1; then
-  note claude ok "installed"
+  # The installer does not add ~/.local/bin to the shell profile; without this, `claude` is not found in a new terminal.
+  grep -qs '.local/bin' "$HOME/.zprofile" || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zprofile"
+  note claude ok "installed (open a new terminal to use it)"
 else
   note claude failed "see https://code.claude.com/docs/en/setup"
 fi
 
 # ---- repo
 if [ -d "$repo/.git" ]; then
-  if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+  # GIT_OPTIONAL_LOCKS=0 keeps status from refreshing .git/index, so a dry run writes nothing.
+  if [ -n "$(GIT_OPTIONAL_LOCKS=0 git -C "$repo" status --porcelain 2>/dev/null)" ]; then
     note repo ok "$repo has local changes; not pulled"
+  elif ! git -C "$repo" rev-parse -q --verify '@{u}' >/dev/null 2>&1; then
+    note repo ok "$repo has no upstream branch; not pulled"
   elif run git -C "$repo" pull --ff-only; then
     note repo "$done_" "pulled $repo"
   else
