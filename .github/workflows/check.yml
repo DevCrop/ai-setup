@@ -43,3 +43,26 @@ jobs:
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
       - name: Eval graders (self-test, no model calls)
         run: bash scripts/eval.sh selftest "$(mktemp -d)"
+  # The bootstrap and hooks also run on real Macs and Windows PCs; check the parts that differ there.
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Mac bootstrap, apply, session hooks
+        run: |
+          brew install jq
+          bash scripts/qa-setup-mac.sh
+          bash scripts/qa-apply.sh
+          bash scripts/qa-hooks-session.sh
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Windows bootstrap (dry runs only, PowerShell 5.1)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap/test-setup.ps1; exit $LASTEXITCODE
+      - name: Apply and session hooks (Git Bash)
+        shell: bash
+        run: |
+          bash scripts/qa-apply.sh
+          bash scripts/qa-hooks-session.sh
