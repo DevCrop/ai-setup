@@ -25,7 +25,7 @@ jobs:
           for f in scripts/*.sh claude/*.sh claude/hooks/*.sh; do bash -n "$f"; done
           jq empty claude/settings.json scripts/owned-keys.json scripts/removed-keys.json
       - name: Shellcheck (warnings and errors)
-        run: shellcheck -S warning scripts/*.sh claude/statusline.sh claude/hooks/*.sh
+        run: shellcheck -S warning scripts/*.sh bootstrap/*.sh claude/statusline.sh claude/hooks/*.sh
       - name: Apply scenarios
         run: bash scripts/qa-apply.sh
       - name: Session hooks, status line, claude-mem setup
@@ -33,6 +33,8 @@ jobs:
           bash scripts/qa-hooks-session.sh
           bash scripts/qa-statusline.sh
           bash scripts/qa-setup-claude-mem.sh
+      - name: Mac bootstrap (stub tools)
+        run: bash scripts/qa-setup-mac.sh
       - name: Monitor parsers
         run: bash scripts/qa-monitor.sh
       - name: Claude Monitor core (no Electron binary)
@@ -41,3 +43,26 @@ jobs:
         run: QA_MODE=selftest bash scripts/qa-role-agents.sh "$(mktemp -d)"
       - name: Eval graders (self-test, no model calls)
         run: bash scripts/eval.sh selftest "$(mktemp -d)"
+  # The bootstrap and hooks also run on real Macs and Windows PCs; check the parts that differ there.
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Mac bootstrap, apply, session hooks
+        run: |
+          brew install jq
+          bash scripts/qa-setup-mac.sh
+          bash scripts/qa-apply.sh
+          bash scripts/qa-hooks-session.sh
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Windows bootstrap (dry runs only, PowerShell 5.1)
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap/test-setup.ps1; exit $LASTEXITCODE
+      - name: Apply and session hooks (Git Bash)
+        shell: bash
+        run: |
+          bash scripts/qa-apply.sh
+          bash scripts/qa-hooks-session.sh
