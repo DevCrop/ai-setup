@@ -11,7 +11,10 @@ bad() { echo "FAIL  $1"; fail=$((fail+1)); }
 
 # A bin dir with only the core utils the script needs, so git/jq/node/rtk/claude/brew/curl count as missing.
 mkdir "$t/core"
-for c in bash uname dirname head grep mkdir cat; do ln -s "$(command -v "$c")" "$t/core/$c"; done
+# Wrappers, not symlinks: Git Bash on Windows copies on `ln -s`, and a copied msys exe cannot find its dll (exit 127).
+for c in bash uname dirname head grep mkdir cat; do printf '#!/bin/sh
+exec "%s" "$@"
+' "$(command -v "$c")" > "$t/core/$c"; chmod +x "$t/core/$c"; done
 
 out="$(AI_SETUP_UNAME=Linux bash "$s" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && printf '%s' "$out" | grep -q "setup.ps1" && pass "not macOS: exit 2, points to setup.ps1" || bad "non-mac guard (rc=$rc; $out)"

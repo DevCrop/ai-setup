@@ -91,6 +91,7 @@ $prereqs = @(
     @{ Name = 'node';   Id = 'OpenJS.NodeJS.LTS' },
     @{ Name = 'jq';     Id = 'jqlang.jq' },
     @{ Name = 'rtk';    Id = 'rtk-ai.rtk' },
+    @{ Name = 'bun';    Id = 'Oven-sh.Bun' },   # claude-mem needs it; without it its worker never starts
     @{ Name = 'claude'; Id = '' }
 )
 

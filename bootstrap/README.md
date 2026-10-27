@@ -20,11 +20,11 @@ PowerShell을 열고(관리자 아님) 한 줄을 붙여 넣습니다. 실행 �
 curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/setup-mac.sh -o /tmp/ai-setup-mac.sh && bash /tmp/ai-setup-mac.sh
 ```
 
-플러그인 단계가 로그인 전이라 실패했으면 `claude`로 로그인하고 세션을 한 번 열었다 닫은 뒤 같은 줄을 다시 실행합니다. 검사는 `bash scripts/qa-setup-mac.sh`(가짜 도구로 돌려서 아무것도 설치하지 않음)입니다.
+플러그인 단계가 로그인 전이라 실패했으면 `claude`로 로그인하고 세션을 한 번 열었다 닫은 뒤 같은 줄을 다시 실행합니다. `claude-mem-cfg`만 실패로 남으면 세션을 한 번 더 열었다 닫고 한 번 더 실행합니다. 아래 "손으로 해야 하는 것"의 3, 4번도 맥에 해당합니다. 검사는 `bash scripts/qa-setup-mac.sh`(가짜 도구로 돌려서 아무것도 설치하지 않음)입니다.
 
 ## 하는 일 (순서대로)
 
-1. 도구: Git(Git Bash 포함), Node.js LTS, jq, rtk는 `winget`으로, Claude Code는 공식 설치 명령(`irm https://claude.ai/install.ps1 | iex`)으로 설치합니다. 이미 있으면 버전만 출력하고 넘어갑니다. winget이 약관 동의를 요구하면 자동으로 동의합니다. Git과 Node.js는 PC 전체에 설치되므로 Windows가 관리자 확인 창(UAC)을 띄울 수 있습니다.
+1. 도구: Git(Git Bash 포함), Node.js LTS, jq, rtk, bun(claude-mem이 씀)은 `winget`으로, Claude Code는 공식 설치 명령(`irm https://claude.ai/install.ps1 | iex`)으로 설치합니다. 이미 있으면 버전만 출력하고 넘어갑니다. winget이 약관 동의를 요구하면 자동으로 동의합니다. Git과 Node.js는 PC 전체에 설치되므로 Windows가 관리자 확인 창(UAC)을 띄울 수 있습니다.
 2. `repo`: `https://github.com/DevCrop/ai-setup.git`을 `-RepoPath`(기본 `D:\project\ai-setup`, D: 드라이브가 없으면 `$HOME\project\ai-setup`)에 받습니다. 이미 있으면 변경 사항이 없을 때만 `git pull --ff-only`, 있으면 경고만 하고 계속합니다.
 3. `workroot`: 프로젝트(`<client>/<stage>/<name>`)가 들어갈 작업 폴더를 묻고(기본 `D:\work` 또는 `$HOME\work`) 만든 뒤 `$HOME\.ai-setup\machine.json`에 저장합니다. 작업 폴더가 필요한 모듈은 이 파일을 읽으면 됩니다(지금 읽는 모듈은 없음). 저장소에는 들어가지 않습니다. `-WorkRoot`를 주면 저장된 값보다 우선합니다.
 4. 모듈: `bootstrap/modules.json`에 적힌 순서대로 실행합니다.
@@ -41,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/set
 | 옵션 | 뜻 |
 |---|---|
 | `-DryRun` | 할 일을 `[dry-run]` 줄로 보여 주기만 하고 아무것도 바꾸지 않음 |
-| `-Only a,b` / `-Skip a,b` | 이름(`git`, `node`, `jq`, `rtk`, `claude`, `repo`, `workroot`, 모듈 이름)으로 고르기. 없는 이름이면 아무것도 하지 않고 멈춤 |
+| `-Only a,b` / `-Skip a,b` | 이름(`git`, `node`, `jq`, `rtk`, `bun`, `claude`, `repo`, `workroot`, 모듈 이름)으로 고르기. 없는 이름이면 아무것도 하지 않고 멈춤 |
 | `-NonInteractive` | 묻지 않고 기본값 사용 |
 | `-RepoPath`, `-WorkRoot` | 기본 경로 바꾸기 |
 
@@ -50,9 +50,9 @@ curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/set
 ## 손으로 해야 하는 것
 
 1. Claude 로그인: 새 터미널에서 `claude`를 실행해 브라우저로 로그인합니다.
-2. 플러그인: 로그인 전이라 `claude-plugins`가 실패했으면, Claude Code 세션을 한 번 열었다 닫은 뒤 `-Only claude-plugins`로 다시 실행합니다. `setup-claude-mem.sh`는 claude-mem이 한 번 실행돼 `~/.claude-mem/settings.json`을 만든 뒤에야 성공합니다.
+2. 플러그인: 로그인 전이라 `claude-plugins`가 실패했으면, Claude Code 세션을 한 번 열었다 닫은 뒤 `-Only claude-plugins`로 다시 실행합니다(맥은 같은 한 줄을 다시 실행). `scripts/install-plugins.sh`가 마켓플레이스 등록, 설치, 고정 버전 업데이트를 합니다. `setup-claude-mem.sh`는 claude-mem이 한 번 실행돼 `~/.claude-mem/settings.json`을 만든 뒤에야 성공하므로, 새 PC에서는 플러그인이 설치된 뒤 세션을 한 번 더 열었다 닫고 한 번 더 실행해야 할 수 있습니다.
 3. 데스크톱 앱: 설정 → Claude Code → "권한 우회 모드 허용"을 켭니다.
-4. 채팅 개인 지침: `docs/chat-instructions.md`의 블록을 claude.ai 설정 → 프로필에 붙여 넣습니다.
+4. 채팅 개인 지침: `docs/chat-instructions.md`의 블록을 claude.ai 설정 → 프로필에 붙여 넣습니다(맥도 같음).
 
 ## 기능 추가
 
