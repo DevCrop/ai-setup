@@ -151,7 +151,7 @@ compact "" "{\"source\":\"compact\",\"cwd\":\"$t/home/w/proj/gone/wt\"}"  # no C
 printf '%s' "$out" | grep -q 'TASK: ship PR A' && ok "compact: a removed cwd is skipped and its parents are still searched" || bad "compact: removed cwd [$out]"
 mkdir -p "$t/realcfg"; ln -s "$t/realcfg" "$t/linkcfg" 2>/dev/null
 if [ -L "$t/linkcfg" ]; then
-  audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$t/realcfg/settings.json\"}"
+  audit "$t/linkcfg" "{\"source\":\"user_settings\",\"file_path\":\"$(cd "$t/realcfg" && pwd -P)/settings.json\"}"  # pwd -P: macOS /var is itself a symlink
   [ "$(wc -l < "$t/realcfg/config-changes.log" 2>/dev/null | tr -d ' ')" = 1 ] && ok "audit: a symlinked config dir reported by its real path is still logged" || bad "audit: symlinked config dir"
 else
   echo "SKIP  audit: symlinked config dir (ln -s made no symlink here)"
