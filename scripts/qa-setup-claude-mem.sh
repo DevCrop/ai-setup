@@ -21,5 +21,27 @@ out="$(run)"; rc=$?
   && ls "$mem"/settings.json.bak-* >/dev/null 2>&1 && pass "apply sets the two keys, keeps the rest, leaves a backup" || bad "apply (rc=$rc; $out)"
 out="$(run)"; rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "already set" && pass "second run: already set" || bad "second run (rc=$rc; $out)"
+
+# scripts/install-plugins.sh (Windows claude-plugins module) with a stub claude that logs its calls.
+mkdir "$t/cl"; log="$t/claude.log"
+stub() { printf '#!/bin/sh
+echo "$*" >> "%s"
+%s
+' "$log" "$1" > "$t/cl/claude"; chmod +x "$t/cl/claude"; : > "$log"; }
+stub 'exit 0'
+out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
+want="$(printf 'plugin marketplace list
+-p ok
+plugin install ponytail@ponytail
+plugin update ponytail@ponytail
+plugin install claude-mem@thedotmack
+plugin update claude-mem@thedotmack')"
+[ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, then installs and updates both" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
+stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo thedotmack; exit 0'
+PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
+grep -q '^-p ok' "$log" && bad "install-plugins: headless session run although the marketplace is listed" || pass "install-plugins: no headless session when already registered"
+stub '[ "$2" = install ] && exit 1; exit 0'
+PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
+[ "$rc" != 0 ] && pass "install-plugins: a failed install exits non-zero" || bad "install-plugins: failed install hidden (rc=$rc)"
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

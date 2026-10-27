@@ -133,7 +133,9 @@ echo
 echo "step                   status   note"
 printf '%s' "$summary"
 echo
-echo "By hand: run 'claude' once to log in, then re-run this script if a plugin step failed."
+echo "By hand: run 'claude' once to log in, then re-run this script if a plugin step failed"
+echo "  (if only claude-mem-cfg failed: open and close one more session, then re-run)."
+echo "Chat: paste the block in docs/chat-instructions.md into claude.ai Settings -> Profile."
 echo "Desktop app: Settings -> Claude Code -> turn on \"Allow bypass permissions mode\"."
 case "$summary" in *" failed "*) exit 1 ;; esac
 exit 0

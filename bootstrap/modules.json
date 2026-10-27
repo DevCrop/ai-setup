@@ -8,11 +8,10 @@
   },
   {
     "name": "claude-plugins",
-    "description": "Install the ponytail and claude-mem plugins and set claude-mem options",
+    "description": "Register the plugin marketplaces, install ponytail and claude-mem at their pinned versions and set claude-mem options",
     "check": "scripts/setup-claude-mem.sh",
     "run": [
-      ["claude", "plugin", "install", "ponytail@ponytail"],
-      ["claude", "plugin", "install", "claude-mem@thedotmack"],
+      ["bash", "scripts/install-plugins.sh"],
       ["bash", "scripts/setup-claude-mem.sh"]
     ],
     "optional": true
