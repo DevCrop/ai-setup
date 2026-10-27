@@ -61,8 +61,15 @@ jobs:
       - name: Windows bootstrap (dry runs only, PowerShell 5.1)
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap/test-setup.ps1; exit $LASTEXITCODE
-      - name: Apply and session hooks (Git Bash)
+      - name: Apply, session hooks, status line, Mac bootstrap stubs, monitor (Git Bash)
         shell: bash
         run: |
           bash scripts/qa-apply.sh
           bash scripts/qa-hooks-session.sh
+          bash scripts/qa-statusline.sh
+          bash scripts/qa-setup-claude-mem.sh
+          bash scripts/qa-setup-mac.sh
+          bash scripts/qa-monitor.sh
+      - name: Claude Monitor core (the app ships on Windows)
+        shell: bash
+        run: cd app && node --test
