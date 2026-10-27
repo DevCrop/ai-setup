@@ -39,7 +39,8 @@ plugin update claude-mem@thedotmack')"
 [ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, then installs and updates both" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
 stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo thedotmack; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
-grep -q '^-p ok' "$log" && bad "install-plugins: headless session run although the marketplace is listed" || pass "install-plugins: no headless session when already registered"
+[ "$(cat "$log")" = "$(printf '%s
+' "$want" | grep -v '^-p ok')" ] && pass "install-plugins: no headless session when already registered, both still installed" || bad "install-plugins registered path ($(cat "$log"))"
 stub '[ "$2" = install ] && exit 1; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
 [ "$rc" != 0 ] && pass "install-plugins: a failed install exits non-zero" || bad "install-plugins: failed install hidden (rc=$rc)"
