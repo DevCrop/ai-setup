@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import path from 'node:path';
-import { plan, LINK_NAME } from '../install.mjs';
+import { plan, stopApp, LINK_NAME } from '../install.mjs';
 
 const appDir = path.join('X:', 'repo', 'app');
 const startupDir = path.join('X:', 'Startup');
@@ -26,4 +26,8 @@ test('install plan: the old .vbs starter is removed, the same-named old shortcut
   const vbs = path.join(startupDir, 'claude-monitor.vbs');
   const p = plan({ appDir, startupDir, exists: (f) => f === exe || f === vbs || f.endsWith('Claude monitor.lnk'), start: false });
   assert.deepEqual(p.steps.map((s) => [s.kind, s.kind === 'remove' ? s.path : '']), [['remove', vbs], ['shortcut', '']]);
+});
+
+test('install stop: succeeds when no Claude Monitor is running', { skip: process.platform !== 'win32' }, () => {
+  assert.doesNotThrow(() => stopApp(path.join('X:', 'no-such', 'electron.exe')));
 });

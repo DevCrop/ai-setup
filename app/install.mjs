@@ -47,13 +47,16 @@ const sha = (file) => { try { return createHash('sha256').update(fs.readFileSync
 const readStamp = (file) => { try { return fs.readFileSync(file, 'utf8').trim(); } catch { return null; } };
 
 // Stops only Electron processes started from this app's own electron.exe.
-function stopApp(exe) {
-  const ps = 'Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $env:CM_EXE } | Stop-Process -Force';
+// Filters the full list: "Get-Process electron" with no match exits 1 even with -ErrorAction SilentlyContinue or Ignore.
+export function stopApp(exe) {
+  const ps = 'Get-Process | Where-Object { $_.Name -eq "electron" -and $_.Path -eq $env:CM_EXE } | Stop-Process -Force';
   execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { env: { ...process.env, CM_EXE: exe }, stdio: 'inherit' });
 }
 
 function installDeps(s) {
   execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ci', '--no-audit', '--no-fund'], { cwd: s.cwd, stdio: 'inherit', shell: process.platform === 'win32' });
+  // Electron 44 has no postinstall; its binary is fetched only by install.js. Without this the stamp would hide a missing electron.exe.
+  execFileSync(process.execPath, [path.join(s.cwd, 'node_modules', 'electron', 'install.js')], { cwd: s.cwd, stdio: 'inherit' });
   if (s.lockHash) fs.writeFileSync(s.stamp, s.lockHash);
 }
 
