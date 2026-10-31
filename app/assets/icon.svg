@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Claude Monitor: a glass lens over a warm field, a tick gauge and the spark inside. Source of icon.png and icon.ico (app/tools/make-icon.mjs). -->
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ec8a5e"/>
+      <stop offset=".5" stop-color="#cf5f3c"/>
+      <stop offset="1" stop-color="#7e2c17"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx=".28" cy=".22" r=".7">
+      <stop offset="0" stop-color="#ffd7b8" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffe2c9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".46"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".26"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dy="6"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".28"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="tile"><rect x="8" y="8" width="240" height="240" rx="58"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect x="8" y="8" width="240" height="240" fill="url(#field)"/>
+    <rect x="8" y="8" width="240" height="240" fill="url(#bloom)"/>
+  </g>
+  <rect x="9" y="9" width="238" height="238" rx="57" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>
+
+  <!-- glass lens -->
+  <g filter="url(#soft)">
+    <circle cx="128" cy="128" r="84" fill="url(#glass)"/>
+    <circle cx="128" cy="128" r="83" fill="none" stroke="url(#rim)" stroke-width="2.5"/>
+  </g>
+  <path d="M62 104 A70 70 0 0 1 176 62 A92 60 0 0 0 62 104 Z" fill="url(#sheen)" opacity=".85"/>
+
+  <!-- tick gauge: 270 degrees, the first three quarters lit -->
+  <g stroke-linecap="round" stroke-width="5">
+    <g id="ticks" stroke="#fff">
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-135 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-113 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-90 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-68 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-45 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(-23 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(23 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(45 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(68 128 128)"/>
+    </g>
+    <g stroke="#fff" stroke-opacity=".35">
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(90 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(113 128 128)"/>
+      <line x1="128" y1="60" x2="128" y2="72" transform="rotate(135 128 128)"/>
+    </g>
+  </g>
+
+  <!-- spark -->
+  <g transform="translate(128 132)" fill="#fff" filter="url(#soft)">
+    <rect x="-5" y="-38" width="10" height="76" rx="5"/>
+    <rect x="-5" y="-38" width="10" height="76" rx="5" transform="rotate(45)"/>
+    <rect x="-5" y="-38" width="10" height="76" rx="5" transform="rotate(90)"/>
+    <rect x="-5" y="-38" width="10" height="76" rx="5" transform="rotate(135)"/>
+  </g>
+</svg>

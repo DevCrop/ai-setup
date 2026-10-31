@@ -2,6 +2,7 @@
 // so CI tests it with a fake ipcMain (docs/api-claude-monitor.md section 1).
 
 import { MESSAGES } from '../core/errors.js';
+import { THEMES } from '../core/settings-store.js';
 
 export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'rt', 'opt'];
 
@@ -19,6 +20,7 @@ const FIELDS = {
   tab: (v) => TABS.includes(v),
   notify: (v) => typeof v === 'boolean',
   updateCheck: (v) => typeof v === 'boolean',
+  theme: (v) => THEMES.includes(v),
   quietStart: (v) => v === '' || str(HHMM, 5, 5)(v),
   quietEnd: (v) => v === '' || str(HHMM, 5, 5)(v),
 };
@@ -40,7 +42,7 @@ export const CHANNELS = {
   'fix:apply': { roles: ['main'], keys: ['findingId', 'previewId'] },
   'fix:restore': { roles: ['main'], keys: ['findingId'] },
   'settings:get': { roles: ['main'], none: true },
-  'settings:set': { roles: ['main'], optional: ['notify', 'quietStart', 'quietEnd', 'updateCheck'] },
+  'settings:set': { roles: ['main'], optional: ['notify', 'quietStart', 'quietEnd', 'updateCheck', 'theme'] },
 };
 
 export function fail(code, detail) {

@@ -3,10 +3,12 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { savedPosition } from './placement.js';
+import { isFrameUrl } from '../core/frame-url.js';
 
 const APP_DIR = path.resolve(import.meta.dirname, '..');
 const PRELOAD = path.join(APP_DIR, 'preload', 'preload.cjs');
 const page = (name) => path.join(APP_DIR, 'renderer', name, 'index.html');
+const ICON = path.join(APP_DIR, 'assets', 'icon.png');
 
 const WEB_PREFS = { preload: PRELOAD, contextIsolation: true, nodeIntegration: false, sandbox: true };
 
@@ -17,7 +19,7 @@ function lockDown(win, pageUrl, frameUrl) {
   wc.on('will-navigate', (e) => { if (e.url.split('#')[0] !== pageUrl) e.preventDefault(); });
   wc.on('will-frame-navigate', (e) => {
     if (e.isMainFrame) return;
-    if (!frameUrl || e.url.split('#')[0] !== frameUrl()) e.preventDefault();
+    if (!frameUrl || !isFrameUrl(e.url, frameUrl())) e.preventDefault();
   });
 }
 
@@ -57,7 +59,7 @@ export class StripWindow extends AppWindow {
     this.win = new BrowserWindow({
       width: StripWindow.WIDTH, height: StripWindow.HEIGHT, frame: false, resizable: false,
       maximizable: false, minimizable: false, fullscreenable: false, alwaysOnTop: true,
-      skipTaskbar: true, transparent: false, show: false, title: 'Claude Monitor',
+      skipTaskbar: true, transparent: false, show: false, title: 'Claude Monitor', icon: ICON,
       webPreferences: WEB_PREFS,
     });
     // 'screen-saver' level keeps it above the taskbar and maximized windows.
@@ -93,7 +95,7 @@ export class MainWindow extends AppWindow {
     if (!this.isAlive()) {
       this.win = new BrowserWindow({
         width: 1280, height: 860, minWidth: 900, minHeight: 600, show: false,
-        title: 'Claude Monitor', autoHideMenuBar: true, webPreferences: WEB_PREFS,
+        title: 'Claude Monitor', icon: ICON, autoHideMenuBar: true, webPreferences: WEB_PREFS,
       });
       this.win.setMenu(null);
       lockDown(this.win, this.pageUrl, this.frameUrl);

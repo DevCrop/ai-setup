@@ -437,3 +437,26 @@ test('summarize: status bar state is counts only, worst section wins, garbage gi
   assert.deepEqual([junk.todayOutput, junk.cacheHit7d, junk.claudeMem, junk.generatedAt], [0, null, null, null]);
   assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput']);
 });
+
+test('page: the embedded frame is reloaded by the app and keeps state in window.name', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const vm = await import('node:vm');
+  const d = { generatedAt: NOW, refreshSec: 10 };
+  assert.match(render(d), /location\.reload\(\)\},10000\)/);
+  const html = render(d, { embed: true });
+  assert.doesNotMatch(html, /location\.reload/);
+  // Run the head script where Web Storage throws, as in the app's sandboxed frame.
+  const head = /<script>(try\{var t=localStorage[\s\S]*?)<\/script>/.exec(html)[1];
+  const deny = { get() { throw new Error('SecurityError'); } };
+  const win = { name: '', document: { documentElement: { setAttribute() {} } } };
+  Object.defineProperty(win, 'localStorage', deny);
+  Object.defineProperty(win, 'sessionStorage', deny);
+  win.window = win;
+  vm.runInNewContext(head, win);
+  win.MS.setItem('monitor-seen', 'ov');
+  assert.equal(JSON.parse(win.name)['monitor-seen'], 'ov');
+  win.MS = undefined;
+  vm.runInNewContext(head, win); // a reload of the same frame keeps window.name
+  assert.equal(win.MS.getItem('monitor-seen'), 'ov');
+  assert.equal(win.MS.getItem('toString'), null);
+});

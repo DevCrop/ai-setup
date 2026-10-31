@@ -19,6 +19,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
 | `tab` | one of `ov flow orch route tok sav set codex rt opt` |
 | `notify`, `updateCheck` | boolean |
+| `theme` | one of `"system"`, `"light"`, `"dark"` |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | all objects | no keys other than those listed; max serialized size 1 KB |
 
@@ -142,7 +143,7 @@ UI state mapping (spec wording): `starting` shows "시작 중", `ok` shows "정�
 - Errors: none. A renderer treats it as data and validates nothing it does not render.
 
 ### `view:html`
-Decision: the monitor html is loaded as a file, not passed as a string. `render()` reloads itself with `location.reload()` and the file is replaced atomically on each tick, so a `srcdoc` string would keep showing old content.
+Decision: the monitor html is loaded as a file, not passed as a string. The file is replaced atomically on each tick, so a `srcdoc` string would keep showing old content. The sandboxed frame cannot reload itself and has no Web Storage, so the embed render drops its `location.reload()` timer, the shell reloads the frame when `status.generatedAt` changes (`src="<fileUrl>?v=<generatedAt>#<tab>"`), and the page keeps its per-session state (seen tabs, KPI history, scroll and meter values for the refresh morph) in `window.name`.
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<{ fileUrl: string, generatedAt: string }>`. `fileUrl` is the `file://` URL of `claude-monitor.html` in the app's user-data folder. The shell sets `<iframe sandbox="allow-scripts" src="<fileUrl>#<tab>">` for the seven monitor tabs (`ov flow orch route tok sav set`); changing only the `#<tab>` part switches the tab without a reload. The `codex`, `rt` and `opt` tabs are rendered by the shell itself from `status:get`, `codex:detail`, `routines:detail` and `findings:list`.
@@ -249,13 +250,13 @@ RoutinesDetail = {
 ### `settings:get`
 Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
-- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`. Quiet hours apply only when both are set.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `theme: "system"`. Quiet hours apply only when both are set.
 - Errors: `FORBIDDEN`, `INTERNAL`.
 
 ### `settings:set`
 - Direction: renderer to main, invoke. Caller: main window.
-- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck }` (rules in section 1).
-- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `updateCheck: false` stops update network calls from the next run; `notify: false` stops toasts.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, theme }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run; `notify: false` stops toasts.
 - Errors: `BAD_REQUEST`, `FORBIDDEN`, `INTERNAL`.
 
 ### `app:open-main`

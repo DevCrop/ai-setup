@@ -162,7 +162,7 @@ details.fold[open] summary { margin-bottom: var(--sp-3); }
 .tile .n { font-size: 20px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
 .tile .l { font-size: var(--t-xs); color: var(--muted); }
 .kpi { background: var(--panel); padding: var(--pad); display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; transition: background-color 1.2s ease; }
-.kpi.hot { background: var(--hl); transition: none; }
+.kpi.hot { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); transition: none; }
 .kpi .k { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vr { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--sp-2); min-width: 0; }
 .kpi .v { font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; overflow-wrap: anywhere; }
@@ -374,6 +374,8 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
   .anim .stack i, .anim .ubar-fill, .anim .mb i { transform-origin: left; animation: grow .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
   .anim .stk .sg { transform-origin: bottom; animation: growy .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
   .anim .cv-v { animation: fadein .4s .5s both; }
+  /* KPI cells sit on the band's hairline colour, so only their content fades; fading the cell would flash that colour. */
+  .anim .kpi > *, .anim .panel { animation: ndin .45s var(--ease) both; animation-delay: calc(var(--k, 0) * 45ms); }
   .anim .ring .fg { animation: draw .9s var(--ease) both; }
   .anim .root, .anim .flow { animation: ndin .4s var(--ease) both; }
   .anim .stem { transform-origin: top; animation: growy .3s .15s var(--ease) both; }
@@ -381,6 +383,37 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
   .anim .nd::before { transform-origin: left; animation: grow .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
   .anim .nd::after, .anim .nd .tr { transform-origin: top; animation: growy .3s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 120ms); }
 }
+
+/* 6 readout layer: dot-grid paper, mono figures, tick meters, underline tabs. Overrides the base rules above on purpose. */
+:root { --ticks: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px); }
+:root:not([data-theme="dark"]) { --bg: #f4f4f1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1f1e1d; } }
+html { background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line-strong) 70%, transparent) 1px, transparent 0); background-size: 16px 16px; background-repeat: repeat; }
+.kpi .v, .tile .n, .big, .hit, .ubar-v, .utable td.num, .dlg b, .lrow .lv, .meta time { font-family: var(--mono); letter-spacing: -.02em; }
+.kpi .v, .tile .n, .big, .hit { font-weight: 500; }
+.ring text, .dn .dv { font-family: var(--mono); letter-spacing: -.03em; }
+.kpi .k, .lr.lh, .utable th { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.ubar-track, .mb { height: 14px; border-radius: 0; background: color-mix(in srgb, var(--line-strong) 75%, transparent); -webkit-mask: var(--ticks); mask: var(--ticks); }
+.ubar-fill, .mb i { border-radius: 0; background: var(--fc, var(--accent)); }
+.mb { margin: var(--sp-2) 0 var(--sp-1); }
+.brand h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tabs { background: none; padding: 0; gap: var(--sp-4); border-radius: 0; }
+.tabs button { padding: 0 2px; border-radius: 0; box-shadow: inset 0 -2px 0 transparent; }
+.tabs button[aria-current="page"] { background: none; box-shadow: inset 0 -2px 0 var(--fg); }
+/* lists and charts below the KPIs: tick stacks, status pills, quieter tables and columns */
+.stack, .lr .stack { height: 12px; gap: 0; border-radius: 0; background: color-mix(in srgb, var(--line-strong) 75%, transparent); -webkit-mask: var(--ticks); mask: var(--ticks); }
+.pitem > .st, .lrow .lv { justify-self: end; padding: 1px var(--sp-2); border-radius: 999px; background: var(--fill); color: var(--muted); font-size: 11px; line-height: 18px; }
+.pitem > .st::before { display: none; }
+/* Tints stay at 8%: stronger ones drop 11px status text below 4.5:1 contrast. */
+.pitem > .st.warn, .lrow .lv.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, var(--panel)); }
+.pitem > .st.bad, .lrow .lv.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--panel)); }
+.pitem > .st.ok, .lrow .lv.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--panel)); }
+.utable tbody tr:hover td { background: var(--fill); }
+.utable td { padding-block: var(--sp-2); }
+.stk .sg { max-width: 32px; }
+.stk .sg:first-of-type { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.dn circle { stroke-width: 12; }
+.hl line { stroke-width: 1.25; opacity: .5; }
 `;
 
 // Lookup that ignores inherited keys such as "constructor".
@@ -701,8 +734,8 @@ function kpiRow(d) {
   const okN = agents.filter((a) => a.verdict === 'ok').length;
   const up = reach(mem);
   return `<div class="kpis band">` +
-    coreKpis(d, false) +
-    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준') +
+    coreKpis(d, true) +
+    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준', '', { bar: agents.length ? okN / agents.length : NaN }) +
     kpi('claude-mem 상태', up.label, `워커 ${txt(mem.version)}`, up.st === 'missing' ? 'bad' : '') + `</div>`;
 }
 
@@ -1208,7 +1241,13 @@ function viewSetup(d) {
 
 // ---------- Page ----------
 
-const HEAD_SCRIPT = `try{var t=localStorage.getItem('monitor-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}`;
+// MS: per-session store for the page scripts. The app's sandboxed frame has no Web Storage, so it falls back to
+// window.name, which survives reloads of the same frame.
+const HEAD_SCRIPT = `try{var t=localStorage.getItem('monitor-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}
+window.MS=(function(){try{sessionStorage.setItem('monitor-probe','1');return sessionStorage}catch(e){}
+var d={};try{d=JSON.parse(window.name||'{}');if(!d||typeof d!=='object')d={}}catch(e){d={}}
+function save(){try{window.name=JSON.stringify(d)}catch(e){}}
+return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v);save()},removeItem:function(k){delete d[k];save()}}})();`;
 
 // Tabs follow location.hash (ids are not element ids, so the browser never jumps); the theme choice is stored in localStorage.
 const BODY_SCRIPT = String.raw`(function(){
@@ -1216,19 +1255,19 @@ var ids=${JSON.stringify(TABS.map((t) => t.id))};
 var btns=document.querySelectorAll('.tabs button');
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 // First visit of a tab in this browser session plays the entrance animation; reloads and revisits render static.
-function seen(id){if(/[?&]static/.test(location.search))return true;try{var s=sessionStorage.getItem('monitor-seen')||'';if((','+s+',').indexOf(','+id+',')>=0)return true;sessionStorage.setItem('monitor-seen',s?s+','+id:id);return false}catch(e){return true}}
+function seen(id){if(/[?&]static/.test(location.search))return true;try{var s=MS.getItem('monitor-seen')||'';if((','+s+',').indexOf(','+id+',')>=0)return true;MS.setItem('monitor-seen',s?s+','+id:id);return false}catch(e){return true}}
 function countUp(v){v.querySelectorAll('.kpi .v').forEach(function(e){
 var t=e.textContent,m=/^([\d,]*\.?\d+)(.*)$/.exec(t);if(!m)return;
 var raw=m[1],n=parseFloat(raw.replace(/,/g,'')),dec=(raw.split('.')[1]||'').length,comma=raw.indexOf(',')>=0,t0=null;
 function fmt(x){var s=x.toFixed(dec);return comma?s.replace(/\B(?=(\d{3})+(?!\d))/g,','):s}
 function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/700);
 if(p<1){e.textContent=fmt(n*(1-Math.pow(1-p,3)))+m[2];requestAnimationFrame(step)}else e.textContent=t}
-e.textContent=fmt(0)+m[2];requestAnimationFrame(step)})}
+e.setAttribute('data-final',t);e.textContent=fmt(0)+m[2];requestAnimationFrame(step)})}
 function show(user){var h=location.hash.slice(1);if(ids.indexOf(h)<0)h=ids[0];
 ids.forEach(function(i){var v=document.getElementById('v-'+i);if(v)v.hidden=(i!==h)});
 btns.forEach(function(b){if(b.getAttribute('data-tab')===h)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
 var v=document.getElementById('v-'+h);if(!v||reduce)return;
-if(!seen(h)){v.classList.add('anim');if(h==='ov')countUp(v)}
+if(!seen(h)){v.querySelectorAll('.kpi, .panel').forEach(function(e,i){e.style.setProperty('--k',Math.min(i,12))});v.classList.add('anim');if(h==='ov')countUp(v)}
 else if(user){v.classList.remove('fade');void v.offsetWidth;v.classList.add('fade')}}
 function top(){var s=document.getElementById('stage');if(s)s.scrollTop=0;window.scrollTo(0,0)}
 btns.forEach(function(b){b.addEventListener('click',function(){location.hash=b.getAttribute('data-tab')})});
@@ -1278,7 +1317,7 @@ var cur;try{cur=JSON.parse(el.textContent)}catch(e){return}
 if(!cur||typeof cur!=='object')return;
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var KEYS=['rtk','out','hit','share','live','run'];
-var hist=[];try{hist=JSON.parse(sessionStorage.getItem('monitor-hist')||'[]');if(!Array.isArray(hist))hist=[];hist=hist.filter(function(h){return h&&typeof h==='object'})}catch(e){hist=[]}
+var hist=[];try{hist=JSON.parse(MS.getItem('monitor-hist')||'[]');if(!Array.isArray(hist))hist=[];hist=hist.filter(function(h){return h&&typeof h==='object'})}catch(e){hist=[]}
 var prev=hist.length?hist[hist.length-1]:null;if(!prev||typeof prev!=='object')prev=null;
 function num(v){return typeof v==='number'&&isFinite(v)}
 function f1(x){return String(Math.round(x*10)/10)}
@@ -1307,12 +1346,46 @@ var dl=n.querySelector('.dl');
 if(dl&&t){dl.textContent=t;dl.className+=a>b?' pos':' neg';if(reduce)dl.className+=' on';else requestAnimationFrame(function(){requestAnimationFrame(function(){dl.className+=' on'})})}
 spark(n.querySelector('.sl'),key)})(nodes[i])}
 hist.push(cur);if(hist.length>30)hist=hist.slice(-30);
-try{sessionStorage.setItem('monitor-hist',JSON.stringify(hist))}catch(e){}
+try{MS.setItem('monitor-hist',JSON.stringify(hist))}catch(e){}
 var lc=document.getElementById('lc');
-if(lc){var t2=null;try{t2=sessionStorage.getItem('monitor-lc')}catch(e){}
+if(lc){var t2=null;try{t2=MS.getItem('monitor-lc')}catch(e){}
 if(changed){var n=new Date(),p2=function(x){return String(x).padStart(2,'0')};t2=p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());
-try{sessionStorage.setItem('monitor-lc',t2)}catch(e){}}
+try{MS.setItem('monitor-lc',t2)}catch(e){}}
 if(t2)lc.textContent=t2}
+})()}catch(e){}`;
+
+// Refresh continuity: the page reloads every refreshSec. It keeps the visible tab's scroll offsets (saved on scroll; pagehide
+// is not reliable in the app's sandboxed frame), meter widths and KPI texts, and on the same tab restores the scroll and
+// morphs changed meters and numbers from their old values.
+const MORPH_SCRIPT = String.raw`try{(function(){
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function view(){return document.querySelector('.view:not([hidden])')}
+function parts(v){return{all:v.getElementsByTagName('*'),bars:v.querySelectorAll('.mb i, .ubar-fill'),vals:v.querySelectorAll('.kpi .v')}}
+var k=null;try{k=JSON.parse(MS.getItem('monitor-keep')||'null')}catch(e){}
+var v0=view(),ws={},ts={};
+function save(){var v=view();if(!v)return;var p=parts(v),s=[],i,e;
+for(i=0;i<p.all.length;i++){e=p.all[i];if(e.scrollTop||e.scrollLeft)s.push([i,e.scrollTop,e.scrollLeft])}
+if(!ws[v.id]){ws[v.id]=[].map.call(p.bars,function(b){return b.style.width});ts[v.id]=[].map.call(p.vals,function(b){return b.getAttribute('data-final')||b.textContent})} // data-final: the text a running count-up ends on
+try{MS.setItem('monitor-keep',JSON.stringify({id:v.id,y:window.scrollY,s:s,w:ws[v.id],t:ts[v.id]}))}catch(e){}}
+var timer=0;function later(ms){clearTimeout(timer);timer=setTimeout(save,ms)}
+document.addEventListener('scroll',function(){later(150)},true);
+window.addEventListener('hashchange',function(){later(800)}); // after the 700 ms count-up, so final texts are kept
+save();
+if(!k||typeof k!=='object'||!v0||k.id!==v0.id)return;
+var v=v0,p=parts(v);
+// Restored again after load: a frame being loaded may not have its final size yet.
+function back(){(k.s||[]).forEach(function(r){var e=p.all[r[0]];if(e){e.scrollTop=r[1];e.scrollLeft=r[2]}});if(k.y)window.scrollTo(0,k.y)}
+back();requestAnimationFrame(back);window.addEventListener('load',back);
+if(reduce||v.classList.contains('anim'))return;
+var w=k.w||[];if(w.length===p.bars.length)[].forEach.call(p.bars,function(b,i){var to=b.style.width;if(!w[i]||w[i]===to)return;
+b.style.transition='none';b.style.width=w[i];void b.offsetWidth;b.style.transition='width .7s var(--ease)';b.style.width=to});
+var t=k.t||[];if(t.length===p.vals.length)[].forEach.call(p.vals,function(e,i){var to=e.textContent,a=/^([\d,]*\.?\d+)(.*)$/.exec(t[i]||''),b=/^([\d,]*\.?\d+)(.*)$/.exec(to);
+if(!a||!b||a[0]===b[0]||a[2]!==b[2])return;
+var x=parseFloat(a[1].replace(/,/g,'')),y=parseFloat(b[1].replace(/,/g,'')),dec=(b[1].split('.')[1]||'').length,comma=b[1].indexOf(',')>=0,t0=null;
+function fmt(n){var s=n.toFixed(dec);return comma?s.replace(/\B(?=(\d{3})+(?!\d))/g,','):s}
+function step(ts){if(t0===null)t0=ts;var q=Math.min(1,(ts-t0)/600);
+if(q<1){e.textContent=fmt(x+(y-x)*(1-Math.pow(1-q,3)))+b[2];requestAnimationFrame(step)}else e.textContent=to}
+requestAnimationFrame(step)});
 })()}catch(e){}`;
 
 // Embed only (Electron shell): one screen, no page scroll. The page is a viewport-high flex column; panels scroll inside themselves.
@@ -1327,7 +1400,7 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 .embed .kpi .v { font-size: 22px; line-height: 1.25; }
 .embed .tile .n { font-size: 17px; } .embed .big { font-size: 20px; }
 .embed .ring { width: 72px; height: 72px; } .embed .dn { width: 96px; height: 96px; }
-.embed .panel { overflow: auto; gap: var(--sp-2); scrollbar-width: thin; }
+.embed .panel { overflow: hidden auto; gap: var(--sp-2); scrollbar-width: thin; }
 .embed .panel > * { flex-shrink: 0; }
 .embed .ph { position: sticky; top: calc(var(--pad) * -1); z-index: 1; margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 0; padding: var(--pad) var(--pad) var(--sp-1); background: var(--panel); }
 .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2 { flex: 1 1 0; min-height: 0; }
@@ -1344,6 +1417,13 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
   .embed #v-flow > .panel:first-child { grid-row: 1 / 3; }
   .embed #v-flow > .panel:nth-child(2) { grid-column: 2; }
   .embed #v-flow > .g22 { grid-column: 2; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
+}
+/* Narrow windows stack every panel; one-screen fitting would squeeze them, so the page scrolls instead. */
+@media (max-width: 640px) {
+  body.embed, .embed .stage { height: auto; overflow: visible; }
+  .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2, .embed .view > .grid2 > .col > .panel { flex: none; }
+  .embed .g12, .embed .g22, .embed .view > .grid2 { grid-template-rows: none; grid-auto-rows: auto; }
+  .embed .panel { overflow: visible; }
 }
 `;
 
@@ -1393,7 +1473,7 @@ ${sec ? `<i class="prog" style="animation-duration:${sec}s" aria-hidden="true"><
 ${sections}
 </main>
 <script type="application/json" id="m">${metricsJson(d)}</script>
-<script>${sec ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}${embed ? EMBED_SCRIPT : ''}</script>
+<script>${sec && !embed ? `setTimeout(function(){location.reload()},${sec * 1000});` : ''}${BODY_SCRIPT}${LIVE_SCRIPT}${embed ? EMBED_SCRIPT : ''}${MORPH_SCRIPT}</script>
 </body>
 </html>
 `;

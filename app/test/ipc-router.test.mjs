@@ -48,7 +48,7 @@ test('bad payloads answer BAD_REQUEST and never reach the handler', async () => 
     ['settings:set', { notify: 'yes' }],
     ['settings:set', { quietStart: '24:00' }],
     ['settings:set', { quietEnd: '7:00' }],
-    ['settings:set', { theme: 'dark' }],
+    ['settings:set', { theme: 'blue' }],
     ['settings:get', {}],
     ['fix:preview', { findingId: 'U1x' }],
   ];
@@ -59,7 +59,7 @@ test('bad payloads answer BAD_REQUEST and never reach the handler', async () => 
   assert.deepEqual(calls, []);
   assert.equal((await call('app:open-main', 'main', { tab: 'opt' })).ok, true);
   assert.equal((await call('app:open-main', 'strip', undefined)).ok, true);
-  assert.equal((await call('settings:set', 'main', { notify: false, quietStart: '22:00', quietEnd: '', updateCheck: true })).ok, true);
+  assert.equal((await call('settings:set', 'main', { notify: false, quietStart: '22:00', quietEnd: '', updateCheck: true, theme: 'dark' })).ok, true);
   assert.equal((await call('fix:preview', 'main', { findingId: 'U2:repo' })).ok, true);
 });
 
