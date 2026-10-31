@@ -1241,7 +1241,8 @@
     var stale = status.state === 'stale' || status.state === 'error';
     p.hidden = false;
     p.classList.toggle('stale', stale);
-    $('livet').textContent = (stale ? '멈춤' : '실시간') + ' · ' + (age < 2 ? '방금' : age < 60 ? age + '초 전' : Math.floor(age / 60) + '분 전') + ' · ' + status.refreshSec + '초마다';
+    $('livet').textContent = (stale ? '멈춤' : '실시간') + ' · ' + (age < 2 ? '방금' : age < 60 ? age + '초 전' : Math.floor(age / 60) + '분 전');
+    p.title = status.refreshSec + '초마다 새로 읽습니다';
   }
   function pulse() {
     var p = $('livep');

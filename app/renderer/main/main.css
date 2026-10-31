@@ -268,9 +268,14 @@ fieldset.pl legend { float: left; padding: 0; }
 .kpi .v, .ring .num, .urow time, .kv > span:nth-child(2) { font-family: var(--mono); letter-spacing: -.02em; }
 .kpi .v { font-weight: 500; }
 .kpi .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-.tabs { background: none; padding: 0; gap: var(--sp-4); border-radius: 0; align-self: stretch; }
+.tabs { background: none; padding: 0; gap: var(--sp-3); border-radius: 0; align-self: stretch; }
 .tabs button { padding: 0 2px; border-radius: 0; box-shadow: inset 0 -2px 0 transparent; }
 .tabs button[aria-current="page"] { background: none; box-shadow: inset 0 -2px 0 var(--fg); }
+/* one stroke icon set beside each tab label; the open tab's icon takes the accent */
+.tabs .ti { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.tabs button[aria-current="page"] .ti { stroke: var(--accent-ink); opacity: 1; }
+@media (max-width: 1240px) { .tabs .ti { display: none; } }
+@media (max-width: 1000px) { #livet { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
 .ring { background: none; }
 .ring::before { display: none; }
 .ring::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--tone) calc(var(--p) * 1%), var(--line-strong) 0);
