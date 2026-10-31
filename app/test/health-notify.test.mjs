@@ -151,3 +151,29 @@ test('SettingsStore: defaults, checked keys, atomic write, broken file reads as 
   fs.writeFileSync(file, 'nope');
   assert.deepEqual(new SettingsStore({ file }).get(), DEFAULT_SETTINGS);
 });
+
+test('digest: once a day from 18:00 with counts only; held by notify off, quiet hours, no output or a bad state; survives a restart', () => {
+  const file = path.join(tmpDir(), 'notify-state.json');
+  const settings = { notify: true, quietStart: '22:00', quietEnd: '07:00' };
+  const { p, clock } = policy({ settings, file, start: at(17, 59) });
+  const st = { state: 'ok', todayOutput: 123456, todayProjects: 2, todaySavedInput: 2500000 };
+  const tips = [f('C11:slow-hook', 'info'), f('C10:x', 'ok')];
+  p.observe(tips);
+  assert.equal(p.digest(st, tips), null); // before 18:00
+  clock.t = at(18, 5);
+  assert.equal(p.digest({ ...st, state: 'stale' }, tips), null);
+  assert.equal(p.digest({ ...st, todayOutput: 0 }, tips), null);
+  settings.notify = false;
+  assert.equal(p.digest(st, tips), null);
+  settings.notify = true;
+  const n = p.digest(st, tips);
+  assert.deepEqual(n, { title: 'Claude Monitor: 오늘 요약', body: '프로젝트 2곳 · 출력 123K 토큰 · 캐시로 입력 2.5M 절약 · 개선 제안 1건.' });
+  assert.equal(p.digest(st, tips), null); // once a day
+  const again = new NotificationPolicy({ file, now: () => clock.t, settings: () => settings });
+  assert.equal(again.digest(st, tips), null); // the date is kept on disk
+  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /123456|slow-hook/);
+  clock.t = at(23) + 86400000; // next day, quiet hours
+  assert.equal(again.digest(st, []), null);
+  clock.t = at(19) + 86400000;
+  assert.match(again.digest({ ...st, todayProjects: 0, todaySavedInput: 0 }, []).body, /^출력 123K 토큰 · 개선 제안 없음\.$/);
+});

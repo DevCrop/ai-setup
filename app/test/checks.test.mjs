@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { Check } from '../core/check.js';
 import * as registry from '../core/checks/index.js';
@@ -16,6 +17,8 @@ import { C6LowCacheHit } from '../core/checks/c6-low-cache-hit.js';
 import { C7MainModel } from '../core/checks/c7-main-model.js';
 import { C8AgentUse } from '../core/checks/c8-agent-use.js';
 import { C9TokenSpike } from '../core/checks/c9-token-spike.js';
+import { C10BigContext } from '../core/checks/c10-big-context.js';
+import { C11TokenEconomizer } from '../core/checks/c11-token-economizer.js';
 import { FINDING_ID_RE } from '../core/finding.js';
 import { NOW, claudeRes, codexRes, fullClaude, snap } from './helpers.mjs';
 
@@ -131,10 +134,10 @@ test('X6: 20 entries or one older than 30 days gives an info finding with the co
 
 test('registry: every export of checks/index.js is a Check with a unique id, and adding a check is one file plus one line', () => {
   const all = Object.values(registry);
-  assert.equal(all.length, 17);
+  assert.equal(all.length, 19);
   const ids = all.map((C) => { const c = new C(); assert.ok(c instanceof Check); assert.ok(c.source); return c.id; });
   assert.equal(new Set(ids).size, ids.length);
-  assert.deepEqual(ids, ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
+  assert.deepEqual(ids, ['C10', 'C11', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
 });
 
 test('every finding id any check can produce matches the contract pattern', () => {
@@ -215,4 +218,37 @@ test('C9: today over 3x the median of earlier days gives info; a quiet history o
   assert.deepEqual(run(days(250000)), []);
   assert.deepEqual(run(days(400000).slice(0, 3)), []); // fewer than 3 earlier days
   assert.deepEqual(run([{ date: d(0), output: 90000 }, ...[1, 2, 3].map((b) => ({ date: d(b), output: 1000 }))]), []); // under the floor
+});
+
+test('C10: a live session over 200k context tokens gives one warn per project; idle or small ones none', () => {
+  const projects = [
+    { projectName: 'ai-setup', live: true, context: 250000, output: 1200 },
+    { projectName: 'blog post', live: true, context: 90000, output: 10 },
+    { projectName: 'old', live: false, context: 0, output: 10 }, // context is only kept for recently active sessions
+    { projectName: null, live: true, context: 300000, output: 0 },
+    { projectName: '작업', live: false, context: 210000, output: 0 },
+    { projectName: '회의', live: true, context: 210000, output: 0 },
+  ];
+  const fs = new C10BigContext().run(snap({ claude: claudeRes(fullClaude({ activity: { status: 'ok', projects } })) }));
+  const h = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
+  assert.deepEqual(fs.map((f) => [f.id, f.severity]), [[`C10:${h('ai-setup')}`, 'warn'], ['C10:unknown', 'warn'], [`C10:${h('작업')}`, 'warn'], [`C10:${h('회의')}`, 'warn']]);
+  assert.match(fs[0].title, /250k/);
+  assert.match(fs[0].detail, /\/compact/);
+  for (const f of fs) assert.match(f.id, FINDING_ID_RE);
+  assert.deepEqual(new C10BigContext().run(snap({ claude: claudeRes(fullClaude()) })), []);
+});
+
+test('C11: slow hook, a waiting prune proposal and a costly overhead each give one info; a missing state gives none', () => {
+  const te = (o) => new C11TokenEconomizer().run(snap({ claude: claudeRes(fullClaude({ tokenEconomizer: { status: 'ok', config: {}, fastHook: true, repos: [], ...o } })) }));
+  const repos = [{ label: 'devcrop/ai-setup', sessions: 3, effectiveTokens: 1000, overheadTokens: 100, nudges: 0, proposed: 2 }, { label: 'o/b', sessions: 1, effectiveTokens: 1000, overheadTokens: 10, nudges: 0, proposed: 0 }];
+  const fs = te({ fastHook: false, repos });
+  assert.deepEqual(fs.map((f) => f.id.replace(/[0-9a-f]{12}$/, 'H')), ['C11:slow-hook', 'C11:prune-H', 'C11:overhead-H']);
+  assert.ok(fs.every((f) => f.severity === 'info'));
+  const long = te({ repos: [{ ...repos[0], label: 'x'.repeat(80) }] }); // 80-char label still gives valid ids
+  assert.equal(long.length, 2);
+  for (const f of long) assert.match(f.id, FINDING_ID_RE);
+  assert.match(fs[2].title, /10%/);
+  assert.deepEqual(te({}), []);
+  assert.deepEqual(te({ fastHook: null }), []);
+  assert.deepEqual(new C11TokenEconomizer().run(snap({ claude: claudeRes(fullClaude({ tokenEconomizer: { status: 'missing' } })) })), []);
 });

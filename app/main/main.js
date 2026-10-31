@@ -97,7 +97,7 @@ if (!app.requestSingleInstanceLock()) {
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
-      const notice = policy.decide(last, status, monitor.optimizer.findings());
+      const notice = policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings());
       last = status;
       if (notice && Notification.isSupported()) {
         const n = new Notification({ ...notice, silent: true });

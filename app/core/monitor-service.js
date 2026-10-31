@@ -205,6 +205,8 @@ export class MonitorService {
       routing: sum?.routing ?? { ok: 0, total: 0 },
       live: sum?.live ?? { sessions: 0, agents: 0 },
       todayOutput: sum?.todayOutput ?? 0,
+      todayProjects: sum?.todayProjects ?? 0,
+      todaySavedInput: sum?.todaySavedInput ?? 0,
       cacheHit7d: sum?.cacheHit7d ?? null,
       claudeMem: sum?.claudeMem ?? null,
       codex,

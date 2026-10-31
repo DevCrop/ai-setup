@@ -7,6 +7,8 @@ export { C6LowCacheHit } from './c6-low-cache-hit.js';
 export { C7MainModel } from './c7-main-model.js';
 export { C8AgentUse } from './c8-agent-use.js';
 export { C9TokenSpike } from './c9-token-spike.js';
+export { C10BigContext } from './c10-big-context.js';
+export { C11TokenEconomizer } from './c11-token-economizer.js';
 export { X1MissingTrustedProject } from './x1-missing-trusted-project.js';
 export { X2StaleBackups } from './x2-stale-backups.js';
 export { X3LargeLogDb } from './x3-large-log-db.js';

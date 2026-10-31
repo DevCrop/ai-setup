@@ -411,6 +411,51 @@ export function buildOrchestration(scan, expected) {
   };
 }
 
+// Today's work per project folder (basename only): main and subagent messages, output, cache reads and the live session's
+// context size (its last main message's input + cache tokens). Counts only, never prompt or tool text.
+export function buildActivity(scan) {
+  const today = dateStr(new Date(scan.nowMs));
+  const by = new Map();
+  // A session belongs to the folder it started in (a later `cd` into a subfolder keeps it there); its subagents follow it.
+  const first = new Map(); const last = new Map(); // project/session -> earliest / latest main record with a cwd
+  for (const f of scan.files) {
+    if (f.isSub) continue;
+    for (const x of f.records) {
+      if (roleOf(f, x) !== 'main') continue;
+      const key = `${f.project}/${f.sessionId}`;
+      if (x.cwdBase && (!first.has(key) || x.ts < first.get(key).ts)) first.set(key, x);
+      if (!last.has(key) || x.ts > last.get(key).ts) last.set(key, x);
+    }
+  }
+  for (const f of scan.files) {
+    const ctxRec = f.isSub ? null : last.get(`${f.project}/${f.sessionId}`);
+    const sessionCwd = first.get(`${f.project}/${f.sessionId}`)?.cwdBase;
+    for (const r of f.records) {
+      const role = roleOf(f, r);
+      if ((role !== 'main' && role !== 'subagent') || dateStr(new Date(r.ts)) !== today) continue;
+      const k = sessionCwd || r.cwdBase || null;
+      if (!by.has(k)) by.set(k, { projectName: k, sessions: new Set(), messages: 0, output: 0, cacheRead: 0, lastAt: 0, live: false, context: 0 });
+      const p = by.get(k);
+      p.sessions.add(f.sessionId); p.messages += 1; p.output += r.output; p.cacheRead += r.cacheRead;
+      p.lastAt = Math.max(p.lastAt, r.ts);
+      if (scan.nowMs - r.ts <= LIVE_MS) p.live = true;
+    }
+    const ck = sessionCwd || ctxRec?.cwdBase || null;
+    // 15 minutes, not LIVE_MS: a short pause must not clear the context (and C10 with it) only to raise it again
+    if (ctxRec && scan.nowMs - ctxRec.ts <= 15 * 60000 && by.has(ck)) {
+      const p = by.get(ck);
+      p.context = Math.max(p.context, ctxRec.input + ctxRec.cacheRead + ctxRec.cacheCreation);
+    }
+  }
+  const projects = [...by.values()].map((p) => ({ ...p, sessions: p.sessions.size, savedInput: Math.round(p.cacheRead * 0.9), lastAt: iso(p.lastAt) }))
+    .sort((a, b) => b.live - a.live || b.lastAt.localeCompare(a.lastAt));
+  return {
+    status: 'ok', note: 'Today, per project folder. Live = a message in the last 2 minutes; context = the last prompt size of a session active in the last 15 minutes.',
+    totals: { projects: projects.length, savedInput: projects.reduce((n, p) => n + p.savedInput, 0) },
+    projects: projects.slice(0, 6),
+  };
+}
+
 // shortcut: a .mjs MONITOR_RTK_BIN runs under this node so tests can use a fake rtk on any OS; drop if tests get a real stub binary.
 const run = (bin, args) => new Promise((resolve, reject) => {
   if (bin.endsWith('.mjs')) { args = [bin, ...args]; bin = process.execPath; }
@@ -633,6 +678,7 @@ export async function collect(opts = {}) {
   const routing = await guard(() => (scan ? buildRouting(scan, expected()) : noScan({ windowDays: WINDOW_DAYS, mainThread: [], background: [], agents: [] })), { windowDays: WINDOW_DAYS, mainThread: [], background: [], agents: [] });
   const tokens = await guard(() => (scan ? buildTokens(scan) : noScan({ days: [], totals: null })), { days: [], totals: null });
   const orchestration = await guard(() => (scan ? buildOrchestration(scan, expected()) : noScan({ sessions: [] })), { sessions: [] });
+  const activity = await guard(() => (scan ? buildActivity(scan) : noScan({ projects: [] })), { projects: [] });
   const rtkRaw = await fetchRtk(bin).catch(() => ({ missing: false, summary: null, daily: [], topCommands: [] }));
   const mem = await fetchMemStats(env);
   const savings = await guard(() => buildSavings({ scan, rtk: rtkRaw, mem, home, nowMs }), { rtk: null, cache: null, claudeMem: null, ponytail: null, delegation: [] });
@@ -644,7 +690,7 @@ export async function collect(opts = {}) {
     plugins: await guard(() => collectPlugins(home, opts.repo), { items: [] }),
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
-    savings, orchestration,
+    savings, orchestration, activity,
     tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || env.MONITOR_TE_HOME || path.join(os.homedir(), '.tokeneconomizer')), nowMs, home), { config: null, repos: [] }),
     setup: await guard(() => collectSetupFlow(home, opts.repo), { agents: [], rules: { delegate: null, routing: null, lanes: null, failure: null }, skills: [], drift: [], driftCount: 0 }),
   };
@@ -667,6 +713,7 @@ export function summarize(d) {
   const today = dateStr(new Date(Date.parse(x.generatedAt) || Date.now()));
   const days = Array.isArray(x.tokens?.days) ? x.tokens.days : [];
   const hit = x.tokens?.totals?.hitRate;
+  const projects = Array.isArray(x.activity?.projects) ? x.activity.projects : [];
   return {
     generatedAt: x.generatedAt ?? null,
     refreshSec: x.refreshSec ?? null,
@@ -678,6 +725,8 @@ export function summarize(d) {
       agents: sessions.reduce((n, s) => n + (Array.isArray(s?.agents) ? s.agents.filter((g) => g?.live === true).length : 0), 0),
     },
     todayOutput: days.filter((t) => t?.date === today).reduce((n, t) => n + (Number(t.output) || 0), 0),
+    todayProjects: Number(x.activity?.totals?.projects) || projects.length,
+    todaySavedInput: Number(x.activity?.totals?.savedInput) || projects.reduce((n, p) => n + (Number(p?.savedInput) || 0), 0),
     cacheHit7d: Number.isFinite(hit) ? hit : null,
     claudeMem: typeof x.claudeMem?.reachable === 'boolean' ? x.claudeMem.reachable : null,
   };
