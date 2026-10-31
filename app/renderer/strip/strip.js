@@ -5,13 +5,15 @@
   var body = $('body');
   var DEFAULT_TIP = '누르면 열기 · 오른쪽 클릭: 메뉴';
 
-  function f1(x) { return String(Math.round(x * 10) / 10); }
+  function f1(x) { return String(Number(x.toFixed(1))); } // same rounding as fixed1 in scripts/monitor-html.mjs
   function fmtOut(n) {
     if (typeof n !== 'number' || !isFinite(n)) return '—';
-    if (n >= 1e8) return f1(n / 1e8) + '억';
-    if (n >= 1e6) return Math.round(n / 1e4) + '만';
-    if (n >= 1e4) return f1(n / 1e4) + '만';
-    return Math.round(n).toLocaleString('en-US');
+    // same rule as compactKo in scripts/monitor-html.mjs: unit and comma form chosen after rounding
+    if (n < 1e4) return Math.round(n).toLocaleString('en-US');
+    var man = Math.round(n / 1e4);
+    if (man >= 1e4) return f1(n / 1e8) + '억';
+    if (Math.round(n / 1e3) / 10 >= 1000) return man.toLocaleString('en-US') + '만';
+    return f1(n / 1e4) + '만';
   }
   function fmtTime(iso) {
     var d = iso ? new Date(iso) : null;
