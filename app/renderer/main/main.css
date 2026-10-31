@@ -174,7 +174,7 @@ h3.sub:first-child { margin-top: 0; }
 
 /* 고침 기록 and header tools */
 .tools { display: flex; align-items: center; gap: var(--sp-2); }
-.tools .cap.bad { color: var(--bad); }
+.cap.bad { color: var(--bad); }
 #v-opt > .panel.hist { flex: 0 0 168px; padding: var(--sp-3); gap: var(--sp-2); }
 .hrows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
 .hrow { display: grid; grid-template-columns: 7.5em auto 3.5em auto minmax(0, 1fr) auto; gap: var(--sp-2); align-items: center; padding: 3px 0; border-top: 1px solid var(--line); font-size: var(--t-xs); min-width: 0; }
@@ -212,11 +212,12 @@ h3.sub:first-child { margin-top: 0; }
 .urow { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); padding: var(--sp-1) 0; border-top: 1px solid var(--line); }
 .urow:first-child { border-top: 0; }
 .urow .what { font-size: var(--t-sm); font-weight: 500; flex-basis: 100%; }
-.urow .cmd { font-family: var(--mono); font-size: var(--t-xs); background: var(--fill); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-2); user-select: all; overflow-wrap: anywhere; }
+.urow .cmd { font-family: var(--mono); font-size: var(--t-xs); background: var(--fill); border: 0; border-radius: var(--r-sm); padding: 0 var(--sp-2); user-select: all; overflow-wrap: anywhere; }
 #v-opt > .panel.prefs { flex: none; padding: var(--sp-2) var(--sp-3); }
 .prow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); }
-.prow h2 { margin: 0; font-size: var(--t-sm); }
+.prow h2 { margin: 0; font-size: 15px; font-weight: 600; } /* same step as .ph h2 */
 .prow .pl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--t-sm); white-space: nowrap; }
-.prow .tm { font: inherit; font-size: var(--t-xs); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px var(--sp-1); }
-.prow .cap.bad { color: var(--bad); }
-.panel.upd .sc { flex: none; max-height: 132px; }
+fieldset.pl { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.pl legend { float: left; padding: 0; }
+.prow .tm { font: inherit; font-size: var(--t-sm); min-height: 32px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-2); }
+.panel.upd .sc { flex: none; max-height: 132px; } /* about three update rows; the findings list keeps the height */

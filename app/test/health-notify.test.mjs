@@ -95,25 +95,43 @@ test('toast: collection error once per error streak, not on the first status', (
   assert.ok(p.decide({ state: 'ok' }, { state: 'error' }, []));
 });
 
-test('notify-state.json keeps ids and times only, survives a restart, and is written only on change', () => {
+test('notify-state.json keeps ids and times only; after a restart a finding waits again but its cooldown holds', () => {
   const dir = tmpDir();
   const file = path.join(dir, 'notify-state.json');
   const { p, clock } = policy({ file });
   const a = f('C3:hooks', 'warn', 'secret-looking title');
   p.observe([a]);
-  const text1 = fs.readFileSync(file, 'utf8');
-  fs.writeFileSync(file, text1 + ' '); // a marker: an unchanged observe must not rewrite it
-  p.observe([a]);
-  assert.equal(fs.readFileSync(file, 'utf8'), text1 + ' ');
+  assert.equal(fs.existsSync(file), false); // first-seen times are not written
   clock.t += 3 * MIN;
   assert.ok(p.decide(null, { state: 'warn' }, [a]));
-  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /secret-looking/);
+  const text = fs.readFileSync(file, 'utf8');
+  assert.doesNotMatch(text, /secret-looking/);
+  p.observe([a]);
+  assert.equal(fs.readFileSync(file, 'utf8'), text); // unchanged: not rewritten
+  clock.t += 24 * 60 * MIN - MIN; // off for almost a day
   const again = new NotificationPolicy({ file, now: () => clock.t, settings: () => ({ notify: true }) });
-  assert.equal(again.isStable(a), true); // first-seen time came back
-  clock.t += 2 * 60 * MIN;
-  assert.equal(again.decide(null, { state: 'warn' }, [a]), null); // still in cooldown after the restart
+  again.observe([a]);
+  assert.equal(again.isStable(a), false); // time the app was off is not time seen
+  clock.t += 3 * MIN;
+  assert.equal(again.isStable(a), true);
+  clock.t -= 2 * MIN; // still inside the 24 h cooldown from before the restart
+  assert.equal(again.decide(null, { state: 'warn' }, [a]), null);
   fs.writeFileSync(file, '{broken');
-  assert.equal(new NotificationPolicy({ file, now: () => clock.t }).isStable(a), false);
+  assert.doesNotThrow(() => new NotificationPolicy({ file, now: () => clock.t }));
+});
+
+test('a source that could not be read keeps its findings ages; a read source that drops one resets it', () => {
+  const { p, clock } = policy();
+  const a = { ...f('C3:hooks'), source: 'claude' };
+  p.observe([a]);
+  clock.t += 2 * MIN;
+  p.observe([], ['claude']); // claude source failed this run
+  clock.t += MIN;
+  p.observe([a]);
+  assert.equal(p.isStable(a), true);
+  p.observe([]); // read fine, finding gone
+  p.observe([a]);
+  assert.equal(p.isStable(a), false);
 });
 
 test('SettingsStore: defaults, checked keys, atomic write, broken file reads as defaults', () => {
@@ -126,6 +144,7 @@ test('SettingsStore: defaults, checked keys, atomic write, broken file reads as 
   assert.throws(() => s.set({ notify: 'no' }), TypeError);
   assert.throws(() => s.set({ quietStart: '25:00' }), TypeError);
   assert.throws(() => s.set({ theme: 'x' }), TypeError);
+  assert.throws(() => s.set({ constructor: 1 }), TypeError); // prototype keys are not settings
   fs.writeFileSync(file, JSON.stringify({ notify: 'bad', updateCheck: false, extra: 1 }));
   assert.deepEqual(new SettingsStore({ file }).get(), { ...DEFAULT_SETTINGS, updateCheck: false });
   fs.writeFileSync(file, 'nope');

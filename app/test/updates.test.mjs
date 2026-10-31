@@ -17,13 +17,15 @@ const HEAD = 'a'.repeat(40);
 const REMOTE = 'b'.repeat(40);
 
 // Fake runner: answers by the command line; records every call.
-function fakeRunner({ version = '2.1.310 (Claude Code)', remote = REMOTE, known = true, behind = '3' } = {}) {
+function fakeRunner({ version = '2.1.310 (Claude Code)', remote = REMOTE, known = true, behind = '3', branch = 'main' } = {}) {
   const calls = [];
   const run = async (file, args, opts) => {
     calls.push({ file, args, opts });
     const a = args.join(' ');
     if (file === 'claude') return version ? { code: 0, stdout: version, stderr: '' } : { code: -1, stdout: '', stderr: 'ENOENT' };
     if (a.includes('ls-remote')) return remote ? { code: 0, stdout: `${remote}\trefs/heads/main\n`, stderr: '' } : { code: 128, stdout: '', stderr: 'offline' };
+    if (a.includes('--abbrev-ref')) return { code: 0, stdout: `${branch}
+`, stderr: '' };
     if (a.includes('rev-parse')) return { code: 0, stdout: `${HEAD}\n`, stderr: '' };
     if (a.includes('cat-file')) return { code: known ? 0 : 1, stdout: '', stderr: '' };
     if (a.includes('rev-list')) return { code: 0, stdout: `${behind}\n`, stderr: '' };
@@ -80,6 +82,7 @@ test('UpdateSource: offline, a missing claude, a bad version string and an unkno
   assert.deepEqual((await one({}, async () => ({ latest: '2.1.316; rm -rf /' }))).claudeCode, null);
   assert.deepEqual((await one({ known: false }, async () => ({ latest: '2.1.316' }))).repo, { behind: null });
   assert.deepEqual((await one({ remote: HEAD }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0 });
+  assert.deepEqual((await one({ branch: 'feat/x' }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0, branch: 'other' }); // feature branch: no 'git pull' advice
 });
 
 test('httpsJson: registry host only, size limit, http errors throw', async () => {

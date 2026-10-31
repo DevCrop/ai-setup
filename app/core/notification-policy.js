@@ -30,12 +30,13 @@ export function inQuietHours(settings, nowMs) {
 const sevOf = (f) => f.severity === 'bad' || f.severity === 'warn';
 
 // Decides which findings are stable (seen long enough) and when a desktop toast goes out.
-// State on disk (notify-state.json): finding ids with first-seen and last-notified times only, never evidence.
+// State on disk (notify-state.json): finding ids with last-notified times only, never evidence. First-seen times stay in
+// memory: after a restart a finding waits its min age again, so time the app was off never counts as time seen.
 export class NotificationPolicy {
   #file;
   #now;
   #settings;
-  #seen = {};      // id -> first seen ms (warn/bad findings present in the last run)
+  #seen = {};      // id -> first seen ms (warn/bad findings present in the last run), memory only
   #notified = {};  // id -> { at, sev }
   #lastToast = 0;
   #errorShown = false;
@@ -48,7 +49,6 @@ export class NotificationPolicy {
       try {
         const j = JSON.parse(fs.readFileSync(file, 'utf8'));
         const nums = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).filter(([, v]) => Number.isFinite(v)).slice(0, MAX_IDS));
-        this.#seen = nums(j.seen);
         for (const [id, v] of Object.entries(j.notified && typeof j.notified === 'object' ? j.notified : {}).slice(0, MAX_IDS)) {
           if (Number.isFinite(v?.at) && (v.sev === 'warn' || v.sev === 'bad')) this.#notified[id] = { at: v.at, sev: v.sev };
         }
@@ -59,19 +59,25 @@ export class NotificationPolicy {
 
   #save() {
     if (!this.#file) return;
-    try { writeAtomic(this.#file, JSON.stringify({ seen: this.#seen, notified: this.#notified, lastToast: this.#lastToast })); } catch { /* toast memory is a convenience */ }
+    try { writeAtomic(this.#file, JSON.stringify({ notified: this.#notified, lastToast: this.#lastToast })); } catch { /* toast memory is a convenience */ }
   }
 
-  // Called after each finished run with the whole finding list. A finding that leaves and comes back starts its age again.
-  observe(findings) {
+  // Called after each finished run with the whole finding list. A finding that leaves and comes back starts its age again,
+  // unless its source could not be read this run (`unread` source ids): then nothing is known and its age is kept.
+  observe(findings, unread = []) {
     const now = this.#now();
     const ids = new Set(findings.filter(sevOf).map((f) => f.id));
+    const skip = new Set(unread);
+    const sourceOf = this.#sourceOf;
+    for (const f of findings) sourceOf[f.id] = f.source;
+    for (const id of Object.keys(this.#seen)) if (!ids.has(id) && !skip.has(sourceOf[id])) delete this.#seen[id];
+    for (const id of ids) if (!Object.hasOwn(this.#seen, id)) this.#seen[id] = now;
     let changed = false;
-    for (const id of Object.keys(this.#seen)) if (!ids.has(id)) { delete this.#seen[id]; changed = true; }
-    for (const id of ids) if (!Object.hasOwn(this.#seen, id)) { this.#seen[id] = now; changed = true; }
     for (const [id, v] of Object.entries(this.#notified)) if (now - v.at > KEEP_NOTIFIED) { delete this.#notified[id]; changed = true; }
     if (changed) this.#save();
   }
+
+  #sourceOf = {};
 
   // warn/bad findings count only once they lasted minAge; ok and info always pass (they are never counted anyway).
   isStable(f) {

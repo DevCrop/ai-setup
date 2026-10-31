@@ -131,7 +131,8 @@ export class MonitorService {
         ctx: { repo: this.repo, homes: this.homes },
       });
       this.optimizer.run(snapshot);
-      this.policy?.observe(this.optimizer.findings());
+      // a source that could not be read this run keeps its findings' ages (no reset to 'just seen')
+      this.policy?.observe(this.optimizer.findings(), this.sources.filter((s, i) => results[i]?.data == null && results[i]?.status === 'missing' && s.id !== 'updates').map((s) => s.id));
       this.#write(snapshot);
       return snapshot;
     })();
@@ -176,7 +177,7 @@ export class MonitorService {
     const codexRes = snap?.sources.codex ?? null;
     const cfg = codexRes?.data?.config ?? null;
     const projects = cfg?.projects ?? [];
-    const codexFindings = findings.filter((f) => f.source === 'codex');
+    const codexFindings = stable.filter((f) => f.source === 'codex');
     const codex = codexRes ? {
       state: codexState(codexRes, codexFindings),
       model: cfg?.model ?? null, reasoningEffort: cfg?.reasoningEffort ?? null, approval: cfg?.approval ?? null, sandbox: cfg?.sandbox ?? null,

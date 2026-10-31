@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Source } from '../source.js';
 
 const TTL_MS = 6 * 60 * 60 * 1000;
+const RETRY_MS = 30 * 60 * 1000; // after a failed or empty check (offline at boot), try again sooner
 const SEMVER = /^\d{1,4}\.\d{1,4}\.\d{1,6}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const DIST_TAGS = 'https://registry.npmjs.org/-/package/@anthropic-ai/claude-code/dist-tags';
@@ -14,6 +15,7 @@ export async function httpsJson(url, fetchFn = globalThis.fetch) {
   if (!url.startsWith('https://registry.npmjs.org/')) throw new Error('host not allowed');
   const res = await fetchFn(url, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: { accept: 'application/json' } });
   if (!res.ok) throw new Error(`http ${res.status}`);
+  if (Number(res.headers?.get?.('content-length')) > 65536) throw new Error('too large');
   const text = await res.text();
   if (text.length > 65536) throw new Error('too large');
   return JSON.parse(text);
@@ -41,7 +43,8 @@ export class UpdateSource extends Source {
 
   async collect(ctx) {
     if (!this.runner || !this.fetchJson || !this.updateCheck()) return { status: 'missing', note: 'update check off', data: null };
-    if (!this.#inflight && (!this.#cache || ctx.now - this.#cache.at >= this.ttlMs)) {
+    const empty = !this.#cache?.data?.claudeCode && !this.#cache?.data?.repo;
+    if (!this.#inflight && (!this.#cache || ctx.now - this.#cache.at >= (empty ? Math.min(RETRY_MS, this.ttlMs) : this.ttlMs))) {
       const at = ctx.now;
       this.#inflight = this.refresh(ctx).then((data) => { this.#cache = { at, data }; }, () => { this.#cache = { at, data: null }; })
         .finally(() => { this.#inflight = null; });
@@ -73,6 +76,8 @@ export class UpdateSource extends Source {
     const remote = /^([0-9a-f]{40})\s/.exec((await git('ls-remote', 'origin', 'refs/heads/main')).stdout)?.[1];
     const head = (await git('rev-parse', 'HEAD')).stdout.trim();
     if (!remote || !SHA.test(head)) return null;
+    // On another branch (feature work) "git pull" would pull that branch: compare only when main is checked out.
+    if ((await git('rev-parse', '--abbrev-ref', 'HEAD')).stdout.trim() !== 'main') return { behind: 0, branch: 'other' };
     if (remote === head) return { behind: 0 };
     // The remote commit is known locally: count exactly. Unknown: the remote has commits this checkout has not fetched.
     if ((await git('cat-file', '-e', `${remote}^{commit}`)).code !== 0) return { behind: null };

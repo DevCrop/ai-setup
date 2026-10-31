@@ -29,7 +29,7 @@ export class SettingsStore {
 
   set(patch) {
     if (!patch || typeof patch !== 'object') throw new TypeError('bad settings');
-    for (const [k, v] of Object.entries(patch)) if (!VALID[k] || !VALID[k](v)) throw new TypeError(`bad setting ${k}`);
+    for (const [k, v] of Object.entries(patch)) if (!Object.hasOwn(VALID, k) || !VALID[k](v)) throw new TypeError(`bad setting ${k}`);
     const next = { ...this.get(), ...patch };
     writeAtomic(this.#file, JSON.stringify(next));
     this.#cache = next;

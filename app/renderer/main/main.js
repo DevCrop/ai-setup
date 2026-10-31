@@ -794,6 +794,8 @@
     ph.appendChild(el('span', 'hint', '앱은 직접 실행하지 않습니다. 명령을 골라 복사해 터미널에서 실행하세요.'));
     sec.appendChild(ph);
     var ul = el('ul', 'pitems sc');
+    ul.tabIndex = 0; // keyboard can scroll it: it holds no focusable item
+    ul.setAttribute('aria-label', '업데이트 목록');
     list.forEach(function (f) {
       var li = el('li', 'urow');
       li.appendChild(el('span', 'what', f.title));
@@ -811,11 +813,11 @@
       if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; announce('설정 저장됨'); }
       else { prefsErr = '저장 실패: ' + errText(res); announce(prefsErr); }
       renderOpt();
-    }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; renderOpt(); });
+    }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; announce(prefsErr); renderOpt(); });
   }
   function prefsPanel() {
     var sec = el('section', 'panel prefs');
-    sec.setAttribute('aria-label', '알림 · 업데이트 설정');
+    sec.setAttribute('aria-label', '설정');
     var row = el('div', 'prow');
     row.appendChild(el('h2', null, '설정'));
     if (!prefs) { row.appendChild(el('span', 'cap', prefsErr || '불러오는 중…')); sec.appendChild(row); return sec; }
@@ -833,14 +835,17 @@
       t.value = prefs[key] || '';
       t.setAttribute('data-key', 'pref|' + key);
       t.setAttribute('aria-label', label);
-      t.addEventListener('change', function () { var p = {}; p[key] = t.value || ''; savePrefs(p); });
+      // Chromium fires change on every complete value while typing; save once on leaving the field, and only if it changed
+      t.addEventListener('blur', function () { if (t.value !== (prefs[key] || '')) { var p = {}; p[key] = t.value || ''; savePrefs(p); } });
       return t;
     }
     row.appendChild(toggle('notify', '데스크톱 알림'));
-    var q = el('span', 'pl');
-    q.appendChild(el('span', null, '조용한 시간'));
+    var q = el('fieldset', 'pl');
+    q.appendChild(el('legend', null, '조용한 시간'));
     q.appendChild(time('quietStart', '조용한 시간 시작'));
-    q.appendChild(el('span', null, '–'));
+    var dash1 = el('span', null, '–');
+    dash1.setAttribute('aria-hidden', 'true');
+    q.appendChild(dash1);
     q.appendChild(time('quietEnd', '조용한 시간 끝'));
     row.appendChild(q);
     row.appendChild(toggle('updateCheck', '업데이트 확인'));
@@ -956,7 +961,8 @@
   function onStatus(s) {
     if (!s || typeof s !== 'object') return;
     var prevBusy = status ? status.busyFindingId : null;
-    var prevHome = status ? status.health + '|' + status.counts.warn + '|' + status.counts.bad : '';
+    var homeKey = function (x) { var c = x.counts || {}; return x.health + '|' + c.warn + '|' + c.bad; };
+    var prevHome = status ? homeKey(status) : '';
     status = s;
     badge();
     loadFrameUrl();
@@ -964,7 +970,7 @@
     if (key !== cxKey) { cxKey = key; loadCodex(); }
     if (s.findingsRev !== lastRev) { lastRev = s.findingsRev; loadFindings(); }
     else if (prevBusy !== s.busyFindingId) redraw();
-    else if (prevHome !== s.health + '|' + s.counts.warn + '|' + s.counts.bad) renderOpt(); // a finding became stable
+    else if (prevHome !== homeKey(s) && !(document.activeElement && document.activeElement.classList.contains('tm'))) renderOpt(); // a finding became stable; never while a time is being typed
     else renderCodex();
   }
 
