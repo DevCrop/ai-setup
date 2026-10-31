@@ -143,7 +143,7 @@ UI state mapping (spec wording): `starting` shows "시작 중", `ok` shows "정�
 - Errors: none. A renderer treats it as data and validates nothing it does not render.
 
 ### `view:html`
-Decision: the monitor html is loaded as a file, not passed as a string. `render()` reloads itself with `location.reload()` and the file is replaced atomically on each tick, so a `srcdoc` string would keep showing old content.
+Decision: the monitor html is loaded as a file, not passed as a string. The file is replaced atomically on each tick, so a `srcdoc` string would keep showing old content. The sandboxed frame cannot reload itself and has no Web Storage, so the embed render drops its `location.reload()` timer, the shell reloads the frame when `status.generatedAt` changes (`src="<fileUrl>?v=<generatedAt>#<tab>"`), and the page keeps its per-session state (seen tabs, KPI history, scroll and meter values for the refresh morph) in `window.name`.
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<{ fileUrl: string, generatedAt: string }>`. `fileUrl` is the `file://` URL of `claude-monitor.html` in the app's user-data folder. The shell sets `<iframe sandbox="allow-scripts" src="<fileUrl>#<tab>">` for the seven monitor tabs (`ov flow orch route tok sav set`); changing only the `#<tab>` part switches the tab without a reload. The `codex`, `rt` and `opt` tabs are rendered by the shell itself from `status:get`, `codex:detail`, `routines:detail` and `findings:list`.

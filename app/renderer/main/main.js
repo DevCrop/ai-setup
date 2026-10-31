@@ -79,11 +79,13 @@
   });
   window.addEventListener('hashchange', selectTab);
 
-  // ---- monitor frame: only the hash changes after the first load ----
+  // ---- monitor frame: a tab switch changes only the hash; a new snapshot reloads it ----
+  // The sandboxed frame cannot reload itself, so the ?v= query (snapshot time) does it here.
+  var frameRev = '';
   function setFrame() {
     var f = $('frame');
     if (!frameUrl) { return; }
-    var want = frameUrl + '#' + tab;
+    var want = frameUrl + (frameRev ? '?v=' + encodeURIComponent(frameRev) : '') + '#' + tab;
     if (f.hidden) f.hidden = false;
     if (f.getAttribute('src') !== want) f.setAttribute('src', want);
   }
@@ -1144,6 +1146,10 @@
     status = s;
     badge();
     loadFrameUrl();
+    if (s.generatedAt && s.generatedAt !== frameRev) {
+      frameRev = String(s.generatedAt);
+      if (frameUrl && tab !== 'codex' && tab !== 'opt' && tab !== 'rt') setFrame();
+    }
     var key = s.findingsRev + '|' + s.generatedAt;
     if (key !== cxKey) { cxKey = key; loadCodex(); }
     if (s.findingsRev !== lastRev) { lastRev = s.findingsRev; loadFindings(); }

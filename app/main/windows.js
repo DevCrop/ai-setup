@@ -3,6 +3,7 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { savedPosition } from './placement.js';
+import { isFrameUrl } from '../core/frame-url.js';
 
 const APP_DIR = path.resolve(import.meta.dirname, '..');
 const PRELOAD = path.join(APP_DIR, 'preload', 'preload.cjs');
@@ -18,7 +19,7 @@ function lockDown(win, pageUrl, frameUrl) {
   wc.on('will-navigate', (e) => { if (e.url.split('#')[0] !== pageUrl) e.preventDefault(); });
   wc.on('will-frame-navigate', (e) => {
     if (e.isMainFrame) return;
-    if (!frameUrl || e.url.split('#')[0] !== frameUrl()) e.preventDefault();
+    if (!frameUrl || !isFrameUrl(e.url, frameUrl())) e.preventDefault();
   });
 }
 

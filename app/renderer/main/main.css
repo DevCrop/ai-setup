@@ -270,5 +270,12 @@ fieldset.pl legend { float: left; padding: 0; }
 .seg button:disabled { cursor: default; }
 @media (max-width: 760px) { .seg button { min-height: 32px; } }
 .seg button, .tools .btn { white-space: nowrap; }
-@media (max-width: 400px) { .seg button { padding: 0 6px; } .tools { gap: var(--sp-1); } .brand h1 { display: none; } }
+/* Shell tabs (Codex, routines, optimise) slide in when shown; the monitor frame animates itself. */
+@keyframes vin { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .view:not(.fill):not([hidden]) > * { animation: vin .35s cubic-bezier(.2, .7, .2, 1) both; }
+  .view:not(.fill):not([hidden]) > :nth-child(2) { animation-delay: 40ms; }
+  .view:not(.fill):not([hidden]) > :nth-child(n+3) { animation-delay: 80ms; }
+}
+@media (max-width: 400px) { .seg button { padding: 0 6px; } .tools { gap: var(--sp-1); } .brand h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
 .seg button:disabled { opacity: .5; }
