@@ -163,6 +163,7 @@ test('configDirEnv: only a folder other than the one the scripts would pick gets
   assert.equal(configDirEnv('/env/dir', { CLAUDE_CONFIG_DIR: '/env/dir' }, home), undefined); // already in the env
   assert.deepEqual(configDirEnv('/other', {}, home), { CLAUDE_CONFIG_DIR: '/other' });
   assert.equal(configDirEnv(null, {}, home), undefined);
+  if (process.platform === 'win32') assert.equal(configDirEnv(path.join(home, '.claude').toUpperCase(), {}, home), undefined); // same folder, other case
 });
 
 test('C1: PREVIEW_STALE when the dry run output changed; the real command is not run', async () => {

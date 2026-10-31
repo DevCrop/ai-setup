@@ -20,7 +20,8 @@ const sha = (s) => createHash('sha256').update(s).digest('hex');
 export function configDirEnv(home, env = process.env, homeDir = os.homedir()) {
   if (!home) return undefined;
   const dflt = env.CLAUDE_CONFIG_DIR || path.join(homeDir, '.claude');
-  return path.resolve(home) === path.resolve(dflt) ? undefined : { CLAUDE_CONFIG_DIR: home };
+  const key = (p) => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p)); // Windows paths ignore case
+  return key(home) === key(dflt) ? undefined : { CLAUDE_CONFIG_DIR: home };
 }
 
 // C1: runs `bash scripts/apply.sh` from the repo (repo -> live). It never opens a file under the Claude home itself.
