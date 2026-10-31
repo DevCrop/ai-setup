@@ -245,6 +245,13 @@ test('per-file cache: a second pass over unchanged files re-reads nothing and gi
   // a rewritten, shorter file is read again from the start
   fs.writeFileSync(f, before.split(String.fromCharCode(10)).slice(0, -2).join(String.fromCharCode(10)) + String.fromCharCode(10));
   assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162);
+  // a file replaced by a new one of any size is read from the start; CRLF lines parse
+  const tmp = `${f}.new`;
+  fs.writeFileSync(tmp, fs.readFileSync(f, 'utf8').replace(/\n/g, '\r\n') + line.replace('\n', '\r\n'));
+  fs.renameSync(tmp, f);
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 20);
+  fs.writeFileSync(f, before.split(String.fromCharCode(10)).slice(0, -2).join(String.fromCharCode(10)) + String.fromCharCode(10));
+  await scanTranscripts(home, now, cache);
 });
 
 test('roles: claude-mem observer and sdk-ts records are not main thread; orchestration keeps only main sessions', () => {
