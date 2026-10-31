@@ -268,6 +268,9 @@ test('full walk every 30 s: an append shows on the next run, a new file at the n
     assert.equal(buildTokens(await scanTranscripts(home, now + 1000, cache)).totals.output, base + 4); // not walked yet
     assert.equal(buildTokens(await scanTranscripts(home, now + 31000, cache)).totals.output, base + 10);
     assert.equal(buildTokens(await scanTranscripts(home, now + 32000, cache)).totals.output, base + 10); // kept between walks
+    // a clock that went back walks again rather than trusting an old listing
+    fs.rmSync(added);
+    assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, base + 4);
   } finally { fs.writeFileSync(known, before); fs.rmSync(added, { force: true }); }
 });
 

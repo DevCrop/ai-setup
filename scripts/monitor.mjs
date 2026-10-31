@@ -228,8 +228,9 @@ function fileInfo(file, rel, best) {
 // Scans projects/ once. `cache` (Map, optional) keeps parsed files keyed by path+mtime+size so unchanged files are not re-read.
 // Cross-file dedup by message.id keeps the largest output. Returns per-file aggregates for the window.
 // Finding new files means walking every folder (about 1,500 files and 900 folders here, most of a warm run), so that
-// walk runs every `fullEveryMs`; the runs between only stat the files already in the window. Kept under LIVE_MS / 2 so a
-// new session shows up well inside its live window.
+// walk runs on the first run `fullEveryMs` after the last one; the runs between only stat the files already in the window.
+// A new file therefore shows within fullEveryMs plus one refresh (about 40 s at 10 s), well inside LIVE_MS. One cache
+// belongs to one home: the runs between walks join the cached relative paths to the home passed in.
 export const FULL_WALK_MS = 30000;
 const lastWalk = new WeakMap(); // cache -> nowMs of its last full walk
 
