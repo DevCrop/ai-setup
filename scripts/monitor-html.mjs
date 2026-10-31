@@ -1079,7 +1079,7 @@ function tePanel(d) {
   if (!sec || sec.status === 'missing') return '';
   return panel('TokenEconomizer', sec, (s) => {
     const c = isObj(s.config) ? s.config : {};
-    const mode = (v) => esc(TE_MODE[v] || txt(v));
+    const mode = (v) => (typeof v === 'string' && Object.hasOwn(TE_MODE, v) ? TE_MODE[v] : txt(v));
     const tiles = [['마이크로스킬', c.microskills], ['도구 정리', c.toolprune], ['루프 가드', c.loopguard]]
       .map(([l, v]) => `<div class="tile"><span class="n">${mode(v)}</span><span class="l">${l}</span></div>`).join('');
     const rows = arr(s.repos).slice(0, 8).map((r) => {

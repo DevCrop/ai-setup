@@ -39,7 +39,7 @@ before(async () => {
   fs.writeFileSync(path.join(home, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins }));
   fs.mkdirSync(path.join(tmp, 'mem'));
   // Isolated from this machine: no real rtk, dead claude-mem port.
-  ENV = { CLAUDE_MEM_WORKER_PORT: '9', CLAUDE_MEM_DATA_DIR: path.join(tmp, 'mem'), MONITOR_RTK_BIN: path.join(tmp, 'no-such-rtk') };
+  ENV = { CLAUDE_MEM_WORKER_PORT: '9', CLAUDE_MEM_DATA_DIR: path.join(tmp, 'mem'), MONITOR_RTK_BIN: path.join(tmp, 'no-such-rtk'), MONITOR_TE_HOME: path.join(tmp, 'no-te') };
   data = await collect({ home, now: NOW, env: ENV });
 });
 
@@ -463,6 +463,8 @@ test('tokeneconomizer: modes and per-repository counts from its ledger, window a
   assert.match(html, /TokenEconomizer/);
   assert.match(html, /세션 2 · 오버헤드 3%/);
   assert.match(html, /제안만/);
+  const odd = render({ generatedAt: NOW, tokenEconomizer: { ...r, config: { ...r.config, loopguard: 'constructor' } } }, { embed: true });
+  assert.doesNotMatch(odd, /native code|function Object/);
   assert.doesNotMatch(render({ generatedAt: NOW, tokenEconomizer: { status: 'missing' } }), /TokenEconomizer<\//);
 });
 

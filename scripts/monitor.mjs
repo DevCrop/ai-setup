@@ -589,7 +589,8 @@ export function collectTokenEconomizer(teHome, nowMs) {
     let text;
     try {
       const file = path.join(base, 'claude', 'ledger.jsonl');
-      if (fs.statSync(file).size > 5e6) continue; // shortcut: a ledger over 5 MB is skipped, read its tail if that ever happens
+      const st = fs.statSync(file);
+      if (!st.isFile() || st.size > 5e6) continue; // shortcut: a ledger over 5 MB is skipped, read its tail if that ever happens
       text = fs.readFileSync(file, 'utf8');
     } catch { continue; }
     const r = { label, sessions: 0, effectiveTokens: 0, overheadTokens: 0, nudges: 0, proposed: 0 };
@@ -641,7 +642,7 @@ export async function collect(opts = {}) {
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
     savings, orchestration,
-    tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || path.join(os.homedir(), '.tokeneconomizer')), nowMs), { config: null, repos: [] }),
+    tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || env.MONITOR_TE_HOME || path.join(os.homedir(), '.tokeneconomizer')), nowMs), { config: null, repos: [] }),
     setup: await guard(() => collectSetupFlow(home, opts.repo), { agents: [], rules: { delegate: null, routing: null, lanes: null, failure: null }, skills: [], drift: [], driftCount: 0 }),
   };
 }
