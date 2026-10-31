@@ -235,6 +235,16 @@ test('per-file cache: a second pass over unchanged files re-reads nothing and gi
   const third = await scanTranscripts(home, now, cache);
   assert.equal(third.parsed, 1);
   assert.equal(buildTokens(third).totals.output, 162 + 9);
+  // only appended bytes are read: a half line waits, a later line of the same message raises its count
+  const line = '{"type":"assistant","timestamp":"2026-10-19T11:59:50.000Z","entrypoint":"cli","message":{"id":"m6","model":"claude-opus-5-5","usage":{"output_tokens":20}}}' + String.fromCharCode(10);
+  const before = fs.readFileSync(f, 'utf8');
+  fs.appendFileSync(f, line.slice(0, 50));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 9);
+  fs.appendFileSync(f, line.slice(50));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 20);
+  // a rewritten, shorter file is read again from the start
+  fs.writeFileSync(f, before.split(String.fromCharCode(10)).slice(0, -2).join(String.fromCharCode(10)) + String.fromCharCode(10));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162);
 });
 
 test('roles: claude-mem observer and sdk-ts records are not main thread; orchestration keeps only main sessions', () => {

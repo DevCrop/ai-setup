@@ -3,12 +3,10 @@
 // Usage: node scripts/monitor.mjs [out.html] [--watch [sec]]   (prints the absolute path of the written file)
 // Privacy: transcripts are parsed through a whitelist (model, usage numbers, timestamp, entrypoint, agentType, meta model).
 // Message text and subagent descriptions are never kept. Node 20+, no dependencies.
-import { createReadStream } from 'node:fs';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import readline from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -178,18 +176,39 @@ function walkJsonl(dir, rel = '', out = []) {
   return out;
 }
 
-// Reads one transcript; keeps one record per message.id, the one with the largest output (later lines carry the final count).
-async function parseFile(file, rel) {
-  const best = new Map();
-  const input = createReadStream(file, { encoding: 'utf8' });
-  const rl = readline.createInterface({ input, crlfDelay: Infinity });
-  let failed = false;
-  input.on('error', () => { failed = true; rl.close(); });
-  for await (const line of rl) {
-    const r = parseTranscriptLine(line);
-    if (r && (!best.has(r.id) || r.output >= best.get(r.id).output)) best.set(r.id, r);
-  }
-  if (failed) return null;
+const CHUNK = 8 << 20;
+
+// Reads only the bytes appended since the last run into st.best (transcripts are append-only), keeping one record per
+// message.id, the one with the largest output (later lines carry the final count). A partial last line waits for the next
+// run. Re-reading the whole live transcript on every change was most of the monitor's CPU.
+// shortcut: a line longer than CHUNK is skipped; its message's other lines carry the same usage.
+async function readAppended(file, size, st) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(Math.min(CHUNK, size - st.offset));
+    while (st.offset < size) {
+      const n = fs.readSync(fd, buf, 0, Math.min(buf.length, size - st.offset), st.offset);
+      if (n <= 0) break;
+      const end = buf.lastIndexOf(10, n - 1);
+      if (end < 0) {
+        if (n < CHUNK) break;
+        st.offset += n;
+        st.skipping = true;
+        continue;
+      }
+      let start = 0;
+      if (st.skipping) { start = buf.indexOf(10) + 1; st.skipping = false; }
+      for (const line of buf.toString('utf8', start, end + 1).split('\n')) {
+        const r = parseTranscriptLine(line);
+        if (r && (!st.best.has(r.id) || r.output >= st.best.get(r.id).output)) st.best.set(r.id, r);
+      }
+      st.offset += end + 1;
+      await new Promise(setImmediate); // a first read of a big file must not freeze the Electron main process
+    }
+  } finally { fs.closeSync(fd); }
+}
+
+function fileInfo(file, rel, best) {
   const parts = rel.split('/');
   const si = parts.lastIndexOf('subagents');
   const isSub = si > 1;
@@ -220,11 +239,14 @@ export async function scanTranscripts(home, nowMs, cache = new Map()) {
       const st = fs.statSync(file);
       if (st.mtimeMs < from) continue;
       const key = `${file}|${st.mtimeMs}|${st.size}`;
+      const ino = `${st.ino}|${st.birthtimeMs}`;
       let entry = cache.get(file);
-      if (!entry || entry.key !== key) {
-        const f = await parseFile(file, slash(rel));
-        if (!f) continue;
-        entry = { key, f };
+      // a replaced or shrunk file is read again from the start
+      if (!entry || entry.ino !== ino || st.size < entry.offset) entry = { ino, offset: 0, best: new Map(), skipping: false, key: null, f: null };
+      if (entry.key !== key) {
+        await readAppended(file, st.size, entry);
+        entry.f = fileInfo(file, slash(rel), entry.best);
+        entry.key = key;
         parsed++;
       }
       fresh.set(file, entry);
