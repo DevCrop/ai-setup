@@ -179,7 +179,7 @@ Ponytail check on abstractions: `Source` has three real implementations (Claude,
 - `SettingsStore` (`core/settings-store.js`): `userData/settings.json`, keys `notify`, `quietStart`, `quietEnd`, `updateCheck`, each validated, atomic write. IPC `settings:get` / `settings:set`.
 - `Status.health` = `100 - 15 x bad - 5 x warn` (stable counts, clamped), null when starting, stale, nodata or error.
 
-- `RoutineSource` (`core/sources/routine-source.js`, id `routines`) with `routines.ps1`: Windows only (elsewhere `missing`, nothing spawned). Like `UpdateSource` it returns the cached result at once and refreshes in the background every 10 minutes behind an in-flight guard; it never throws. The script runs with `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File`, 60 s, UTF-8 JSON. `normalizeRoutines()` in JS re-checks every field, keeps only executable basenames and maps accounts to `system`/`service`/`user`. Claude routines: front matter `name`/`description` of `~/.claude/scheduled-tasks/*/SKILL.md`, capped. No checks read it, so it never changes findings, health or the strip. IPC `routines:detail` (`MonitorService.routinesDetail()`), tab `pc`.
+- `RoutineSource` (`core/sources/routine-source.js`, id `routines`) with `routines.ps1`: Claude and Codex routines only. It reads `~/.claude/scheduled-tasks/*/SKILL.md` front matter (first 2 KB) and the top keys of `~/.codex/automations/*/automation.toml` (never `prompt`, `target_thread_id`, sessions or secrets), and on Windows runs `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File routines.ps1` (60 s) which picks scheduled tasks and startup entries whose name, path or command mentions claude or codex and prints executable basenames only. Like `UpdateSource` it returns the cache at once and refreshes in the background every 10 minutes behind an in-flight guard; it never throws, and a failed PowerShell read keeps the Claude and Codex lists. `normalizeRoutines()` re-checks every field and masks SIDs and the user name. No checks read it, so it never changes findings, health or the strip. IPC `routines:detail` (`MonitorService.routinesDetail()`), tab `rt`.
 
 ### What lives where
 
@@ -286,7 +286,7 @@ app/
     preload.cjs           exposes window.monitor, exactly the API of docs/api-claude-monitor.md
   renderer/               markup, styles, UI code: owned by publisher/designer, not by this contract work
     strip/                index.html, strip.css, strip.js
-    main/                 index.html, main.css, main.js (shell: 9 tabs, iframe for the 7 monitor tabs, codex and optimize panels)
+    main/                 index.html, main.css, main.js (shell: 10 tabs, iframe for the 7 monitor tabs, codex, routines and optimize panels)
   core/
     source.js  snapshot.js  check.js  finding.js  fix.js  optimizer.js  monitor-service.js
     toml-lite.js          line-based reader for ~/.codex/config.toml (functions only)

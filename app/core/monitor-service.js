@@ -285,12 +285,13 @@ export class MonitorService {
     return {
       generatedAt: snap.generatedAt,
       status: d ? 'ok' : 'missing',
-      note: d ? '' : res?.note || 'PC 루틴을 읽지 못했습니다.',
+      note: d ? '' : res?.note || '루틴을 읽지 못했습니다.',
       collectedAt: d?.collectedAt ?? null,
+      claude: d?.claude ?? [],
+      codex: d?.codex ?? [],
       tasks: d?.tasks ?? [],
       startup: d?.startup ?? [],
-      services: d?.services ?? { total: 0, running: 0, auto: 0, autoStopped: [], thirdParty: [] },
-      claude: d?.claude ?? [],
+      windowsNote: d?.windowsNote ?? '',
     };
   }
 }

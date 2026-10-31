@@ -1,13 +1,15 @@
-# Read-only snapshot of what runs on its own on this PC, as one compact JSON object on stdout.
-# Privacy: executable file names only (never arguments), accounts mapped to system/service/user, no authors or SIDs.
+# Read-only list of Windows scheduled tasks and startup entries that run Claude or Codex, as one JSON object on stdout.
+# The full command line is matched here and never printed: only executable file names leave, accounts become
+# system/service/user, no authors or SIDs.
 $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
+$AI_PATTERN = '(?i)\b(claude|codex)\b'
 
 function ExeName([string]$cmd) {
   if (-not $cmd) { return $null }
   $c = [Environment]::ExpandEnvironmentVariables($cmd.Trim())
   if ($c.StartsWith('"')) { $c = $c.Substring(1); $q = $c.IndexOf('"'); if ($q -ge 0) { $c = $c.Substring(0, $q) } }
-  else { $m = [regex]::Match($c, '^.*?\.(exe|com|bat|cmd|ps1|lnk|vbs|js)\b', 'IgnoreCase'); if ($m.Success) { $c = $m.Value } else { $c = ($c -split '\s')[0] } }
+  else { $m = [regex]::Match($c, '^.*?\.(exe|com|bat|cmd|ps1|lnk|vbs|js)\b', 'IgnoreCase'); if ($m.Success) { $c = $m.Value } elseif ($c -match '\s') { return $null } }  # unquoted path with spaces and no known extension: unsafe to cut
   try { return [IO.Path]::GetFileName($c) } catch { return $null }
 }
 function Iso($d) { if ($d -and $d.Year -ge 2000) { return $d.ToUniversalTime().ToString('o') } return $null }
@@ -17,6 +19,7 @@ function Account([string]$u) {
   if ($u -match '(LOCAL SERVICE|NETWORK SERVICE|S-1-5-19|S-1-5-20)$') { return 'service' }
   return 'user'
 }
+function Which([string]$s) { $m = [regex]::Match($s, $AI_PATTERN); if ($m.Success) { return $m.Groups[1].Value.ToLower() } return $null }
 $TRIGGER_KIND = @{ 0 = 'event'; 1 = 'time'; 2 = 'daily'; 3 = 'weekly'; 4 = 'monthly'; 5 = 'monthly'; 6 = 'idle'; 7 = 'registration'; 8 = 'boot'; 9 = 'logon'; 11 = 'session' }
 
 $tasks = New-Object System.Collections.ArrayList
@@ -28,20 +31,20 @@ while ($folders.Count) {
   $f = $folders.Dequeue()
   foreach ($sub in $f.GetFolders(0)) { $folders.Enqueue($sub) }
   foreach ($t in $f.GetTasks(1)) {
-    $trig = @(); $exe = $null; $acct = $null; $elev = $false; $hidden = $false
+    $trig = @(); $exe = $null; $acct = $null; $elev = $false; $line = $t.Path
     try {
       $d = $t.Definition
+      foreach ($a in $d.Actions) { if ($a.Type -eq 0) { $line += ' ' + $a.Path + ' ' + $a.Arguments + ' ' + $a.WorkingDirectory; if (-not $exe) { $exe = ExeName $a.Path } } }
+      $ai = Which $line
+      if (-not $ai) { continue }
       foreach ($g in $d.Triggers) { $s = $TRIGGER_KIND[[int]$g.Type]; if (-not $s) { $s = 'other' }; if ($g.Repetition.Interval) { $s += '/' + $g.Repetition.Interval }; $trig += $s }
-      foreach ($a in $d.Actions) { if ($a.Type -eq 0) { $exe = ExeName $a.Path; break } }
-      if (-not $exe -and @($d.Actions).Count) { $exe = 'COM' }
       $acct = Account $d.Principal.UserId
       if (-not $acct -and $d.Principal.GroupId) { $acct = 'user' }
       $elev = $d.Principal.RunLevel -eq 1
-      $hidden = [bool]$d.Settings.Hidden
-    } catch {}
+    } catch { continue }
     $r = [int]$t.LastTaskResult
     [void]$tasks.Add([ordered]@{
-      name = $t.Name; path = $t.Path; state = [int]$t.State; enabled = [bool]$t.Enabled; hidden = $hidden
+      ai = $ai; name = $t.Name; path = $t.Path; state = [int]$t.State; enabled = [bool]$t.Enabled
       lastRun = Iso $t.LastRunTime; nextRun = Iso $t.NextRunTime
       lastResult = '0x{0:X}' -f [BitConverter]::ToUInt32([BitConverter]::GetBytes($r), 0)
       triggers = @($trig); exe = $exe; account = $acct; elevated = $elev
@@ -58,11 +61,13 @@ foreach ($root in 'HKCU', 'HKLM') {
   }
 }
 $startup = foreach ($s in Get-CimInstance Win32_StartupCommand) {
+  $ai = Which ([string]$s.Name + ' ' + [string]$s.Command)
+  if (-not $ai) { continue }
   $loc = [string]$s.Location
   $folder = $loc -match 'Startup$'
   $key = if ($folder) { ExeName $s.Command } else { $s.Name }
   [ordered]@{
-    name = $s.Name
+    ai = $ai; name = $s.Name
     location = if ($folder) { 'folder' } elseif ($loc -match 'RunOnce') { 'runonce' } else { 'run' }
     scope = if ($loc -match '^HKLM|^Common') { 'all' } else { 'me' }
     exe = ExeName $s.Command
@@ -70,21 +75,4 @@ $startup = foreach ($s in Get-CimInstance Win32_StartupCommand) {
   }
 }
 
-$sysRoot = $env:SystemRoot.ToLower()
-$all = @(Get-CimInstance Win32_Service)
-$autoStopped = foreach ($v in $all | Where-Object { $_.StartMode -eq 'Auto' -and $_.State -ne 'Running' }) { [ordered]@{ name = $v.Name; display = $v.DisplayName; exe = ExeName $v.PathName } }
-$third = foreach ($v in $all | Where-Object { $_.PathName -and -not ([Environment]::ExpandEnvironmentVariables(($_.PathName.Trim('"'))).ToLower().StartsWith($sysRoot)) }) {
-  [ordered]@{ name = $v.Name; display = $v.DisplayName; state = $v.State; startMode = $v.StartMode; exe = ExeName $v.PathName }
-}
-
-[ordered]@{
-  tasks = @($tasks)
-  startup = @($startup)
-  services = [ordered]@{
-    total = $all.Count
-    running = @($all | Where-Object { $_.State -eq 'Running' }).Count
-    auto = @($all | Where-Object { $_.StartMode -eq 'Auto' }).Count
-    autoStopped = @($autoStopped)
-    thirdParty = @($third)
-  }
-} | ConvertTo-Json -Compress -Depth 6
+[ordered]@{ tasks = @($tasks); startup = @($startup) } | ConvertTo-Json -Compress -Depth 5

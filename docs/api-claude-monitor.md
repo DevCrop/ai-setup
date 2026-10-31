@@ -17,7 +17,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 |---|---|
 | `findingId` | string, 3 to 80 chars, `^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
-| `tab` | one of `ov flow orch route tok sav set codex opt` |
+| `tab` | one of `ov flow orch route tok sav set codex rt opt` |
 | `notify`, `updateCheck` | boolean |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | all objects | no keys other than those listed; max serialized size 1 KB |
@@ -145,7 +145,7 @@ UI state mapping (spec wording): `starting` shows "시작 중", `ok` shows "정�
 Decision: the monitor html is loaded as a file, not passed as a string. `render()` reloads itself with `location.reload()` and the file is replaced atomically on each tick, so a `srcdoc` string would keep showing old content.
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
-- Response: `Result<{ fileUrl: string, generatedAt: string }>`. `fileUrl` is the `file://` URL of `claude-monitor.html` in the app's user-data folder. The shell sets `<iframe sandbox="allow-scripts" src="<fileUrl>#<tab>">` for the seven monitor tabs (`ov flow orch route tok sav set`); changing only the `#<tab>` part switches the tab without a reload. The `codex` and `opt` tabs are rendered by the shell itself from `status:get` and `findings:list`.
+- Response: `Result<{ fileUrl: string, generatedAt: string }>`. `fileUrl` is the `file://` URL of `claude-monitor.html` in the app's user-data folder. The shell sets `<iframe sandbox="allow-scripts" src="<fileUrl>#<tab>">` for the seven monitor tabs (`ov flow orch route tok sav set`); changing only the `#<tab>` part switches the tab without a reload. The `codex`, `rt` and `opt` tabs are rendered by the shell itself from `status:get`, `codex:detail`, `routines:detail` and `findings:list`.
 - Errors: `FORBIDDEN`, `NO_SNAPSHOT` (file not written yet), `INTERNAL`.
 - The renderer can neither choose nor change the path.
 
@@ -187,7 +187,7 @@ CodexDetail = {
 ```
 
 ### `routines:detail`
-Added 2026-10-31 for the PC 루틴 tab. Report only. Executable file names only, never arguments, user names, SIDs or authors.
+Added 2026-10-31 for the 루틴 tab: Claude and Codex routines only. Report only. Executable file names only; never arguments, user names, SIDs (masked in names and paths), authors, prompts or session content.
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<RoutinesDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
@@ -195,18 +195,19 @@ Added 2026-10-31 for the PC 루틴 tab. Report only. Executable file names only,
 ```text
 RoutinesDetail = {
   generatedAt: string,
-  status: "ok" | "missing",                       // missing: not Windows, first collection not done, or it failed
+  status: "ok" | "missing",                       // missing: the first collection has not finished, or it failed
   note: string,                                   // Korean, empty when fine
-  collectedAt: string | null,                     // when the PowerShell collection ran
-  tasks: { name: string, path: string, state: string, enabled: boolean, microsoft: boolean, hidden: boolean,
-           lastRun: string | null, nextRun: string | null, lastResult: string | null,  // hex like "0x1"
-           failed: boolean, triggers: string[], exe: string | null, account: "system" | "service" | "user" | null,
-           elevated: boolean }[],
-  startup: { name: string, location: string, scope: "all" | "me", exe: string | null, enabled: boolean | null }[],
-  services: { total: number, running: number, auto: number,
-              autoStopped: { name: string, display: string, exe: string | null }[],
-              thirdParty:  { name: string, display: string, state: string, startMode: string, exe: string | null }[] },
-  claude: { name: string, description: string }[]  // ~/.claude/scheduled-tasks/*/SKILL.md front matter only
+  collectedAt: string | null,
+  claude: { name: string, description: string }[],          // ~/.claude/scheduled-tasks/*/SKILL.md front matter only
+  codex:  { id: string, name: string, kind: string, status: string,   // ~/.codex/automations/*/automation.toml top keys only
+            rrule: string, updatedAt: string | null }[],               // status lower case, e.g. "active"
+  tasks:  { ai: "claude" | "codex", name: string, path: string, state: "ready" | "running" | "disabled" | "queued" | "unknown",
+            enabled: boolean, lastRun: string | null, nextRun: string | null, lastResult: string | null,  // hex like "0x1"
+            failed: boolean, triggers: string[], exe: string | null, account: "system" | "service" | "user" | null,
+            elevated: boolean }[],        // Windows scheduled tasks whose name, path or command mentions claude or codex
+  startup: { ai: "claude" | "codex", name: string, location: "run" | "runonce" | "folder", scope: "all" | "me",
+             exe: string | null, enabled: boolean | null }[],
+  windowsNote: string                             // Korean; set when not on Windows or the PowerShell read failed
 }
 ```
 
