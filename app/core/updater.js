@@ -29,7 +29,7 @@ export function updateFacts(snapshot) {
     claudeCode: u?.claudeCode && newer(u.claudeCode.latest, u.claudeCode.installed) ? u.claudeCode.latest : null,
     pluginsOff: off.length ? `off:${short(off.join(','))}` : null,
     // what the sources actually reported this run; an empty first run or an offline check says nothing
-    known: { repo: !!r, claudeCode: !!u?.claudeCode, plugins: !!items, drift: Number.isFinite(c?.setup?.driftCount) },
+    known: { repo: !!r, claudeCode: !!u?.claudeCode, plugins: !!items && c.plugins.status !== 'missing', drift: Number.isFinite(c?.setup?.driftCount) && c.setup.status !== 'missing' },
     drift: Number(c?.setup?.driftCount) || 0,
   };
 }

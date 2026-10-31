@@ -51,6 +51,7 @@ test('CodexSource never opens auth.json, secrets/, .sandbox-secrets/ or .env; se
     if (f.includes(`${path.sep}sessions${path.sep}`)) assert.match(path.basename(f), /^rollout-.*\.jsonl$/, f);
     assert.ok(!f.includes('archived_sessions'), f);
   }
+  assert.equal(r.data.usage.today.output, 5); // the file was parsed, not skipped
   assert.ok(!JSON.stringify(r).includes(CANARY.session));
 });
 

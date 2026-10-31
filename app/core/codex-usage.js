@@ -62,7 +62,16 @@ function feed(st, text) {
   }
 }
 
-const freshState = () => ({ offset: 0, cwd: null, model: null, total: null, days: {}, context: null, rate: null, lastAt: 0 });
+const freshState = () => ({ offset: 0, cwd: null, model: null, total: null, days: {}, context: null, rate: null, lastAt: 0, skipping: false });
+
+// Each window expires on its own: a weekly limit still counts after the 5-hour window reset.
+function liveRate(rate, nowMs) {
+  if (!rate) return null;
+  const keep = (w) => (w && (!w.resetsAt || w.resetsAt > nowMs) ? w : null);
+  const primary = keep(rate.primary);
+  const secondary = keep(rate.secondary);
+  return primary || secondary ? { at: new Date(rate.at).toISOString(), primary, secondary } : null;
+}
 
 // Reads only the bytes added since the last run (rollouts are append-only); a file that shrank or changed identity is
 // read again from the start. A partial last line waits for the next run.
@@ -73,7 +82,7 @@ async function readNew(file, size, st) {
   st.seenSize = size;
   // Chunks, never the whole file: one live Codex session file was 728 MB, past the longest string V8 can hold.
   const fd = fs.openSync(file, 'r');
-  const buf = Buffer.alloc(CHUNK);
+  const buf = Buffer.alloc(Math.min(CHUNK, size - st.offset));
   try {
     while (st.offset < size) {
       const n = fs.readSync(fd, buf, 0, Math.min(CHUNK, size - st.offset), st.offset);
@@ -160,7 +169,7 @@ export async function scanCodexUsage(codexHome, nowMs, cache = new Map()) {
     days,
     today: { output: sum('output'), input: sum('input'), cached: sum('cached'), sessions: sum('sessions'), projects: list.slice(0, 6).map((p) => ({ ...p, lastAt: p.lastAt ? new Date(p.lastAt).toISOString() : null })) },
     // the limit as of its newest report; a window that already reset reads as unknown
-    rate: rate && (!rate.primary.resetsAt || rate.primary.resetsAt > nowMs) ? { at: new Date(rate.at).toISOString(), primary: rate.primary, secondary: rate.secondary && (!rate.secondary.resetsAt || rate.secondary.resetsAt > nowMs) ? rate.secondary : null } : null,
+    rate: liveRate(rate, nowMs),
     live: live.sort((a, b) => b.tokens - a.tokens).slice(0, 6),
     models: Object.entries(models).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([model, output]) => ({ model, output })),
   };

@@ -59,6 +59,10 @@ test('updateFacts: target keys come from the snapshot only; feature branch, up t
   const off = updateFacts(snapOf({ plugins: [{ name: 'a@b', status: 'warn', pinnedRef: 'v2' }, { name: 'c@d', status: 'ok' }] })).pluginsOff;
   assert.match(off, /^off:[0-9a-f]{12}$/);
   assert.equal(updateFacts(snapOf()).pluginsOff, null);
+  // an unreadable plugin list is not "all plugins fine": it must not clear a plugin failure
+  const unread = snapOf();
+  unread.sources.claude.data.plugins = { status: 'missing', items: [] };
+  assert.equal(updateFacts(unread).known.plugins, false);
 });
 
 test('AutoUpdater: off, without a runner, or while a fix runs it starts nothing', () => {

@@ -81,6 +81,18 @@ test('scanCodexUsage: no sessions folder reads as missing; a limit window that a
   assert.equal((await scanCodexUsage(home, NOW + 2 * 3600000, new Map())).rate, null);
 });
 
+test('scanCodexUsage: the weekly window survives a reset of the short window', async () => {
+  const home = tmpDir('cm-cxu-');
+  const line = JSON.stringify({ timestamp: at(5), type: 'event_msg', payload: { type: 'token_count', info: null, rate_limits: {
+    primary: { used_percent: 30, window_minutes: 300, resets_at: Math.floor((NOW - 60000) / 1000) },
+    secondary: { used_percent: 70, window_minutes: 10080, resets_at: Math.floor((NOW + 86400000) / 1000) },
+  } } });
+  write(path.join(home, 'sessions', '2026', '10', '31', 'rollout-r.jsonl'), `${line}\n`);
+  const r = await scanCodexUsage(home, NOW, new Map());
+  assert.equal(r.rate.primary, null);
+  assert.equal(r.rate.secondary.usedPercent, 70);
+});
+
 const withUsage = (usage) => snap({ codex: { status: 'ok', note: '', data: { usage } } });
 
 test('X7: warn at 80% and up per window, with the reset time; nothing below or without a report', () => {

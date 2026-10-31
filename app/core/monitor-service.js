@@ -32,7 +32,8 @@ const realClock = {
 const codexState = (res, findings) => (res.status === 'missing' ? 'missing' : findings.some((f) => f.severity === 'bad') ? 'bad' : findings.some((f) => f.severity === 'warn') ? 'warn' : 'ok');
 
 // Local wall-clock time, as the user reads it on the strip.
-const localStamp = (iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const maxLimit = (rate) => { const p = [rate?.primary?.usedPercent, rate?.secondary?.usedPercent].filter(Number.isFinite); return p.length ? Math.max(...p) : null; };
+const localStamp =(iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 export class MonitorService {
   #snapshot = null;
@@ -200,7 +201,7 @@ export class MonitorService {
       trustedProjects: projects.length, missingProjects: projects.filter((p) => p.exists === false).length,
       sessions7d: codexRes.data?.sessions?.last7d ?? 0, backups: codexRes.data?.backups?.length ?? 0,
       todayOutput: codexRes.data?.usage?.today?.output ?? 0,
-      limitPercent: codexRes.data?.usage?.rate?.primary?.usedPercent ?? null,
+      limitPercent: maxLimit(codexRes.data?.usage?.rate),
     } : null;
     const allMissing = (!claude || CLAUDE_SECTIONS.every((k) => claude[k]?.status === 'missing')) && (!codexRes || codexRes.status === 'missing');
     let state;
