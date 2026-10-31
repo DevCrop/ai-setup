@@ -1434,6 +1434,8 @@ requestAnimationFrame(step)});
 // Embed: the app window has room, so the token table opens instead of leaving the card empty.
 const EMBED_SCRIPT = `document.querySelectorAll('#v-tok details.fold').forEach(function(d){d.open=true});`;
 const EMBED_CSS = `
+/* the app reloads this page on every snapshot: one pulse per snapshot reads as a heartbeat, an endless one kept the GPU busy */
+.embed .live .pip, .embed .pip.live { animation-iteration-count: 1; }
 body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh; min-height: 0; overflow: hidden; }
 .embed .stage { height: 100vh; padding: var(--gap) var(--edge); display: flex; flex-direction: column; overflow: hidden; }
 .embed .view:not([hidden]) { flex: 1 1 auto; min-height: 0; max-width: none; margin: 0; gap: var(--gap); }
