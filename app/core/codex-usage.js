@@ -16,7 +16,8 @@ const WANT = ['"token_count"', '"session_meta"', '"turn_context"'];
 const pad = (n) => String(n).padStart(2, '0');
 const localDate = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const n0 = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
-const base = (p) => (typeof p === 'string' && p ? path.basename(p.replace(/[\\/]+$/, '')).slice(0, 80) : null);
+// both separators on every OS: a Windows path must never leak whole when the app runs elsewhere
+const base = (p) => (typeof p === 'string' && p ? p.split(/[\\/]/).filter(Boolean).pop()?.slice(0, 80) ?? null : null);
 const pct = (v) => (Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : null);
 
 function limitOf(l) {
