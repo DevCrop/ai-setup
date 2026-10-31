@@ -472,11 +472,12 @@ function fixed1(x) {
 // Korean large-number style: 만 (10^4) and 억 (10^8).
 function compactKo(v) {
   if (!Number.isFinite(v)) return DASH;
-  const a = Math.abs(v);
-  if (a >= 1e8) return `${fixed1(v / 1e8)}억`;
-  if (a >= 1e7) return `${fmtInt(Math.round(v / 1e4))}만`; // 5,151만, not 5151.2만
-  if (a >= 1e4) return `${fixed1(v / 1e4)}만`;
-  return fmtInt(v);
+  if (Math.abs(v) < 1e4) return fmtInt(v);
+  // Decide on the rounded figure so 99,995,000 reads 1억 (not 10,000만) and 9,999,960 reads 1,000만.
+  const man = Math.round(v / 1e4);
+  if (Math.abs(man) >= 1e4) return `${fixed1(v / 1e8)}억`;
+  if (Math.abs(Math.round(v / 1e3) / 10) >= 1000) return `${fmtInt(man)}만`; // 5,151만, not 5151.2만
+  return `${fixed1(v / 1e4)}만`;
 }
 
 function pct01(v) {

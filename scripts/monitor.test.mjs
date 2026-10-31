@@ -536,4 +536,6 @@ test('overview: routing KPI counts like the strip (no-data agents left out) and 
   assert.match(html, />1\/2</);
   assert.match(html, /출력 5,151만/);
   assert.match(html, /아낀 입력 12\.3만/);
+  const fmt = (n) => render({ ...d, activity: { status: 'ok', projects: [{ ...d.activity.projects[0], output: n }] } }, { embed: true }).match(/출력 ([^ ]+) ·/)[1];
+  assert.deepEqual([99994999, 99995000, 1e8, 9999960, 1e7, 9999, -51512345].map(fmt), ['9,999만', '1억', '1억', '1,000만', '1,000만', '9,999', '-5,151만']);
 });
