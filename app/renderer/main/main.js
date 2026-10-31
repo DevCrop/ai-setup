@@ -288,10 +288,10 @@
     lims.forEach(function (x) {
       var l = x[1];
       var w = l.windowMinutes ? (l.windowMinutes % 1440 === 0 ? l.windowMinutes / 1440 + '일' : l.windowMinutes % 60 === 0 ? l.windowMinutes / 60 + '시간' : l.windowMinutes + '분') : '';
-      var row = bar(x[0] + (w ? ' ' + w : ''), l.usedPercent, 100, Math.round(l.usedPercent) + '%');
+      var row = bar(w || x[0], l.usedPercent, 100, Math.round(l.usedPercent) + '%');
       if (l.usedPercent >= 80) row.classList.add('warn');
       b.appendChild(row);
-      if (l.resetsAt) b.appendChild(el('p', 'cap', x[0] + ' 창 재설정 ' + hhmm(l.resetsAt)));
+      b.appendChild(el('p', 'cap', x[0] + ' 창' + (w ? ' (' + w + ')' : '') + (l.resetsAt ? ' · 재설정 ' + hhmm(l.resetsAt) : '')));
     });
     subhead(b, '오늘 프로젝트');
     if (!t.projects.length) none(b, '오늘 Codex 작업이 없습니다.');

@@ -49,7 +49,7 @@ const make = (o = {}) => {
 };
 
 test('updateFacts: target keys come from the snapshot only; feature branch, up to date and a bad sha give nothing', () => {
-  assert.deepEqual(updateFacts(snapOf()), { repoRemote: NEW, claudeCode: null, pluginsOff: null });
+  assert.deepEqual(updateFacts(snapOf()), { repoRemote: NEW, claudeCode: null, pluginsOff: null, known: { repo: true, claudeCode: false, plugins: true, drift: false }, drift: 0 });
   assert.equal(updateFacts(snapOf({ branch: 'other', behind: 0 })).repoRemote, null);
   assert.equal(updateFacts(snapOf({ behind: 0 })).repoRemote, null);
   assert.equal(updateFacts(snapOf({ remote: 'x; rm -rf /' })).repoRemote, null);
@@ -124,6 +124,53 @@ test('AutoUpdater: a failed command keeps only the masked tail of its output; a 
   assert.match(f.note, /~\\x and ~\/y/);
   assert.equal(u.consider(snapOf({ remote: null, claudeCode: { installed: '2.1.316', latest: '2.1.316', channel: 'latest' } })), null);
   assert.deepEqual(u.status().failed, []);
+});
+
+test('AutoUpdater: an empty first snapshot (no update data yet) keeps a failure and its 6 h wait; a new target key does not skip it', async () => {
+  const file = path.join(tmpDir(), 'update-state.json');
+  const r = fakeRunner({ dirty: true });
+  await make({ runner: r.run, file }).u.consider(snapOf());
+  const empty = new Snapshot({ generatedAt: '', sources: { updates: { status: 'missing', note: '', data: null }, claude: { status: 'ok', note: '', data: {} } }, ctx: {} });
+  let t = 2000;
+  const again = new AutoUpdater({ file, repo: '/repo', runner: r.run, enabled: () => true, now: () => t, homeDir: HOME });
+  assert.equal(again.consider(empty), null);
+  assert.deepEqual(again.status().failed.map((f) => f.step), ['repo']); // not forgotten on "no data"
+  assert.equal(again.consider(snapOf({ remote: 'c'.repeat(40) })), null); // a newer remote waits out the same 6 h
+  t = 1000 + RETRY_MS;
+  assert.ok(again.consider(snapOf({ remote: 'c'.repeat(40) })));
+  await again.settle();
+  // plugins: a failed pins:<head> attempt also holds an off:<hash> attempt
+  const pr = fakeRunner({ changed: ['claude/settings.json'], fail: ['install-plugins'] });
+  const { u, advance } = make({ runner: pr.run });
+  assert.deepEqual((await u.consider(snapOf())).failed, ['plugins']);
+  advance(1000);
+  assert.equal(u.consider(snapOf({ remote: null, plugins: [{ name: 'a@b', status: 'warn', pinnedRef: 'v2' }] })), null);
+});
+
+test('AutoUpdater: a failed apply is forgotten once C1 reports no drift, kept while drift remains or is unknown', async () => {
+  const r = fakeRunner({ fail: ['apply.sh'] });
+  const { u } = make({ runner: r.run });
+  assert.deepEqual((await u.consider(snapOf())).failed, ['apply']);
+  const withDrift = (n) => new Snapshot({ generatedAt: '', sources: { claude: { status: 'ok', note: '', data: { setup: n === null ? {} : { driftCount: n } } } }, ctx: {} });
+  u.consider(withDrift(null));
+  u.consider(withDrift(3));
+  assert.deepEqual(u.status().failed.map((f) => f.step), ['apply']);
+  u.consider(withDrift(0));
+  assert.deepEqual(u.status().failed, []);
+});
+
+test('MonitorService: a pass that did something drops the source caches and runs again', async () => {
+  let invalidated = 0;
+  let collects = 0;
+  const sources = [{ id: 'claude', label: 'Claude', invalidate() { invalidated++; }, async collect() { collects++; return { status: 'ok', note: '', data: fullClaude() }; } }];
+  let pass = { done: ['repo'], failed: [] };
+  const updater = { running: false, status: () => null, consider() { const p = pass; pass = null; return p ? Promise.resolve(p) : null; } };
+  const svc = new MonitorService({ outDir: path.join(tmpDir(), 'o'), homes: { claude: tmpDir(), codex: tmpDir() }, repo: tmpDir(), env: {}, sources, updater, clock: fakeClock(), refreshSec: 600 });
+  await svc.refreshNow();
+  await new Promise((res) => setImmediate(res));
+  await svc.refreshNow();
+  assert.equal(invalidated, 1);
+  assert.ok(collects >= 2);
 });
 
 test('AutoUpdater: a dependency change asks for npm ci and never runs it; npm ci done later clears it at the next start', async () => {

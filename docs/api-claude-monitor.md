@@ -54,7 +54,7 @@ Error codes (all channels)
 | `NOT_FOUND` | no such finding | `findingId` unknown, or the finding has no fix |
 | `NO_SNAPSHOT` | no data yet | first run has not finished |
 | `INVALID_STATE` | action not allowed in this state | transition not in the table of the arch doc section 2 |
-| `FIX_BUSY` | another fix is running | one fix at a time; the lock covers the whole apply/restore call, including the stale check (C1 re-runs its dry run) |
+| `FIX_BUSY` | another fix is running | one fix at a time; the lock covers the whole apply/restore call, including the stale check (C1 re-runs its dry run). Also returned by preview, apply, restore and `app:quit` while an auto-update pass runs (the message text stays the same) |
 | `PREVIEW_STALE` | the target changed since the preview | recomputed `previewId` differs (for C4: live or repo `settings.json` changed); state returns to `proposed` |
 | `NOT_RESTORABLE` | this fix cannot be undone here | `restorable` is false (C1) |
 | `RESTORE_CONFLICT` | the file changed after the fix | the target (`config.toml` for X1/X4, repo `claude/settings.json` for C4) differs from its hash right after apply; nothing is written |
@@ -285,7 +285,7 @@ Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defau
 ### `app:quit`
 - Direction: renderer to main, invoke. Callers: strip, main.
 - Request: none.
-- Response: `Result<{ quitting: true }>`, sent just before `app.quit()`. Refused with `FIX_BUSY` while a fix is applying or restoring.
+- Response: `Result<{ quitting: true }>`, sent just before `app.quit()`. Refused with `FIX_BUSY` while a fix is applying or restoring, or an auto-update pass runs.
 - Errors: `FORBIDDEN`, `FIX_BUSY`.
 
 ### `app:strip-menu`

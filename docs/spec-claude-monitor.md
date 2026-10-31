@@ -64,7 +64,7 @@ Codex (출처 `~/.codex`):
 ## 자동 업데이트 (2026-10-31 추가, 설정 "자동 업데이트", 기본 켜짐)
 - 업데이트 확인(U1·U2)이 찾은 사실과 C3의 플러그인 핀 상태로만 움직인다. 네트워크를 더 쓰지 않는다. 업데이트 확인을 끄면 자동 업데이트도 멈춘다.
 - 차례: ① 저장소 받기 `git pull --ff-only origin main`(`main` 이고 추적 파일에 커밋 안 한 변경이 없을 때만; 추적 안 하는 파일은 괜찮음) ② 받은 변경에 `claude/`가 있으면 `bash scripts/apply.sh` ③ `claude/settings.json`이 바뀌었거나 플러그인이 핀과 다르면 `bash scripts/install-plugins.sh` ④ Claude Code 새 버전이면 `claude update`. 앞 단계가 실패하면 그 뒤(②③)는 건너뛰고 ④만 따로 한다. C1 차이만으로는 `apply.sh`를 돌리지 않는다(사용자가 일부러 바꾼 라이브 설정을 지키려고).
-- 같은 대상(원격 커밋, 핀 상태, 버전)은 성공하면 다시 하지 않고, 실패하면 6시간 뒤에 다시. 고침이 돌고 있으면 시작하지 않고, 업데이트 중에는 고침과 앱 끝내기를 막는다.
+- 같은 대상(원격 커밋, 핀 상태, 버전)은 성공하면 다시 하지 않는다. 실패한 단계는 대상이 바뀌어도 6시간 쉰다. 실패 표시는 출처가 "할 일 없음"이라고 확실히 알려 줄 때만 지운다(앱 시작 직후·오프라인처럼 모르는 때는 그대로; 설정 반영은 C1 차이가 0일 때). 고침이 돌고 있으면 시작하지 않고, 업데이트 중에는 고침과 앱 끝내기를 막는다.
 - 받은 변경에 `app/`이 있으면 메인 창이 닫혀 있을 때 앱이 스스로 다시 시작한다. `app/package*.json`이 바뀌면 다시 시작하지 않고 U3로 `npm ci`를 알린다.
 - 기록 `userData/update-state.json`: 단계마다 마지막 대상 키·시각·성공 여부, 짧은 기록 50줄(가린 출력 끝). 무엇이든 끝낸 단계가 있으면 알림 한 번(단계 이름만).
 
@@ -91,7 +91,7 @@ Codex (출처 `~/.codex`):
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
 - Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다. 자동 업데이트도 위의 네 명령만 돌린다(`reset`, `checkout`, `clean`, `npm` 없음).
 - Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 화면은 로컬 파일만 읽음(렌더러 CSP `connect-src 'none'` 그대로), CSP, 단일 인스턴스.
-- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음.
+- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음. 자동 업데이트를 켜 두면 그 네 명령도 네트워크를 쓴다: `git pull`, `claude update`, `install-plugins.sh`(플러그인 받기, pip; 마켓플레이스가 등록 안 돼 있으면 `claude -p ok` 한 번으로 몇 토큰을 쓴다).
 
 ## Acceptance criteria (v1 완료 기준)
 1. 로그인 뒤 Claude Monitor 프로세스 묶음이 하나만 돈다(두 번 실행해도 하나).

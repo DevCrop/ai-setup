@@ -27,7 +27,9 @@ export class U3AutoUpdate extends Check {
     for (const s of a.failed ?? []) {
       f({
         id: `U3:${s.step}`, severity: 'info', title: `자동 업데이트 실패: ${s.label}`,
-        detail: '같은 대상은 6시간 뒤 다시 시도합니다. 아래 내용을 보고 직접 처리해도 됩니다.',
+        detail: s.step === 'apply'
+          ? '받은 설정을 ~/.claude 에 반영하지 못했습니다. C1 고침이나 bash scripts/apply.sh 로 반영하면 이 표시는 사라집니다.'
+          : '이 단계는 6시간 뒤 다시 시도합니다. 아래 내용을 보고 직접 처리하면 다음 확인 때 사라집니다.',
         evidence: s.note ? [s.note] : [],
       });
     }

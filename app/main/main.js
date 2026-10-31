@@ -107,13 +107,15 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(null);
     router.register();
     let last = null;
+    let relaunching = false;
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
       toast(policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings()));
       last = status;
       // New app code came in with a pull: restart while nobody is looking (main window closed, no fix or update running).
-      if (updater.restartNeeded && !updater.status().npmNeeded && !main.isAlive() && !updater.running && !monitor.optimizer.busyFindingId()) {
+      if (!relaunching && updater.restartNeeded && !updater.status().npmNeeded && !main.isAlive() && !updater.running && !monitor.optimizer.busyFindingId()) {
+        relaunching = true; // a late status push during quit must not start a second instance
         app.relaunch();
         app.quit();
       }

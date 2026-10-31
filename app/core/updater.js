@@ -21,12 +21,16 @@ export function updateFacts(snapshot) {
   const u = snapshot?.sources?.updates?.data;
   const c = snapshot?.sources?.claude?.data;
   const r = u?.repo;
-  const off = (c?.plugins?.items ?? []).filter((i) => i?.status !== 'ok').map((i) => `${i.name}|${i.pinnedRef ?? i.pinnedSha ?? ''}`).sort();
+  const items = Array.isArray(c?.plugins?.items) ? c.plugins.items : null;
+  const off = (items ?? []).filter((i) => i?.status !== 'ok').map((i) => `${i.name}|${i.pinnedRef ?? i.pinnedSha ?? ''}`).sort();
   return {
     // the remote commit names the target, so one success is not retried and a newer remote is
     repoRemote: r && r.branch !== 'other' && r.behind !== 0 && SHA.test(r.remote ?? '') ? r.remote : null,
     claudeCode: u?.claudeCode && newer(u.claudeCode.latest, u.claudeCode.installed) ? u.claudeCode.latest : null,
     pluginsOff: off.length ? `off:${short(off.join(','))}` : null,
+    // what the sources actually reported this run; an empty first run or an offline check says nothing
+    known: { repo: !!r, claudeCode: !!u?.claudeCode, plugins: !!items, drift: Number.isFinite(c?.setup?.driftCount) },
+    drift: Number(c?.setup?.driftCount) || 0,
   };
 }
 
@@ -40,17 +44,18 @@ async function must(job, file, args, opts) {
 }
 
 // One update action. due(job) returns a key naming the target of this attempt, or null when there is nothing to do;
-// run(job) does it and returns a short note. An independent step still runs after an earlier one failed. A step whose due()
-// reads the snapshot facts forgets its failure once it is no longer due (the user fixed it by hand).
+// run(job) does it and returns a short note. An independent step still runs after an earlier one failed. wanted(facts) says
+// whether its target is still there (null: the sources did not say); a failure is forgotten only on a clear false.
 export class UpdateStep {
   id = '';
   label = '';
   independent = false;
-  fromFacts = true;
 
   constructor() { if (new.target === UpdateStep) throw new TypeError('UpdateStep is abstract'); }
 
   due(_job) { return null; }
+
+  wanted(_facts) { return null; }
 
   async run(_job) { throw new Error('not implemented'); }
 }
@@ -61,6 +66,8 @@ export class RepoPullStep extends UpdateStep {
   label = '저장소 받기';
 
   due(job) { return job.facts.repoRemote; }
+
+  wanted(f) { return f.known.repo ? !!f.repoRemote : null; }
 
   async run(job) {
     const git = async (...a) => (await must(job, 'git', ['-C', job.repo, ...a], { timeout: 120000, env: GIT_ENV })).trim();
@@ -80,9 +87,11 @@ export class RepoPullStep extends UpdateStep {
 export class ApplyStep extends UpdateStep {
   id = 'apply';
   label = '설정 반영';
-  fromFacts = false; // due only right after a pull; a failure stays shown (C1 offers the same apply.sh by hand)
 
   due(job) { return job.head && job.changed.some((f) => f.startsWith('claude/')) ? job.head : null; }
+
+  // due only right after a pull; its failure goes once C1 sees no drift (the user or the C1 fix ran apply.sh)
+  wanted(f) { return f.known.drift ? f.drift > 0 : null; }
 
   async run(job) {
     await must(job, 'bash', ['scripts/apply.sh'], { cwd: job.repo, timeout: 120000 });
@@ -98,6 +107,8 @@ export class PluginStep extends UpdateStep {
 
   due(job) { return job.head && job.changed.includes('claude/settings.json') ? `pins:${job.head}` : job.facts.pluginsOff; }
 
+  wanted(f) { return f.known.plugins ? !!f.pluginsOff : null; }
+
   async run(job) {
     await must(job, 'bash', ['scripts/install-plugins.sh'], { cwd: job.repo, timeout: 600000 });
     return 'install-plugins.sh 완료';
@@ -111,6 +122,8 @@ export class ClaudeCodeStep extends UpdateStep {
   independent = true;
 
   due(job) { return job.facts.claudeCode; }
+
+  wanted(f) { return f.known.claudeCode ? !!f.claudeCode : null; }
 
   async run(job) {
     await must(job, 'claude', ['update'], { timeout: 300000 });
@@ -173,7 +186,8 @@ export class AutoUpdater {
     const key = step.due(job);
     if (typeof key !== 'string' || !key) return null;
     const last = this.#state.steps[step.id];
-    if (last && last.key === key && (last.ok || this.now() - last.at < RETRY_MS)) return null;
+    // a failure holds the step for RETRY_MS whatever the target, so a new key (pins:<head> after off:<hash>) is no way around it
+    if (last && (last.ok ? last.key === key.slice(0, 80) : this.now() - last.at < RETRY_MS)) return null;
     return key;
   }
 
@@ -183,7 +197,7 @@ export class AutoUpdater {
     const job = { facts: updateFacts(snapshot), repo: this.repo, runner: this.runner, changed: [], head: null, mask: (t) => maskHome(t, this.homeDir) };
     let cleared = false;
     for (const s of this.steps) {
-      if (s.fromFacts && this.#state.steps[s.id]?.ok === false && !s.due(job)) { delete this.#state.steps[s.id]; cleared = true; }
+      if (this.#state.steps[s.id]?.ok === false && s.wanted(job.facts) === false) { delete this.#state.steps[s.id]; cleared = true; }
     }
     if (cleared) this.#save();
     if (!this.steps.some((s) => this.#key(s, job))) return null;
