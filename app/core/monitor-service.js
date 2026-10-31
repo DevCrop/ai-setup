@@ -17,6 +17,8 @@ const CLAUDE_SECTIONS = ['routing', 'tokens', 'rtk', 'plugins', 'claudeMem', 'ho
 const ERROR_AFTER = 3;
 const STATE_KO = { starting: '시작 중', ok: '정상', warn: '확인 필요', bad: '문제', stale: '모니터 멈춤', nodata: '데이터 없음', error: '오류' };
 const SEVERITY_KO = { bad: '문제', warn: '주의', info: '참고', ok: '정상' };
+const SOURCE_KO = { claude: 'Claude', codex: 'Codex', updates: '업데이트' };
+const NO_SCORE = new Set(['starting', 'stale', 'nodata', 'error']);
 const ACTION_KO = { applied: '적용', restored: '되돌림', applyFailed: '적용 실패', restoreFailed: '되돌리기 실패' };
 
 const realClock = {
@@ -44,14 +46,16 @@ export class MonitorService {
   #cache = new Map();
 
   // Everything with a side effect is passed in: sources, optimizer, clock, folders, env.
-  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal } = {}) {
+  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, sourceDeps = {}, policy = null, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal } = {}) {
     if (!outDir) throw new TypeError('outDir is required');
     this.outDir = outDir;
     this.repo = repo ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     this.homes = homes ?? { claude: env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), codex: env.CODEX_HOME || path.join(os.homedir(), '.codex') };
     this.env = env;
     this.refreshSec = Math.min(86400, Math.max(3, Number(refreshSec) || 10)); // 3 s minimum like parseArgs in monitor.mjs
-    this.sources = sources ?? Object.values(sourceModules).map((S) => new S());
+    this.sources = sources ?? Object.values(sourceModules).map((S) => new S(sourceDeps));
+    // Optional NotificationPolicy: when given, only its stable findings count toward state, counts and health.
+    this.policy = policy;
     this.optimizer = optimizer ?? new Optimizer({ deps: { runner } });
     this.clock = clock;
     // Fix history survives a restart: outDir/fix-journal.json. An optimizer that was injected keeps its own journal unless one is given.
@@ -127,6 +131,8 @@ export class MonitorService {
         ctx: { repo: this.repo, homes: this.homes },
       });
       this.optimizer.run(snapshot);
+      // a source that could not be read this run keeps its findings' ages (no reset to 'just seen')
+      this.policy?.observe(this.optimizer.findings(), this.sources.filter((s, i) => results[i]?.data == null && results[i]?.status === 'missing' && s.id !== 'updates').map((s) => s.id));
       this.#write(snapshot);
       return snapshot;
     })();
@@ -164,13 +170,14 @@ export class MonitorService {
     const now = this.clock.now();
     const snap = this.#snapshot;
     const findings = this.optimizer.findings();
-    const count = (sev) => findings.filter((f) => f.severity === sev).length;
+    const stable = this.policy ? findings.filter((f) => this.policy.isStable(f)) : findings;
+    const count = (sev) => stable.filter((f) => f.severity === sev).length;
     const claude = this.#claude;
     const sum = claude?.summary ?? null;
     const codexRes = snap?.sources.codex ?? null;
     const cfg = codexRes?.data?.config ?? null;
     const projects = cfg?.projects ?? [];
-    const codexFindings = findings.filter((f) => f.source === 'codex');
+    const codexFindings = stable.filter((f) => f.source === 'codex');
     const codex = codexRes ? {
       state: codexState(codexRes, codexFindings),
       model: cfg?.model ?? null, reasoningEffort: cfg?.reasoningEffort ?? null, approval: cfg?.approval ?? null, sandbox: cfg?.sandbox ?? null,
@@ -193,6 +200,7 @@ export class MonitorService {
       refreshSec: this.refreshSec,
       state,
       counts: { warn: count('warn'), bad: count('bad') },
+      health: NO_SCORE.has(state) ? null : Math.max(0, Math.min(100, 100 - 15 * count('bad') - 5 * count('warn'))),
       findingsRev: this.optimizer.rev,
       routing: sum?.routing ?? { ok: 0, total: 0 },
       live: sum?.live ?? { sessions: 0, agents: 0 },
@@ -229,7 +237,7 @@ export class MonitorService {
       const key = `${f.severity}|${f.source}|${one(f.title)}`;
       groups.set(key, { f, n: (groups.get(key)?.n ?? 0) + 1 });
     }
-    for (const { f, n } of groups.values()) lines.push(`- [${SEVERITY_KO[f.severity]}] ${one(f.title)} (${f.source === 'codex' ? 'Codex' : 'Claude'}${n > 1 ? `, ${n}건` : ''})`);
+    for (const { f, n } of groups.values()) lines.push(`- [${SEVERITY_KO[f.severity]}] ${one(f.title)} (${SOURCE_KO[f.source] ?? f.source}${n > 1 ? `, ${n}건` : ''})`);
     const hist = this.history().slice(0, 5);
     if (hist.length) {
       lines.push('', '최근 변경 기록:');

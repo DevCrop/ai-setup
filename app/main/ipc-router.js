@@ -5,8 +5,9 @@ import { MESSAGES } from '../core/errors.js';
 
 export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'opt'];
 
-const FINDING_ID = /^[CX][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
+const FINDING_ID = /^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
 const PREVIEW_ID = /^[0-9a-f]{64}$/;
+const HHMM = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 // Fixed texts live in core/errors.js so core and the IPC boundary never drift apart.
 
@@ -16,6 +17,10 @@ const FIELDS = {
   findingId: str(FINDING_ID, 3, 80),
   previewId: str(PREVIEW_ID, 64, 64),
   tab: (v) => TABS.includes(v),
+  notify: (v) => typeof v === 'boolean',
+  updateCheck: (v) => typeof v === 'boolean',
+  quietStart: (v) => v === '' || str(HHMM, 5, 5)(v),
+  quietEnd: (v) => v === '' || str(HHMM, 5, 5)(v),
 };
 
 // channel -> { roles, keys (required), optional, none: payload must be absent }
@@ -33,6 +38,8 @@ export const CHANNELS = {
   'fix:preview': { roles: ['main'], keys: ['findingId'] },
   'fix:apply': { roles: ['main'], keys: ['findingId', 'previewId'] },
   'fix:restore': { roles: ['main'], keys: ['findingId'] },
+  'settings:get': { roles: ['main'], none: true },
+  'settings:set': { roles: ['main'], optional: ['notify', 'quietStart', 'quietEnd', 'updateCheck'] },
 };
 
 export function fail(code, detail) {

@@ -20,4 +20,6 @@ contextBridge.exposeInMainWorld('monitor', Object.freeze({
   refresh: () => ipcRenderer.invoke('app:refresh'),
   quit: () => ipcRenderer.invoke('app:quit'),
   showStripMenu: () => ipcRenderer.invoke('app:strip-menu'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
 }));

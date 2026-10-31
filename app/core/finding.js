@@ -1,7 +1,7 @@
 export const Severity = Object.freeze({ ok: 'ok', info: 'info', warn: 'warn', bad: 'bad' });
 export const SEVERITY_RANK = Object.freeze({ bad: 0, warn: 1, info: 2, ok: 3 });
 
-export const FINDING_ID_RE = /^[CX][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
+export const FINDING_ID_RE = /^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
 
 const cut = (v, n) => { const s = String(v ?? ''); return s.length > n ? `${s.slice(0, n - 1)}…` : s; };
 

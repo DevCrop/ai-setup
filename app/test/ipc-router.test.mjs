@@ -45,6 +45,12 @@ test('bad payloads answer BAD_REQUEST and never reach the handler', async () => 
     ['status:get', {}],
     ['app:open-main', { tab: 'nope' }],
     ['app:open-main', { tab: 'opt', x: 1 }],
+    ['settings:set', { notify: 'yes' }],
+    ['settings:set', { quietStart: '24:00' }],
+    ['settings:set', { quietEnd: '7:00' }],
+    ['settings:set', { theme: 'dark' }],
+    ['settings:get', {}],
+    ['fix:preview', { findingId: 'U1x' }],
   ];
   for (const [ch, p] of bad) {
     const r = await call(ch, 'main', p);
@@ -53,6 +59,8 @@ test('bad payloads answer BAD_REQUEST and never reach the handler', async () => 
   assert.deepEqual(calls, []);
   assert.equal((await call('app:open-main', 'main', { tab: 'opt' })).ok, true);
   assert.equal((await call('app:open-main', 'strip', undefined)).ok, true);
+  assert.equal((await call('settings:set', 'main', { notify: false, quietStart: '22:00', quietEnd: '', updateCheck: true })).ok, true);
+  assert.equal((await call('fix:preview', 'main', { findingId: 'U2:repo' })).ok, true);
 });
 
 test('thrown errors map to fixed codes; unknown errors become INTERNAL without the raw message', async () => {
@@ -70,7 +78,7 @@ test('thrown errors map to fixed codes; unknown errors become INTERNAL without t
 test('preload exposes exactly the contract methods and channels', () => {
   const src = fs.readFileSync(new URL('../preload/preload.cjs', import.meta.url), 'utf8');
   const methods = [...src.matchAll(/^\s{2}(\w+): /gm)].map((m) => m[1]).sort();
-  assert.deepEqual(methods, ['applyFix', 'copySummary', 'getCodexDetail', 'getStatus', 'getViewHtml', 'listFindings', 'listHistory', 'onStatusChanged', 'openMain', 'previewFix', 'quit', 'refresh', 'restoreFix', 'showStripMenu']);
+  assert.deepEqual(methods, ['applyFix', 'copySummary', 'getCodexDetail', 'getSettings', 'getStatus', 'getViewHtml', 'listFindings', 'listHistory', 'onStatusChanged', 'openMain', 'previewFix', 'quit', 'refresh', 'restoreFix', 'setSettings', 'showStripMenu']);
   const channels = [...new Set([...src.matchAll(/'([a-z]+:[a-z-]+)'/g)].map((m) => m[1]))].sort();
   assert.deepEqual(channels, [...Object.keys(CHANNELS), 'status:changed'].sort());
 });

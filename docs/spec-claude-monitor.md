@@ -43,12 +43,24 @@ Codex (출처 `~/.codex`):
 - X4 없는 파일을 가리키는 훅 상태(`[hooks.state.'<key>']`) → 고침: 그 표만 지움(백업, 되돌리기).
 - X5 켜졌지만 `command`도 `url`도 없는 MCP 서버 → 보고만.
 - X6 worktree가 20개 이상이거나 30일 넘은 것이 있음 → 보고만.
+업데이트 (출처 `updates`, 6시간마다, 실패하면 30분 뒤 다시, 설정에서 끌 수 있음, 2026-10-31 추가):
+- U1 Claude Code 새 버전: 설치된 `claude --version`이 `autoUpdatesChannel`에 맞는 npm 태그(`latest`/`stable`)보다 낮음 → 보고만(info), 명령 `claude update` 표시. 알림은 보내지 않는다.
+- U2 저장소가 원격보다 뒤처짐: `main`이 체크아웃돼 있을 때만, `git ls-remote origin refs/heads/main`의 커밋이 로컬 `HEAD`에 없음(다른 브랜치면 보고 안 함) → 보고만(info), 명령 `git pull` 다음 `bash scripts/apply.sh` 표시.
+- 플러그인 핀 불일치는 새 점검을 만들지 않고 C3:plugins의 근거에 "이름 설치 버전 → 핀"과 명령 `bash scripts/install-plugins.sh`을 보탠다.
+- 자동 실행은 없다: 앱은 `apply.sh`, `git pull`, 플러그인·Claude Code 업데이트를 스스로 돌리지 않는다.
+
+## 건강 점수와 알림 (2026-10-31 추가)
+- 건강 점수: 100에서 문제 1건마다 15, 주의 1건마다 5를 빼고 0..100으로 자른다. 정보·정상은 빼지 않는다. 시작 중·멈춤·데이터 없음·수집 오류일 때는 점수 없음. 최적화 탭 맨 위에 점수, 한 줄 문장, "지금 최적화" 버튼(기존 최적화하기 미리보기를 연다).
+- 안정된 발견만 센다: 발견이 처음 보인 뒤 3분(C1은 30분) 동안 계속 보여야 상태 막대의 "확인 필요 N"·"문제 N", 상태, 점수, 알림에 들어간다. 짧게 깜빡이는 발견은 목록에만 보인다. 앱을 다시 켜면 다시 기다린다(꺼져 있던 시간은 센 시간이 아님). 출처를 한 번 못 읽은 실행은 기다린 시간을 지우지 않는다.
+- 알림: 안정된 주의·문제 발견만. 같은 발견은 24시간(C2는 7일)에 한 번, 단 심각도가 오르면 다시. 알림은 한 시간에 최대 한 번, 모인 것을 한 번에. 조용한 시간(예 22:00–07:00, 자정을 넘어도 됨)에는 보내지 않고 다음으로 미룬다. 수집 오류 알림은 그대로(연속 오류마다 한 번). 알림 끄기와 조용한 시간은 수집 오류 알림에도 적용된다. 알림 기록 `userData/notify-state.json`에는 알린 발견 id와 시각만 둔다.
+- 설정 `userData/settings.json`: 알림 켜기/끄기, 조용한 시간 시작·끝, 업데이트 확인 켜기/끄기. 최적화 탭의 작은 설정 칸에서 바꾼다.
 
 ## Safety rules
 - 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수·모델·시각만 센다(본문 금지).
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
 - Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다.
-- Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 로컬 파일만, CSP, 단일 인스턴스.
+- Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 화면은 로컬 파일만 읽음(렌더러 CSP `connect-src 'none'` 그대로), CSP, 단일 인스턴스.
+- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음.
 
 ## Acceptance criteria (v1 완료 기준)
 1. 로그인 뒤 Claude Monitor 프로세스 묶음이 하나만 돈다(두 번 실행해도 하나).
@@ -62,9 +74,10 @@ Codex (출처 `~/.codex`):
 9. reviewer 지적 0건.
 
 ## Out of scope (v1)
-새 권장 설정 자동 제안, Codex 설정의 다른 고침, 자동 업데이트, macOS·Linux, 앱 서명.
+새 권장 설정 자동 제안, Codex 설정의 다른 고침, 업데이트 자동 실행(U1·U2는 보고만), macOS·Linux, 앱 서명.
 
 ## Changes
 - 2026-10-25 처음 작성.
 - 2026-10-25 developer 설계 반영: "node 없음" 대신 "수집 오류"; C1(apply.sh)은 되돌리기 없음(apply.sh가 백업을 남기지 않음), 되돌리기는 X1만; 심각도 C3 warn→warn, missing→bad, X2 info; 오른쪽 클릭 메뉴는 main의 기본 메뉴(app:strip-menu).
 - 2026-10-25 사용자 요청 반영: Codex 상세(codex:detail), 점검 X4(없는 훅 상태, 고침)·X5·X6, C4 고침, "최적화하기"(골라서 한꺼번에 미리보기 → 한 번 클릭 → 차례로 적용, 항목마다 백업, 모두 되돌리기; 위의 "모두 고치기 없음"은 이것으로 대체), 막대 위치 기억, 악화 시 데스크톱 알림, 한 화면 배치.
+- 2026-10-31 사용자 요청(PC Manager처럼) 1·2단계: 건강 점수, 안정된 발견만 세기·알림 규칙, 설정 저장, 보고만 하는 업데이트 확인 U1·U2(네트워크는 메인 프로세스만), C3:plugins 근거 보강.

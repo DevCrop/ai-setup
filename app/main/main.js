@@ -5,9 +5,12 @@ import path from 'node:path';
 import { MonitorService } from '../core/monitor-service.js';
 import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
+import { NotificationPolicy } from '../core/notification-policy.js';
+import { SettingsStore } from '../core/settings-store.js';
+import { httpsJson } from '../core/sources/update-source.js';
 import { IpcRouter } from './ipc-router.js';
 import { StripWindow, MainWindow } from './windows.js';
-import { gitBash, noticeFor } from './placement.js';
+import { gitBash } from './placement.js';
 
 const REPO = path.resolve(import.meta.dirname, '..', '..');
 
@@ -18,7 +21,10 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   const outDir = app.getPath('userData');
-  const monitor = new MonitorService({ outDir, repo: REPO, runner });
+  const settings = new SettingsStore({ file: path.join(outDir, 'settings.json') });
+  const policy = new NotificationPolicy({ file: path.join(outDir, 'notify-state.json'), settings: () => settings.get() });
+  const sourceDeps = { runner, fetchJson: (url) => httpsJson(url), updateCheck: () => settings.get().updateCheck };
+  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy });
   const stripFile = path.join(outDir, 'strip.json');
   const strip = new StripWindow({
     load: () => { try { return JSON.parse(fs.readFileSync(stripFile, 'utf8')); } catch { return null; } },
@@ -68,6 +74,8 @@ if (!app.requestSingleInstanceLock()) {
       'fix:preview': ({ findingId }) => monitor.optimizer.preview(findingId),
       'fix:apply': ({ findingId, previewId }) => monitor.optimizer.apply(findingId, previewId),
       'fix:restore': ({ findingId }) => monitor.optimizer.restore(findingId),
+      'settings:get': () => settings.get(),
+      'settings:set': (patch) => settings.set(patch),
     },
   });
 
@@ -86,7 +94,7 @@ if (!app.requestSingleInstanceLock()) {
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
-      const notice = noticeFor(last, status);
+      const notice = policy.decide(last, status, monitor.optimizer.findings());
       last = status;
       if (notice && Notification.isSupported()) {
         const n = new Notification({ ...notice, silent: true });

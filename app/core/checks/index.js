@@ -9,3 +9,5 @@ export { X3LargeLogDb } from './x3-large-log-db.js';
 export { X4MissingHookState } from './x4-missing-hook-state.js';
 export { X5McpNoTransport } from './x5-mcp-no-transport.js';
 export { X6ManyWorktrees } from './x6-many-worktrees.js';
+export { U1ClaudeCodeUpdate } from './u1-claude-code-update.js';
+export { U2RepoBehind } from './u2-repo-behind.js';

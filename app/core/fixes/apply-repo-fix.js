@@ -6,7 +6,7 @@ import { Fix } from '../fix.js';
 
 // CommandRunner: (file, args, opts) -> Promise<{ code, stdout, stderr }>; never rejects.
 export const execRunner = (file, args, opts = {}) => new Promise((resolve) => {
-  execFile(file, args, { cwd: opts.cwd, timeout: 120000, windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout, stderr) => {
+  execFile(file, args, { cwd: opts.cwd, env: opts.env ? { ...process.env, ...opts.env } : undefined, timeout: opts.timeout ?? 120000, windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout, stderr) => {
     resolve({ code: err ? (typeof err.code === 'number' ? err.code : -1) : 0, stdout: String(stdout || ''), stderr: String(stderr || (err && typeof err.code === 'string' ? err.code : '')) });
   });
 });

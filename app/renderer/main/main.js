@@ -4,6 +4,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'opt'];
   var SEV = { bad: '문제', warn: '주의', info: '정보', ok: '정상' };
+  var SRC = { claude: 'Claude', codex: 'Codex', updates: '업데이트' };
+  function srcName(s) { return SRC[s] || s; }
   var CLAUDE_NOTE = '저장소 claude/ 내용을 라이브 ~/.claude에 복사합니다(apply.sh). 되돌리기는 없습니다.';
   // C4 writes only the repo settings.json and can be restored, so the apply.sh note is not for it.
   function runsApplySh(f) { return f.source === 'claude' && f.id.indexOf('C4:') !== 0; }
@@ -28,6 +30,8 @@
   var histErr = '';
   var histSeq = 0;
   var batch = null;        // 최적화하기 run, kept in memory so redraws never drop it
+  var prefs = null;        // Settings | null (not loaded yet)
+  var prefsErr = '';
 
   // ---- DOM helper: text only, never innerHTML ----
   function el(tag, cls, text) {
@@ -432,9 +436,9 @@
       var dot = el('span', 'dt ' + (sev === 'info' ? '' : sev));
       dot.setAttribute('aria-hidden', 'true');
       head.appendChild(dot);
-      head.appendChild(el('span', 'what', same ? first.title : (first.source === 'codex' ? 'Codex' : 'Claude') + ' 점검 ' + first.checkId));
+      head.appendChild(el('span', 'what', same ? first.title : srcName(first.source) + ' 점검 ' + first.checkId));
       head.appendChild(el('span', 'st ' + (sev === 'info' ? '' : sev), SEV[sev] || sev));
-      head.appendChild(el('span', 'u', first.source === 'codex' ? 'Codex' : 'Claude'));
+      head.appendChild(el('span', 'u', srcName(first.source)));
       if (g.length > 1) head.appendChild(el('span', 'u', g.length + '건'));
       if (g.every(function (f) { return !f.fixable; })) head.appendChild(el('span', 'only', '보고만'));
       li.appendChild(head);
@@ -452,6 +456,7 @@
   function summaryText(list) {
     var n = function (fn) { return list.filter(fn).length; };
     return 'Claude ' + n(function (f) { return f.source === 'claude'; }) + ' · Codex ' + n(function (f) { return f.source === 'codex'; }) +
+      ' · 업데이트 ' + n(function (f) { return f.source === 'updates'; }) +
       ' · 문제 ' + n(function (f) { return f.severity === 'bad'; }) + ' · 주의 ' + n(function (f) { return f.severity === 'warn'; }) +
       ' · 정보 ' + n(function (f) { return f.severity === 'info'; });
   }
@@ -489,10 +494,8 @@
     var sel = count(list, isOn);
     var rec = count(list, function (f) { return f.recommended; });
     var bar = el('div', 'optbar');
-    var b = btn(list.length ? '최적화하기' : '고칠 항목 없음', 'opt|start', batchStart, 'prim', !list.length || !sel || isBusy());
-    if (list.length) b.appendChild(el('span', 'bsub', '선택 ' + sel + ' / ' + list.length + '건 · Claude ' + nc + ' · Codex ' + nx));
-    bar.appendChild(b);
     if (list.length) {
+      bar.appendChild(el('span', 'cap', '고칠 수 있는 것 ' + list.length + '건 중 ' + sel + '건 선택 · Claude ' + nc + ' · Codex ' + nx));
       var lock = !!batch || isBusy();
       bar.appendChild(btn('권장만 (' + rec + ')', 'opt|rec', function () { list.forEach(function (f) { picks[f.id] = !!f.recommended; }); redraw(); }, 'sm', lock));
       bar.appendChild(btn('전체 선택', 'opt|all', function () { list.forEach(function (f) { picks[f.id] = true; }); redraw(); }, 'sm', lock));
@@ -602,7 +605,7 @@
   function batchItem(it, withDiff) {
     var li = el('li', 'bitem');
     var h = el('div', 'bh');
-    h.appendChild(el('span', 'u', it.source === 'codex' ? 'Codex' : 'Claude'));
+    h.appendChild(el('span', 'u', srcName(it.source)));
     h.appendChild(el('b', null, it.title));
     if (it.ev) h.appendChild(el('span', 'cap mono', it.ev));
     li.appendChild(h);
@@ -724,7 +727,7 @@
       hist.forEach(function (e) {
         var li = el('li', 'hrow');
         li.appendChild(el('span', 'ht', when(e.at)));
-        li.appendChild(el('span', 'u', e.source === 'codex' ? 'Codex' : 'Claude'));
+        li.appendChild(el('span', 'u', srcName(e.source)));
         li.appendChild(el('span', 'hc', e.checkId));
         li.appendChild(el('span', 'st' + (/Failed$/.test(e.action) ? ' bad' : ''), ACT[e.action] || e.action));
         var bk = el('span', 'hb mono', e.backupName || '');
@@ -740,12 +743,133 @@
     return sec;
   }
 
+  // ---- home: health score, updates, settings ----
+  function scoreWord(h) {
+    if (h == null) return '확인 중';
+    return h >= 90 ? '상태 좋음' : h >= 70 ? '확인할 것이 조금 있음' : '정리가 필요함';
+  }
+  function tone(h) { return h == null ? 'none' : h >= 90 ? 'ok' : h >= 70 ? 'warn' : 'bad'; }
+  function updateItems() {
+    return (findings || []).filter(function (f) { return f.source === 'updates' || f.id === 'C3:plugins'; });
+  }
+  // One focal point: the score ring, the verdict, and the single primary action of the tab.
+  function hero() {
+    var h = status ? status.health : null;
+    var c = status && status.counts ? status.counts : { warn: 0, bad: 0 };
+    var sec = el('section', 'hero t-' + tone(h));
+    sec.setAttribute('aria-label', '상태 요약');
+    var ring = el('div', 'ring');
+    ring.setAttribute('role', 'img');
+    ring.setAttribute('aria-label', h == null ? '건강 점수 없음' : '건강 점수 ' + h + '점, 100점 만점');
+    ring.style.setProperty('--p', String(h == null ? 0 : h)); // CSSOM, allowed by the style-src CSP
+    ring.appendChild(el('span', 'num', h == null ? '–' : String(h)));
+    sec.appendChild(ring);
+    var txt = el('div', 'txt');
+    txt.appendChild(el('h2', null, scoreWord(h)));
+    var nu = updateItems().length;
+    var bits = ['문제 ' + c.bad, '주의 ' + c.warn, '업데이트 ' + (prefs && !prefs.updateCheck ? '확인 꺼짐' : nu)];
+    if (status && status.generatedAt) bits.push(when(status.generatedAt) + ' 확인');
+    txt.appendChild(el('p', 'cap', bits.join(' · ')));
+    sec.appendChild(txt);
+    var act = el('div', 'act');
+    var list = (findings || []).filter(batchable);
+    var sel = count(list, isOn);
+    var refresh = function () { api.refresh().then(function () { announce('다시 확인하는 중'); }); };
+    if (list.length) {
+      act.appendChild(btn('지금 최적화 (' + sel + '건)', 'opt|start', batchStart, 'prim', !sel || isBusy()));
+      act.appendChild(btn('다시 확인', 'opt|refresh', refresh, 'sm'));
+    } else {
+      act.appendChild(btn('다시 확인', 'opt|refresh', refresh, 'prim'));
+    }
+    sec.appendChild(act);
+    return sec;
+  }
+  function updatesPanel() {
+    var list = updateItems();
+    if (!list.length) return null;
+    var sec = el('section', 'panel upd');
+    sec.setAttribute('aria-label', '업데이트');
+    var ph = el('div', 'ph');
+    ph.appendChild(el('h2', null, '업데이트'));
+    ph.appendChild(el('span', 'hint', '앱은 직접 실행하지 않습니다. 명령을 골라 복사해 터미널에서 실행하세요.'));
+    sec.appendChild(ph);
+    var ul = el('ul', 'pitems sc');
+    ul.tabIndex = 0; // keyboard can scroll it: it holds no focusable item
+    ul.setAttribute('aria-label', '업데이트 목록');
+    list.forEach(function (f) {
+      var li = el('li', 'urow');
+      li.appendChild(el('span', 'what', f.title));
+      (f.evidence || []).forEach(function (e) {
+        if (e.indexOf('명령: ') === 0) li.appendChild(el('code', 'cmd', e.slice(4)));
+        else if (e.indexOf('status:') !== 0) li.appendChild(el('span', 'cap', e));
+      });
+      ul.appendChild(li);
+    });
+    sec.appendChild(ul);
+    return sec;
+  }
+  function savePrefs(patch) {
+    api.setSettings(patch).then(function (res) {
+      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; announce('설정 저장됨'); }
+      else { prefsErr = '저장 실패: ' + errText(res); announce(prefsErr); }
+      renderOpt();
+    }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; announce(prefsErr); renderOpt(); });
+  }
+  function prefsPanel() {
+    var sec = el('section', 'panel prefs');
+    sec.setAttribute('aria-label', '설정');
+    var row = el('div', 'prow');
+    row.appendChild(el('h2', null, '설정'));
+    if (!prefs) { row.appendChild(el('span', 'cap', prefsErr || '불러오는 중…')); sec.appendChild(row); return sec; }
+    function toggle(key, label) {
+      var lab = el('label', 'pl');
+      var c = checkbox(!!prefs[key], 'pref|' + key, label, function (v) { var p = {}; p[key] = v; savePrefs(p); });
+      c.disabled = false;
+      lab.appendChild(c);
+      lab.appendChild(el('span', null, label));
+      return lab;
+    }
+    function time(key, label) {
+      var t = el('input', 'tm');
+      t.type = 'time';
+      t.value = prefs[key] || '';
+      t.setAttribute('data-key', 'pref|' + key);
+      t.setAttribute('aria-label', label);
+      // Chromium fires change on every complete value while typing; save once on leaving the field, and only if it changed
+      t.addEventListener('blur', function () { if (t.value !== (prefs[key] || '')) { var p = {}; p[key] = t.value || ''; savePrefs(p); } });
+      return t;
+    }
+    row.appendChild(toggle('notify', '데스크톱 알림'));
+    var q = el('fieldset', 'pl');
+    q.appendChild(el('legend', null, '조용한 시간'));
+    q.appendChild(time('quietStart', '조용한 시간 시작'));
+    var dash1 = el('span', null, '–');
+    dash1.setAttribute('aria-hidden', 'true');
+    q.appendChild(dash1);
+    q.appendChild(time('quietEnd', '조용한 시간 끝'));
+    row.appendChild(q);
+    row.appendChild(toggle('updateCheck', '업데이트 확인'));
+    if (prefsErr) row.appendChild(el('span', 'cap bad', prefsErr));
+    sec.appendChild(row);
+    return sec;
+  }
+  function loadPrefs() {
+    if (!api || !api.getSettings) return;
+    api.getSettings().then(function (res) {
+      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; } else prefsErr = '설정을 읽지 못했습니다: ' + errText(res);
+      renderOpt();
+    }, function () { prefsErr = '설정을 읽지 못했습니다'; renderOpt(); });
+  }
+
   function renderOpt() {
     var root = $('v-opt');
     var f = focusInfo(root);
     var tops = Array.prototype.map.call(root.querySelectorAll('.sc'), function (n) { return n.scrollTop; });
     root.replaceChildren();
-    if (findings && findings.length) root.appendChild(optBar());
+    root.appendChild(hero());
+    if (findings && count(findings, batchable)) root.appendChild(optBar());
+    var up = updatesPanel();
+    if (up) root.appendChild(up);
     if (batch) root.appendChild(batchPanel());
     var panel = el('section', 'panel');
     panel.setAttribute('aria-label', '발견 목록');
@@ -766,6 +890,7 @@
     }
     root.appendChild(panel);
     root.appendChild(histPanel());
+    root.appendChild(prefsPanel());
     Array.prototype.forEach.call(root.querySelectorAll('.sc'), function (n, i) { n.scrollTop = tops[i] || 0; });
     refocus(root, f);
   }
@@ -836,6 +961,8 @@
   function onStatus(s) {
     if (!s || typeof s !== 'object') return;
     var prevBusy = status ? status.busyFindingId : null;
+    var homeKey = function (x) { var c = x.counts || {}; return x.health + '|' + c.warn + '|' + c.bad; };
+    var prevHome = status ? homeKey(status) : '';
     status = s;
     badge();
     loadFrameUrl();
@@ -843,6 +970,7 @@
     if (key !== cxKey) { cxKey = key; loadCodex(); }
     if (s.findingsRev !== lastRev) { lastRev = s.findingsRev; loadFindings(); }
     else if (prevBusy !== s.busyFindingId) redraw();
+    else if (prevHome !== homeKey(s) && !(document.activeElement && document.activeElement.classList.contains('tm'))) renderOpt(); // a finding became stable; never while a time is being typed
     else renderCodex();
   }
 
@@ -878,5 +1006,6 @@
     else { $('v-codex').replaceChildren(el('p', 'msg', '상태를 읽지 못했습니다: ' + errText(res))); }
   });
   loadFindings();
+  loadPrefs();
   loadFrameUrl();
 })();

@@ -18,7 +18,7 @@ function clean(e) {
   const parts = Array.isArray(e.parts) && e.parts.length >= 1 && e.parts.length <= 4 && e.parts.every((p) => typeof p === 'string' && p.length >= 1 && p.length <= 260) ? [...e.parts] : null;
   const backupName = typeof e.backupName === 'string' && BACKUP_NAME_RE.test(e.backupName) ? e.backupName : null;
   const appliedHash = typeof e.appliedHash === 'string' && HASH_RE.test(e.appliedHash) ? e.appliedHash : null;
-  if (!at || typeof e.findingId !== 'string' || !FINDING_ID_RE.test(e.findingId) || !/^[CX][0-9]{1,2}$/.test(e.checkId ?? '')) return null;
+  if (!at || typeof e.findingId !== 'string' || !FINDING_ID_RE.test(e.findingId) || !/^[CXU][0-9]{1,2}$/.test(e.checkId ?? '')) return null;
   if (!['claude', 'codex'].includes(e.source) || !ACTIONS.includes(e.action)) return null;
   return Object.freeze({
     at, findingId: e.findingId, checkId: e.checkId, source: e.source, action: e.action, backupName, appliedHash, parts,
