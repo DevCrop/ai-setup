@@ -28,4 +28,5 @@ if ! "$py" -m pip install --user --quiet "tokeneconomizer @ git+https://github.c
   echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0
 fi
 # Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo keeps no deny rules.
-"$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global
+"$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global \
+  || echo "tokeneconomizer: could not set toolprune=propose; run /tokeneconomizer:config set toolprune=propose --global" >&2
