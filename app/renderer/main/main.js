@@ -67,6 +67,12 @@
     $('v-rt').hidden = tab !== 'rt';
     if (tab === 'rt') loadRoutines(true);
     $('v-opt').hidden = tab !== 'opt';
+    // Entrance motion only on a tab switch, never on the re-renders that status pushes cause.
+    if (!mon) {
+      var v = $('v-' + tab);
+      v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+      clearTimeout(v.enterTimer); v.enterTimer = setTimeout(function () { v.classList.remove('enter'); }, 600);
+    }
     if (mon) { setFrame(); }
     if (tab === 'codex' && cxDirty) renderCodex();
     $('stage').scrollTop = 0;

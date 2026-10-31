@@ -1262,7 +1262,7 @@ var raw=m[1],n=parseFloat(raw.replace(/,/g,'')),dec=(raw.split('.')[1]||'').leng
 function fmt(x){var s=x.toFixed(dec);return comma?s.replace(/\B(?=(\d{3})+(?!\d))/g,','):s}
 function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/700);
 if(p<1){e.textContent=fmt(n*(1-Math.pow(1-p,3)))+m[2];requestAnimationFrame(step)}else e.textContent=t}
-e.textContent=fmt(0)+m[2];requestAnimationFrame(step)})}
+e.setAttribute('data-final',t);e.textContent=fmt(0)+m[2];requestAnimationFrame(step)})}
 function show(user){var h=location.hash.slice(1);if(ids.indexOf(h)<0)h=ids[0];
 ids.forEach(function(i){var v=document.getElementById('v-'+i);if(v)v.hidden=(i!==h)});
 btns.forEach(function(b){if(b.getAttribute('data-tab')===h)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
@@ -1365,7 +1365,7 @@ var k=null;try{k=JSON.parse(MS.getItem('monitor-keep')||'null')}catch(e){}
 var v0=view(),ws={},ts={};
 function save(){var v=view();if(!v)return;var p=parts(v),s=[],i,e;
 for(i=0;i<p.all.length;i++){e=p.all[i];if(e.scrollTop||e.scrollLeft)s.push([i,e.scrollTop,e.scrollLeft])}
-if(!ws[v.id]){ws[v.id]=[].map.call(p.bars,function(b){return b.style.width});ts[v.id]=[].map.call(p.vals,function(b){return b.textContent})}
+if(!ws[v.id]){ws[v.id]=[].map.call(p.bars,function(b){return b.style.width});ts[v.id]=[].map.call(p.vals,function(b){return b.getAttribute('data-final')||b.textContent})} // data-final: the text a running count-up ends on
 try{MS.setItem('monitor-keep',JSON.stringify({id:v.id,y:window.scrollY,s:s,w:ws[v.id],t:ts[v.id]}))}catch(e){}}
 var timer=0;function later(ms){clearTimeout(timer);timer=setTimeout(save,ms)}
 document.addEventListener('scroll',function(){later(150)},true);
