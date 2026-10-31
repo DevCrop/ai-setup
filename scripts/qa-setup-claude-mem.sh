@@ -28,6 +28,12 @@ stub() { printf '#!/bin/sh
 echo "$*" >> "%s"
 %s
 ' "$log" "$1" > "$t/cl/claude"; chmod +x "$t/cl/claude"; : > "$log"; }
+# A stub python3 logs its module calls, so tokeneconomizer's pip install and config step run offline.
+printf '#!/bin/sh
+[ "$1" = -m ] && echo "py $*" >> "%s"
+exit 0
+' "$log" > "$t/cl/python3"; chmod +x "$t/cl/python3"
+te_sha="$(jq -r '.extraKnownMarketplaces.tokeneconomizer.source.plugins[0].source.sha' "$repo/claude/settings.json")"
 stub 'exit 0'
 out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
 want="$(printf 'plugin marketplace list
@@ -35,9 +41,13 @@ want="$(printf 'plugin marketplace list
 plugin install ponytail@ponytail
 plugin update ponytail@ponytail
 plugin install claude-mem@thedotmack
-plugin update claude-mem@thedotmack')"
-[ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, then installs and updates both" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
-stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo thedotmack; exit 0'
+plugin update claude-mem@thedotmack
+plugin install tokeneconomizer@tokeneconomizer
+plugin update tokeneconomizer@tokeneconomizer
+py -m pip install --user --quiet tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@%s
+py -m tokeneconomizer.plugin.cli config set toolprune=propose --global' "$te_sha")"
+[ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, installs and updates all three, pins the core, proposes tool pruning" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
+stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo tokeneconomizer; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
 [ "$(cat "$log")" = "$(printf '%s
 ' "$want" | grep -v '^-p ok')" ] && pass "install-plugins: no headless session when already registered, both still installed" || bad "install-plugins registered path ($(cat "$log"))"
