@@ -116,6 +116,15 @@ export class NotificationPolicy {
       : { title: 'Claude Monitor: 확인 필요', body: `${first}${more}.` };
   }
 
+  // After an auto-update pass that finished at least one step. Names fixed step labels only, never command output.
+  updated(result, labels = {}) {
+    const s = this.#settings() ?? {};
+    if (!result?.done?.length || s.notify === false || inQuietHours(s, this.#now())) return null;
+    const names = result.done.map((id) => labels[id] ?? id).join(', ');
+    const tail = result.npmNeeded ? ' 앱을 끝내고 npm ci 가 필요합니다.' : result.restartNeeded ? ' 메인 창을 닫으면 앱이 다시 시작합니다.' : '';
+    return { title: 'Claude Monitor: 자동 업데이트', body: `${names} 완료.${tail}` };
+  }
+
   // Once a day from DIGEST_HOUR: what today's work was, what it saved and how many suggestions wait. Counts only, so it is
   // safe on a lock screen. Held back by notify off or quiet hours like any toast; a day with no output sends nothing.
   digest(status, findings) {
@@ -133,6 +142,7 @@ export class NotificationPolicy {
       status.todayProjects > 0 ? `프로젝트 ${status.todayProjects}곳` : null,
       `출력 ${k(status.todayOutput)} 토큰`,
       status.todaySavedInput > 0 ? `캐시로 입력 ${k(status.todaySavedInput)} 절약` : null,
+      status.codex?.todayOutput > 0 ? `Codex 출력 ${k(status.codex.todayOutput)}` : null,
       tips ? `개선 제안 ${tips}건` : '개선 제안 없음',
     ].filter(Boolean);
     return { title: 'Claude Monitor: 오늘 요약', body: `${parts.join(' · ')}.` };

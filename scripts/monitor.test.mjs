@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { collect, summarize, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
+import { RTK_TTL_MS, collect, summarize, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -235,6 +235,23 @@ test('per-file cache: a second pass over unchanged files re-reads nothing and gi
   const third = await scanTranscripts(home, now, cache);
   assert.equal(third.parsed, 1);
   assert.equal(buildTokens(third).totals.output, 162 + 9);
+  // only appended bytes are read: a half line waits, a later line of the same message raises its count
+  const line = '{"type":"assistant","timestamp":"2026-10-19T11:59:50.000Z","entrypoint":"cli","message":{"id":"m6","model":"claude-opus-5-5","usage":{"output_tokens":20}}}' + String.fromCharCode(10);
+  const before = fs.readFileSync(f, 'utf8');
+  fs.appendFileSync(f, line.slice(0, 50));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 9);
+  fs.appendFileSync(f, line.slice(50));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 20);
+  // a rewritten, shorter file is read again from the start
+  fs.writeFileSync(f, before.split(String.fromCharCode(10)).slice(0, -2).join(String.fromCharCode(10)) + String.fromCharCode(10));
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162);
+  // a file replaced by a new one of any size is read from the start; CRLF lines parse
+  const tmp = `${f}.new`;
+  fs.writeFileSync(tmp, fs.readFileSync(f, 'utf8').replace(/\n/g, '\r\n') + line.replace('\n', '\r\n'));
+  fs.renameSync(tmp, f);
+  assert.equal(buildTokens(await scanTranscripts(home, now, cache)).totals.output, 162 + 20);
+  fs.writeFileSync(f, before.split(String.fromCharCode(10)).slice(0, -2).join(String.fromCharCode(10)) + String.fromCharCode(10));
+  await scanTranscripts(home, now, cache);
 });
 
 test('roles: claude-mem observer and sdk-ts records are not main thread; orchestration keeps only main sessions', () => {
@@ -282,6 +299,19 @@ test('rtk end to end with a fake rtk: summary, 7-day saved sum and top commands'
     { command: 'rtk git status', count: 2, saved: '1.0K', pct: '10.0%' },
   ]);
   assert.deepEqual(d.savings.rtk, { saved7d: 1500, savedAll: 9000, savedPct: 45.5 });
+});
+
+test('rtk memo: a kept result is reused inside RTK_TTL_MS, asked again after it or when the binary changes', async () => {
+  const fake = path.join(here, 'fixtures', 'monitor', 'fake-rtk.mjs');
+  const memo = {};
+  const at = (ms, bin = fake) => collect({ home, now: new Date(Date.parse(NOW) + ms).toISOString(), env: { ...ENV, MONITOR_RTK_BIN: bin }, memo });
+  assert.equal((await at(0)).rtk.status, 'ok');
+  const kept = memo.rtk.value;
+  await at(RTK_TTL_MS - 1);
+  assert.equal(memo.rtk.value, kept); // reused, no rtk process
+  assert.equal((await at(RTK_TTL_MS)).rtk.status, 'ok');
+  assert.notEqual(memo.rtk.value, kept);
+  assert.equal((await at(RTK_TTL_MS + 1, path.join(tmp, 'no-such-rtk'))).rtk.status, 'missing');
 });
 
 // A throwaway copy of the repo's agents, skills and apply.sh, so a test can rename a rule or change a model.

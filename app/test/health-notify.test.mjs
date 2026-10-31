@@ -139,7 +139,7 @@ test('SettingsStore: defaults, checked keys, atomic write, broken file reads as 
   const file = path.join(dir, 'settings.json');
   const s = new SettingsStore({ file });
   assert.deepEqual(s.get(), DEFAULT_SETTINGS);
-  assert.deepEqual(s.set({ notify: false, quietStart: '22:00', quietEnd: '07:00' }), { notify: false, quietStart: '22:00', quietEnd: '07:00', updateCheck: true, theme: 'system' });
+  assert.deepEqual(s.set({ notify: false, quietStart: '22:00', quietEnd: '07:00' }), { notify: false, quietStart: '22:00', quietEnd: '07:00', updateCheck: true, autoUpdate: true, theme: 'system' });
   assert.equal(s.set({ theme: 'dark' }).theme, 'dark');
   assert.equal(new SettingsStore({ file }).get().quietEnd, '07:00');
   assert.throws(() => s.set({ notify: 'no' }), TypeError);

@@ -18,7 +18,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `findingId` | string, 3 to 80 chars, `^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
 | `tab` | one of `ov flow orch route tok sav set codex rt opt` |
-| `notify`, `updateCheck` | boolean |
+| `notify`, `updateCheck`, `autoUpdate` | boolean |
 | `theme` | one of `"system"`, `"light"`, `"dark"` |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | all objects | no keys other than those listed; max serialized size 1 KB |
@@ -54,7 +54,7 @@ Error codes (all channels)
 | `NOT_FOUND` | no such finding | `findingId` unknown, or the finding has no fix |
 | `NO_SNAPSHOT` | no data yet | first run has not finished |
 | `INVALID_STATE` | action not allowed in this state | transition not in the table of the arch doc section 2 |
-| `FIX_BUSY` | another fix is running | one fix at a time; the lock covers the whole apply/restore call, including the stale check (C1 re-runs its dry run) |
+| `FIX_BUSY` | another fix is running | one fix at a time; the lock covers the whole apply/restore call, including the stale check (C1 re-runs its dry run). Also returned by preview, apply, restore and `app:quit` while an auto-update pass runs (the message text stays the same) |
 | `PREVIEW_STALE` | the target changed since the preview | recomputed `previewId` differs (for C4: live or repo `settings.json` changed); state returns to `proposed` |
 | `NOT_RESTORABLE` | this fix cannot be undone here | `restorable` is false (C1) |
 | `RESTORE_CONFLICT` | the file changed after the fix | the target (`config.toml` for X1/X4, repo `claude/settings.json` for C4) differs from its hash right after apply; nothing is written |
@@ -109,14 +109,16 @@ Status = {
     trustedProjects:  number,
     missingProjects:  number,
     sessions7d:       number,                  // counted from file names or mtimes
-    backups:          number                   // config.toml.bak* files
+    backups:          number,                  // config.toml.bak* files
+    todayOutput:      number,                  // Codex output tokens today (usage scan), 0 when unknown
+    limitPercent:     number | null            // primary usage limit as last reported, null when unknown or reset
   },
   busyFindingId: string | null       // the fix whose apply/restore call is running (its stale check included), else null
 }
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C11", "X1" .. "X6", "U1" .. "U2"
+  checkId:    string,                // "C1" .. "C11", "X1" .. "X8", "U1" .. "U3"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
@@ -159,7 +161,7 @@ Decision: the monitor html is loaded as a file, not passed as a string. The file
 - Errors: `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
 
 ### `codex:detail`
-Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session content.
+Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<CodexDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
@@ -185,6 +187,13 @@ CodexDetail = {
   logs:       { name: string, bytes: number }[],
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
+  usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days
+    days:   { date: string, input: number, cached: number, output: number }[],
+    today:  { output, input, cached, sessions: number, projects: { projectName: string, sessions, output, cached, input: number, lastAt: string | null }[] },
+    rate:   null | { at: string, primary: Limit, secondary: Limit | null },   // Limit = { usedPercent, windowMinutes | null, resetsAt (ms) | null }
+    live:   { projectName: string, tokens: number, window: number, at: string }[],  // last request size, sessions active in 15 min
+    models: { model: string, output: number }[]
+  },
   findings:   string[]                            // ids of current codex findings (details via findings:list)
 }
 ```
@@ -252,13 +261,13 @@ RoutinesDetail = {
 ### `settings:get`
 Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
-- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `theme: "system"`. Quiet hours apply only when both are set.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`. Quiet hours apply only when both are set.
 - Errors: `FORBIDDEN`, `INTERNAL`.
 
 ### `settings:set`
 - Direction: renderer to main, invoke. Caller: main window.
-- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, theme }` (rules in section 1).
-- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run; `notify: false` stops toasts.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, theme }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `notify: false` stops toasts.
 - Errors: `BAD_REQUEST`, `FORBIDDEN`, `INTERNAL`.
 
 ### `app:open-main`
@@ -276,7 +285,7 @@ Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defau
 ### `app:quit`
 - Direction: renderer to main, invoke. Callers: strip, main.
 - Request: none.
-- Response: `Result<{ quitting: true }>`, sent just before `app.quit()`. Refused with `FIX_BUSY` while a fix is applying or restoring.
+- Response: `Result<{ quitting: true }>`, sent just before `app.quit()`. Refused with `FIX_BUSY` while a fix is applying or restoring, or an auto-update pass runs.
 - Errors: `FORBIDDEN`, `FIX_BUSY`.
 
 ### `app:strip-menu`

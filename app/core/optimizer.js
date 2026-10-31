@@ -24,6 +24,7 @@ export class Optimizer {
   generatedAt = null;
   rev = 0;
   failedChecks = []; // ids of checks that threw in the last run
+  externalBusy = () => false; // true while something outside the fixes (the auto-updater) changes the same files
 
   // The registry is every export of checks/index.js; `deps` ({ runner, clock }) reaches the checks that build fixes.
   constructor({ checks, deps = {}, journal = null } = {}) {
@@ -92,7 +93,7 @@ export class Optimizer {
   }
 
   #adopt(fix) {
-    fix.guard = (f) => { if (this.busyFindingId() && this.busyFindingId() !== f.id) throw new CoreError('FIX_BUSY'); };
+    fix.guard = (f) => { if (this.externalBusy() || (this.busyFindingId() && this.busyFindingId() !== f.id)) throw new CoreError('FIX_BUSY'); };
     fix.onChange = () => this.#changed();
   }
 

@@ -52,17 +52,27 @@ Codex (출처 `~/.codex`):
 - X4 없는 파일을 가리키는 훅 상태(`[hooks.state.'<key>']`) → 고침: 그 표만 지움(백업, 되돌리기).
 - X5 켜졌지만 `command`도 `url`도 없는 MCP 서버 → 보고만.
 - X6 worktree가 20개 이상이거나 30일 넘은 것이 있음 → 보고만.
+- X7 Codex 사용 한도(기본·보조 창)가 80% 이상 → 주의(warn), 재설정 시각 표시(2026-10-31 추가).
+- X8 최근 15분 안에 작업한 Codex 세션의 마지막 요청이 문맥 창의 60% 이상 → 참고(info), 폴더 이름별 하나(2026-10-31 추가).
+- Codex 사용량(2026-10-31 추가): 최근 7일 `sessions/**/rollout-*.jsonl`에서 `session_meta`(폴더 이름), `turn_context`(모델 이름), `event_msg/token_count`(토큰 수와 사용 한도 %)만 읽는다. 다른 줄은 따옴표 붙은 표지 문자열이 없으면 JSON으로 읽지도 않고, 읽은 줄의 글은 버린다. 파일은 늘어난 부분만 8MB 조각으로 읽는다. Codex 탭 "사용량" 카드, 하루 요약의 Codex 출력.
 업데이트 (출처 `updates`, 6시간마다, 실패하면 30분 뒤 다시, 설정에서 끌 수 있음, 2026-10-31 추가):
-- U1 Claude Code 새 버전: 설치된 `claude --version`이 `autoUpdatesChannel`에 맞는 npm 태그(`latest`/`stable`)보다 낮음 → 보고만(info), 명령 `claude update` 표시. 알림은 보내지 않는다.
-- U2 저장소가 원격보다 뒤처짐: `main`이 체크아웃돼 있을 때만, `git ls-remote origin refs/heads/main`의 커밋이 로컬 `HEAD`에 없음(다른 브랜치면 보고 안 함) → 보고만(info), 명령 `git pull` 다음 `bash scripts/apply.sh` 표시.
+- U1 Claude Code 새 버전: 설치된 `claude --version`이 `autoUpdatesChannel`에 맞는 npm 태그(`latest`/`stable`)보다 낮음 → info, 명령 `claude update` 표시.
+- U2 저장소가 원격보다 뒤처짐: `main`이 체크아웃돼 있을 때만, `git ls-remote origin refs/heads/main`의 커밋이 로컬 `HEAD`에 없음(다른 브랜치면 보고 안 함) → info, 명령 `git pull` 다음 `bash scripts/apply.sh` 표시.
 - 플러그인 핀 불일치는 새 점검을 만들지 않고 C3:plugins의 근거에 "이름 설치 버전 → 핀"과 명령 `bash scripts/install-plugins.sh`을 보탠다.
-- 자동 실행은 없다: 앱은 `apply.sh`, `git pull`, 플러그인·Claude Code 업데이트를 스스로 돌리지 않는다.
+- U3 자동 업데이트가 남긴 일: 의존성 변경으로 `npm ci` 필요(warn, 앱은 켜진 채로 돌리지 않음), 앱 재시작 필요(info), 실패한 단계마다 info(마지막 출력 끝 300자, 홈 경로는 `~`).
+
+## 자동 업데이트 (2026-10-31 추가, 설정 "자동 업데이트", 기본 켜짐)
+- 업데이트 확인(U1·U2)이 찾은 사실과 C3의 플러그인 핀 상태로만 움직인다. 무엇을 할지 정하는 데는 네트워크를 더 쓰지 않는다(실행하는 명령의 네트워크는 아래 '네트워크' 항목). 업데이트 확인을 끄면 자동 업데이트도 멈춘다.
+- 차례: ① 저장소 받기 `git pull --ff-only origin main`(`main` 이고 추적 파일에 커밋 안 한 변경이 없을 때만; 추적 안 하는 파일은 괜찮음) ② 받은 변경에 `claude/`가 있으면 `bash scripts/apply.sh` ③ `claude/settings.json`이 바뀌었거나 플러그인이 핀과 다르면 `bash scripts/install-plugins.sh` ④ Claude Code 새 버전이면 `claude update`. 앞 단계가 실패하면 그 뒤(②③)는 건너뛰고 ④만 따로 한다. C1 차이만으로는 `apply.sh`를 돌리지 않는다(사용자가 일부러 바꾼 라이브 설정을 지키려고).
+- 같은 대상(원격 커밋, 핀 상태, 버전)은 성공하면 다시 하지 않는다. 실패한 단계는 대상이 바뀌어도 6시간 쉰다. 실패 표시는 출처가 "할 일 없음"이라고 확실히 알려 줄 때만 지운다(앱 시작 직후·오프라인처럼 모르는 때는 그대로; 설정 반영은 C1 차이가 0일 때). 고침이 돌고 있으면 시작하지 않고, 업데이트 중에는 고침과 앱 끝내기를 막는다.
+- 받은 변경에 `app/`이 있으면 메인 창이 닫혀 있을 때 앱이 스스로 다시 시작한다. `app/package*.json`이 바뀌면 다시 시작하지 않고 U3로 `npm ci`를 알린다.
+- 기록 `userData/update-state.json`: 단계마다 마지막 대상 키·시각·성공 여부, 짧은 기록 50줄(가린 출력 끝). 무엇이든 끝낸 단계가 있으면 알림 한 번(단계 이름만).
 
 ## 건강 점수와 알림 (2026-10-31 추가)
 - 건강 점수: 100에서 문제 1건마다 15, 주의 1건마다 5를 빼고 0..100으로 자른다. 정보·정상은 빼지 않는다. 시작 중·멈춤·데이터 없음·수집 오류일 때는 점수 없음. 최적화 탭 맨 위에 점수, 한 줄 문장, "지금 최적화" 버튼(기존 최적화하기 미리보기를 연다).
 - 안정된 발견만 센다: 발견이 처음 보인 뒤 3분(C1은 30분) 동안 계속 보여야 상태 막대의 "확인 필요 N"·"문제 N", 상태, 점수, 알림에 들어간다. 짧게 깜빡이는 발견은 목록에만 보인다. 앱을 다시 켜면 다시 기다린다(꺼져 있던 시간은 센 시간이 아님). 출처를 한 번 못 읽은 실행은 기다린 시간을 지우지 않는다.
 - 알림: 안정된 주의·문제 발견만. 같은 발견은 24시간(C2는 7일)에 한 번, 단 심각도가 오르면 다시. 알림은 한 시간에 최대 한 번, 모인 것을 한 번에. 조용한 시간(예 22:00–07:00, 자정을 넘어도 됨)에는 보내지 않고 다음으로 미룬다. 수집 오류 알림은 그대로(연속 오류마다 한 번). 알림 끄기와 조용한 시간은 수집 오류 알림에도 적용된다. 알림 기록 `userData/notify-state.json`에는 알린 발견 id와 시각, 마지막 하루 요약 날짜만 둔다. 하루 요약은 이 한 시간 간격과 따로 센다.
-- 설정 `userData/settings.json`: 알림 켜기/끄기, 조용한 시간 시작·끝, 업데이트 확인 켜기/끄기. 최적화 탭의 작은 설정 칸에서 바꾼다.
+- 설정 `userData/settings.json`: 알림 켜기/끄기, 조용한 시간 시작·끝, 업데이트 확인 켜기/끄기, 자동 업데이트 켜기/끄기. 최적화 탭의 작은 설정 칸에서 바꾼다.
 - 화면 테마(2026-10-31 추가): 시스템·라이트·다크. 상단 오른쪽 전환 버튼으로 바꾸고 `settings.json`의 `theme`에 저장한다. 모든 창과 모니터 화면이 함께 바뀐다.
 - 보이는 모양(2026-10-31): 점 격자 바탕, 고정폭 숫자, 눈금 막대 미터(개요·절감 KPI, 사용량 막대), 밑줄 탭, 최적화 점수는 눈금 게이지. 앱 아이콘은 `app/assets/icon.svg`(유리 렌즈·눈금·스파크), `app/tools/make-icon.mjs`로 png·ico를 만든다.
 
@@ -77,11 +87,11 @@ Codex (출처 `~/.codex`):
 - 실패 판단: 마지막 결과가 오류 비트가 켜진 코드(0x8…, 0xC…)이거나 일반 종료 코드(1..0xFFFF)면 실패. 0, 실행 중(0x41301), 아직 안 돔(0x41303), 대기(0x41325), 0x4…로 시작하는 알림 코드는 실패가 아니다. 꺼진 작업은 실패로 세지 않는다. 결과 코드는 16진수 그대로 보인다.
 
 ## Safety rules
-- 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수·모델·시각만 센다(본문 금지).
+- 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수와 위의 세 줄 종류의 수치·폴더 이름·모델 이름만(대화·도구 글 금지).
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
-- Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다.
+- Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다. 자동 업데이트도 위의 네 명령만 돌린다(`reset`, `checkout`, `clean`, `npm` 없음).
 - Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 화면은 로컬 파일만 읽음(렌더러 CSP `connect-src 'none'` 그대로), CSP, 단일 인스턴스.
-- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음.
+- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음. 자동 업데이트를 켜 두면 그 네 명령도 네트워크를 쓴다: `git pull`, `claude update`, `install-plugins.sh`(플러그인 받기, pip; 마켓플레이스가 등록 안 돼 있으면 `claude -p ok` 한 번으로 몇 토큰을 쓴다).
 
 ## Acceptance criteria (v1 완료 기준)
 1. 로그인 뒤 Claude Monitor 프로세스 묶음이 하나만 돈다(두 번 실행해도 하나).
@@ -95,10 +105,11 @@ Codex (출처 `~/.codex`):
 9. reviewer 지적 0건.
 
 ## Out of scope (v1)
-새 권장 설정 자동 제안, Codex 설정의 다른 고침, 업데이트 자동 실행(U1·U2는 보고만), macOS·Linux, 앱 서명.
+새 권장 설정 자동 제안, Codex 설정의 다른 고침, Codex 앱 업데이트(Microsoft Store가 함), macOS·Linux, 앱 서명.
 
 ## Changes
 - 2026-10-25 처음 작성.
 - 2026-10-25 developer 설계 반영: "node 없음" 대신 "수집 오류"; C1(apply.sh)은 되돌리기 없음(apply.sh가 백업을 남기지 않음), 되돌리기는 X1만; 심각도 C3 warn→warn, missing→bad, X2 info; 오른쪽 클릭 메뉴는 main의 기본 메뉴(app:strip-menu).
 - 2026-10-25 사용자 요청 반영: Codex 상세(codex:detail), 점검 X4(없는 훅 상태, 고침)·X5·X6, C4 고침, "최적화하기"(골라서 한꺼번에 미리보기 → 한 번 클릭 → 차례로 적용, 항목마다 백업, 모두 되돌리기; 위의 "모두 고치기 없음"은 이것으로 대체), 막대 위치 기억, 악화 시 데스크톱 알림, 한 화면 배치.
 - 2026-10-31 사용자 요청(PC Manager처럼) 1·2단계: 건강 점수, 안정된 발견만 세기·알림 규칙, 설정 저장, 보고만 하는 업데이트 확인 U1·U2(네트워크는 메인 프로세스만), C3:plugins 근거 보강.
+- 2026-10-31 사용자 요청: 자동 업데이트(저장소·apply.sh·플러그인·Claude Code, U3), rtk 결과 60초 재사용; Codex 사용량·X7·X8; 오류 기록 `userData/logs/app.log`(홈 경로 가림, 512KB 넘으면 한 번 돌림)와 죽은 화면 자동 다시 읽기(10분에 3번까지).

@@ -32,7 +32,8 @@ const realClock = {
 const codexState = (res, findings) => (res.status === 'missing' ? 'missing' : findings.some((f) => f.severity === 'bad') ? 'bad' : findings.some((f) => f.severity === 'warn') ? 'warn' : 'ok');
 
 // Local wall-clock time, as the user reads it on the strip.
-const localStamp = (iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const maxLimit = (rate) => { const p = [rate?.primary?.usedPercent, rate?.secondary?.usedPercent].filter(Number.isFinite); return p.length ? Math.max(...p) : null; };
+const localStamp =(iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 export class MonitorService {
   #snapshot = null;
@@ -46,7 +47,7 @@ export class MonitorService {
   #cache = new Map();
 
   // Everything with a side effect is passed in: sources, optimizer, clock, folders, env.
-  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, sourceDeps = {}, policy = null, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal } = {}) {
+  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, sourceDeps = {}, policy = null, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal, updater = null } = {}) {
     if (!outDir) throw new TypeError('outDir is required');
     this.outDir = outDir;
     this.repo = repo ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -65,6 +66,20 @@ export class MonitorService {
     this.renderFn = renderFn;
     this.runTimeoutMs = runTimeoutMs ?? Math.max(30000, 3 * this.refreshSec * 1000);
     this.optimizer.subscribe(() => this.#emit());
+    // Optional AutoUpdater: considered after every run; a fix and an update never run at the same time.
+    this.updater = updater;
+    if (updater) {
+      const prev = this.optimizer.externalBusy ?? (() => false);
+      this.optimizer.externalBusy = () => updater.running || prev();
+      updater.isBusy = () => !!this.optimizer.busyFindingId();
+    }
+  }
+
+  // After a pass that changed something: check for updates again at once and show the result.
+  #afterUpdate(result) {
+    if (!result) return;
+    if (result.done.length) for (const s of this.sources) s.invalidate?.();
+    this.#refresh();
   }
 
   start() {
@@ -128,9 +143,10 @@ export class MonitorService {
       const snapshot = new Snapshot({
         generatedAt: new Date(run.startedAt).toISOString(),
         sources: Object.fromEntries(this.sources.map((s, i) => [s.id, results[i]])),
-        ctx: { repo: this.repo, homes: this.homes },
+        ctx: { repo: this.repo, homes: this.homes, autoUpdate: this.updater?.status() ?? null },
       });
       this.optimizer.run(snapshot);
+      this.updater?.consider(snapshot)?.then((r) => this.#afterUpdate(r), () => {});
       // a source that could not be read this run keeps its findings' ages (no reset to 'just seen')
       this.policy?.observe(this.optimizer.findings(), this.sources.filter((s, i) => results[i]?.data == null && results[i]?.status === 'missing' && s.id !== 'updates').map((s) => s.id));
       this.#write(snapshot);
@@ -184,6 +200,8 @@ export class MonitorService {
       plugins: cfg?.plugins.enabled ?? 0, mcpServers: cfg?.mcpServers.enabled ?? 0,
       trustedProjects: projects.length, missingProjects: projects.filter((p) => p.exists === false).length,
       sessions7d: codexRes.data?.sessions?.last7d ?? 0, backups: codexRes.data?.backups?.length ?? 0,
+      todayOutput: codexRes.data?.usage?.today?.output ?? 0,
+      limitPercent: maxLimit(codexRes.data?.usage?.rate),
     } : null;
     const allMissing = (!claude || CLAUDE_SECTIONS.every((k) => claude[k]?.status === 'missing')) && (!codexRes || codexRes.status === 'missing');
     let state;
@@ -274,6 +292,7 @@ export class MonitorService {
       logs: sizes(d?.logs),
       backups: (d?.backups ?? []).map((b) => ({ name: b.name, bytes: b.size ?? 0, mtime: Number.isFinite(b.mtimeMs) ? new Date(b.mtimeMs).toISOString() : '' })).sort((a, b) => a.name.localeCompare(b.name)),
       worktrees: d?.worktrees?.count ?? 0,
+      usage: d?.usage?.status === 'ok' ? structuredClone(d.usage) : null, // counts, folder names and model names only
       findings: codexFindings.map((f) => f.id),
     };
   }

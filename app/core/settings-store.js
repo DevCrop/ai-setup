@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import { writeAtomic } from '../../scripts/monitor.mjs';
 
-export const DEFAULT_SETTINGS = Object.freeze({ notify: true, quietStart: '', quietEnd: '', updateCheck: true, theme: 'system' });
+export const DEFAULT_SETTINGS = Object.freeze({ notify: true, quietStart: '', quietEnd: '', updateCheck: true, autoUpdate: true, theme: 'system' });
 export const THEMES = ['system', 'light', 'dark'];
 const HHMM = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 const VALID = {
   theme: (v) => THEMES.includes(v),
   notify: (v) => typeof v === 'boolean',
   updateCheck: (v) => typeof v === 'boolean',
+  autoUpdate: (v) => typeof v === 'boolean',
   quietStart: (v) => v === '' || (typeof v === 'string' && HHMM.test(v)),
   quietEnd: (v) => v === '' || (typeof v === 'string' && HHMM.test(v)),
 };

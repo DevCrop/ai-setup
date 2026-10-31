@@ -54,7 +54,7 @@ test('starting before the first snapshot, then ok with the status shape of the a
   assert.deepEqual(Object.keys(s).sort(), ['busyFindingId', 'cacheHit7d', 'claudeMem', 'codex', 'counts', 'findingsRev', 'generatedAt', 'health', 'live', 'refreshSec', 'routing', 'state', 'todayOutput', 'todayProjects', 'todaySavedInput'].sort());
   assert.equal(s.generatedAt, new Date(NOW).toISOString());
   assert.deepEqual([s.routing, s.live, s.todayOutput, s.cacheHit7d, s.claudeMem], [{ ok: 1, total: 2 }, { sessions: 1, agents: 2 }, 5, 0.5, true]);
-  assert.deepEqual(s.codex, { state: 'ok', model: 'm', reasoningEffort: 'high', approval: 'a', sandbox: 's', plugins: 1, mcpServers: 1, trustedProjects: 2, missingProjects: 1, sessions7d: 4, backups: 2 });
+  assert.deepEqual(s.codex, { state: 'ok', model: 'm', reasoningEffort: 'high', approval: 'a', sandbox: 's', plugins: 1, mcpServers: 1, trustedProjects: 2, missingProjects: 1, sessions7d: 4, backups: 2, todayOutput: 0, limitPercent: null });
   svc.stop();
   assert.equal(clock.timerCount(), 0);
 });
@@ -243,7 +243,7 @@ test('codexDetail: NO_SNAPSHOT before the first run; then the CodexDetail shape 
   assert.throws(() => svc.codexDetail(), { code: 'NO_SNAPSHOT' });
   await svc.refreshNow();
   const d = svc.codexDetail();
-  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'findings']);
+  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'usage', 'findings']);
   assert.equal(d.generatedAt, new Date(NOW).toISOString());
   assert.deepEqual([d.state, d.note], ['warn', '']);
   assert.equal(d.settings.length, 10);

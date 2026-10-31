@@ -134,10 +134,10 @@ test('X6: 20 entries or one older than 30 days gives an info finding with the co
 
 test('registry: every export of checks/index.js is a Check with a unique id, and adding a check is one file plus one line', () => {
   const all = Object.values(registry);
-  assert.equal(all.length, 19);
+  assert.equal(all.length, 22);
   const ids = all.map((C) => { const c = new C(); assert.ok(c instanceof Check); assert.ok(c.source); return c.id; });
   assert.equal(new Set(ids).size, ids.length);
-  assert.deepEqual(ids, ['C10', 'C11', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
+  assert.deepEqual(ids, ['C10', 'C11', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'U3', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'X8']); // namespace order
 });
 
 test('every finding id any check can produce matches the contract pattern', () => {

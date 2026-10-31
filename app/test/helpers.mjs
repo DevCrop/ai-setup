@@ -69,7 +69,11 @@ export function fakeCodex({ backups = 3, eol = '\n' } = {}) {
   write(path.join(home, 'secrets', 'token.txt'), CANARY.secretsFile);
   write(path.join(home, '.sandbox-secrets', 'k'), CANARY.sandboxSecret);
   write(path.join(home, '.env'), CANARY.envFile);
-  write(path.join(home, 'sessions', '2026', '10', '25', 'rollout-2026-10-25T10-00-00-a.jsonl'), CANARY.session);
+  // complete lines, so the usage scan really parses this file and the canary checks prove the text is dropped
+  write(path.join(home, 'sessions', '2026', '10', '25', 'rollout-2026-10-25T10-00-00-a.jsonl'), [
+    { timestamp: new Date(2026, 9, 25, 10).toISOString(), type: 'session_meta', payload: { cwd: '/w/alpha', base_instructions: { text: CANARY.session } } },
+    { timestamp: new Date(2026, 9, 25, 11).toISOString(), type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 10, cached_input_tokens: 0, output_tokens: 5 } } } },
+  ].map((l) => JSON.stringify(l)).join('\n') + '\n');
   write(path.join(home, 'sessions', '2026', '10', '24', 'rollout-2026-10-24T10-00-00-b.jsonl'), CANARY.session);
   write(path.join(home, 'sessions', '2025', '01', '02', 'rollout-2025-01-02T10-00-00-c.jsonl'), CANARY.session);
   write(path.join(home, 'agents', 'explorer.toml'), CANARY.agentFile);

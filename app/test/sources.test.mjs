@@ -35,18 +35,24 @@ test('CodexSource: config.toml over 1 MB is not read and says so', async () => {
   assert.equal(r.data.config, null);
 });
 
-test('CodexSource never opens auth.json, secrets/, .sandbox-secrets/ or .env, and session files are not opened', async () => {
+// Since 2026-10-31 the usage scan opens session files (rollout-*.jsonl under sessions/ only) for token_count lines; the
+// session text itself never reaches the result.
+test('CodexSource never opens auth.json, secrets/, .sandbox-secrets/ or .env; session files only by the usage scan, text never kept', async () => {
   const { home } = fakeCodex();
   const opened = [];
   const names = ['readFileSync', 'openSync', 'createReadStream', 'readFile'];
   const orig = Object.fromEntries(names.map((n) => [n, fs[n]]));
   for (const n of names) fs[n] = function (...a) { opened.push(String(a[0])); return orig[n].apply(this, a); };
-  try { await new CodexSource().collect({ now: NOW, homes: { codex: home } }); } finally { Object.assign(fs, orig); }
+  let r;
+  try { r = await new CodexSource().collect({ now: NOW, homes: { codex: home } }); } finally { Object.assign(fs, orig); }
   assert.ok(opened.length > 0);
   for (const f of opened) {
     assert.equal(isDenied(f, home), false, f);
-    assert.ok(!f.includes(`${path.sep}sessions${path.sep}`), `session file opened: ${f}`);
+    if (f.includes(`${path.sep}sessions${path.sep}`)) assert.match(path.basename(f), /^rollout-.*\.jsonl$/, f);
+    assert.ok(!f.includes('archived_sessions'), f);
   }
+  assert.equal(r.data.usage.today.output, 5); // the file was parsed, not skipped
+  assert.ok(!JSON.stringify(r).includes(CANARY.session));
 });
 
 test('ClaudeSource: passes ctx to collect, adds summary and live-only key names (never values)', async () => {

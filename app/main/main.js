@@ -7,6 +7,8 @@ import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
 import { NotificationPolicy } from '../core/notification-policy.js';
 import { SettingsStore } from '../core/settings-store.js';
+import { AutoUpdater } from '../core/updater.js';
+import { AppLog, errText } from '../core/app-log.js';
 import { httpsJson } from '../core/sources/update-source.js';
 import { IpcRouter } from './ipc-router.js';
 import { StripWindow, MainWindow } from './windows.js';
@@ -21,22 +23,42 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   const outDir = app.getPath('userData');
+  const appLog = new AppLog({ dir: path.join(outDir, 'logs') });
+  // A background app has no console: anything unexpected goes to userData/logs/app.log, and the app keeps running.
+  process.on('uncaughtException', (e) => appLog.error(`uncaught ${errText(e)}`));
+  process.on('unhandledRejection', (e) => appLog.error(`unhandled rejection ${errText(e)}`));
+  appLog.info(`start version=${app.getVersion()} electron=${process.versions.electron}`);
   const settings = new SettingsStore({ file: path.join(outDir, 'settings.json') });
   // One switch for every window and the monitor iframe: prefers-color-scheme follows themeSource.
   nativeTheme.themeSource = settings.get().theme;
   const policy = new NotificationPolicy({ file: path.join(outDir, 'notify-state.json'), settings: () => settings.get() });
   const sourceDeps = { runner, fetchJson: (url) => httpsJson(url), updateCheck: () => settings.get().updateCheck };
-  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy });
+  const toast = (notice) => {
+    if (!notice || !Notification.isSupported()) return;
+    const n = new Notification({ ...notice, silent: true });
+    n.on('click', () => main.open('opt'));
+    n.show();
+  };
+  // Acts only on facts the update check found, so turning the check off also stops it.
+  const updater = new AutoUpdater({
+    file: path.join(outDir, 'update-state.json'), repo: REPO, runner,
+    enabled: () => settings.get().autoUpdate && settings.get().updateCheck,
+    onDone: (r) => {
+      appLog.info(`update done=${r.done.join(',') || '-'} failed=${r.failed.join(',') || '-'} restart=${r.restartNeeded} npm=${r.npmNeeded}`);
+      toast(policy.updated(r, Object.fromEntries(updater.steps.map((s) => [s.id, s.label]))));
+    },
+  });
+  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy, updater });
   const stripFile = path.join(outDir, 'strip.json');
   const strip = new StripWindow({
     load: () => { try { return JSON.parse(fs.readFileSync(stripFile, 'utf8')); } catch { return null; } },
     save: (pos) => { try { fs.writeFileSync(stripFile, JSON.stringify(pos)); } catch { /* position memory is a convenience */ } },
   });
   const main = new MainWindow(() => monitor.getViewFileUrl());
-  const log = (line) => console.log(line);
+  const log = (line) => appLog.warn(line);
 
   const quit = () => {
-    if (monitor.optimizer.busyFindingId()) throw new CoreError('FIX_BUSY');
+    if (monitor.optimizer.busyFindingId() || updater.running) throw new CoreError('FIX_BUSY');
     setImmediate(() => app.quit());
     return { quitting: true };
   };
@@ -86,6 +108,17 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {}); // the strip is the app; closing Main must not quit
   app.on('before-quit', () => monitor.stop());
   app.on('web-contents-created', (_e, wc) => wc.on('will-attach-webview', (ev) => ev.preventDefault()));
+  // A crashed page is logged and reloaded, at most 3 times in 10 minutes so a page that crashes at load cannot spin.
+  const reloads = [];
+  app.on('render-process-gone', (_e, wc, d) => {
+    appLog.error(`renderer gone reason=${d?.reason} code=${d?.exitCode} page=${strip.isAlive() && wc === strip.win.webContents ? 'strip' : main.isAlive() && wc === main.win.webContents ? 'main' : 'other'}`);
+    const now = Date.now();
+    while (reloads.length && now - reloads[0] > 600000) reloads.shift();
+    if (d?.reason === 'clean-exit' || reloads.length >= 3 || wc.isDestroyed()) return;
+    reloads.push(now);
+    wc.reload();
+  });
+  app.on('child-process-gone', (_e, d) => { if (d?.reason !== 'clean-exit') appLog.warn(`child gone type=${d?.type} reason=${d?.reason}`); });
 
   app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId('Claude Monitor'); // toasts need an app id on Windows
@@ -94,15 +127,18 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(null);
     router.register();
     let last = null;
+    let relaunching = false;
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
-      const notice = policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings());
+      toast(policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings()));
+      if (status.state !== last?.state && (status.state === 'error' || status.state === 'stale' || last?.state === 'error')) appLog.warn(`state ${last?.state ?? '-'} -> ${status.state}`);
       last = status;
-      if (notice && Notification.isSupported()) {
-        const n = new Notification({ ...notice, silent: true });
-        n.on('click', () => main.open('opt'));
-        n.show();
+      // New app code came in with a pull: restart while nobody is looking (main window closed, no fix or update running).
+      if (!relaunching && updater.restartNeeded && !updater.status().npmNeeded && !main.isAlive() && !updater.running && !monitor.optimizer.busyFindingId()) {
+        relaunching = true; // a late status push during quit must not start a second instance
+        app.relaunch();
+        app.quit();
       }
     });
     strip.create();
