@@ -23,7 +23,9 @@ out="$(run)"; rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "already set" && pass "second run: already set" || bad "second run (rc=$rc; $out)"
 
 # scripts/install-plugins.sh (Windows claude-plugins module) with a stub claude that logs its calls.
-mkdir "$t/cl"; log="$t/claude.log"
+# Its live settings are a temp copy, never the real ~/.claude.
+mkdir "$t/cl" "$t/cfg"; log="$t/claude.log"; export CLAUDE_CONFIG_DIR="$t/cfg"
+printf '{"model":"opus","env":{"KEEP":"1"}}' > "$t/cfg/settings.json"
 stub() { printf '#!/bin/sh
 echo "$*" >> "%s"
 %s
@@ -68,5 +70,15 @@ exit 0
 out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
 [ "$rc" = 0 ] && ! grep -q 'config set' "$log" && printf '%s' "$out" | grep -q 'pip install of its core failed' \
   && pass "install-plugins: a refused pip install warns and exits 0" || bad "install-plugins pip refused (rc=$rc; $(cat "$log"); $out)"
+# The real interpreter path goes to env.TE_PYTHON in the live settings, keeping every other key.
+[ "$(jq -c . "$t/cfg/settings.json")" = '{"model":"opus","env":{"KEEP":"1"}}' ] && pass "install-plugins: no interpreter path, live settings untouched" || bad "install-plugins touched settings ($(cat "$t/cfg/settings.json"))"
+printf '#!/bin/sh
+[ "$1" = -m ] && exit 0
+case "$2" in *executable*) echo C:/py/python.exe ;; esac
+exit 0
+' > "$t/cl/python3"
+PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ "$(jq -c . "$t/cfg/settings.json")" = '{"model":"opus","env":{"KEEP":"1","TE_PYTHON":"C:/py/python.exe"}}' ] \
+  && pass "install-plugins: sets env.TE_PYTHON and keeps the rest" || bad "install-plugins TE_PYTHON (rc=$rc; $(cat "$t/cfg/settings.json"))"
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

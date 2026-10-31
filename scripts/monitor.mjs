@@ -572,7 +572,7 @@ export function buildSavings({ scan, rtk, mem, home, nowMs }) {
 
 // TokenEconomizer state (~/.tokeneconomizer): its mode switches and, per repository, the sessions it folded in the window.
 // Reads only counts from its ledger; never prompts or tool output.
-export function collectTokenEconomizer(teHome, nowMs) {
+export function collectTokenEconomizer(teHome, nowMs, home) {
   let config;
   try { config = readJson(path.join(teHome, 'config.json')); } catch { return { status: 'missing', note: 'TokenEconomizer state (~/.tokeneconomizer) not found.', config: null, repos: [] }; }
   // Unset switches show the plugin's defaults (v0.1.0 README and `te status`).
@@ -608,7 +608,10 @@ export function collectTokenEconomizer(teHome, nowMs) {
     if (r.sessions) repos.push(r);
   }
   repos.sort((a, b) => b.sessions - a.sessions);
-  return { status: 'ok', note: '', config: { microskills: mode('microskills', 'off'), toolprune: mode('toolprune', 'on'), loopguard: mode('loopguard', 'nudge') }, repos };
+  // install-plugins.sh sets env.TE_PYTHON so the hook launcher skips its Python probe (~0.2 s per hook call on Windows).
+  let fastHook = null;
+  try { const p = readJson(path.join(home, 'settings.json')).env?.TE_PYTHON; fastHook = typeof p === 'string' && p !== ''; } catch { /* unknown */ }
+  return { status: 'ok', note: '', config: { microskills: mode('microskills', 'off'), toolprune: mode('toolprune', 'on'), loopguard: mode('loopguard', 'nudge') }, fastHook, repos };
 }
 
 const guard = async (fn, extra = {}) => {
@@ -642,7 +645,7 @@ export async function collect(opts = {}) {
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
     savings, orchestration,
-    tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || env.MONITOR_TE_HOME || path.join(os.homedir(), '.tokeneconomizer')), nowMs), { config: null, repos: [] }),
+    tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || env.MONITOR_TE_HOME || path.join(os.homedir(), '.tokeneconomizer')), nowMs, home), { config: null, repos: [] }),
     setup: await guard(() => collectSetupFlow(home, opts.repo), { agents: [], rules: { delegate: null, routing: null, lanes: null, failure: null }, skills: [], drift: [], driftCount: 0 }),
   };
 }

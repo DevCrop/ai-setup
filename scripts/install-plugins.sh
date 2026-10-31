@@ -30,3 +30,13 @@ fi
 # Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo keeps no deny rules.
 "$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global \
   || echo "tokeneconomizer: could not set toolprune=propose; run /tokeneconomizer:config set toolprune=propose --global" >&2
+# Its hook launcher probes each candidate Python before use; on Windows `python3` is a WindowsApps alias and the probe
+# costs ~0.2 s on every hook call (measured 456 -> 292 ms per tool call). TE_PYTHON names the real interpreter once, as
+# a machine-only env value in the live settings (apply.sh keeps it); a stale path just falls back to the probe.
+exe=$("$py" -c 'import sys; print(sys.executable)' 2>/dev/null | tr -d '\r') || exe=
+case $exe in *\\*) command -v cygpath >/dev/null 2>&1 && exe=$(cygpath -m "$exe") ;; esac
+live="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+if [ -n "$exe" ] && [ -f "$live" ]; then
+  tmp="$live.te.$$"
+  if jq --arg p "$exe" '.env.TE_PYTHON = $p' "$live" > "$tmp"; then mv "$tmp" "$live"; else rm -f "$tmp"; echo "tokeneconomizer: TE_PYTHON not set" >&2; fi
+fi
