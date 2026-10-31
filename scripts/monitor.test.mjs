@@ -438,7 +438,7 @@ test('summarize: status bar state is counts only, worst section wins, garbage gi
   assert.equal(junk.status, 'missing');
   assert.equal(junk.issues.length, 9);
   assert.deepEqual([junk.todayOutput, junk.cacheHit7d, junk.claudeMem, junk.generatedAt], [0, null, null, null]);
-  assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput']);
+  assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput', 'todayProjects', 'todaySavedInput']);
 });
 
 test('tokeneconomizer: modes and per-repository counts from its ledger, window and bad lines respected', async () => {
@@ -497,4 +497,31 @@ test('page: the embedded frame is reloaded by the app and keeps state in window.
   vm.runInNewContext(head, win); // a reload of the same frame keeps window.name
   assert.equal(win.MS.getItem('monitor-seen'), 'ov');
   assert.equal(win.MS.getItem('toString'), null);
+});
+
+test('activity: today per project folder, live flag and the live session context; other days and claude-mem left out', async () => {
+  const { buildActivity } = await import('./monitor.mjs');
+  const { render } = await import('./monitor-html.mjs');
+  const now = Date.parse(NOW);
+  const rec = (ago, o = {}) => ({ id: `m${ago}${o.cwdBase || ''}`, model: 'claude-opus-5-5', ts: now - ago, entrypoint: 'cli', cwdBase: 'ai-setup', input: 10, output: 100, cacheRead: 1000, cacheCreation: 5, ...o });
+  const scan = {
+    nowMs: now,
+    files: [
+      { isSub: false, project: 'D--a', sessionId: 's1', mainEntry: 'cli', records: [rec(3600000), rec(30000, { cwdBase: 'app', input: 200, cacheRead: 240000, cacheCreation: 800 })] }, // cd into app/ stays ai-setup
+      { isSub: true, project: 'D--a', sessionId: 's1', agentType: 'explorer', records: [rec(20000, { cwdBase: null, output: 50, cacheRead: 0 })] },
+      { isSub: false, project: 'D--b', sessionId: 's2', mainEntry: 'cli', records: [rec(5 * 3600000, { cwdBase: 'blog' }), rec(2 * 86400000, { cwdBase: 'blog' })] },
+      { isSub: false, project: 'claude-mem-observer-sessions', sessionId: 's3', mainEntry: 'cli', records: [rec(1000, { cwdBase: 'x' })] },
+    ],
+  };
+  const a = buildActivity(scan);
+  assert.deepEqual(a.projects.map((p) => [p.projectName, p.sessions, p.messages, p.output, p.live, p.context]), [
+    ['ai-setup', 1, 3, 250, true, 241000],
+    ['blog', 1, 1, 100, false, 0],
+  ]);
+  assert.equal(a.projects[0].savedInput, Math.round(241000 * 0.9));
+  const html = render({ generatedAt: NOW, activity: a }, { embed: true });
+  assert.match(html, /오늘 작업/);
+  assert.match(html, /ai-setup · 지금 작업 중/);
+  assert.match(html, /컨텍스트 [^<]*\(크다\)/);
+  assert.equal(summarize({ generatedAt: NOW, activity: a }).todayProjects, 2);
 });

@@ -164,7 +164,7 @@ Shapes (prose, the contract file has the wire form)
 - `CodexSource.collect(ctx)` reads `~/.codex` read-only. `data` is `{ config, backups, logs, sessions }` (see section 6).
 - `ctx` is `{ now, homes: { claude, codex }, repo, env, cache }`. Clock, paths and env are passed in, never read inside a Check.
 - `PreviewResult`: `{ diff: string, previewId: string }`. `ApplyResult`: `{ backupPath?: string }`. `RestoreResult`: `{ restored: true }`.
-- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `C5:hook-scripts`, `C6:<role>-<family>`, `C7:main-model`, `C8:unused`, `C8:untyped`, `C9:today`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`, `X4:<sha1 12 of the hook key>`, `X5:<server name>`, `X6:worktrees`.
+- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `C5:hook-scripts`, `C6:<role>-<family>`, `C7:main-model`, `C8:unused`, `C8:untyped`, `C9:today`, `C10:<project basename>`, `C11:slow-hook`, `C11:prune-<label>`, `C11:overhead-<label>`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`, `X4:<sha1 12 of the hook key>`, `X5:<server name>`, `X6:worktrees`.
 - `Fix` is a template: the public `preview/apply/restore` enforce the transition table of section 2 (one table, anything else throws `INVALID_STATE`), then call the protected `do*` of the subclass. `restorable` is false for `ApplyRepoFix`.
 - `Optimizer.run` keeps `Fix` objects that are in `previewed`, `applying`, `applied`, `restoring` or a failed state across scans (so "되돌리기" stays visible after the finding itself is gone) (a kept `previewed` fix lets the user read the diff past one refresh; `apply` recomputes the preview id, so a changed target answers `PREVIEW_STALE`); `proposed` fixes are replaced by fresh ones. Only one fix may be in `applying` or `restoring` at a time (`FIX_BUSY`). State lives in memory only.
 - `CommandRunner` is a function `(file, args, opts) -> Promise<{ code, stdout, stderr }>` passed to `ApplyRepoFix`; it is the test seam that lets a test prove `apply.sh` is the only command run. Same for the clock passed to `MonitorService` (fake timers) and the injected `ipcMain` of `IpcRouter`.
@@ -185,7 +185,7 @@ Ponytail check on abstractions: `Source` has three real implementations (Claude,
 
 | Layer | Folder | Classes | Needs Electron |
 |---|---|---|---|
-| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C9, X1..X6, U1..U2, Finding, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
+| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C11, X1..X6, U1..U2, Finding, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
 | Main | `app/main/` | StripWindow, MainWindow, IpcRouter, `main.js` (wires everything, single-instance lock) | yes, except `IpcRouter` |
 
 `IpcRouter` receives `ipcMain` and a `senderRole(event)` function as arguments and never imports `electron`, so its validation and permission rules are tested on CI with a fake `ipcMain`. `MonitorService` is in `core` because it needs only timers, files and the injected Sources; Electron only subscribes to its change callback.
@@ -261,6 +261,8 @@ All finding texts shown to the user are Korean (project language); ids, evidence
 | C7 main model | `C7MainModel` (`c7-main-model.js`) | claude | `mainModel` (family of live `settings.json` `model`) and `data.routing.mainThread` | `C7:main-model` when other families make >= 20% of main messages | info | none |
 | C8 agent use | `C8AgentUse` (`c8-agent-use.js`) | claude | `data.routing.agents` | `C8:unused` (repo agents with 0 runs), `C8:untyped` (agents with no expected model that ran on Opus or Fable, one evidence line each) | info | none |
 | C9 token spike | `C9TokenSpike` (`c9-token-spike.js`) | claude | `data.tokens.days` | `C9:today` when today >= 100k output and >= 3x the median of at least 3 earlier days | info | none |
+| C10 big context | `C10BigContext` (`c10-big-context.js`) | claude | `data.activity.projects` (`live`, `context` = last main prompt's input + cache tokens) | one `C10:<project basename>` (or `C10:unknown`) per live project with context >= 200k | warn | none |
+| C11 TokenEconomizer | `C11TokenEconomizer` (`c11-token-economizer.js`) | claude | `data.tokenEconomizer` (`fastHook`, `repos[]`) | `C11:slow-hook` when `fastHook === false`, `C11:prune-<label>` when `proposed > 0`, `C11:overhead-<label>` when overhead > 5% | info | none |
 | X1 missing trusted project | `X1MissingTrustedProject` (`x1-missing-trusted-project.js`) | codex | `data.config.projects` (path list), existence checked in `CodexSource` with `fs.existsSync` | one `X1:<sha1 12>` per vanished path (temp folders included) | warn | `RemoveCodexProjectFix` |
 | X2 stale backups | `X2StaleBackups` (`x2-stale-backups.js`) | codex | `data.backups` (names matching `config.toml.bak*`) | `X2:backups` when count >= 3 | info | none |
 | X3 large log db | `X3LargeLogDb` (`x3-large-log-db.js`) | codex | `data.logs` (`logs_*.sqlite` sizes from `fs.statSync`) | `X3:logs` when any size >= 500 MB | warn | none |

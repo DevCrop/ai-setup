@@ -101,7 +101,7 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 .view { width: 100%; max-width: var(--max); margin-inline: auto; display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 .g12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
-.c8 { grid-column: span 8; } .c4 { grid-column: span 4; }
+.c8 { grid-column: span 8; } .c4 { grid-column: span 4; } .c12 { grid-column: 1 / -1; }
 .g22 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
 .grid2 { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
 .band { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow); }
@@ -114,6 +114,8 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 899px) {
   .g12, .g22 { grid-template-columns: minmax(0, 1fr); }
   .c8, .c4 { grid-column: 1 / -1; }
+  .lrow:has(.lv.wrap) { grid-template-columns: 6px minmax(0, 1fr); row-gap: 2px; padding: var(--sp-2) 0; }
+  .lrow .lv.wrap { grid-column: 2; text-align: left; }
   .band, .band.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .band > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
@@ -184,6 +186,7 @@ details.fold[open] summary { margin-bottom: var(--sp-3); }
 .lrow:last-child { border-bottom: 0; }
 .lrow .ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .lrow .lv { font-size: var(--t-xs); color: var(--muted); white-space: nowrap; } .lrow .lv.warn { color: var(--warn); } .lrow .lv.bad { color: var(--bad); }
+.lrow .lv.wrap { white-space: normal; text-align: right; }
 
 .stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--line); }
 .stack i { display: block; height: 100%; background-color: var(--fc); }
@@ -925,6 +928,17 @@ function overviewChecklist(d) {
     row(up ? up.st : 'missing', 'claude-mem 워커', up ? `${esc(up.label)} · ${txt(mem.version)}` : '데이터 없음') + `</div>`;
 }
 
+// Today per project folder: what is running now, what it produced and what the cache saved. Context over CTX_BIG suggests /compact.
+const CTX_BIG = 150000;
+function activityPanel(d) {
+  return panel('오늘 작업', d.activity, (s) => `<div class="pitems">${arr(s.projects).map((p) => {
+    const ctx = p.live && nz(p.context) > 0 ? ` · 컨텍스트 ${compactKo(p.context)}${p.context >= CTX_BIG ? ' (크다)' : ''}` : '';
+    const name = typeof p.projectName === 'string' && p.projectName ? p.projectName : '(폴더 없음)';
+    return `<div class="lrow"><span class="dt${p.live ? ' ok' : ''}" aria-hidden="true"></span><span class="ln" title="${esc(name)}">${txt(name)}${p.live ? ' · 지금 작업 중' : ''}</span>` +
+      `<span class="lv wrap${p.context >= CTX_BIG ? ' warn' : ''}">세션 ${fmtInt(p.sessions)} · 출력 ${compactKo(p.output)} · 캐시로 아낀 입력 ${compactKo(p.savedInput)}${ctx}</span></div>`;
+  }).join('')}</div>`, { hint: '프로젝트 폴더별 · 오늘', cls: 'c12', isEmpty: (s) => arr(s.projects).length === 0 });
+}
+
 function viewOverview(d) {
   const orch = isObj(d.orchestration) ? d.orchestration : null;
   const first = orch ? arr(orch.sessions)[0] : undefined;
@@ -937,7 +951,7 @@ function viewOverview(d) {
   const deleg = panel('실행 위임', d.savings, (s) => delegationBlock(s), { hint: '7일 출력 토큰', cls: 'c4' });
   const flow = panel('최근 세션 흐름', orch, () => (first ? runChip(d) + sessionBlock(first, 4, true) : noData()), { hint: '가장 최근 세션', cls: 'c8' });
   const check = panel('상태 점검', {}, () => overviewChecklist(d), { cls: 'c4' });
-  return `${kpiRow(d)}<div class="g12">${daily}${deleg}${flow}${check}</div>`;
+  return `${kpiRow(d)}<div class="g12">${activityPanel(d)}${daily}${deleg}${flow}${check}</div>`;
 }
 
 function viewOrchestration(d) {

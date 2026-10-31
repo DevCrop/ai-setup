@@ -16,6 +16,8 @@ import { C6LowCacheHit } from '../core/checks/c6-low-cache-hit.js';
 import { C7MainModel } from '../core/checks/c7-main-model.js';
 import { C8AgentUse } from '../core/checks/c8-agent-use.js';
 import { C9TokenSpike } from '../core/checks/c9-token-spike.js';
+import { C10BigContext } from '../core/checks/c10-big-context.js';
+import { C11TokenEconomizer } from '../core/checks/c11-token-economizer.js';
 import { FINDING_ID_RE } from '../core/finding.js';
 import { NOW, claudeRes, codexRes, fullClaude, snap } from './helpers.mjs';
 
@@ -131,10 +133,10 @@ test('X6: 20 entries or one older than 30 days gives an info finding with the co
 
 test('registry: every export of checks/index.js is a Check with a unique id, and adding a check is one file plus one line', () => {
   const all = Object.values(registry);
-  assert.equal(all.length, 17);
+  assert.equal(all.length, 19);
   const ids = all.map((C) => { const c = new C(); assert.ok(c instanceof Check); assert.ok(c.source); return c.id; });
   assert.equal(new Set(ids).size, ids.length);
-  assert.deepEqual(ids, ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
+  assert.deepEqual(ids, ['C10', 'C11', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
 });
 
 test('every finding id any check can produce matches the contract pattern', () => {
@@ -215,4 +217,31 @@ test('C9: today over 3x the median of earlier days gives info; a quiet history o
   assert.deepEqual(run(days(250000)), []);
   assert.deepEqual(run(days(400000).slice(0, 3)), []); // fewer than 3 earlier days
   assert.deepEqual(run([{ date: d(0), output: 90000 }, ...[1, 2, 3].map((b) => ({ date: d(b), output: 1000 }))]), []); // under the floor
+});
+
+test('C10: a live session over 200k context tokens gives one warn per project; idle or small ones none', () => {
+  const projects = [
+    { projectName: 'ai-setup', live: true, context: 250000, output: 1200 },
+    { projectName: 'blog post', live: true, context: 90000, output: 10 },
+    { projectName: 'old', live: false, context: 900000, output: 10 },
+    { projectName: null, live: true, context: 300000, output: 0 },
+  ];
+  const fs = new C10BigContext().run(snap({ claude: claudeRes(fullClaude({ activity: { status: 'ok', projects } })) }));
+  assert.deepEqual(fs.map((f) => [f.id, f.severity]), [['C10:ai-setup', 'warn'], ['C10:unknown', 'warn']]);
+  assert.match(fs[0].title, /250k/);
+  assert.match(fs[0].detail, /\/compact/);
+  for (const f of fs) assert.match(f.id, FINDING_ID_RE);
+  assert.deepEqual(new C10BigContext().run(snap({ claude: claudeRes(fullClaude()) })), []);
+});
+
+test('C11: slow hook, a waiting prune proposal and a costly overhead each give one info; a missing state gives none', () => {
+  const te = (o) => new C11TokenEconomizer().run(snap({ claude: claudeRes(fullClaude({ tokenEconomizer: { status: 'ok', config: {}, fastHook: true, repos: [], ...o } })) }));
+  const repos = [{ label: 'devcrop/ai-setup', sessions: 3, effectiveTokens: 1000, overheadTokens: 100, nudges: 0, proposed: 2 }, { label: 'o/b', sessions: 1, effectiveTokens: 1000, overheadTokens: 10, nudges: 0, proposed: 0 }];
+  const fs = te({ fastHook: false, repos });
+  assert.deepEqual(fs.map((f) => f.id), ['C11:slow-hook', 'C11:prune-devcrop_ai-setup', 'C11:overhead-devcrop_ai-setup']);
+  assert.ok(fs.every((f) => f.severity === 'info'));
+  assert.match(fs[2].title, /10%/);
+  assert.deepEqual(te({}), []);
+  assert.deepEqual(te({ fastHook: null }), []);
+  assert.deepEqual(new C11TokenEconomizer().run(snap({ claude: claudeRes(fullClaude({ tokenEconomizer: { status: 'missing' } })) })), []);
 });

@@ -10,6 +10,7 @@ const MIN_AGE = { C1: 30 * MIN };
 const COOLDOWN = { C2: 7 * DAY };
 const TOAST_GAP = HOUR;
 const KEEP_NOTIFIED = 7 * DAY;
+const DIGEST_HOUR = 18; // the daily summary goes out on the first quiet run from 18:00 local time
 const MAX_IDS = 500;
 
 export const minAgeMs = (checkId) => MIN_AGE[checkId] ?? 3 * MIN;
@@ -27,6 +28,7 @@ export function inQuietHours(settings, nowMs) {
   return s < e ? m >= s && m < e : m >= s || m < e;
 }
 
+const NO_DIGEST = new Set(['starting', 'stale', 'nodata', 'error']);
 const sevOf = (f) => f.severity === 'bad' || f.severity === 'warn';
 
 // Decides which findings are stable (seen long enough) and when a desktop toast goes out.
@@ -39,6 +41,7 @@ export class NotificationPolicy {
   #seen = {};      // id -> first seen ms (warn/bad findings present in the last run), memory only
   #notified = {};  // id -> { at, sev }
   #lastToast = 0;
+  #lastDigest = ''; // local date of the last daily summary
   #errorShown = false;
 
   constructor({ file = null, now = () => Date.now(), settings = () => ({ notify: true }) } = {}) {
@@ -53,13 +56,14 @@ export class NotificationPolicy {
           if (Number.isFinite(v?.at) && (v.sev === 'warn' || v.sev === 'bad')) this.#notified[id] = { at: v.at, sev: v.sev };
         }
         if (Number.isFinite(j.lastToast)) this.#lastToast = j.lastToast;
+        if (typeof j.lastDigest === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(j.lastDigest)) this.#lastDigest = j.lastDigest;
       } catch { /* a fresh start */ }
     }
   }
 
   #save() {
     if (!this.#file) return;
-    try { writeAtomic(this.#file, JSON.stringify({ notified: this.#notified, lastToast: this.#lastToast })); } catch { /* toast memory is a convenience */ }
+    try { writeAtomic(this.#file, JSON.stringify({ notified: this.#notified, lastToast: this.#lastToast, lastDigest: this.#lastDigest })); } catch { /* toast memory is a convenience */ }
   }
 
   // Called after each finished run with the whole finding list. A finding that leaves and comes back starts its age again,
@@ -110,5 +114,27 @@ export class NotificationPolicy {
     return bad.length
       ? { title: 'Claude Monitor: 문제', body: `${first}${more}. 눌러서 확인하세요.` }
       : { title: 'Claude Monitor: 확인 필요', body: `${first}${more}.` };
+  }
+
+  // Once a day from DIGEST_HOUR: what today's work was, what it saved and how many suggestions wait. Counts only, so it is
+  // safe on a lock screen. Held back by notify off or quiet hours like any toast; a day with no output sends nothing.
+  digest(status, findings) {
+    const s = this.#settings() ?? {};
+    const now = this.#now();
+    const d = new Date(now);
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (s.notify === false || inQuietHours(s, now) || d.getHours() < DIGEST_HOUR || this.#lastDigest === day) return null;
+    if (NO_DIGEST.has(status?.state) || !(status?.todayOutput > 0)) return null;
+    this.#lastDigest = day;
+    this.#save();
+    const k = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
+    const tips = findings.filter((f) => f.severity !== 'ok' && this.isStable(f)).length;
+    const parts = [
+      status.todayProjects > 0 ? `프로젝트 ${status.todayProjects}곳` : null,
+      `출력 ${k(status.todayOutput)} 토큰`,
+      status.todaySavedInput > 0 ? `캐시로 입력 ${k(status.todaySavedInput)} 절약` : null,
+      tips ? `개선 제안 ${tips}건` : '개선 제안 없음',
+    ].filter(Boolean);
+    return { title: 'Claude Monitor: 오늘 요약', body: `${parts.join(' · ')}.` };
   }
 }
