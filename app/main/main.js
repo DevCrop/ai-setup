@@ -43,6 +43,8 @@ if (!app.requestSingleInstanceLock()) {
   const updater = new AutoUpdater({
     file: path.join(outDir, 'update-state.json'), repo: REPO, runner,
     enabled: () => settings.get().autoUpdate && settings.get().updateCheck,
+    applySetup: () => settings.get().applySetup,
+    claudeHome: () => monitor.homes.claude,
     onDone: (r) => {
       appLog.info(`update done=${r.done.join(',') || '-'} failed=${r.failed.join(',') || '-'} restart=${r.restartNeeded} npm=${r.npmNeeded}`);
       toast(policy.updated(r, Object.fromEntries(updater.steps.map((s) => [s.id, s.label]))));

@@ -1098,6 +1098,7 @@
     row.appendChild(q);
     row.appendChild(toggle('updateCheck', '업데이트 확인'));
     row.appendChild(toggle('autoUpdate', '자동 업데이트'));
+    row.appendChild(toggle('applySetup', '받은 설정 반영'));
     if (prefsErr) row.appendChild(el('span', 'cap bad', prefsErr));
     sec.appendChild(row);
     function pick(key, label, list) {

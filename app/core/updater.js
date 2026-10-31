@@ -5,6 +5,7 @@ import path from 'node:path';
 import { writeAtomic } from '../../scripts/monitor.mjs';
 import { newer } from './checks/u1-claude-code-update.js';
 import { readGuarded } from './guard.js';
+import { configDirEnv } from './fixes/apply-repo-fix.js';
 import { maskHome } from './mask-home.js';
 import { GIT_ENV } from './sources/update-source.js';
 
@@ -83,18 +84,19 @@ export class RepoPullStep extends UpdateStep {
   }
 }
 
-// bash scripts/apply.sh, only when the pull changed claude/. C1 drift alone never triggers it: live edits stay the user's call.
+// bash scripts/apply.sh, only when the pull changed claude/ and the user lets the app apply the setup (off: the pull still
+// lands and C1 shows the drift for the user to apply). C1 drift alone never triggers it: live edits stay the user's call.
 export class ApplyStep extends UpdateStep {
   id = 'apply';
   label = '설정 반영';
 
-  due(job) { return job.head && job.changed.some((f) => f.startsWith('claude/')) ? job.head : null; }
+  due(job) { return job.applySetup && job.head && job.changed.some((f) => f.startsWith('claude/')) ? job.head : null; }
 
   // due only right after a pull; its failure goes once C1 sees no drift (the user or the C1 fix ran apply.sh)
   wanted(f) { return f.known.drift ? f.drift > 0 : null; }
 
   async run(job) {
-    await must(job, 'bash', ['scripts/apply.sh'], { cwd: job.repo, timeout: 120000 });
+    await must(job, 'bash', ['scripts/apply.sh'], { cwd: job.repo, timeout: 120000, env: job.env });
     return 'apply.sh 완료';
   }
 }
@@ -105,12 +107,12 @@ export class PluginStep extends UpdateStep {
   id = 'plugins';
   label = '플러그인';
 
-  due(job) { return job.head && job.changed.includes('claude/settings.json') ? `pins:${job.head}` : job.facts.pluginsOff; }
+  due(job) { return !job.applySetup ? null : job.head && job.changed.includes('claude/settings.json') ? `pins:${job.head}` : job.facts.pluginsOff; }
 
   wanted(f) { return f.known.plugins ? !!f.pluginsOff : null; }
 
   async run(job) {
-    await must(job, 'bash', ['scripts/install-plugins.sh'], { cwd: job.repo, timeout: 600000 });
+    await must(job, 'bash', ['scripts/install-plugins.sh'], { cwd: job.repo, timeout: 600000, env: job.env });
     return 'install-plugins.sh 완료';
   }
 }
@@ -153,7 +155,8 @@ export class AutoUpdater {
   #running = null;
   restartNeeded = false; // this process runs older app code than the checkout now holds
 
-  constructor({ file = null, repo = null, runner = null, enabled = () => false, isBusy = () => false, now = () => Date.now(), homeDir = os.homedir(), steps, onDone = null } = {}) {
+  // applySetup(): may the pulled claude/ be applied to the Claude home (apply.sh, plugins); claudeHome(): that folder.
+  constructor({ file = null, repo = null, runner = null, enabled = () => false, isBusy = () => false, now = () => Date.now(), homeDir = os.homedir(), steps, onDone = null, applySetup = () => true, claudeHome = () => null } = {}) {
     this.file = file;
     this.repo = repo;
     this.runner = runner;
@@ -163,6 +166,8 @@ export class AutoUpdater {
     this.homeDir = homeDir;
     this.steps = steps ?? DEFAULT_STEPS.map((S) => new S());
     this.onDone = onDone;
+    this.applySetup = applySetup;
+    this.claudeHome = claudeHome;
     let j = null;
     try { if (file) j = JSON.parse(readGuarded(file, { maxBytes: 1 << 20 }).toString('utf8')); } catch { /* fresh start */ }
     this.#state = cleanState(j);
@@ -194,10 +199,13 @@ export class AutoUpdater {
   // Starts one background pass when a step is due; returns its promise, or null when nothing starts.
   consider(snapshot) {
     if (this.#running || !this.runner || !this.repo || !this.enabled() || this.isBusy()) return null;
-    const job = { facts: updateFacts(snapshot), repo: this.repo, runner: this.runner, changed: [], head: null, mask: (t) => maskHome(t, this.homeDir) };
+    const home = this.claudeHome();
+    const job = { facts: updateFacts(snapshot), repo: this.repo, runner: this.runner, changed: [], head: null, mask: (t) => maskHome(t, this.homeDir), applySetup: !!this.applySetup(), env: configDirEnv(home, process.env, this.homeDir) };
     let cleared = false;
     for (const s of this.steps) {
-      if (this.#state.steps[s.id]?.ok === false && s.wanted(job.facts) === false) { delete this.#state.steps[s.id]; cleared = true; }
+      // a failure is forgotten once its target is gone, or once the user switched that step off (apply and plugins)
+      const off = !job.applySetup && (s.id === 'apply' || s.id === 'plugins');
+      if (this.#state.steps[s.id]?.ok === false && (off || s.wanted(job.facts) === false)) { delete this.#state.steps[s.id]; cleared = true; }
     }
     if (cleared) this.#save();
     if (!this.steps.some((s) => this.#key(s, job))) return null;
@@ -235,6 +243,7 @@ export class AutoUpdater {
     const lastNote = (id) => [...this.#state.log].reverse().find((e) => e.step === id)?.note ?? '';
     return {
       enabled: !!this.enabled(),
+      applySetup: !!this.applySetup(),
       running: this.running,
       restartNeeded: this.restartNeeded,
       npmNeeded: !!this.#state.npmAt,
