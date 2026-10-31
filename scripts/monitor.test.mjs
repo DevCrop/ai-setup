@@ -39,7 +39,7 @@ before(async () => {
   fs.writeFileSync(path.join(home, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins }));
   fs.mkdirSync(path.join(tmp, 'mem'));
   // Isolated from this machine: no real rtk, dead claude-mem port.
-  ENV = { CLAUDE_MEM_WORKER_PORT: '9', CLAUDE_MEM_DATA_DIR: path.join(tmp, 'mem'), MONITOR_RTK_BIN: path.join(tmp, 'no-such-rtk') };
+  ENV = { CLAUDE_MEM_WORKER_PORT: '9', CLAUDE_MEM_DATA_DIR: path.join(tmp, 'mem'), MONITOR_RTK_BIN: path.join(tmp, 'no-such-rtk'), MONITOR_TE_HOME: path.join(tmp, 'no-te') };
   data = await collect({ home, now: NOW, env: ENV });
 });
 
@@ -126,6 +126,9 @@ test('rtk: missing binary gives status missing', () => {
 test('plugins: pinned version and sha compared, wrong version warns', () => {
   const by = Object.fromEntries(data.plugins.items.map((i) => [i.name, i]));
   assert.equal(by['ponytail@ponytail'].status, 'ok');
+  // Pinned to a branch by sha: the matching sha is enough, the "main" ref is not compared as a version.
+  assert.equal(by['tokeneconomizer@tokeneconomizer'].pinnedRef, 'main');
+  assert.equal(by['tokeneconomizer@tokeneconomizer'].status, 'ok');
   assert.equal(by['claude-mem@thedotmack'].status, 'warn');
   assert.equal(by['claude-mem@thedotmack'].installedVersion, '0.0.1');
   assert.equal(data.plugins.status, 'warn');
@@ -393,7 +396,7 @@ test('collect outside the repo: plugins and sessions still show when claude/ is 
   assert.ok(d.orchestration.sessions.flatMap((s) => s.agents).every((a) => a.verdict === 'n/a' || a.verdict === 'no data'));
   assert.notEqual(d.routing.status, 'missing');
   assert.equal(d.plugins.status, 'warn');
-  assert.deepEqual(d.plugins.items.map((i) => i.name).sort(), ['claude-mem@thedotmack', 'ponytail@ponytail']);
+  assert.deepEqual(d.plugins.items.map((i) => i.name).sort(), ['claude-mem@thedotmack', 'ponytail@ponytail', 'tokeneconomizer@tokeneconomizer']);
   assert.ok(d.plugins.items.every((i) => i.enabled && i.installedVersion && i.pinnedRef === null && i.status === 'ok'));
   assert.match(d.plugins.note, /not compared/);
 });
@@ -436,6 +439,33 @@ test('summarize: status bar state is counts only, worst section wins, garbage gi
   assert.equal(junk.issues.length, 9);
   assert.deepEqual([junk.todayOutput, junk.cacheHit7d, junk.claudeMem, junk.generatedAt], [0, null, null, null]);
   assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput']);
+});
+
+test('tokeneconomizer: modes and per-repository counts from its ledger, window and bad lines respected', async () => {
+  const { collectTokenEconomizer } = await import('./monitor.mjs');
+  const { render } = await import('./monitor-html.mjs');
+  const te = fs.mkdtempSync(path.join(tmp, 'te-'));
+  assert.equal(collectTokenEconomizer(te, Date.parse(NOW)).status, 'missing');
+  fs.writeFileSync(path.join(te, 'config.json'), JSON.stringify({ toolprune: 'propose', loopguard: '<b>x</b>' }));
+  const now = Date.parse(NOW) / 1000;
+  const add = (key, label, lines) => {
+    fs.mkdirSync(path.join(te, 'repos', key, 'claude'), { recursive: true });
+    fs.writeFileSync(path.join(te, 'repos', key, 'repo.json'), JSON.stringify({ label }));
+    fs.writeFileSync(path.join(te, 'repos', key, 'claude', 'ledger.jsonl'), lines.map((l) => (typeof l === 'string' ? l : JSON.stringify(l))).join('\n'));
+  };
+  const s = (ended, extra = {}) => ({ kind: 'session', ended, effective_tokens: 1000, nudges: 1, overhead: { optimizer_tokens: 10, spiral_judge_tokens: 20, spiral_nudge_writer_tokens: 'x' }, untool: { proposal: ['A', 'B'] }, ...extra });
+  add('a-1', 'o/a', [s(now - 3600), s(now - 60, { untool: { proposal: [] } }), s(now - 30 * 86400), '{not json', { kind: 'turn', ended: now }]);
+  add('b-2', 'o/b', [s(now - 30 * 86400)]);
+  const r = collectTokenEconomizer(te, Date.parse(NOW));
+  assert.deepEqual(r.config, { microskills: 'off', toolprune: 'propose', loopguard: 'nudge' });
+  assert.deepEqual(r.repos, [{ label: 'o/a', sessions: 2, effectiveTokens: 2000, overheadTokens: 60, nudges: 2, proposed: 0 }]);
+  const html = render({ generatedAt: NOW, tokenEconomizer: r }, { embed: true });
+  assert.match(html, /TokenEconomizer/);
+  assert.match(html, /세션 2 · 오버헤드 3%/);
+  assert.match(html, /제안만/);
+  const odd = render({ generatedAt: NOW, tokenEconomizer: { ...r, config: { ...r.config, loopguard: 'constructor' } } }, { embed: true });
+  assert.doesNotMatch(odd, /native code|function Object/);
+  assert.doesNotMatch(render({ generatedAt: NOW, tokenEconomizer: { status: 'missing' } }), /TokenEconomizer<\//);
 });
 
 test('page: the embedded frame is reloaded by the app and keeps state in window.name', async () => {

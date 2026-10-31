@@ -28,6 +28,12 @@ stub() { printf '#!/bin/sh
 echo "$*" >> "%s"
 %s
 ' "$log" "$1" > "$t/cl/claude"; chmod +x "$t/cl/claude"; : > "$log"; }
+# A stub python3 logs its module calls, so tokeneconomizer's pip install and config step run offline.
+printf '#!/bin/sh
+[ "$1" = -m ] && echo "py $*" >> "%s"
+exit 0
+' "$log" > "$t/cl/python3"; chmod +x "$t/cl/python3"
+te_sha="$(jq -r '.extraKnownMarketplaces.tokeneconomizer.source.plugins[0].source.sha' "$repo/claude/settings.json")"
 stub 'exit 0'
 out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
 want="$(printf 'plugin marketplace list
@@ -35,14 +41,32 @@ want="$(printf 'plugin marketplace list
 plugin install ponytail@ponytail
 plugin update ponytail@ponytail
 plugin install claude-mem@thedotmack
-plugin update claude-mem@thedotmack')"
-[ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, then installs and updates both" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
-stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo thedotmack; exit 0'
+plugin update claude-mem@thedotmack
+plugin install tokeneconomizer@tokeneconomizer
+plugin update tokeneconomizer@tokeneconomizer
+py -m pip install --user --quiet tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@%s
+py -m tokeneconomizer.plugin.cli config set toolprune=propose --global' "$te_sha")"
+[ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, installs and updates all three, pins the core, proposes tool pruning" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
+stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo tokeneconomizer; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
 [ "$(cat "$log")" = "$(printf '%s
 ' "$want" | grep -v '^-p ok')" ] && pass "install-plugins: no headless session when already registered, both still installed" || bad "install-plugins registered path ($(cat "$log"))"
 stub '[ "$2" = install ] && exit 1; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
 [ "$rc" != 0 ] && pass "install-plugins: a failed install exits non-zero" || bad "install-plugins: failed install hidden (rc=$rc)"
+# Without a usable Python (both names fail the version check) tokeneconomizer is skipped and the script still succeeds.
+for n in python3 python; do printf '#!/bin/sh\nexit 1\n' > "$t/cl/$n"; chmod +x "$t/cl/$n"; done
+stub 'exit 0'
+out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ! grep -q tokeneconomizer@ "$log" && grep -q 'plugin update claude-mem@thedotmack' "$log" && printf '%s' "$out" | grep -q 'tokeneconomizer: skipped' \
+  && pass "install-plugins: no Python skips tokeneconomizer and exits 0" || bad "install-plugins no Python (rc=$rc; $(cat "$log"); $out)"
+# A refused pip install (PEP 668) warns and exits 0 without the config step.
+printf '#!/bin/sh
+[ "$1" = -m ] && echo "py $*" >> "%s" && [ "$2" = pip ] && exit 1
+exit 0
+' "$log" > "$t/cl/python3"
+out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ! grep -q 'config set' "$log" && printf '%s' "$out" | grep -q 'pip install of its core failed' \
+  && pass "install-plugins: a refused pip install warns and exits 0" || bad "install-plugins pip refused (rc=$rc; $(cat "$log"); $out)"
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

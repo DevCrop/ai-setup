@@ -8,7 +8,7 @@
   },
   {
     "name": "claude-plugins",
-    "description": "Register the plugin marketplaces, install ponytail and claude-mem at their pinned versions and set claude-mem options",
+    "description": "Register the plugin marketplaces, install ponytail, claude-mem and (with Python 3.10+) tokeneconomizer at their pinned versions and set claude-mem options",
     "check": "scripts/setup-claude-mem.sh",
     "run": [
       ["bash", "scripts/install-plugins.sh"],

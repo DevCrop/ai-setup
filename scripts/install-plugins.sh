@@ -1,11 +1,32 @@
 #!/usr/bin/env bash
-# Install ponytail and claude-mem at the versions claude/settings.json pins (Windows bootstrap: modules.json claude-plugins).
-# Same steps as the plugin part of bootstrap/setup-mac.sh. Needs a logged-in claude.
+# Install ponytail, claude-mem and tokeneconomizer at the versions claude/settings.json pins (Windows bootstrap: modules.json
+# claude-plugins). Run after apply.sh. Same steps as the plugin part of bootstrap/setup-mac.sh, which does not install
+# tokeneconomizer yet. Needs a logged-in claude, and jq and Python 3.10+ for tokeneconomizer.
+# tokeneconomizer is optional: without Python or pip it is skipped with a warning and the script still succeeds, so the
+# bootstrap steps after it (setup-claude-mem.sh) run. Its hooks fail open, so an enabled plugin without its core is inert.
 set -eu
+repo=$(cd "$(dirname "$0")/.." && pwd)
+py=
+for c in python3 python; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then py=$c; break; fi
+done
+plugins="ponytail@ponytail claude-mem@thedotmack"
+if [ -n "$py" ]; then plugins="$plugins tokeneconomizer@tokeneconomizer"; else echo "tokeneconomizer: skipped, Python 3.10+ not found" >&2; fi
 # Marketplaces declared in settings.json register only when a session starts, and `plugin install` alone reports
 # "not found in marketplace". One one-word headless session registers them (a few tokens).
-claude plugin marketplace list 2>/dev/null | grep -q thedotmack || claude -p ok >/dev/null 2>&1 || true
-for p in ponytail@ponytail claude-mem@thedotmack; do
+claude plugin marketplace list 2>/dev/null | grep -q tokeneconomizer || claude -p ok >/dev/null 2>&1 || true
+for p in $plugins; do
   claude plugin install "$p"
   claude plugin update "$p" # install leaves an older copy alone; update moves it to the pinned version
 done
+[ -n "$py" ] || exit 0
+# The plugin copy holds only the repo's plugin/ folder; its Python core is pip-installed from the same pinned commit.
+te_sha=$(jq -r '.extraKnownMarketplaces.tokeneconomizer.source.plugins[0].source.sha' "$repo/claude/settings.json")
+case $te_sha in [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;; *) echo "tokeneconomizer: no pinned sha in claude/settings.json" >&2; exit 1 ;; esac
+# A Homebrew or system Python may refuse --user installs (PEP 668); that only leaves tokeneconomizer inactive.
+if ! "$py" -m pip install --user --quiet "tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@$te_sha"; then
+  echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0
+fi
+# Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo keeps no deny rules.
+"$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global \
+  || echo "tokeneconomizer: could not set toolprune=propose; run /tokeneconomizer:config set toolprune=propose --global" >&2
