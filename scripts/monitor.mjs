@@ -441,14 +441,19 @@ export function buildActivity(scan) {
       if (scan.nowMs - r.ts <= LIVE_MS) p.live = true;
     }
     const ck = sessionCwd || ctxRec?.cwdBase || null;
-    if (ctxRec && scan.nowMs - ctxRec.ts <= LIVE_MS && by.has(ck)) {
+    // 15 minutes, not LIVE_MS: a short pause must not clear the context (and C10 with it) only to raise it again
+    if (ctxRec && scan.nowMs - ctxRec.ts <= 15 * 60000 && by.has(ck)) {
       const p = by.get(ck);
       p.context = Math.max(p.context, ctxRec.input + ctxRec.cacheRead + ctxRec.cacheCreation);
     }
   }
   const projects = [...by.values()].map((p) => ({ ...p, sessions: p.sessions.size, savedInput: Math.round(p.cacheRead * 0.9), lastAt: iso(p.lastAt) }))
     .sort((a, b) => b.live - a.live || b.lastAt.localeCompare(a.lastAt));
-  return { status: 'ok', note: 'Today, per project folder. Live = a message in the last 2 minutes; context = the live session\'s last prompt size.', projects: projects.slice(0, 6) };
+  return {
+    status: 'ok', note: 'Today, per project folder. Live = a message in the last 2 minutes; context = the last prompt size of a session active in the last 15 minutes.',
+    totals: { projects: projects.length, savedInput: projects.reduce((n, p) => n + p.savedInput, 0) },
+    projects: projects.slice(0, 6),
+  };
 }
 
 // shortcut: a .mjs MONITOR_RTK_BIN runs under this node so tests can use a fake rtk on any OS; drop if tests get a real stub binary.
@@ -720,8 +725,8 @@ export function summarize(d) {
       agents: sessions.reduce((n, s) => n + (Array.isArray(s?.agents) ? s.agents.filter((g) => g?.live === true).length : 0), 0),
     },
     todayOutput: days.filter((t) => t?.date === today).reduce((n, t) => n + (Number(t.output) || 0), 0),
-    todayProjects: projects.length,
-    todaySavedInput: projects.reduce((n, p) => n + (Number(p?.savedInput) || 0), 0),
+    todayProjects: Number(x.activity?.totals?.projects) || projects.length,
+    todaySavedInput: Number(x.activity?.totals?.savedInput) || projects.reduce((n, p) => n + (Number(p?.savedInput) || 0), 0),
     cacheHit7d: Number.isFinite(hit) ? hit : null,
     claudeMem: typeof x.claudeMem?.reachable === 'boolean' ? x.claudeMem.reachable : null,
   };

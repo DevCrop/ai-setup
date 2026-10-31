@@ -928,11 +928,12 @@ function overviewChecklist(d) {
     row(up ? up.st : 'missing', 'claude-mem 워커', up ? `${esc(up.label)} · ${txt(mem.version)}` : '데이터 없음') + `</div>`;
 }
 
-// Today per project folder: what is running now, what it produced and what the cache saved. Context over CTX_BIG suggests /compact.
-const CTX_BIG = 150000;
+// Today per project folder: what is running now, what it produced and what the cache saved. Context over CTX_BIG suggests /compact
+// (same threshold as check C10).
+const CTX_BIG = 200000;
 function activityPanel(d) {
   return panel('오늘 작업', d.activity, (s) => `<div class="pitems">${arr(s.projects).map((p) => {
-    const ctx = p.live && nz(p.context) > 0 ? ` · 컨텍스트 ${compactKo(p.context)}${p.context >= CTX_BIG ? ' (크다)' : ''}` : '';
+    const ctx = nz(p.context) > 0 ? ` · 컨텍스트 ${compactKo(p.context)}${p.context >= CTX_BIG ? ' (크다)' : ''}` : '';
     const name = typeof p.projectName === 'string' && p.projectName ? p.projectName : '(폴더 없음)';
     return `<div class="lrow"><span class="dt${p.live ? ' ok' : ''}" aria-hidden="true"></span><span class="ln" title="${esc(name)}">${txt(name)}${p.live ? ' · 지금 작업 중' : ''}</span>` +
       `<span class="lv wrap${p.context >= CTX_BIG ? ' warn' : ''}">세션 ${fmtInt(p.sessions)} · 출력 ${compactKo(p.output)} · 캐시로 아낀 입력 ${compactKo(p.savedInput)}${ctx}</span></div>`;

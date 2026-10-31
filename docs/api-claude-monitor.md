@@ -94,7 +94,7 @@ Status = {
   routing:       { ok: number, total: number },   // from summarize()
   live:          { sessions: number, agents: number },
   todayOutput:   number,             // output tokens today
-  todayProjects: number,             // project folders with main or subagent messages today (activity section)
+  todayProjects: number,             // project folders with main or subagent messages today (activity.totals, all folders)
   todaySavedInput: number,           // today's cache reads x 0.9, input tokens not billed at full price
   cacheHit7d:    number | null,
   claudeMem:     boolean | null,

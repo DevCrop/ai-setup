@@ -128,7 +128,7 @@ export class NotificationPolicy {
     this.#lastDigest = day;
     this.#save();
     const k = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n));
-    const tips = findings.filter((f) => f.severity !== 'ok' && this.isStable(f)).length;
+    const tips = findings.filter((f) => f.severity !== 'ok').length; // not only stable ones: right after a restart they still wait
     const parts = [
       status.todayProjects > 0 ? `프로젝트 ${status.todayProjects}곳` : null,
       `출력 ${k(status.todayOutput)} 토큰`,

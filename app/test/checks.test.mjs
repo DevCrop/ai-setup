@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { Check } from '../core/check.js';
 import * as registry from '../core/checks/index.js';
@@ -223,11 +224,14 @@ test('C10: a live session over 200k context tokens gives one warn per project; i
   const projects = [
     { projectName: 'ai-setup', live: true, context: 250000, output: 1200 },
     { projectName: 'blog post', live: true, context: 90000, output: 10 },
-    { projectName: 'old', live: false, context: 900000, output: 10 },
+    { projectName: 'old', live: false, context: 0, output: 10 }, // context is only kept for recently active sessions
     { projectName: null, live: true, context: 300000, output: 0 },
+    { projectName: '작업', live: false, context: 210000, output: 0 },
+    { projectName: '회의', live: true, context: 210000, output: 0 },
   ];
   const fs = new C10BigContext().run(snap({ claude: claudeRes(fullClaude({ activity: { status: 'ok', projects } })) }));
-  assert.deepEqual(fs.map((f) => [f.id, f.severity]), [['C10:ai-setup', 'warn'], ['C10:unknown', 'warn']]);
+  const h = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
+  assert.deepEqual(fs.map((f) => [f.id, f.severity]), [[`C10:${h('ai-setup')}`, 'warn'], ['C10:unknown', 'warn'], [`C10:${h('작업')}`, 'warn'], [`C10:${h('회의')}`, 'warn']]);
   assert.match(fs[0].title, /250k/);
   assert.match(fs[0].detail, /\/compact/);
   for (const f of fs) assert.match(f.id, FINDING_ID_RE);
@@ -238,8 +242,11 @@ test('C11: slow hook, a waiting prune proposal and a costly overhead each give o
   const te = (o) => new C11TokenEconomizer().run(snap({ claude: claudeRes(fullClaude({ tokenEconomizer: { status: 'ok', config: {}, fastHook: true, repos: [], ...o } })) }));
   const repos = [{ label: 'devcrop/ai-setup', sessions: 3, effectiveTokens: 1000, overheadTokens: 100, nudges: 0, proposed: 2 }, { label: 'o/b', sessions: 1, effectiveTokens: 1000, overheadTokens: 10, nudges: 0, proposed: 0 }];
   const fs = te({ fastHook: false, repos });
-  assert.deepEqual(fs.map((f) => f.id), ['C11:slow-hook', 'C11:prune-devcrop_ai-setup', 'C11:overhead-devcrop_ai-setup']);
+  assert.deepEqual(fs.map((f) => f.id.replace(/[0-9a-f]{12}$/, 'H')), ['C11:slow-hook', 'C11:prune-H', 'C11:overhead-H']);
   assert.ok(fs.every((f) => f.severity === 'info'));
+  const long = te({ repos: [{ ...repos[0], label: 'x'.repeat(80) }] }); // 80-char label still gives valid ids
+  assert.equal(long.length, 2);
+  for (const f of long) assert.match(f.id, FINDING_ID_RE);
   assert.match(fs[2].title, /10%/);
   assert.deepEqual(te({}), []);
   assert.deepEqual(te({ fastHook: null }), []);

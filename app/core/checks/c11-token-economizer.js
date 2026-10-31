@@ -1,5 +1,9 @@
+import { createHash } from 'node:crypto';
 import { Check } from '../check.js';
-import { Finding, idPart } from '../finding.js';
+import { Finding } from '../finding.js';
+
+// Labels run to 80 chars and may hold any character; a 12-hex hash keeps the id inside FINDING_ID_RE.
+const idPart = (s) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
 const MAX_OVERHEAD = 0.05;
 

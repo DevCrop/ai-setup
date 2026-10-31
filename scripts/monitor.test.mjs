@@ -519,6 +519,7 @@ test('activity: today per project folder, live flag and the live session context
     ['blog', 1, 1, 100, false, 0],
   ]);
   assert.equal(a.projects[0].savedInput, Math.round(241000 * 0.9));
+  assert.deepEqual(a.totals, { projects: 2, savedInput: a.projects[0].savedInput + a.projects[1].savedInput });
   const html = render({ generatedAt: NOW, activity: a }, { embed: true });
   assert.match(html, /오늘 작업/);
   assert.match(html, /ai-setup · 지금 작업 중/);
