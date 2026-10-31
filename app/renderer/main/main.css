@@ -269,5 +269,6 @@ fieldset.pl legend { float: left; padding: 0; }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); }
 .seg button:disabled { cursor: default; }
 @media (max-width: 760px) { .seg button { min-height: 32px; } }
-@media (max-width: 400px) { .seg button { padding: 0 6px; } .tools { gap: var(--sp-1); } }
+.seg button, .tools .btn { white-space: nowrap; }
+@media (max-width: 400px) { .seg button { padding: 0 6px; } .tools { gap: var(--sp-1); } .brand h1 { display: none; } }
 .seg button:disabled { opacity: .5; }

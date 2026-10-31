@@ -398,6 +398,19 @@ html { background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, v
 .tabs { background: none; padding: 0; gap: var(--sp-4); border-radius: 0; }
 .tabs button { padding: 0 2px; border-radius: 0; box-shadow: inset 0 -2px 0 transparent; }
 .tabs button[aria-current="page"] { background: none; box-shadow: inset 0 -2px 0 var(--fg); }
+/* lists and charts below the KPIs: tick stacks, status pills, quieter tables and columns */
+.stack, .lr .stack { height: 12px; gap: 0; border-radius: 0; background: color-mix(in srgb, var(--line-strong) 75%, transparent); -webkit-mask: var(--ticks); mask: var(--ticks); }
+.pitem > .st, .lrow .lv { justify-self: end; padding: 1px var(--sp-2); border-radius: 999px; background: var(--fill); color: var(--muted); font-size: 11px; line-height: 18px; }
+.pitem > .st::before { display: none; }
+.pitem > .st.warn, .lrow .lv.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--panel)); }
+.pitem > .st.bad, .lrow .lv.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, var(--panel)); }
+.pitem > .st.ok, .lrow .lv.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--panel)); }
+.utable tbody tr:hover td { background: var(--fill); }
+.utable td { padding-block: var(--sp-2); }
+.stk .sg { max-width: 32px; }
+.stk .sg:first-of-type { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.dn circle { stroke-width: 12; }
+.hl line { stroke-width: 1.25; opacity: .5; }
 `;
 
 // Lookup that ignores inherited keys such as "constructor".
@@ -1361,6 +1374,13 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
   .embed #v-flow > .panel:first-child { grid-row: 1 / 3; }
   .embed #v-flow > .panel:nth-child(2) { grid-column: 2; }
   .embed #v-flow > .g22 { grid-column: 2; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
+}
+/* Narrow windows stack every panel; one-screen fitting would squeeze them, so the page scrolls instead. */
+@media (max-width: 640px) {
+  body.embed, .embed .stage { height: auto; overflow: visible; }
+  .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2, .embed .view > .grid2 > .col > .panel { flex: none; }
+  .embed .g12, .embed .g22, .embed .view > .grid2 { grid-template-rows: none; grid-auto-rows: auto; }
+  .embed .panel { overflow: visible; }
 }
 `;
 
