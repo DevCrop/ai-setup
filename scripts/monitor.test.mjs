@@ -526,3 +526,14 @@ test('activity: today per project folder, live flag and the live session context
   assert.match(html, /컨텍스트 [^<]*\(크다\)/);
   assert.equal(summarize({ generatedAt: NOW, activity: a }).todayProjects, 2);
 });
+
+test('overview: routing KPI counts like the strip (no-data agents left out) and big 만 values have no decimal', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const agents = [{ agentType: 'a', expected: 'opus', verdict: 'ok' }, { agentType: 'b', expected: 'haiku', verdict: 'mismatch' }, { agentType: 'c', expected: 'haiku', verdict: 'no data' }];
+  const d = { generatedAt: NOW, routing: { status: 'ok', agents }, activity: { status: 'ok', projects: [{ projectName: 'p', sessions: 1, output: 51512345, savedInput: 123456, live: false, context: 0 }] } };
+  const html = render(d, { embed: true });
+  assert.equal(summarize(d).routing.total, 2);
+  assert.match(html, />1\/2</);
+  assert.match(html, /출력 5,151만/);
+  assert.match(html, /아낀 입력 12\.3만/);
+});

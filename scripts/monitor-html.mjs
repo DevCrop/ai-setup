@@ -474,6 +474,7 @@ function compactKo(v) {
   if (!Number.isFinite(v)) return DASH;
   const a = Math.abs(v);
   if (a >= 1e8) return `${fixed1(v / 1e8)}억`;
+  if (a >= 1e7) return `${fmtInt(Math.round(v / 1e4))}만`; // 5,151만, not 5151.2만
   if (a >= 1e4) return `${fixed1(v / 1e4)}만`;
   return fmtInt(v);
 }
@@ -733,12 +734,13 @@ function coreKpis(d, withBar) {
 
 function kpiRow(d) {
   const mem = isObj(d.claudeMem) ? d.claudeMem : {};
-  const agents = arr(isObj(d.routing) ? d.routing.agents : null).filter((a) => typeof a.expected === 'string' && a.expected !== '');
+  // same rule as summarize() (the strip): agents with no run in the window are not counted as misses
+  const agents = arr(isObj(d.routing) ? d.routing.agents : null).filter((a) => typeof a.expected === 'string' && a.expected !== '' && a.verdict !== 'no data');
   const okN = agents.filter((a) => a.verdict === 'ok').length;
   const up = reach(mem);
   return `<div class="kpis band">` +
     coreKpis(d, true) +
-    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준', '', { bar: agents.length ? okN / agents.length : NaN }) +
+    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '7일 안에 돈, 기대 모델이 있는 에이전트', '', { bar: agents.length ? okN / agents.length : NaN }) +
     kpi('claude-mem 상태', up.label, `워커 ${txt(mem.version)}`, up.st === 'missing' ? 'bad' : '') + `</div>`;
 }
 
