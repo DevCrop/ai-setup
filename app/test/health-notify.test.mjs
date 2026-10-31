@@ -214,3 +214,25 @@ test('digest: once a day from 18:00 with counts only; held by notify off, quiet 
   clock.t = at(19) + 86400000;
   assert.match(again.digest({ ...st, todayProjects: 0, todaySavedInput: 0 }, []).body, /^출력 123K 토큰 · 개선 제안 없음\.$/);
 });
+
+test('done: a long turn that ended toasts once with its folder; ends seen at start, quick replies and held-back ones do not', () => {
+  const settings = { notify: true, quietStart: '', quietEnd: '' };
+  const { p } = policy({ settings, start: at(12) });
+  const w = (name, at, turnSec) => ({ generatedAt: 'g', waiting: [{ projectName: name, at, turnSec }] });
+  assert.equal(p.done({ generatedAt: null, waiting: [] }), null); // the "starting" status comes before the first real read
+  assert.equal(p.done(w('old', 't0', 600)), null); // already there when the app started
+  assert.equal(p.done(w('old', 't0', 600)), null);
+  assert.equal(p.done(w('quick', 't1', 20)), null); // a quick reply is not worth a toast
+  assert.deepEqual(p.done(w('ai-setup', 't2', 540)), { title: 'Claude Monitor: 작업 끝', body: 'ai-setup: 9분 걸린 작업이 끝나 답을 기다립니다.' });
+  assert.equal(p.done(w('ai-setup', 't2', 540)), null); // once per end
+  assert.deepEqual(p.done({ generatedAt: 'g', waiting: [w('a', 't3', 3700).waiting[0], w('b', 't4', 90).waiting[0]] }), { title: 'Claude Monitor: 작업 끝', body: 'a 외 1곳: 1시간 2분 걸린 작업이 끝나 답을 기다립니다.' });
+  settings.notify = false;
+  assert.equal(p.done(w('c', 't5', 600)), null);
+  settings.notify = true;
+  assert.equal(p.done(w('c', 't5', 600)), null); // held back means dropped, not sent late
+  Object.assign(settings, { quietStart: '11:00', quietEnd: '13:00' });
+  assert.equal(p.done(w('d', 't6', 600)), null);
+  Object.assign(settings, { quietStart: '', quietEnd: '' });
+  assert.equal(p.done(w('d', 't6', 600)), null);
+  assert.equal(p.done({ generatedAt: 'g' }), null);
+});

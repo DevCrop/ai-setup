@@ -245,6 +245,7 @@ export class MonitorService {
       todaySavedInput: sum?.todaySavedInput ?? 0,
       cacheHit7d: sum?.cacheHit7d ?? null,
       claudeMem: sum?.claudeMem ?? null,
+      waiting: Array.isArray(sum?.waiting) ? sum.waiting : [],
       codex,
       busyFindingId: this.optimizer.busyFindingId(),
     };
