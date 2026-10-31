@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import os from 'node:os';
+import path from 'node:path';
 import { CoreError } from '../errors.js';
 import { Fix } from '../fix.js';
 import { maskHome } from '../mask-home.js';
@@ -13,6 +14,14 @@ export const execRunner = (file, args, opts = {}) => new Promise((resolve) => {
 });
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
+
+// CLAUDE_CONFIG_DIR for a script that must write to `home`, or undefined when it would pick that folder anyway, so a user
+// on the default folder runs apply.sh and the claude CLI exactly as before (no variable they never set).
+export function configDirEnv(home, env = process.env, homeDir = os.homedir()) {
+  if (!home) return undefined;
+  const dflt = env.CLAUDE_CONFIG_DIR || path.join(homeDir, '.claude');
+  return path.resolve(home) === path.resolve(dflt) ? undefined : { CLAUDE_CONFIG_DIR: home };
+}
 
 // C1: runs `bash scripts/apply.sh` from the repo (repo -> live). It never opens a file under the Claude home itself.
 export class ApplyRepoFix extends Fix {
@@ -32,7 +41,7 @@ export class ApplyRepoFix extends Fix {
 
   // The only two commands this class can run.
   #run(dry) {
-    const env = this.#claudeHome ? { CLAUDE_CONFIG_DIR: this.#claudeHome } : undefined;
+    const env = configDirEnv(this.#claudeHome, process.env, this.#homeDir);
     return this.#runner('bash', dry ? ['scripts/apply.sh', '--dry-run'] : ['scripts/apply.sh'], { cwd: this.#repo, env });
   }
 

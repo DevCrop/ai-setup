@@ -110,6 +110,21 @@ test('AutoUpdater: with applying the setup off, a pull still lands but apply.sh 
   const bash = on.calls.filter((c) => c.a.startsWith('bash'));
   assert.equal(bash.length, 2);
   assert.ok(bash.every((c) => c.opts.env?.CLAUDE_CONFIG_DIR === '/home/u/claude-home'));
+  // the default folder adds no variable, so the scripts and the claude CLI run as before
+  const dflt = fakeRunner({ changed: ['claude/CLAUDE.md'] });
+  await make({ runner: dflt.run, claudeHome: path.join(HOME, '.claude') }).u.consider(snapOf());
+  assert.ok(dflt.calls.filter((c) => c.a.startsWith('bash')).every((c) => c.opts.env === undefined));
+});
+
+test('AutoUpdater: switching applying the setup off forgets a failed apply instead of showing it as failing', async () => {
+  const file = path.join(tmpDir(), 'update-state.json');
+  const r = fakeRunner({ changed: ['claude/CLAUDE.md'], fail: ['apply.sh'] });
+  await make({ runner: r.run, file }).u.consider(snapOf());
+  const on = make({ runner: r.run, file });
+  assert.deepEqual(on.u.status().failed.map((f) => f.step), ['apply']);
+  const off = make({ runner: fakeRunner().run, file, applySetup: false });
+  off.u.consider(snapOf({ remote: null }));
+  assert.deepEqual(off.u.status().failed, []);
 });
 
 test('AutoUpdater: a pull outside claude/ runs no apply; a dirty tree blocks the pull and its followers but not claude update', async () => {

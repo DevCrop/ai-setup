@@ -5,6 +5,7 @@ import path from 'node:path';
 import { writeAtomic } from '../../scripts/monitor.mjs';
 import { newer } from './checks/u1-claude-code-update.js';
 import { readGuarded } from './guard.js';
+import { configDirEnv } from './fixes/apply-repo-fix.js';
 import { maskHome } from './mask-home.js';
 import { GIT_ENV } from './sources/update-source.js';
 
@@ -199,10 +200,12 @@ export class AutoUpdater {
   consider(snapshot) {
     if (this.#running || !this.runner || !this.repo || !this.enabled() || this.isBusy()) return null;
     const home = this.claudeHome();
-    const job = { facts: updateFacts(snapshot), repo: this.repo, runner: this.runner, changed: [], head: null, mask: (t) => maskHome(t, this.homeDir), applySetup: !!this.applySetup(), env: home ? { CLAUDE_CONFIG_DIR: home } : undefined };
+    const job = { facts: updateFacts(snapshot), repo: this.repo, runner: this.runner, changed: [], head: null, mask: (t) => maskHome(t, this.homeDir), applySetup: !!this.applySetup(), env: configDirEnv(home, process.env, this.homeDir) };
     let cleared = false;
     for (const s of this.steps) {
-      if (this.#state.steps[s.id]?.ok === false && s.wanted(job.facts) === false) { delete this.#state.steps[s.id]; cleared = true; }
+      // a failure is forgotten once its target is gone, or once the user switched that step off (apply and plugins)
+      const off = !job.applySetup && (s.id === 'apply' || s.id === 'plugins');
+      if (this.#state.steps[s.id]?.ok === false && (off || s.wanted(job.facts) === false)) { delete this.#state.steps[s.id]; cleared = true; }
     }
     if (cleared) this.#save();
     if (!this.steps.some((s) => this.#key(s, job))) return null;

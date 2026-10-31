@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { ApplyRepoFix, execRunner } from '../core/fixes/apply-repo-fix.js';
+import { ApplyRepoFix, configDirEnv, execRunner } from '../core/fixes/apply-repo-fix.js';
 import { RemoveCodexProjectFix } from '../core/fixes/remove-codex-project-fix.js';
 import { RemoveCodexTableFix } from '../core/fixes/remove-codex-table-fix.js';
 import { CANARY, fakeCodex, tmpDir, write } from './helpers.mjs';
@@ -154,6 +154,15 @@ test('C1: with a Claude folder set, apply.sh gets it as CLAUDE_CONFIG_DIR on eve
   await fix.apply(previewId);
   assert.equal(runner.calls.length, 3);
   assert.ok(runner.calls.every((c) => c.env?.CLAUDE_CONFIG_DIR === '/home/u/claude-home'));
+});
+
+test('configDirEnv: only a folder other than the one the scripts would pick gets CLAUDE_CONFIG_DIR', () => {
+  const home = path.resolve('/home/u');
+  assert.equal(configDirEnv(path.join(home, '.claude'), {}, home), undefined); // the default: run as before
+  assert.equal(configDirEnv(path.join(home, '.claude') + path.sep, {}, home), undefined);
+  assert.equal(configDirEnv('/env/dir', { CLAUDE_CONFIG_DIR: '/env/dir' }, home), undefined); // already in the env
+  assert.deepEqual(configDirEnv('/other', {}, home), { CLAUDE_CONFIG_DIR: '/other' });
+  assert.equal(configDirEnv(null, {}, home), undefined);
 });
 
 test('C1: PREVIEW_STALE when the dry run output changed; the real command is not run', async () => {
