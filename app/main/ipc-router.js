@@ -2,6 +2,7 @@
 // so CI tests it with a fake ipcMain (docs/api-claude-monitor.md section 1).
 
 import { MESSAGES } from '../core/errors.js';
+import { THEMES } from '../core/settings-store.js';
 
 export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'rt', 'opt'];
 
@@ -19,7 +20,7 @@ const FIELDS = {
   tab: (v) => TABS.includes(v),
   notify: (v) => typeof v === 'boolean',
   updateCheck: (v) => typeof v === 'boolean',
-  theme: (v) => ['system', 'light', 'dark'].includes(v),
+  theme: (v) => THEMES.includes(v),
   quietStart: (v) => v === '' || str(HHMM, 5, 5)(v),
   quietEnd: (v) => v === '' || str(HHMM, 5, 5)(v),
 };

@@ -270,3 +270,4 @@ fieldset.pl legend { float: left; padding: 0; }
 .seg button:disabled { cursor: default; }
 @media (max-width: 760px) { .seg button { min-height: 32px; } }
 @media (max-width: 400px) { .seg button { padding: 0 6px; } .tools { gap: var(--sp-1); } }
+.seg button:disabled { opacity: .5; }
