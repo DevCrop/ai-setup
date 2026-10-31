@@ -539,3 +539,10 @@ test('overview: routing KPI counts like the strip (no-data agents left out) and 
   const fmt = (n) => render({ ...d, activity: { status: 'ok', projects: [{ ...d.activity.projects[0], output: n }] } }, { embed: true }).match(/출력 ([^ ]+) ·/)[1];
   assert.deepEqual([99994999, 99995000, 1e8, 9999960, 1e7, 9999, -51512345].map(fmt), ['9,999만', '1억', '1억', '1,000만', '1,000만', '9,999', '-5,151만']);
 });
+
+test('Fable is its own model family, not 기타', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const html = render({ generatedAt: NOW, routing: { status: 'ok', agents: [], background: [], mainThread: [{ entrypoint: 'cli', model: 'claude-fable-5-1', messages: 151 }, { entrypoint: 'cli', model: 'claude-opus-5-5', messages: 9 }] } }, { embed: true });
+  assert.match(html, /f-fable/);
+  assert.match(html, /Fable<\/span>|Fable <b>|>Fable/);
+});

@@ -20,9 +20,10 @@ const VERDICT = {
   'no data': { cls: 'info', label: '데이터 없음' },
 };
 
-const FAMILIES = { opus: 'Opus', sonnet: 'Sonnet', haiku: 'Haiku', other: '기타' };
-const FAMILY_ORDER = ['opus', 'sonnet', 'haiku', 'other'];
-const SUB_ORDER = ['sonnet', 'haiku', 'opus', 'other'];
+const FAMILIES = { opus: 'Opus', fable: 'Fable', sonnet: 'Sonnet', haiku: 'Haiku', other: '기타' };
+const FAMILY_ORDER = ['opus', 'fable', 'sonnet', 'haiku', 'other'];
+const SUB_ORDER = ['sonnet', 'haiku', 'opus', 'fable', 'other'];
+const RARE = new Set(['fable', 'other']); // listed only when present
 const ROLE_LABEL = { main: '메인', subagent: '서브에이전트', 'claude-mem': 'claude-mem 관찰자', sdk: 'SDK' };
 
 const TABS = [
@@ -50,7 +51,7 @@ const CSS = `
   --bg: #faf9f5; --panel: #ffffff; --raise: #ffffff; --line: #e8e6dc; --line-strong: #d3d0c3; --fg: #141413; --muted: #5e5d59; --faint: #7a786f;
   --accent: #d77757; --accent-ink: #b9532f; --fill: #f0eee6; --hl: rgba(215, 119, 87, .10); --glow: 4%; --shadow: 0 1px 2px rgba(20, 20, 19, .04);
   --warn: #8f6420; --bad: #b04a38; --ok: #3f7a55;
-  --f-opus: #d77757; --f-sonnet: #7391b3; --f-haiku: #74a085; --f-other: #a09c92; --hatch: rgba(255, 255, 255, .55);
+  --f-opus: #d77757; --f-fable: #9a83b8; --f-sonnet: #7391b3; --f-haiku: #74a085; --f-other: #a09c92; --hatch: rgba(255, 255, 255, .55);
   --sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   --serif: "Source Serif 4", "Noto Serif KR", Georgia, "Batang", serif;
   --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "D2Coding", "Malgun Gothic", Menlo, monospace;
@@ -64,11 +65,11 @@ const CSS = `
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #1f1e1d; --panel: #262624; --raise: #403f3b; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
   --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --ok: #86b497; --fill: #33322f; --hl: rgba(215, 119, 87, .12); --glow: 6%; --shadow: none;
-  --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; } }
+  --f-fable: #b3a0cf; --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #1f1e1d; --panel: #262624; --raise: #403f3b; --line: #3a3936; --line-strong: #4a4945; --fg: #e9e7df; --muted: #b7b4aa; --faint: #918f86;
   --accent-ink: #eb9575; --warn: #d9a85a; --bad: #e0816f; --ok: #86b497; --fill: #33322f; --hl: rgba(215, 119, 87, .12); --glow: 6%; --shadow: none;
-  --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; }
+  --f-fable: #b3a0cf; --f-sonnet: #8aa9cc; --f-haiku: #86b497; --f-other: #a39e94; --hatch: rgba(0, 0, 0, .35); color-scheme: dark; }
 
 /* 2 base */
 * { box-sizing: border-box; }
@@ -81,7 +82,7 @@ a { color: var(--fg); text-decoration: underline; text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .view[hidden] { display: none !important; }
 .hatch { background-image: repeating-linear-gradient(45deg, transparent 0 4px, var(--hatch) 4px 8px); }
-.f-opus { --fc: var(--f-opus); } .f-sonnet { --fc: var(--f-sonnet); } .f-haiku { --fc: var(--f-haiku); } .f-other { --fc: var(--f-other); }
+.f-opus { --fc: var(--f-opus); } .f-fable { --fc: var(--f-fable); } .f-sonnet { --fc: var(--f-sonnet); } .f-haiku { --fc: var(--f-haiku); } .f-other { --fc: var(--f-other); }
 
 /* 3 layout: one sticky top bar (brand, segmented tabs, live status) above one centred column */
 .top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 86%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
@@ -532,6 +533,7 @@ function parseSaved(v) {
 function family(model) {
   const m = typeof model === 'string' ? model.toLowerCase() : '';
   if (m.includes('opus')) return 'opus';
+  if (m.includes('fable')) return 'fable';
   if (m.includes('sonnet')) return 'sonnet';
   if (m.includes('haiku')) return 'haiku';
   return 'other';
@@ -703,7 +705,7 @@ function delegationBlock(sv) {
     `<b>${pct01(g.value / m.total)}</b><span class="tk">${compactKo(g.value)}</span></li>`).join('')}</ul>`;
   const p = (v) => `${fixed1((v / m.total) * 100)}%`;
   const mainTxt = FAMILY_ORDER.filter((f) => m.mainFam(f) > 0).map((f) => `<span class="sp">${sw(f)}${famLabel(f)} ${p(m.mainFam(f))}</span>`).join('') || DASH;
-  const subTxt = SUB_ORDER.filter((f) => f !== 'other' || m.subFam(f) > 0)
+  const subTxt = SUB_ORDER.filter((f) => !RARE.has(f) || m.subFam(f) > 0)
     .map((f) => `<span class="sp">${sw(f)}${famLabel(f)} ${p(m.subFam(f))}</span>`).join('');
   const fams = `<div class="dlines"><div><b>메인</b><span class="sps">${mainTxt}</span></div><div><b>서브에이전트</b><span class="sps">${subTxt}</span></div></div>`;
   return `<div class="donut">${donut(segs, m.total, subPct, '서브에이전트', aria)}${legend}</div>` +
@@ -853,7 +855,7 @@ function tokenGroups(days) {
   const by = new Map();
   for (const r of days) {
     const key = typeof r.date === 'string' ? r.date : '';
-    if (!by.has(key)) by.set(key, { date: key, fam: { opus: 0, sonnet: 0, haiku: 0, other: 0 }, total: 0, inp: 0, cr: 0, cc: 0 });
+    if (!by.has(key)) by.set(key, { date: key, fam: { opus: 0, fable: 0, sonnet: 0, haiku: 0, other: 0 }, total: 0, inp: 0, cr: 0, cc: 0 });
     const g = by.get(key);
     const out = nz(r.output);
     g.fam[family(r.model)] += out;
@@ -973,7 +975,7 @@ function viewOrchestration(d) {
 function matrixRow(a) {
   const exp = typeof a.expected === 'string' ? a.expected : '';
   const ef = exp ? family(exp) : 'other';
-  const msgs = { opus: 0, sonnet: 0, haiku: 0, other: 0 };
+  const msgs = { opus: 0, fable: 0, sonnet: 0, haiku: 0, other: 0 };
   for (const m of arr(a.models)) msgs[family(m.model)] += nz(m.messages);
   const total = FAMILY_ORDER.reduce((x, f) => x + msgs[f], 0);
   const pc = (v) => (v <= 0 || total <= 0 ? DASH : v / total < 0.005 ? '<1%' : `${Math.round((v / total) * 100)}%`);
@@ -1209,7 +1211,7 @@ function setupFlow(s, d) {
     : unread('Delegate when');
   const exec = agents.filter((a) => !isVerify(a));
   const ver = agents.filter(isVerify);
-  const byFam = (list) => ['haiku', 'sonnet', 'opus', 'other'].map((f) => [f, list.filter((a) => family(a.model) === f)]).filter(([, l]) => l.length);
+  const byFam = (list) => ['haiku', 'sonnet', 'opus', 'fable', 'other'].map((f) => [f, list.filter((a) => family(a.model) === f)]).filter(([, l]) => l.length);
   const hintFor = (list) => {
     const l = laneOf.get(list[0].name);
     return l ? relabel(LANE_KO, l.text) || '' : '';
@@ -1228,7 +1230,7 @@ function setupFlow(s, d) {
     `<div class="fl"><span>결과 확인</span></div>` +
     (verLanes ? `<div class="lanes one">${verLanes}</div>` : '<p class="empty">검증 에이전트 없음</p>') +
     `<div class="fl"></div><div class="fbox pill end">완료</div></div>` +
-    `<ul class="legend" aria-label="범례">${FAMILY_ORDER.slice(0, 3).map((f) => `<li class="lg">${sw(f)}${famLabel(f)}</li>`).join('')}` +
+    `<ul class="legend" aria-label="범례">${['opus', 'sonnet', 'haiku'].map((f) => `<li class="lg">${sw(f)}${famLabel(f)}</li>`).join('')}` +
     `<li class="lg"><i class="sw" style="--fc:var(--warn)" aria-hidden="true"></i>주황 테두리·배지 = 기대와 다른 모델로 실행됨</li></ul>` +
     `<p class="cap">칸 색 = 에이전트 파일의 model · 배지 = 최근 7일 실행 기록 · 카드에 마우스를 올리면 원문 설명</p>`;
 }
@@ -1360,7 +1362,7 @@ var hist=[];try{hist=JSON.parse(MS.getItem('monitor-hist')||'[]');if(!Array.isAr
 var prev=hist.length?hist[hist.length-1]:null;if(!prev||typeof prev!=='object')prev=null;
 function num(v){return typeof v==='number'&&isFinite(v)}
 function f1(x){return String(Math.round(x*10)/10)}
-function ko(a){return a>=1e8?f1(a/1e8)+'억':a>=1e4?f1(a/1e4)+'만':String(Math.round(a))}
+function ko(a){var m=Math.round(a/1e4);return a<1e4?String(Math.round(a)):m>=1e4?f1(a/1e8)+'억':Math.round(a/1e3)/10>=1000?m.toLocaleString('en-US')+'만':f1(a/1e4)+'만'}
 function delta(u,a,b){var d=a-b;
 if(u==='p'){d=Math.round(d*10)/10;return d?(d>0?'▲':'▼')+f1(Math.abs(d))+'%p':''}
 d=Math.round(d);return d?(d>0?'+':'-')+ko(Math.abs(d)):''}
