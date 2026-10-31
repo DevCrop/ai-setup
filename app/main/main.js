@@ -69,6 +69,7 @@ if (!app.requestSingleInstanceLock()) {
         return { generatedAt, findings: monitor.optimizer.list() };
       },
       'codex:detail': () => monitor.codexDetail(),
+      'routines:detail': () => monitor.routinesDetail(),
       'history:list': () => ({ entries: monitor.history() }),
       'app:copy-summary': () => { clipboard.writeText(monitor.summaryText()); return { copied: true }; },
       'fix:preview': ({ findingId }) => monitor.optimizer.preview(findingId),

@@ -275,4 +275,22 @@ export class MonitorService {
       findings: codexFindings.map((f) => f.id),
     };
   }
+
+  // RoutinesDetail of docs/api-claude-monitor.md (routines:detail): the routines source data as collected, report only.
+  routinesDetail() {
+    const snap = this.#snapshot;
+    if (!snap) throw new CoreError('NO_SNAPSHOT');
+    const res = snap.sources.routines ?? null;
+    const d = res?.data ?? null;
+    return {
+      generatedAt: snap.generatedAt,
+      status: d ? 'ok' : 'missing',
+      note: d ? '' : res?.note || 'PC 루틴을 읽지 못했습니다.',
+      collectedAt: d?.collectedAt ?? null,
+      tasks: d?.tasks ?? [],
+      startup: d?.startup ?? [],
+      services: d?.services ?? { total: 0, running: 0, auto: 0, autoStopped: [], thirdParty: [] },
+      claude: d?.claude ?? [],
+    };
+  }
 }

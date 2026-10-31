@@ -3,7 +3,7 @@
 
 import { MESSAGES } from '../core/errors.js';
 
-export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'opt'];
+export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'pc', 'opt'];
 
 const FINDING_ID = /^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
 const PREVIEW_ID = /^[0-9a-f]{64}$/;
@@ -33,6 +33,7 @@ export const CHANNELS = {
   'view:html': { roles: ['main'], none: true },
   'findings:list': { roles: ['main'], none: true },
   'codex:detail': { roles: ['main'], none: true },
+  'routines:detail': { roles: ['main'], none: true },
   'history:list': { roles: ['main'], none: true },
   'app:copy-summary': { roles: ['strip', 'main'], none: true },
   'fix:preview': { roles: ['main'], keys: ['findingId'] },

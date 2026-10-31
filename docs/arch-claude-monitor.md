@@ -179,6 +179,8 @@ Ponytail check on abstractions: `Source` has three real implementations (Claude,
 - `SettingsStore` (`core/settings-store.js`): `userData/settings.json`, keys `notify`, `quietStart`, `quietEnd`, `updateCheck`, each validated, atomic write. IPC `settings:get` / `settings:set`.
 - `Status.health` = `100 - 15 x bad - 5 x warn` (stable counts, clamped), null when starting, stale, nodata or error.
 
+- `RoutineSource` (`core/sources/routine-source.js`, id `routines`) with `routines.ps1`: Windows only (elsewhere `missing`, nothing spawned). Like `UpdateSource` it returns the cached result at once and refreshes in the background every 10 minutes behind an in-flight guard; it never throws. The script runs with `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File`, 60 s, UTF-8 JSON. `normalizeRoutines()` in JS re-checks every field, keeps only executable basenames and maps accounts to `system`/`service`/`user`. Claude routines: front matter `name`/`description` of `~/.claude/scheduled-tasks/*/SKILL.md`, capped. No checks read it, so it never changes findings, health or the strip. IPC `routines:detail` (`MonitorService.routinesDetail()`), tab `pc`.
+
 ### What lives where
 
 | Layer | Folder | Classes | Needs Electron |

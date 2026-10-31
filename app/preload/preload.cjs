@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('monitor', Object.freeze({
   getViewHtml: () => ipcRenderer.invoke('view:html'),
   listFindings: () => ipcRenderer.invoke('findings:list'),
   getCodexDetail: () => ipcRenderer.invoke('codex:detail'),
+  getRoutines: () => ipcRenderer.invoke('routines:detail'),
   listHistory: () => ipcRenderer.invoke('history:list'),
   copySummary: () => ipcRenderer.invoke('app:copy-summary'),
   previewFix: (findingId) => ipcRenderer.invoke('fix:preview', { findingId }),
