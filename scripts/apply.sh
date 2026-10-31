@@ -8,7 +8,8 @@
 #     the live value is replaced by the repo value (a key the repo lacks is deleted), so a rule added by hand on a machine cannot stay;
 #     of modelSettings only the fields the repo sets are owned (levels saved for other models and other fields of the same entry stay);
 #   - every other key present in the repo (model, effortLevel, ...) takes the repo value;
-#   - keys that only exist on the machine (env, a plugin enabled by "claude plugin install", app settings) are kept and reported;
+#   - keys that only exist on the machine (a plugin enabled by "claude plugin install", app settings) are kept and reported;
+#     env is merged per variable like enabledPlugins: repo variables win, machine-only variables stay; names are reported, never values;
 #   - scripts/removed-keys.json lists keys that are deleted from the live file.
 # Files in the managed folders are tracked in $dest/.ai-setup-manifest: a file this script copied earlier and the repo no longer
 # has is deleted; a file that never came from this repo is kept and reported. One-time migration: a manifest under the name used
@@ -71,16 +72,19 @@ jq -n -r --slurpfile l "$tmp/live.json" --slurpfile r "$src/settings.json" --slu
      + [own_perm[] as $k | select((($l.permissions // {}) | has($k)) and (($l.permissions // {})[$k] != ($r.permissions // {})[$k])) | "permissions." + $k]
      + [($r | keys[]) as $k | select(($k | IN(own_top[]) or $k == "permissions" or $k == "enabledPlugins" or $k == "modelSettings" or $k == "env") | not) | select(($l | has($k)) and $l[$k] != $r[$k]) | $k]
      + [($r.enabledPlugins // {} | to_entries[]) as $e | select((($l.enabledPlugins // {}) | has($e.key)) and (($l.enabledPlugins // {})[$e.key] != $e.value)) | "enabledPlugins." + $e.key]
+     + [($r.env // {} | to_entries[]) as $e | select((($l.env // {}) | has($e.key)) and (($l.env // {})[$e.key] != $e.value)) | "env." + $e.key]
      + [($r.modelSettings // {} | to_entries[]) as $e | ($e.value | keys[]) as $f
         | (if ($l.modelSettings | type) == "object" then $l.modelSettings[$e.key] else $l.modelSettings end) as $le
         | select($le != null and (($le | type) != "object" or (($le | has($f)) and $le[$f] != $e.value[$f]))) | "modelSettings." + $e.key + "." + $f]) as $replaced
   | ($x | map(select(. as $p | ($l | getpath($p)) != null)) | map(join("."))) as $removed
   | (($l | keys) - ($r | keys) - own_top - ($x | map(select(length == 1) | .[0]))) as $only_top
   | ((($l.enabledPlugins // {}) | keys) - (($r.enabledPlugins // {}) | keys) - ($x | map(select(.[0] == "enabledPlugins" and length == 2) | .[1]))) as $only_plugins
+  | (if ($r | has("env")) then ((($l.env // {}) | keys) - (($r.env // {}) | keys) - ($x | map(select(.[0] == "env" and length == 2) | .[1]))) else [] end) as $only_env
   | (if ($replaced | length) > 0 then "replaced live value of: " + ($replaced | join(", ")) else empty end),
     (if ($removed | length) > 0 then "removed from settings.json: " + ($removed | join(", ")) else empty end),
     (if ($only_top | length) > 0 then "kept machine-only keys: " + ($only_top | join(", ")) else empty end),
-    (if ($only_plugins | length) > 0 then "kept machine-only enabledPlugins: " + ($only_plugins | join(", ")) else empty end)' > "$tmp/report.txt"
+    (if ($only_plugins | length) > 0 then "kept machine-only enabledPlugins: " + ($only_plugins | join(", ")) else empty end),
+    (if ($only_env | length) > 0 then "kept machine-only env: " + ($only_env | join(", ")) else empty end)' > "$tmp/report.txt"
 
 # ---- file list and manifest helpers (read only) ----
 : > "$tmp/new.list"

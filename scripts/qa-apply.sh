@@ -68,6 +68,11 @@ jq '.enabledPlugins["foo@bar"]=true | .env={"X":"1"} | .someAppKey="v"' "$cfg/se
 out="$(apply)"
 [ "$(live '.enabledPlugins["foo@bar"]')" = true ] && [ "$(live .env.X)" = 1 ] && [ "$(live .someAppKey)" = v ] \
   && printf '%s' "$out" | grep -q "kept machine-only" && pass "4 machine-only keys kept and reported" || bad "4 machine-only keys ($out)"
+jq '.env={"X":"1","CLAUDE_CODE_SUBAGENT_MODEL":"live-secretish"}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
+out="$(apply)"
+[ "$(live .env.X)" = 1 ] && [ "$(live .env.CLAUDE_CODE_SUBAGENT_MODEL)" = "$(jq -r .env.CLAUDE_CODE_SUBAGENT_MODEL "$repo/claude/settings.json")" ] \
+  && printf '%s' "$out" | grep -q "env.CLAUDE_CODE_SUBAGENT_MODEL" && printf '%s' "$out" | grep -q "kept machine-only env: X" \
+  && ! printf '%s' "$out" | grep -q "live-secretish" && pass "4b env merged per variable, names reported, values never" || bad "4b env merge ($out)"
 
 # 5. rules added by hand do not survive: allow, autoMode.allow, an extra hook event, an extra marketplace, changed values
 jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.allow=["x"] | .hooks.Stop=[{"hooks":[{"type":"command","command":"x"}]}]

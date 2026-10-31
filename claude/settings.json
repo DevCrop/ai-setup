@@ -8,6 +8,9 @@
     }
   },
   "advisorModel": "opus",
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  },
   "outputStyle": "Concise",
   "agentPushNotifEnabled": true,
   "autoCompactWindow": 400000,
