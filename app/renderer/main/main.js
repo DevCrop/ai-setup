@@ -36,6 +36,8 @@
   var batch = null;        // 최적화하기 run, kept in memory so redraws never drop it
   var prefs = null;        // Settings | null (not loaded yet)
   var prefsErr = '';
+  var drafts = {};         // folder text the main process refused, kept so it can be fixed instead of retyped
+  var held = false;        // a redraw of the 최적화 panel waits while a time or folder is being typed
 
   // ---- DOM helper: text only, never innerHTML ----
   function el(tag, cls, text) {
@@ -84,6 +86,7 @@
     if (b) location.hash = b.getAttribute('data-tab');
   });
   window.addEventListener('hashchange', selectTab);
+  document.addEventListener('focusout', function () { if (held) setTimeout(function () { if (held) renderOpt(); }, 0); });
 
   // ---- monitor frame: a tab switch changes only the hash; a new snapshot reloads it ----
   // The sandboxed frame cannot reload itself, so the ?v= query (snapshot time) does it here.
@@ -1043,9 +1046,14 @@
     if (b && prefs && b.getAttribute('data-theme') !== prefs.theme) savePrefs({ theme: b.getAttribute('data-theme') });
   });
   function savePrefs(patch) {
+    var folder = 'claudeHome' in patch || 'codexHome' in patch;
     api.setSettings(patch).then(function (res) {
-      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; paintTheme(); announce('설정 저장됨'); }
-      else { prefsErr = res && res.error && res.error.code === 'BAD_FOLDER' ? '저장 실패: 폴더가 없거나 그 도구의 폴더가 아닙니다 (Claude: projects/ 또는 settings.json, Codex: config.toml 또는 sessions/ 가 있어야 합니다)' : '저장 실패: ' + errText(res); announce(prefsErr); }
+      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; drafts = {}; paintTheme(); announce(folder ? '폴더를 저장했습니다. 앱이 다시 시작됩니다' : '설정 저장됨'); }
+      else {
+        if (folder) for (var k in patch) drafts[k] = patch[k];
+        prefsErr = res && res.error && res.error.code === 'BAD_FOLDER' ? '저장 실패: 이 PC에 있는 폴더의 전체 경로여야 하고, 그 안에 Claude는 projects 폴더, Codex는 sessions 폴더가 있어야 합니다' : '저장 실패: ' + errText(res);
+        announce(prefsErr);
+      }
       renderOpt();
     }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; announce(prefsErr); renderOpt(); });
   }
@@ -1103,14 +1111,13 @@
       var t = el('input', 'path');
       t.type = 'text';
       t.spellcheck = false;
-      t.value = prefs[key] || '';
+      t.value = key in drafts ? drafts[key] : prefs[key] || '';
       t.placeholder = '자동 (' + auto + ')';
       t.setAttribute('data-key', 'pref|' + key);
       function commit() {
         var v = t.value.trim();
-        if (v === (prefs[key] || '')) return;
+        if (v === (prefs[key] || '')) { delete drafts[key]; return; }
         var p = {}; p[key] = v;
-        announce('폴더를 바꾸면 앱이 다시 시작됩니다');
         savePrefs(p);
       }
       t.addEventListener('blur', commit);
@@ -1141,7 +1148,14 @@
     }, function () { prefsErr = '설정을 읽지 못했습니다'; renderOpt(); });
   }
 
+  function typing() {
+    var a = document.activeElement;
+    return !!(a && a.classList && (a.classList.contains('tm') || a.classList.contains('path')));
+  }
   function renderOpt() {
+    // Rebuilding the panel would replace the field being typed in and drop the text; redraw once focus leaves it.
+    if (typing()) { held = true; return; }
+    held = false;
     var root = $('v-opt');
     var f = focusInfo(root);
     var tops = Array.prototype.map.call(root.querySelectorAll('.sc'), function (n) { return n.scrollTop; });
@@ -1275,7 +1289,7 @@
     if (key !== cxKey) { cxKey = key; loadCodex(); }
     if (s.findingsRev !== lastRev) { lastRev = s.findingsRev; loadFindings(); }
     else if (prevBusy !== s.busyFindingId) redraw();
-    else if (prevHome !== homeKey(s) && !(document.activeElement && document.activeElement.classList.contains('tm'))) renderOpt(); // a finding became stable; never while a time is being typed
+    else if (prevHome !== homeKey(s)) renderOpt(); // a finding became stable
     else renderCodex();
     if (tab === 'rt') loadRoutines(false);
   }

@@ -23,7 +23,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | `liveSec` | one of `3`, `5`, `10` (refresh period while the main window is on screen) |
 | `idleSec` | one of `10`, `30`, `60` (refresh period while only the strip shows) |
-| `claudeHome`, `codexHome` | string up to 400 chars without NUL/CR/LF, `""` (automatic). `settings:set` also requires an absolute path to an existing folder that holds `projects/` or `settings.json` (Claude) / `config.toml` or `sessions/` (Codex), else `BAD_FOLDER` |
+| `claudeHome`, `codexHome` | string up to 400 chars without NUL/CR/LF, `""` (automatic). `settings:set` trims and resolves a local absolute path, then requires an existing folder that holds a `projects/` folder (Claude) or a `sessions/` folder (Codex); network paths (`\\server`, `//server`) are refused. Else `BAD_FOLDER` |
 | all objects | no keys other than those listed; max serialized size 1 KB |
 
 - Who may call. `IpcRouter` maps `event.sender.id` to the window role it registered when it created the window, and also checks `event.senderFrame.url` equals that window's own page. Anything else answers `FORBIDDEN`. The monitor iframe has no preload and cannot call IPC at all.

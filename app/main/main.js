@@ -6,7 +6,7 @@ import { MonitorService } from '../core/monitor-service.js';
 import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
 import { NotificationPolicy } from '../core/notification-policy.js';
-import { resolveHomes, SettingsStore, validHome } from '../core/settings-store.js';
+import { normHome, resolveHomes, SettingsStore, validHome } from '../core/settings-store.js';
 import { AutoUpdater } from '../core/updater.js';
 import { AppLog, errText } from '../core/app-log.js';
 import { httpsJson } from '../core/sources/update-source.js';
@@ -49,6 +49,7 @@ if (!app.requestSingleInstanceLock()) {
     },
   });
   const monitor = new MonitorService({ outDir, repo: REPO, homes: resolveHomes(settings.get()), refreshSec: settings.get().idleSec, runner, sourceDeps, policy, updater });
+  let relaunching = false; // set once a restart is on its way, so a late status push cannot start a second one
   let seen = false; // main window on screen: refresh at the live period
   const pace = () => monitor.setRefreshSec(seen ? settings.get().liveSec : settings.get().idleSec);
   const stripFile = path.join(outDir, 'strip.json');
@@ -104,6 +105,7 @@ if (!app.requestSingleInstanceLock()) {
       'settings:get': () => settings.get(),
       'settings:set': (patch) => {
         const before = settings.get();
+        for (const k of ['claudeHome', 'codexHome']) if (Object.hasOwn(patch, k)) patch[k] = normHome(patch[k]);
         const moved = ['claudeHome', 'codexHome'].some((k) => Object.hasOwn(patch, k) && patch[k] !== before[k]);
         // new folders mean new caches, journal paths and sources: a clean restart, never while a fix or update runs
         if (moved && (monitor.optimizer.busyFindingId() || updater.running)) throw new CoreError('FIX_BUSY');
@@ -111,7 +113,7 @@ if (!app.requestSingleInstanceLock()) {
         const s = settings.set(patch);
         nativeTheme.themeSource = s.theme;
         pace();
-        if (moved) { appLog.info('folders changed, restarting'); setImmediate(() => { app.relaunch(); app.quit(); }); }
+        if (moved) { relaunching = true; appLog.info('folders changed, restarting'); setImmediate(() => { app.relaunch(); app.quit(); }); }
         return s;
       },
     },
@@ -140,7 +142,6 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(null);
     router.register();
     let last = null;
-    let relaunching = false;
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);

@@ -10,14 +10,23 @@ export const LIVE_SECS = [3, 5, 10];
 export const IDLE_SECS = [10, 30, 60];
 const HHMM = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 
-// A home folder setting must be an absolute path to an existing folder that holds what that tool writes there, so a
-// typo cannot point the monitor (and its fixes) at an unrelated folder. '' means automatic.
-const MARKERS = { claudeHome: ['projects', 'settings.json'], codexHome: ['config.toml', 'sessions'] };
-export function validHome(key, v, exists = fs.existsSync) {
+// A home folder setting must be a normalized absolute local path to a folder holding the folder only that tool writes
+// (session transcripts), so a typo, the repo's own claude/ or another tool's config folder cannot point the monitor
+// (and its fixes) elsewhere. Network paths are refused: a dead share would hang the main process. '' means automatic.
+const MARKER = { claudeHome: 'projects', codexHome: 'sessions' };
+const NETWORK = /^[\\/]{2}/;
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+export function validHome(key, v) {
   if (v === '') return true;
-  if (typeof v !== 'string' || v.length > 400 || /[\0\r\n]/.test(v) || !path.isAbsolute(v)) return false;
-  try { if (!fs.statSync(v).isDirectory()) return false; } catch { return false; }
-  return MARKERS[key].some((m) => exists(path.join(v, m)));
+  if (typeof v !== 'string' || v.length > 400 || /[\0\r\n]/.test(v) || NETWORK.test(v) || !path.isAbsolute(v) || path.resolve(v) !== v) return false;
+  return isDir(v) && isDir(path.join(v, MARKER[key]));
+}
+
+// What the user typed, made comparable: a local absolute path is resolved (slashes, '..', trailing separator); anything
+// else is returned as is for validHome to refuse.
+export function normHome(v) {
+  const t = typeof v === 'string' ? v.trim() : v;
+  return typeof t === 'string' && t && path.isAbsolute(t) && !NETWORK.test(t) ? path.resolve(t) : v;
 }
 
 // The folders the monitor reads: the setting, else the tool's own env variable, else the default under the home folder.

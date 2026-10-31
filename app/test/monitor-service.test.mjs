@@ -114,11 +114,14 @@ test('setRefreshSec: a shorter period runs at once and never reads an older snap
   assert.equal(svc.status().state, 'ok'); // 20 s > 3 x 5 s, but it was taken under 30 s
   await flush();
   assert.equal(calls.length, n + 1); // ran at once
-  await clock.advance(5000);
-  assert.equal(calls.length, n + 2);
+  await clock.advance(30000); // past the old 30 s period: only the new 5 s timer fires
+  assert.equal(calls.length, n + 7);
   assert.equal(svc.setRefreshSec(60), 60);
   await flush();
-  assert.equal(calls.length, n + 2); // no extra run when slowing down
+  assert.equal(calls.length, n + 7); // no extra run when slowing down
+  await clock.advance(16000);
+  assert.equal(calls.length, n + 7);
+  assert.equal(svc.status().state, 'ok'); // 16 s > 3 x 5 s, but the period is now 60 s
   assert.equal(svc.setRefreshSec(1), 3);
 });
 

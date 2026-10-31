@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { NotificationPolicy, inQuietHours, minAgeMs } from '../core/notification-policy.js';
-import { SettingsStore, DEFAULT_SETTINGS, resolveHomes, validHome } from '../core/settings-store.js';
+import { SettingsStore, DEFAULT_SETTINGS, normHome, resolveHomes, validHome } from '../core/settings-store.js';
 import { tmpDir } from './helpers.mjs';
 
 const MIN = 60000;
@@ -160,9 +160,22 @@ test('SettingsStore: refresh periods from a fixed list; a home folder must be ab
   assert.throws(() => s.set({ liveSec: 1 }), TypeError);
   assert.throws(() => s.set({ idleSec: '30' }), TypeError);
   const claude = path.join(dir, 'c'); fs.mkdirSync(path.join(claude, 'projects'), { recursive: true });
-  const codex = path.join(dir, 'x'); fs.mkdirSync(codex); fs.writeFileSync(path.join(codex, 'config.toml'), '');
+  const codex = path.join(dir, 'x'); fs.mkdirSync(path.join(codex, 'sessions'), { recursive: true });
   assert.equal(s.set({ claudeHome: claude, codexHome: codex }).claudeHome, claude);
   assert.equal(validHome('claudeHome', codex), false); // a Codex folder is not a Claude home
+  // config files alone do not make a home: the repo's own claude/ (settings.json) or ~/.cargo (config.toml)
+  const cfg = path.join(dir, 'cfg'); fs.mkdirSync(cfg); fs.writeFileSync(path.join(cfg, 'settings.json'), '{}'); fs.writeFileSync(path.join(cfg, 'config.toml'), '');
+  assert.equal(validHome('claudeHome', cfg), false);
+  assert.equal(validHome('codexHome', cfg), false);
+  fs.writeFileSync(path.join(cfg, 'projects'), ''); // a file named like the marker folder
+  assert.equal(validHome('claudeHome', cfg), false);
+  // only normalized local paths; typed input is normalized first
+  for (const bad of [String.raw`\\server\share\.claude`, '//server/share/.claude', String.raw`\\?\C:\x`, `${claude}${path.sep}`, `${claude}${path.sep}.`]) assert.equal(validHome('claudeHome', bad), false, bad);
+  assert.equal(normHome(`  ${claude}${path.sep}  `), claude);
+  assert.equal(normHome(path.join(dir, 'x', '..', 'c')), claude);
+  assert.equal(normHome('relative'), 'relative');
+  assert.equal(normHome(String.raw`\\server\share`), String.raw`\\server\share`);
+  assert.equal(normHome(''), '');
   for (const bad of ['relative/path', path.join(dir, 'missing'), path.join(codex, 'config.toml'), `${claude}\n`, 7]) assert.throws(() => s.set({ claudeHome: bad }), TypeError, String(bad));
   assert.equal(s.set({ claudeHome: '' }).claudeHome, '');
   // a saved folder that was removed reads as automatic
