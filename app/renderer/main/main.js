@@ -2,7 +2,7 @@
   'use strict';
   var api = window.monitor;
   var $ = function (id) { return document.getElementById(id); };
-  var TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'opt'];
+  var TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'pc', 'opt'];
   var SEV = { bad: '문제', warn: '주의', info: '정보', ok: '정상' };
   var SRC = { claude: 'Claude', codex: 'Codex', updates: '업데이트' };
   function srcName(s) { return SRC[s] || s; }
@@ -24,6 +24,11 @@
   var cxSeq = 0;
   var cxKey = null;        // findingsRev|generatedAt of the last fetch
   var cxDirty = false;     // codex tab changed while hidden
+  var rt = null;           // RoutinesDetail | null
+  var rtErr = '';
+  var rtSeq = 0;
+  var rtAt = 0;            // when routines were last fetched (ms)
+  var rtAll = false;       // show Microsoft tasks too
   var picks = {};          // findingId -> true/false when the user set the batch checkbox; unset follows f.recommended
   function isOn(f) { return Object.prototype.hasOwnProperty.call(picks, f.id) ? picks[f.id] : !!f.recommended; }
   var hist = null;         // HistoryEntry[] | null
@@ -57,9 +62,11 @@
       if (btns[i].getAttribute('data-tab') === tab) btns[i].setAttribute('aria-current', 'page');
       else btns[i].removeAttribute('aria-current');
     }
-    var mon = tab !== 'codex' && tab !== 'opt';
+    var mon = tab !== 'codex' && tab !== 'opt' && tab !== 'pc';
     $('v-frame').hidden = !mon;
     $('v-codex').hidden = tab !== 'codex';
+    $('v-pc').hidden = tab !== 'pc';
+    if (tab === 'pc') loadRoutines(true);
     $('v-opt').hidden = tab !== 'opt';
     if (mon) { setFrame(); }
     if (tab === 'codex' && cxDirty) renderCodex();
@@ -88,7 +95,7 @@
       if (res && res.ok && res.data && res.data.fileUrl) {
         frameUrl = res.data.fileUrl;
         m.hidden = true;
-        if (tab !== 'codex' && tab !== 'opt') setFrame();
+        if (tab !== 'codex' && tab !== 'opt' && tab !== 'pc') setFrame();
       } else {
         m.textContent = '모니터 화면을 불러오지 못했습니다: ' + errText(res);
         m.hidden = false;
@@ -307,6 +314,171 @@
       else { cxErr = errText(res); }
       renderCodex();
     }, function () { if (my === cxSeq) { cxErr = '요청을 처리하지 못했습니다'; renderCodex(); } });
+  }
+
+  // ---- PC 루틴 tab: report only; a KPI row, the next 24 hours, then dense tables ----
+  var TRIG_KO = { event: '이벤트', time: '정한 시각', daily: '매일', weekly: '매주', monthly: '매월', idle: '유휴 시', registration: '등록 시', boot: '부팅 시', logon: '로그온 시', session: '세션 바뀔 때', other: '기타' };
+  var STATE_KO = { ready: '대기', running: '실행 중', disabled: '꺼짐', queued: '대기열', unknown: '알 수 없음' };
+  var ACCT_KO = { system: 'SYSTEM', service: '서비스', user: '사용자' };
+  var LOC_KO = { run: 'Run 키', runonce: 'RunOnce 키', folder: '시작 폴더' };
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function stamp(iso) {
+    if (!iso) return '–';
+    var d = new Date(iso);
+    return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function every(dur) { // ISO 8601 duration like PT1H, PT30M, P1D
+    var m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/.exec(dur || '');
+    if (!m) return dur;
+    return (m[1] ? m[1] + '일' : '') + (m[2] ? m[2] + '시간' : '') + (m[3] ? m[3] + '분' : '') + '마다';
+  }
+  function trig(t) { var p = t.split('/'); return (TRIG_KO[p[0]] || p[0]) + (p[1] ? ' · ' + every(p[1]) : ''); }
+  // unique kinds, "기타" only when nothing else is known, at most three
+  function trigs(list) {
+    var seen = [];
+    list.map(trig).forEach(function (x) { if (seen.indexOf(x) < 0) seen.push(x); });
+    if (seen.length > 1) seen = seen.filter(function (x) { return x !== TRIG_KO.other; });
+    return seen.length ? seen.slice(0, 3).join(', ') + (seen.length > 3 ? ' 외 ' + (seen.length - 3) : '') : '없음';
+  }
+  function stCell(text, cls) { return el('span', 'st ' + cls, text); }
+  function taskState(t) {
+    if (t.failed) return stCell('실패', 'bad');
+    if (!t.enabled) return stCell('꺼짐', 'off');
+    return stCell(STATE_KO[t.state] || t.state, t.state === 'running' ? 'ok' : 'idle');
+  }
+  // a table that scrolls sideways inside its own wrapper; the first cell of a row is its header
+  function table(body, label, heads, rows) {
+    var wrap = el('div', 'tw');
+    wrap.setAttribute('role', 'region');
+    wrap.setAttribute('aria-label', label);
+    wrap.tabIndex = 0;
+    var t = el('table', 'rt');
+    t.appendChild(el('caption', 'sr', label));
+    var hr = el('tr');
+    heads.forEach(function (h) { var th = el('th', null, h); th.setAttribute('scope', 'col'); hr.appendChild(th); });
+    var thead = el('thead'); thead.appendChild(hr); t.appendChild(thead);
+    var tb = el('tbody');
+    rows.forEach(function (r) {
+      var tr = el('tr', r.cls || null);
+      r.cells.forEach(function (c, i) {
+        var td = el(i === 0 ? 'th' : 'td');
+        if (i === 0) td.setAttribute('scope', 'row');
+        if (c && typeof c === 'object') td.appendChild(c); else td.textContent = c == null || c === '' ? '–' : String(c);
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    wrap.appendChild(t);
+    body.appendChild(wrap);
+  }
+  function nameCell(name, sub) {
+    var w = el('span', 'nm');
+    w.appendChild(el('span', 'n1', name));
+    if (sub) w.appendChild(el('span', 'n2', sub));
+    w.title = (sub || '') + name;
+    return w;
+  }
+  function folderOf(t) { var i = t.path.lastIndexOf('\\'); return i > 0 ? t.path.slice(0, i + 1) : ''; }
+  function byNext(a, b) { var x = a.nextRun || '9', y = b.nextRun || '9'; return x < y ? -1 : x > y ? 1 : a.name.localeCompare(b.name); }
+  function pcKpis(d) {
+    var band = el('div', 'band k6');
+    var failed = count(d.tasks, function (t) { return t.failed; });
+    var next = d.tasks.filter(function (t) { return t.enabled && t.nextRun; }).sort(byNext)[0];
+    var k = kpi('실패한 예약 작업', String(failed), failed ? '마지막 결과가 오류' : '모두 정상');
+    if (failed) k.classList.add('bad');
+    band.appendChild(k);
+    band.appendChild(kpi('다음 실행', next ? stamp(next.nextRun).slice(6) : '–', next ? next.name : '예정 없음'));
+    band.appendChild(kpi('예약 작업', count(d.tasks, function (t) { return t.enabled; }) + '/' + d.tasks.length, 'Microsoft 아닌 것 ' + count(d.tasks, function (t) { return !t.microsoft; }) + '개'));
+    band.appendChild(kpi('시작 프로그램', count(d.startup, function (s) { return s.enabled !== false; }) + '/' + d.startup.length, '켜짐 / 전체'));
+    var sv = d.services;
+    var ks = kpi('서비스', sv.running + '/' + sv.total, '자동인데 멈춤 ' + sv.autoStopped.length + ' · 외부 ' + sv.thirdParty.length);
+    if (sv.autoStopped.length) ks.classList.add('warn');
+    band.appendChild(ks);
+    band.appendChild(kpi('Claude 루틴', String(d.claude.length), '~/.claude/scheduled-tasks'));
+    return band;
+  }
+  function pcSoon(root, d) {
+    var now = Date.now();
+    var soon = d.tasks.filter(function (t) { var x = Date.parse(t.nextRun); return t.enabled && x >= now && x - now <= 864e5; }).sort(byNext);
+    var b = card(root, 'soon', '다음 24시간', soon.length + '건');
+    if (!soon.length) { none(b, '24시간 안에 예정된 작업이 없습니다.'); return; }
+    soon.slice(0, 40).forEach(function (t) { b.appendChild(crow(true, t.name, stamp(t.nextRun).slice(6), [t.microsoft ? 'Microsoft' : '내 PC', trigs(t.triggers)])); });
+  }
+  function pcTasks(root, d) {
+    var shown = d.tasks.filter(function (t) { return rtAll || !t.microsoft || t.failed; })
+      .sort(function (a, b) { return (b.failed - a.failed) || byNext(a, b); });
+    var b = card(root, 'tasks', '예약 작업', shown.length + '/' + d.tasks.length + '개 보임 · 실패는 늘 보임');
+    var tg = btn(rtAll ? 'Microsoft 작업 숨기기' : 'Microsoft 작업도 보기 (' + count(d.tasks, function (t) { return t.microsoft; }) + ')', 'pc|all', function () { rtAll = !rtAll; renderRoutines(); }, 'link');
+    tg.setAttribute('aria-pressed', rtAll ? 'true' : 'false');
+    b.parentNode.insertBefore(tg, b);
+    if (!shown.length) { none(b, '보일 작업이 없습니다.'); return; }
+    table(b, '예약 작업 목록', ['이름', '상태', '언제', '마지막 실행', '결과', '다음 실행', '실행 파일', '계정'], shown.map(function (t) {
+      return { cls: t.failed ? 'bad' : !t.enabled ? 'off' : null, cells: [
+        nameCell(t.name, folderOf(t)), taskState(t), trigs(t.triggers),
+        stamp(t.lastRun), t.lastResult, stamp(t.nextRun), t.exe, (ACCT_KO[t.account] || '–') + (t.elevated ? ' · 관리자' : ''),
+      ] };
+    }));
+  }
+  function pcStartup(root, d) {
+    var b = card(root, 'start', '시작 프로그램', count(d.startup, function (s) { return s.enabled !== false; }) + '/' + d.startup.length + ' 켜짐');
+    if (!d.startup.length) { none(b, '시작 프로그램이 없습니다.'); return; }
+    var list = d.startup.slice().sort(function (a, b) { return (a.enabled === false) - (b.enabled === false) || a.name.localeCompare(b.name); });
+    table(b, '시작 프로그램 목록', ['이름', '상태', '위치', '대상', '실행 파일'], list.map(function (s) {
+      return { cls: s.enabled === false ? 'off' : null, cells: [
+        s.name, s.enabled === false ? stCell('꺼짐', 'off') : stCell('켜짐', 'ok'), LOC_KO[s.location], s.scope === 'all' ? '모든 사용자' : '나', s.exe,
+      ] };
+    }));
+  }
+  function svcState(s) { return s === 'Running' ? '실행 중' : s === 'Stopped' ? '멈춤' : s; }
+  function pcServices(root, d) {
+    var sv = d.services;
+    var b = card(root, 'svc', '서비스', '실행 ' + sv.running + ' · 자동 ' + sv.auto + ' · 전체 ' + sv.total);
+    subhead(b, '자동 시작인데 멈춤 ' + sv.autoStopped.length);
+    if (!sv.autoStopped.length) none(b, '없습니다.');
+    sv.autoStopped.forEach(function (s) { b.appendChild(crow('warn', s.display || s.name, s.exe || '', [s.name])); });
+    subhead(b, 'Windows 폴더 밖 서비스 ' + sv.thirdParty.length);
+    if (!sv.thirdParty.length) { none(b, '없습니다.'); return; }
+    var tp = sv.thirdParty.slice().sort(function (a, b) { return (a.state !== 'Running') - (b.state !== 'Running') || (a.display || a.name).localeCompare(b.display || b.name); });
+    table(b, 'Windows 폴더 밖 서비스 목록', ['이름', '상태', '시작', '실행 파일'], tp.map(function (s) {
+      return { cls: s.state !== 'Running' ? 'off' : null, cells: [nameCell(s.display || s.name, s.display ? s.name + ' · ' : ''), stCell(svcState(s.state), s.state === 'Running' ? 'ok' : 'off'), s.startMode, s.exe] };
+    }));
+  }
+  function pcClaude(root, d) {
+    var b = card(root, 'claude', 'Claude 예약 작업', d.claude.length + '개 · 실행 기록은 Claude 앱에');
+    if (!d.claude.length) { none(b, '~/.claude/scheduled-tasks 에 작업이 없습니다.'); return; }
+    d.claude.forEach(function (c) { b.appendChild(crow(true, c.name, '', c.description ? [c.description] : null)); });
+  }
+  function renderRoutines() {
+    var root = $('v-pc');
+    if (tab !== 'pc') return;
+    var f = focusInfo(root);
+    root.replaceChildren();
+    var d = rt;
+    if (!d) { root.appendChild(el('p', 'msg', rtErr ? 'PC 루틴을 불러오지 못했습니다: ' + rtErr : '불러오는 중…')); return; }
+    if (d.status !== 'ok') { root.appendChild(el('p', 'msg', d.note || 'PC 루틴을 읽지 못했습니다.')); return; }
+    root.appendChild(pcKpis(d));
+    root.appendChild(el('p', 'cap', '보고만 합니다. 바꾸려면 작업 스케줄러, 작업 관리자의 시작 프로그램 탭, 서비스 앱을 쓰세요. 마지막 수집 ' + stamp(d.collectedAt) + ' (10분마다).'));
+    var grid = el('div', 'pcg');
+    var main = el('div', 'pcm'), side = el('div', 'pcs');
+    pcTasks(main, d); pcStartup(main, d);
+    pcSoon(side, d); pcServices(side, d); pcClaude(side, d);
+    grid.appendChild(main); grid.appendChild(side);
+    root.appendChild(grid);
+    refocus(root, f);
+  }
+  // force: the tab was just opened; otherwise at most once a minute (the source itself refreshes every 10 minutes)
+  function loadRoutines(force) {
+    if (!api || !api.getRoutines) return;
+    if (!force && Date.now() - rtAt < 60000) return;
+    rtAt = Date.now();
+    var my = ++rtSeq;
+    if (force) renderRoutines();
+    api.getRoutines().then(function (res) {
+      if (my !== rtSeq) return;
+      if (res && res.ok && res.data) { rt = res.data; rtErr = ''; } else { rtErr = errText(res); rtAt = 0; }
+      renderRoutines();
+    }, function () { if (my === rtSeq) { rtErr = '요청을 처리하지 못했습니다'; rtAt = 0; renderRoutines(); } });
   }
 
   function focusInfo(root) {
@@ -972,6 +1144,7 @@
     else if (prevBusy !== s.busyFindingId) redraw();
     else if (prevHome !== homeKey(s) && !(document.activeElement && document.activeElement.classList.contains('tm'))) renderOpt(); // a finding became stable; never while a time is being typed
     else renderCodex();
+    if (tab === 'pc') loadRoutines(false);
   }
 
   var copyTimer = 0;

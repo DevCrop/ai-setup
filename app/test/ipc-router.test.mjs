@@ -78,7 +78,7 @@ test('thrown errors map to fixed codes; unknown errors become INTERNAL without t
 test('preload exposes exactly the contract methods and channels', () => {
   const src = fs.readFileSync(new URL('../preload/preload.cjs', import.meta.url), 'utf8');
   const methods = [...src.matchAll(/^\s{2}(\w+): /gm)].map((m) => m[1]).sort();
-  assert.deepEqual(methods, ['applyFix', 'copySummary', 'getCodexDetail', 'getSettings', 'getStatus', 'getViewHtml', 'listFindings', 'listHistory', 'onStatusChanged', 'openMain', 'previewFix', 'quit', 'refresh', 'restoreFix', 'setSettings', 'showStripMenu']);
+  assert.deepEqual(methods, ['applyFix', 'copySummary', 'getCodexDetail', 'getRoutines', 'getSettings', 'getStatus', 'getViewHtml', 'listFindings', 'listHistory', 'onStatusChanged', 'openMain', 'previewFix', 'quit', 'refresh', 'restoreFix', 'setSettings', 'showStripMenu']);
   const channels = [...new Set([...src.matchAll(/'([a-z]+:[a-z-]+)'/g)].map((m) => m[1]))].sort();
   assert.deepEqual(channels, [...Object.keys(CHANNELS), 'status:changed'].sort());
 });

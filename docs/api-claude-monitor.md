@@ -35,6 +35,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `view:html` | no | yes |
 | `findings:list` | no | yes |
 | `codex:detail` | no | yes |
+| `routines:detail` | no | yes |
 | `history:list` | no | yes |
 | `app:copy-summary` | yes | yes |
 | `fix:preview` | no | yes |
@@ -185,6 +186,30 @@ CodexDetail = {
 }
 ```
 
+### `routines:detail`
+Added 2026-10-31 for the PC 루틴 tab. Report only. Executable file names only, never arguments, user names, SIDs or authors.
+- Direction: renderer to main, invoke. Caller: main window.
+- Request: none.
+- Response: `Result<RoutinesDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
+
+```text
+RoutinesDetail = {
+  generatedAt: string,
+  status: "ok" | "missing",                       // missing: not Windows, first collection not done, or it failed
+  note: string,                                   // Korean, empty when fine
+  collectedAt: string | null,                     // when the PowerShell collection ran
+  tasks: { name: string, path: string, state: string, enabled: boolean, microsoft: boolean, hidden: boolean,
+           lastRun: string | null, nextRun: string | null, lastResult: string | null,  // hex like "0x1"
+           failed: boolean, triggers: string[], exe: string | null, account: "system" | "service" | "user" | null,
+           elevated: boolean }[],
+  startup: { name: string, location: string, scope: "all" | "me", exe: string | null, enabled: boolean | null }[],
+  services: { total: number, running: number, auto: number,
+              autoStopped: { name: string, display: string, exe: string | null }[],
+              thirdParty:  { name: string, display: string, state: string, startMode: string, exe: string | null }[] },
+  claude: { name: string, description: string }[]  // ~/.claude/scheduled-tasks/*/SKILL.md front matter only
+}
+```
+
 ### `history:list`
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
 - Response: `Result<{ entries: HistoryEntry[] }>`, newest first, max 50, from `<userData>/fix-journal.json` (max 200 kept, atomic writes).
@@ -268,6 +293,7 @@ Added because the spec's right-click menu on the strip (열기, 지금 새로 �
 | `monitor.getViewHtml()` | `view:html` | `Promise<Result<{ fileUrl, generatedAt }>>` |
 | `monitor.listFindings()` | `findings:list` | `Promise<Result<{ generatedAt, findings }>>` |
 | `monitor.getCodexDetail()` | `codex:detail` | `Promise<Result<CodexDetail>>` |
+| `monitor.getRoutines()` | `routines:detail` | `Promise<Result<RoutinesDetail>>` |
 | `monitor.listHistory()` | `history:list` | `Promise<Result<{ entries }>>` |
 | `monitor.copySummary()` | `app:copy-summary` | `Promise<Result<{ copied }>>` |
 | `monitor.previewFix(findingId)` | `fix:preview` | `Promise<Result<{ findingId, diff, previewId, restorable }>>` |
@@ -280,7 +306,7 @@ Added because the spec's right-click menu on the strip (열기, 지금 새로 �
 | `monitor.getSettings()` | `settings:get` | `Promise<Result<Settings>>` |
 | `monitor.setSettings(patch)` | `settings:set` | `Promise<Result<Settings>>`; `patch` is passed as the request object |
 
-The 16 methods map one to one to the 16 channels (15 invoke channels and the `status:changed` push). The preload packs the arguments into the request objects above (`{ findingId }`, `{ findingId, previewId }`, `{ tab }`) and does no other logic. The strip and the Main window load the same preload; the main process, not the preload, decides which window may call what.
+The 17 methods map one to one to the 17 channels (16 invoke channels and the `status:changed` push). The preload packs the arguments into the request objects above (`{ findingId }`, `{ findingId, previewId }`, `{ tab }`) and does no other logic. The strip and the Main window load the same preload; the main process, not the preload, decides which window may call what.
 
 ## 5. Contract tests
 
