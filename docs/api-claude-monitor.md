@@ -112,7 +112,7 @@ Status = {
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C5", "X1" .. "X6", "U1" .. "U2"
+  checkId:    string,                // "C1" .. "C9", "X1" .. "X6", "U1" .. "U2"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean

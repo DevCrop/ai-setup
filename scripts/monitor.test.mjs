@@ -240,6 +240,10 @@ test('roles: claude-mem observer and sdk-ts records are not main thread; orchest
   const d = data.savings.delegation;
   assert.ok(!d.some((r) => r.role === 'main' && r.family === 'haiku'));
   assert.equal(d.find((r) => r.role === 'claude-mem').output7d, 6);
+  const br = data.tokens.byRole;
+  assert.equal(br.reduce((n, r) => n + r.output, 0), data.tokens.days.filter((r) => localDates(Date.parse(NOW)).includes(r.date)).reduce((n, r) => n + r.output, 0));
+  assert.deepEqual(br.find((r) => r.role === 'claude-mem'), { role: 'claude-mem', family: 'haiku', ...br.find((r) => r.role === 'claude-mem'), output: 6 });
+  assert.ok(br.every((r) => typeof r.hitRate === 'number' || r.hitRate === null));
   assert.deepEqual(data.orchestration.sessions.map((s) => s.sessionId), ['sess2', 'sess1']); // sdk session sess3 and the observer are out
 });
 

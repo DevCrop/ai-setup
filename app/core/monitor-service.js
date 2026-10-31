@@ -152,7 +152,7 @@ export class MonitorService {
 
   // status.json (same shape as the old bar read) and the monitor html, both replaced atomically.
   #write(snapshot) {
-    const { summary, liveOnlyKeys, adoptableKeys, missingHookScripts, ...raw } = snapshot.sources.claude?.data ?? { generatedAt: snapshot.generatedAt, refreshSec: this.refreshSec };
+    const { summary, liveOnlyKeys, adoptableKeys, missingHookScripts, mainModel, ...raw } = snapshot.sources.claude?.data ?? { generatedAt: snapshot.generatedAt, refreshSec: this.refreshSec };
     fs.mkdirSync(this.outDir, { recursive: true });
     let html = this.renderFn({ ...raw, refreshSec: this.refreshSec }, { embed: true });
     if (!/<head(?=[\s>])[^>]*>/i.test(html)) throw new Error('render output has no <head>');
