@@ -68,7 +68,7 @@ Codex (출처 `~/.codex`):
   - Claude: `~/.claude/scheduled-tasks/*/SKILL.md` 앞 2KB의 머리말에서 `name`, `description`만. 본문은 읽지 않는다. 일정과 실행 기록은 Claude 앱 안에 있어 보여 주지 않는다.
   - Codex: `~/.codex/automations/*/automation.toml`의 맨 위 키 `id`, `name`, `kind`, `status`, `rrule`, `updated_at`만. `prompt`와 `target_thread_id`는 건너뛰고, 여러 줄 문자열 안의 줄은 키로 읽지 않는다. 세션 파일, `auth.json`, 비밀 폴더는 열지 않는다.
   - Windows(Windows에서만): PowerShell 스크립트 한 번(`Schedule.Service` COM, `Win32_StartupCommand`, `StartupApproved` 레지스트리). 이름·경로·명령 전체에 `claude` 나 `codex` 가 낱말로 들어간 예약 작업과 시작 프로그램만 고른다. 다른 OS에서는 "Windows에서만"이라고 쓰고 PowerShell을 실행하지 않는다.
-- 개인정보: 명령의 인수는 절대 보내지 않고 실행 파일 이름만(따옴표 없이 공백이 든 경로는 이름도 버린다). 이름과 경로의 SID(`S-1-5-21-…`)와 사용자 이름은 가린다. 작성자는 모으지 않고, 실행 계정은 SYSTEM / 서비스 / 사용자 세 가지로만.
+- 개인정보: 명령의 인수는 절대 보내지 않고 실행 파일 이름만(따옴표 없이 공백이 든 경로는 .exe 같은 아는 확장자까지만 자르고, 확장자가 없으면 이름도 버린다). 이름과 경로, Claude·Codex 루틴 이름과 설명의 SID(`S-1-5-21-…`)와 사용자 이름은 가린다. Codex 파일은 여러 줄 문자열(`"""`, `'''`) 안의 줄을 키로 읽지 않고, 들여쓰거나 점·따옴표가 든 키는 건너뛴다. 작성자는 모으지 않고, 실행 계정은 SYSTEM / 서비스 / 사용자 세 가지로만.
 - 실패 판단: 마지막 결과가 오류 비트가 켜진 코드(0x8…, 0xC…)이거나 일반 종료 코드(1..0xFFFF)면 실패. 0, 실행 중(0x41301), 아직 안 돔(0x41303), 대기(0x41325), 0x4…로 시작하는 알림 코드는 실패가 아니다. 꺼진 작업은 실패로 세지 않는다. 결과 코드는 16진수 그대로 보인다.
 
 ## Safety rules

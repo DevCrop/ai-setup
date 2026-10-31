@@ -75,6 +75,30 @@ test('codex automations: id, name, kind, status, rrule and time only; the prompt
   assert.deepEqual(readCodexAutomations(path.join(h.codex, 'none')), []);
 });
 
+test('codex automations: no line inside any multi-line string form ever becomes a key', () => {
+  const cases = [
+    ['  prompt = """', 'name = "LEAK1"', '"""'],
+    ['prompt.text = """', 'name = "LEAK2"', '"""'],
+    ['"prompt" = """', 'name = "LEAK3"', '"""'],
+    ['prompt2 = """', 'name = "LEAK4"', '"""'],
+    ['tags = ["a", """', 'name = "LEAK5"', '"""]'],
+    ['prompt = """a \\""" b', 'name = "LEAK6"', '"""'],
+    ['prompt = """', 'x \\"""', 'name = "LEAK7"', '"""'],
+    ["prompt = '''", 'name = "LEAK8"', "'''"],
+    ['note = "it\'\'\'s"', 'p = """one""" # """', 'name = "OK"'],
+  ];
+  const h = homes();
+  cases.forEach((lines, i) => {
+    const d = path.join(h.codex, 'automations', `a${i}`);
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'automation.toml'), [`id = "a${i}"`, ...lines, 'status = "ACTIVE"'].join('\n'));
+  });
+  const got = readCodexAutomations(h.codex, mask);
+  assert.ok(!JSON.stringify(got).includes('LEAK'), JSON.stringify(got));
+  assert.equal(got.find((a) => a.id === 'a8').name, 'OK');
+  assert.ok(got.every((a) => a.status === 'active'));
+});
+
 test('source: off Windows or without a runner reads the files only; one refresh at a time; cached until the TTL', async () => {
   let calls = 0;
   const runner = async () => { calls++; return { code: 0, stdout: JSON.stringify({ tasks: [task()], startup: [] }), stderr: '' }; };

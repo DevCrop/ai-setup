@@ -57,20 +57,45 @@ function dirs(dir, max = 50) {
 }
 
 // ~/.claude/scheduled-tasks/*/SKILL.md: front matter name and description only, never the body.
-export function readClaudeRoutines(claudeHome) {
+export function readClaudeRoutines(claudeHome, mask = masker()) {
   const dir = path.join(claudeHome, 'scheduled-tasks');
   return dirs(dir).map((n) => {
     let fm = '';
     try { fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(head(path.join(dir, n, 'SKILL.md')))?.[1] ?? ''; } catch { /* no SKILL.md: folder name only */ }
     const field = (k) => new RegExp(`^${k}:\\s*(.+)$`, 'm').exec(fm)?.[1].trim().replace(/^["']|["']$/g, '') ?? '';
-    return { name: (field('name') || n).slice(0, 80), description: field('description').slice(0, 200) };
+    return { name: mask((field('name') || n).slice(0, 80)), description: mask(field('description').slice(0, 200)) };
   });
 }
 
 // ~/.codex/automations/*/automation.toml: id, name, kind, status, rrule and updated_at only. The prompt and the
 // target thread are skipped, and keys inside a multi-line string are never taken as keys.
 const CODEX_KEYS = new Set(['id', 'name', 'kind', 'status', 'rrule', 'updated_at']);
-export function readCodexAutomations(codexHome) {
+const escaped = (s, i) => { let n = 0; while (i - n - 1 >= 0 && s[i - n - 1] === '\\') n++; return n % 2 === 1; };
+// Multi-line string state ('"""', "'''" or null) after one TOML line, skipping single-line strings and comments.
+export function multiState(line, state) {
+  let i = 0;
+  while (i < line.length) {
+    if (state === '"""') {
+      let j = line.indexOf('"""', i);
+      while (j >= 0 && escaped(line, j)) j = line.indexOf('"""', j + 1);
+      if (j < 0) return state;
+      state = null; i = j + 3; while (line[i] === '"') i++; continue;
+    }
+    if (state === "'''") {
+      const j = line.indexOf("'''", i);
+      if (j < 0) return state;
+      state = null; i = j + 3; while (line[i] === "'") i++; continue;
+    }
+    if (line.startsWith('"""', i) || line.startsWith("'''", i)) { state = line.slice(i, i + 3); i += 3; continue; }
+    const c = line[i];
+    if (c === '#') return state;
+    if (c === '"') { let j = i + 1; while (j < line.length && !(line[j] === '"' && !escaped(line, j))) j++; i = j + 1; continue; }
+    if (c === "'") { const j = line.indexOf("'", i + 1); i = j < 0 ? line.length : j + 1; continue; }
+    i++;
+  }
+  return state;
+}
+export function readCodexAutomations(codexHome, mask = masker()) {
   const dir = path.join(codexHome, 'automations');
   return dirs(dir).flatMap((n) => {
     let src;
@@ -78,19 +103,18 @@ export function readCodexAutomations(codexHome) {
     const kv = {};
     let inMulti = null;
     for (const line of src.split(/\r?\n/)) {
-      if (inMulti) { if (line.includes(inMulti)) inMulti = null; continue; }
-      if (/^\s*\[/.test(line)) break; // only top-level keys
-      const m = /^([a-z_]+)\s*=\s*(.*)$/.exec(line);
-      if (!m) continue;
-      const q = /^("""|''')/.exec(m[2])?.[1];
-      if (q && !m[2].slice(3).includes(q)) { inMulti = q; continue; }
-      if (!CODEX_KEYS.has(m[1])) continue;
-      const v = /^"((?:[^"\\]|\\.)*)"/.exec(m[2])?.[1] ?? /^'([^']*)'/.exec(m[2])?.[1] ?? /^(\d+)/.exec(m[2])?.[1];
-      if (v != null) kv[m[1]] = v;
+      const start = inMulti;
+      inMulti = multiState(line, inMulti);
+      if (start) continue; // this line began inside a multi-line string: never a key
+      if (line.startsWith('[')) break; // only top-level keys
+      const m = /^([a-z_]+)\s*=\s*(.*)$/.exec(line); // unindented bare keys only; anything else is skipped
+      if (!m || !CODEX_KEYS.has(m[1])) continue;
+      const v = /^"((?:[^"\\]|\\.)*)"(?!")/.exec(m[2])?.[1] ?? /^'([^']*)'(?!')/.exec(m[2])?.[1] ?? /^(\d+)\s*(?:#.*)?$/.exec(m[2])?.[1];
+      if (v != null && !inMulti) kv[m[1]] = v;
     }
     const updated = Number(kv.updated_at);
     return [{
-      id: (kv.id || n).slice(0, 80), name: (kv.name || kv.id || n).slice(0, 120), kind: (kv.kind || '').slice(0, 30),
+      id: mask((kv.id || n).slice(0, 80)), name: mask((kv.name || kv.id || n).slice(0, 120)), kind: mask((kv.kind || '').slice(0, 30)),
       status: (kv.status || '').slice(0, 20).toLowerCase(), rrule: /^[A-Z0-9=;,:+-]{1,200}$/.test(kv.rrule || '') ? kv.rrule : '',
       updatedAt: Number.isFinite(updated) && updated > 0 ? new Date(updated).toISOString() : null,
     }];
@@ -128,8 +152,8 @@ export class RoutineSource extends Source {
   settle() { return this.#inflight ?? Promise.resolve(); }
 
   async refresh(ctx) {
-    const claude = readClaudeRoutines(ctx.homes.claude);
-    const codex = readCodexAutomations(ctx.homes.codex);
+    const claude = readClaudeRoutines(ctx.homes.claude, this.mask);
+    const codex = readCodexAutomations(ctx.homes.codex, this.mask);
     const windows = this.platform === 'win32' && !!this.runner;
     let win = { tasks: [], startup: [] };
     let windowsNote = windows ? '' : 'Windows 예약 작업은 Windows에서만 봅니다.';
