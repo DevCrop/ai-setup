@@ -222,14 +222,13 @@ fieldset.pl legend { float: left; padding: 0; }
 .prow .tm { font: inherit; font-size: var(--t-sm); min-height: 32px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-2); }
 .panel.upd .sc { flex: none; max-height: 132px; } /* about three update rows; the findings list keeps the height */
 
-/* PC 루틴 tab: the page scrolls; wide tables scroll sideways inside their own wrapper only */
-#v-pc { gap: var(--sp-3); }
-#v-pc > .msg { margin: var(--sp-4) 0; }
-#v-pc .panel { padding: var(--sp-3); gap: var(--sp-2); }
-#v-pc .sc { flex: none; }
-.pcs .sc { max-height: 300px; }
-.pcg { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
-.pcm, .pcs { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+/* 루틴 tab: the page scrolls; wide tables scroll sideways inside their own wrapper only */
+#v-rt { gap: var(--sp-3); }
+#v-rt > .msg { margin: var(--sp-4) 0; }
+#v-rt .panel { padding: var(--sp-3); gap: var(--sp-2); }
+#v-rt .sc { flex: none; max-height: 360px; }
+.band.k4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rtg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); align-items: start; }
 .kpi.bad .v { color: var(--bad); } .kpi.warn .v { color: var(--warn); }
 .st.off { color: var(--faint); } .st.idle { color: var(--muted); }
 .st.ok::before, .st.off::before, .st.idle::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
@@ -241,9 +240,9 @@ fieldset.pl legend { float: left; padding: 0; }
 .rt tbody th { font-weight: 500; font-size: var(--t-sm); max-width: 22em; overflow: hidden; text-overflow: ellipsis; }
 .rt tbody tr:last-child > * { border-bottom: 0; }
 .rt tr.off > * { color: var(--faint); }
-.rt tr.bad > th, .rt tr.bad > td:nth-child(5) { color: var(--bad); }
+.rt tr.bad > th, .rt tr.bad .st { color: var(--bad); }
 .rt .nm { display: flex; flex-direction: column; min-width: 0; }
 .rt .n1 { overflow: hidden; text-overflow: ellipsis; }
 .rt .n2 { font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 1099px) { .pcg { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 760px) { #v-pc .band { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1099px) { .rtg { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .band.k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -3,7 +3,7 @@
 
 import { MESSAGES } from '../core/errors.js';
 
-export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'pc', 'opt'];
+export const TABS = ['ov', 'flow', 'orch', 'route', 'tok', 'sav', 'set', 'codex', 'rt', 'opt'];
 
 const FINDING_ID = /^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$/;
 const PREVIEW_ID = /^[0-9a-f]{64}$/;
