@@ -328,11 +328,30 @@ export function tokenDays(scan) {
   return [...days.values()].sort((a, b) => a.date.localeCompare(b.date) || a.model.localeCompare(b.model));
 }
 
+// Tokens of the window by role (main, subagent, claude-mem, sdk) and model family, for the per-role cache check.
+function tokenRoles(scan) {
+  const dates = new Set(localDates(scan.nowMs));
+  const out = new Map();
+  for (const f of scan.files) {
+    for (const r of f.records) {
+      if (!dates.has(dateStr(new Date(r.ts)))) continue;
+      const role = roleOf(f, r);
+      const fam = family(r.model) || 'other';
+      const k = `${role}|${fam}`;
+      const t = out.get(k) || { role, family: fam, input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+      for (const k2 of OUT_FIELDS) t[k2] += r[k2];
+      out.set(k, t);
+    }
+  }
+  return [...out.values()].map((t) => ({ ...t, hitRate: hitRate(t) })).sort((a, b) => b.output - a.output || a.role.localeCompare(b.role));
+}
+
 export function buildTokens(scan) {
   const days = tokenDays(scan).map((t) => ({ ...t, hitRate: hitRate(t) }));
   const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
   for (const d of days) for (const k of OUT_FIELDS) totals[k] += d[k];
   return {
+    byRole: tokenRoles(scan),
     status: 'ok',
     note: `Last ${WINDOW_DAYS} days, local dates, deduplicated by message id (largest output kept). Hit rate = cache read / (input + cache read + cache creation).`,
     days, totals: { ...totals, hitRate: hitRate(totals) },

@@ -17,11 +17,14 @@ function liveKeys(home, repo) {
   };
   const live = read(path.join(home, 'settings.json'));
   const mine = read(path.join(repo, 'claude', 'settings.json'));
-  if (!live || !mine) return { liveOnlyKeys: [], adoptableKeys: [] };
+  // family of the live main model (opus/sonnet/haiku/fable), for the main-model check
+  const m = typeof live?.model === 'string' ? (live.model.toLowerCase().match(/opus|sonnet|haiku|fable/) || [null])[0] : null;
+  if (!live || !mine) return { liveOnlyKeys: [], adoptableKeys: [], mainModel: m };
   const cut = (keys) => keys.sort().slice(0, 50);
   return {
     liveOnlyKeys: cut(Object.keys(live).filter((k) => !Object.hasOwn(mine, k) && k.length <= 80)),
     adoptableKeys: cut(planAdoption(live, mine).adopt),
+    mainModel: m,
   };
 }
 

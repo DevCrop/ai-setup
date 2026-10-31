@@ -12,6 +12,10 @@ import { X3LargeLogDb } from '../core/checks/x3-large-log-db.js';
 import { X4MissingHookState } from '../core/checks/x4-missing-hook-state.js';
 import { X5McpNoTransport } from '../core/checks/x5-mcp-no-transport.js';
 import { X6ManyWorktrees } from '../core/checks/x6-many-worktrees.js';
+import { C6LowCacheHit } from '../core/checks/c6-low-cache-hit.js';
+import { C7MainModel } from '../core/checks/c7-main-model.js';
+import { C8AgentUse } from '../core/checks/c8-agent-use.js';
+import { C9TokenSpike } from '../core/checks/c9-token-spike.js';
 import { FINDING_ID_RE } from '../core/finding.js';
 import { NOW, claudeRes, codexRes, fullClaude, snap } from './helpers.mjs';
 
@@ -127,10 +131,10 @@ test('X6: 20 entries or one older than 30 days gives an info finding with the co
 
 test('registry: every export of checks/index.js is a Check with a unique id, and adding a check is one file plus one line', () => {
   const all = Object.values(registry);
-  assert.equal(all.length, 13);
+  assert.equal(all.length, 17);
   const ids = all.map((C) => { const c = new C(); assert.ok(c instanceof Check); assert.ok(c.source); return c.id; });
   assert.equal(new Set(ids).size, ids.length);
-  assert.deepEqual(ids, ['C1', 'C2', 'C3', 'C4', 'C5', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
+  assert.deepEqual(ids, ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'U1', 'U2', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6']); // namespace order
 });
 
 test('every finding id any check can produce matches the contract pattern', () => {
@@ -160,4 +164,55 @@ test('recommended: only fixable findings of C1, X1 and X4 are recommended for th
   const src = (f) => readFileSync(new URL(`../core/checks/${f}`, import.meta.url), 'utf8');
   for (const f of ['c1-config-drift.js', 'x1-missing-trusted-project.js', 'x4-missing-hook-state.js']) assert.match(src(f), /recommended: true/);
   assert.doesNotMatch(src('c4-live-only-keys.js'), /recommended: true/);
+});
+
+test('C6: a role/model with a big output share and a low hit rate is reported as info; small or cached ones are not', () => {
+  const byRole = [
+    { role: 'claude-mem', family: 'haiku', output: 300000, hitRate: 0.03 },
+    { role: 'main', family: 'opus', output: 600000, hitRate: 0.95 },
+    { role: 'sdk', family: 'haiku', output: 40000, hitRate: 0 }, // under the token floor
+    { role: 'subagent', family: 'sonnet', output: 60000, hitRate: 0.1 }, // 6% share
+  ];
+  const fs = new C6LowCacheHit().run(snap({ claude: claudeRes(fullClaude({ tokens: { byRole } })) }));
+  assert.deepEqual(fs.map((f) => [f.id, f.severity]), [['C6:claude-mem-haiku', 'info']]);
+  assert.match(fs[0].title, /3%/);
+  assert.deepEqual(new C6LowCacheHit().run(snap({ claude: claudeRes(fullClaude()) })), []);
+});
+
+test('C7: main messages off the settings model at 20% or more give one info finding; none without mainModel', () => {
+  const mainThread = [{ entrypoint: 'cli', model: 'claude-opus-5-5', messages: 70 }, { entrypoint: 'cli', model: 'claude-sonnet-5-5', messages: 30 }];
+  const run = (d) => new C7MainModel().run(snap({ claude: claudeRes(fullClaude(d)) }));
+  const [f] = run({ mainModel: 'opus', routing: { mainThread } });
+  assert.equal(f.id, 'C7:main-model');
+  assert.equal(f.severity, 'info');
+  assert.deepEqual(f.evidence, ['opus: 70건', 'sonnet: 30건']);
+  assert.deepEqual(run({ mainModel: 'opus', routing: { mainThread: [mainThread[0], { ...mainThread[1], messages: 10 }] } }), []);
+  assert.deepEqual(run({ mainModel: null, routing: { mainThread } }), []);
+});
+
+test('C8: unused repo agents in one finding, untyped agents on Opus or Fable in another; cheap or idle ones none', () => {
+  const agents = [
+    { agentType: 'explorer', expected: 'haiku', models: [], runs: 0, verdict: 'no data' },
+    { agentType: 'reviewer', expected: 'opus', models: [], runs: 2, verdict: 'ok' },
+    { agentType: 'general-purpose', expected: null, models: [{ model: 'claude-opus-5-5', messages: 9 }, { model: 'claude-haiku-5-5', messages: 2 }], runs: 4, verdict: 'n/a' },
+    { agentType: 'Explore', expected: null, models: [{ model: 'claude-haiku-5-5', messages: 3 }], runs: 1, verdict: 'n/a' },
+  ];
+  const fs = new C8AgentUse().run(snap({ claude: claudeRes(fullClaude({ routing: { agents } })) }));
+  assert.deepEqual(fs.map((f) => f.id), ['C8:unused', 'C8:untyped']);
+  assert.deepEqual(fs[0].evidence, ['explorer']);
+  assert.deepEqual(fs[1].evidence, ['general-purpose: 실행 4회, Opus·Fable 9건']);
+  assert.ok(fs.every((f) => f.severity === 'info'));
+});
+
+test('C9: today over 3x the median of earlier days gives info; a quiet history or a small today gives none', () => {
+  const today = new Date(NOW);
+  const d = (back) => { const x = new Date(today); x.setDate(x.getDate() - back); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  const days = (now) => [{ date: d(0), output: now }, ...[1, 2, 3, 4].map((b) => ({ date: d(b), output: 100000 }))];
+  const run = (rows) => new C9TokenSpike().run(snap({ claude: claudeRes(fullClaude({ tokens: { days: rows } })) }));
+  const [f] = run(days(400000));
+  assert.equal(f.id, 'C9:today');
+  assert.match(f.title, /4배/);
+  assert.deepEqual(run(days(250000)), []);
+  assert.deepEqual(run(days(400000).slice(0, 3)), []); // fewer than 3 earlier days
+  assert.deepEqual(run([{ date: d(0), output: 90000 }, ...[1, 2, 3].map((b) => ({ date: d(b), output: 1000 }))]), []); // under the floor
 });
