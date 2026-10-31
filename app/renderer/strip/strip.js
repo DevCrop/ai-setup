@@ -5,7 +5,7 @@
   var body = $('body');
   var DEFAULT_TIP = '누르면 열기 · 오른쪽 클릭: 메뉴';
 
-  function f1(x) { return String(Math.round(x * 10) / 10); }
+  function f1(x) { return String(Number(x.toFixed(1))); } // same rounding as fixed1 in scripts/monitor-html.mjs
   function fmtOut(n) {
     if (typeof n !== 'number' || !isFinite(n)) return '—';
     // same rule as compactKo in scripts/monitor-html.mjs: unit and comma form chosen after rounding

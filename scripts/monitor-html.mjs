@@ -1361,8 +1361,8 @@ var KEYS=['rtk','out','hit','share','live','run'];
 var hist=[];try{hist=JSON.parse(MS.getItem('monitor-hist')||'[]');if(!Array.isArray(hist))hist=[];hist=hist.filter(function(h){return h&&typeof h==='object'})}catch(e){hist=[]}
 var prev=hist.length?hist[hist.length-1]:null;if(!prev||typeof prev!=='object')prev=null;
 function num(v){return typeof v==='number'&&isFinite(v)}
-function f1(x){return String(Math.round(x*10)/10)}
-function ko(a){var m=Math.round(a/1e4);return a<1e4?String(Math.round(a)):m>=1e4?f1(a/1e8)+'억':Math.round(a/1e3)/10>=1000?m.toLocaleString('en-US')+'만':f1(a/1e4)+'만'}
+function f1(x){return String(Number(x.toFixed(1)))}
+function ko(a){var m=Math.round(a/1e4);return a<1e4?Math.round(a).toLocaleString('en-US'):m>=1e4?f1(a/1e8)+'억':Math.round(a/1e3)/10>=1000?m.toLocaleString('en-US')+'만':f1(a/1e4)+'만'}
 function delta(u,a,b){var d=a-b;
 if(u==='p'){d=Math.round(d*10)/10;return d?(d>0?'▲':'▼')+f1(Math.abs(d))+'%p':''}
 d=Math.round(d);return d?(d>0?'+':'-')+ko(Math.abs(d)):''}

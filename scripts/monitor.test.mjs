@@ -540,6 +540,20 @@ test('overview: routing KPI counts like the strip (no-data agents left out) and 
   assert.deepEqual([99994999, 99995000, 1e8, 9999960, 1e7, 9999, -51512345].map(fmt), ['9,999만', '1억', '1억', '1,000만', '1,000만', '9,999', '-5,151만']);
 });
 
+test('the strip fmtOut and the page delta ko() give the same strings as compactKo', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const page = render({ generatedAt: NOW }, { embed: true });
+  const pick = (src, name) => src.match(new RegExp(`function ${name}\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n?\\s*\\}(?=\\s*(?:\\n|function|var|$))`))[0];
+  const ko = new Function(`${pick(page, 'f1')}\n${pick(page, 'ko')}\nreturn ko;`)();
+  const strip = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'renderer', 'strip', 'strip.js'), 'utf8');
+  const fmtOut = new Function(`${strip.match(/function f1[^\n]*/)[0]}\n${strip.match(/function fmtOut[\s\S]*?\n  \}/)[0]}\nreturn fmtOut;`)();
+  const fmt = (n) => render({ generatedAt: NOW, activity: { status: 'ok', projects: [{ projectName: 'p', sessions: 1, output: n, savedInput: 0, live: false, context: 0 }] } }, { embed: true }).match(/출력 ([^ ]+) ·/)[1];
+  for (const n of [9999, 2651, 12345, 16500, 201500, 763500, 1469500, 1985000, 9999960, 51512345, 99995000, 1.23e8]) {
+    assert.equal(ko(n), fmt(n), `ko ${n}`);
+    assert.equal(fmtOut(n), fmt(n), `strip ${n}`);
+  }
+});
+
 test('Fable is its own model family, not 기타', async () => {
   const { render } = await import('./monitor-html.mjs');
   const html = render({ generatedAt: NOW, routing: { status: 'ok', agents: [], background: [], mainThread: [{ entrypoint: 'cli', model: 'claude-fable-5-1', messages: 151 }, { entrypoint: 'cli', model: 'claude-opus-5-5', messages: 9 }] } }, { embed: true });
