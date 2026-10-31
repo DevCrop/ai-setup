@@ -254,6 +254,23 @@ test('per-file cache: a second pass over unchanged files re-reads nothing and gi
   await scanTranscripts(home, now, cache);
 });
 
+test('full walk every 30 s: an append shows on the next run, a new file at the next full walk', async () => {
+  const cache = new Map();
+  const now = Date.parse(NOW);
+  const base = buildTokens(await scanTranscripts(home, now, cache)).totals.output;
+  const rec = (id, out) => `{"type":"assistant","timestamp":"2026-10-19T11:59:00.000Z","entrypoint":"cli","message":{"id":"${id}","model":"claude-opus-5-5","usage":{"output_tokens":${out}}}}\n`;
+  const known = path.join(home, 'projects', 'proj-b', 'sess2.jsonl');
+  const added = path.join(home, 'projects', 'proj-b', 'sess-new.jsonl');
+  const before = fs.readFileSync(known, 'utf8');
+  try {
+    fs.appendFileSync(known, rec('w1', 4));
+    fs.writeFileSync(added, rec('w2', 6));
+    assert.equal(buildTokens(await scanTranscripts(home, now + 1000, cache)).totals.output, base + 4); // not walked yet
+    assert.equal(buildTokens(await scanTranscripts(home, now + 31000, cache)).totals.output, base + 10);
+    assert.equal(buildTokens(await scanTranscripts(home, now + 32000, cache)).totals.output, base + 10); // kept between walks
+  } finally { fs.writeFileSync(known, before); fs.rmSync(added, { force: true }); }
+});
+
 test('roles: claude-mem observer and sdk-ts records are not main thread; orchestration keeps only main sessions', () => {
   assert.deepEqual(data.routing.background, [{ role: 'claude-mem', model: 'claude-haiku-5-5', messages: 1 }, { role: 'sdk', model: 'claude-haiku-5-5', messages: 1 }]);
   assert.ok(data.routing.mainThread.every((r) => r.model === 'claude-opus-5-5' && r.entrypoint !== 'sdk-ts'));

@@ -227,13 +227,23 @@ function fileInfo(file, rel, best) {
 
 // Scans projects/ once. `cache` (Map, optional) keeps parsed files keyed by path+mtime+size so unchanged files are not re-read.
 // Cross-file dedup by message.id keeps the largest output. Returns per-file aggregates for the window.
-export async function scanTranscripts(home, nowMs, cache = new Map()) {
+// Finding new files means walking every folder (about 1,500 files and 900 folders here, most of a warm run), so that
+// walk runs every `fullEveryMs`; the runs between only stat the files already in the window. Kept under LIVE_MS / 2 so a
+// new session shows up well inside its live window.
+export const FULL_WALK_MS = 30000;
+const lastWalk = new WeakMap(); // cache -> nowMs of its last full walk
+
+export async function scanTranscripts(home, nowMs, cache = new Map(), { fullEveryMs = FULL_WALK_MS } = {}) {
   const root = path.join(home, 'projects');
   if (!fs.existsSync(root)) throw Object.assign(new Error('no projects dir'), { code: 'ENOENT' });
   const from = windowStart(nowMs);
   const fresh = new Map();
   let parsed = 0;
-  for (const rel of walkJsonl(root)) {
+  const last = lastWalk.get(cache);
+  const full = last === undefined || !(nowMs - last < fullEveryMs && nowMs >= last);
+  if (full) lastWalk.set(cache, nowMs);
+  const rels = full ? walkJsonl(root) : [...cache.values()].map((e) => e.rel);
+  for (const rel of rels) {
     const file = path.join(root, rel);
     try {
       const st = fs.statSync(file);
@@ -242,7 +252,7 @@ export async function scanTranscripts(home, nowMs, cache = new Map()) {
       const ino = `${st.ino}|${st.birthtimeMs}`;
       let entry = cache.get(file);
       // a replaced or shrunk file is read again from the start
-      if (!entry || entry.ino !== ino || st.size < entry.offset) entry = { ino, offset: 0, best: new Map(), skipping: false, key: null, f: null };
+      if (!entry || entry.ino !== ino || st.size < entry.offset) entry = { rel, ino, offset: 0, best: new Map(), skipping: false, key: null, f: null };
       if (entry.key !== key) {
         await readAppended(file, st.size, entry);
         entry.f = fileInfo(file, slash(rel), entry.best);
