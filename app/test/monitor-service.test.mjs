@@ -103,6 +103,28 @@ test('stale after more than 3 periods without a new snapshot, even while a run h
   assert.equal(seen.at(-1), 'stale');
 });
 
+test('setRefreshSec: a shorter period runs at once and never reads an older snapshot as stale; a longer one waits', async () => {
+  const calls = [];
+  const { svc, clock } = make({ claude: () => { calls.push(clock.now()); return fullClaude(); }, service: { refreshSec: 30 } });
+  svc.start();
+  await flush();
+  await clock.advance(80000); // last snapshot 20 s old under a 30 s period
+  const n = calls.length;
+  assert.equal(svc.setRefreshSec(5), 5);
+  assert.equal(svc.status().state, 'ok'); // 20 s > 3 x 5 s, but it was taken under 30 s
+  await flush();
+  assert.equal(calls.length, n + 1); // ran at once
+  await clock.advance(30000); // past the old 30 s period: only the new 5 s timer fires
+  assert.equal(calls.length, n + 7);
+  assert.equal(svc.setRefreshSec(60), 60);
+  await flush();
+  assert.equal(calls.length, n + 7); // no extra run when slowing down
+  await clock.advance(16000);
+  assert.equal(calls.length, n + 7);
+  assert.equal(svc.status().state, 'ok'); // 16 s > 3 x 5 s, but the period is now 60 s
+  assert.equal(svc.setRefreshSec(1), 3);
+});
+
 test('a throwing source does not stop the next tick; the snapshot of the next tick lands', async () => {
   const { svc, clock, calls } = make({ claude: (n) => { if (n === 1) throw new Error('boom'); return fullClaude(); } });
   svc.start();

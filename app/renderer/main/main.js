@@ -36,6 +36,8 @@
   var batch = null;        // 최적화하기 run, kept in memory so redraws never drop it
   var prefs = null;        // Settings | null (not loaded yet)
   var prefsErr = '';
+  var drafts = {};         // folder text the main process refused, kept so it can be fixed instead of retyped
+  var held = false;        // a redraw of the 최적화 panel waits while a time or folder is being typed
 
   // ---- DOM helper: text only, never innerHTML ----
   function el(tag, cls, text) {
@@ -84,9 +86,11 @@
     if (b) location.hash = b.getAttribute('data-tab');
   });
   window.addEventListener('hashchange', selectTab);
+  document.addEventListener('focusout', function () { if (held) setTimeout(function () { if (held) renderOpt(); }, 0); });
 
   // ---- monitor frame: a tab switch changes only the hash; a new snapshot reloads it ----
   // The sandboxed frame cannot reload itself, so the ?v= query (snapshot time) does it here.
+  // The page keeps its card scroll and count-up state in window.name, which survives reloads of this same frame.
   var frameRev = '';
   function setFrame() {
     var f = $('frame');
@@ -1042,9 +1046,20 @@
     if (b && prefs && b.getAttribute('data-theme') !== prefs.theme) savePrefs({ theme: b.getAttribute('data-theme') });
   });
   function savePrefs(patch) {
+    var folder = 'claudeHome' in patch || 'codexHome' in patch;
     api.setSettings(patch).then(function (res) {
-      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; paintTheme(); announce('설정 저장됨'); }
-      else { prefsErr = '저장 실패: ' + errText(res); announce(prefsErr); }
+      if (res && res.ok && res.data) {
+        var moved = folder && prefs && (res.data.claudeHome !== prefs.claudeHome || res.data.codexHome !== prefs.codexHome);
+        prefs = res.data; prefsErr = '';
+        if (folder) drafts = {};
+        paintTheme();
+        announce(moved ? '폴더를 저장했습니다. 앱이 다시 시작됩니다' : '설정 저장됨');
+      }
+      else {
+        if (folder) for (var k in patch) drafts[k] = patch[k];
+        prefsErr = res && res.error && res.error.code === 'BAD_FOLDER' ? '저장 실패: 이 PC에 있는 폴더의 전체 경로여야 하고, 그 안에 Claude는 projects 폴더, Codex는 sessions 폴더가 있어야 합니다' : '저장 실패: ' + errText(res);
+        announce(prefsErr);
+      }
       renderOpt();
     }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; announce(prefsErr); renderOpt(); });
   }
@@ -1085,6 +1100,49 @@
     row.appendChild(toggle('autoUpdate', '자동 업데이트'));
     if (prefsErr) row.appendChild(el('span', 'cap bad', prefsErr));
     sec.appendChild(row);
+    function pick(key, label, list) {
+      var lab = el('label', 'pl');
+      lab.appendChild(el('span', null, label));
+      var s = el('select', 'sel');
+      s.setAttribute('data-key', 'pref|' + key);
+      list.forEach(function (n) { var o = el('option', null, n + '초'); o.value = String(n); s.appendChild(o); });
+      s.value = String(prefs[key]);
+      s.addEventListener('change', function () { var p = {}; p[key] = Number(s.value); savePrefs(p); });
+      lab.appendChild(s);
+      return lab;
+    }
+    function folder(key, label, auto) {
+      var lab = el('label', 'pl pf');
+      lab.appendChild(el('span', null, label));
+      var t = el('input', 'path');
+      t.type = 'text';
+      t.spellcheck = false;
+      t.value = key in drafts ? drafts[key] : prefs[key] || '';
+      t.placeholder = '자동 (' + auto + ')';
+      t.setAttribute('data-key', 'pref|' + key);
+      function commit() {
+        var v = t.value.trim();
+        if (v === (prefs[key] || '')) { delete drafts[key]; return; }
+        var p = {}; p[key] = v;
+        savePrefs(p);
+      }
+      t.addEventListener('blur', commit);
+      t.addEventListener('keydown', function (e) { if (e.key === 'Enter') t.blur(); });
+      lab.appendChild(t);
+      return lab;
+    }
+    var row2 = el('div', 'prow');
+    row2.appendChild(el('h3', 'sub', '새로 읽기'));
+    row2.appendChild(pick('liveSec', '창을 볼 때', [3, 5, 10]));
+    row2.appendChild(pick('idleSec', '백그라운드', [10, 30, 60]));
+    row2.appendChild(el('span', 'cap', '창을 닫으면 느리게 읽어 CPU를 아낍니다'));
+    sec.appendChild(row2);
+    var row3 = el('div', 'prow');
+    row3.appendChild(el('h3', 'sub', '폴더'));
+    row3.appendChild(folder('claudeHome', 'Claude', '~/.claude'));
+    row3.appendChild(folder('codexHome', 'Codex', '~/.codex'));
+    row3.appendChild(el('span', 'cap', '다른 PC나 사용자 폴더를 쓸 때만 바꾸세요. 바꾸면 앱이 다시 시작됩니다'));
+    sec.appendChild(row3);
     return sec;
   }
   function loadPrefs() {
@@ -1096,7 +1154,14 @@
     }, function () { prefsErr = '설정을 읽지 못했습니다'; renderOpt(); });
   }
 
+  function typing() {
+    var a = document.activeElement;
+    return !!(a && a.classList && (a.classList.contains('tm') || a.classList.contains('path')));
+  }
   function renderOpt() {
+    // Rebuilding the panel would replace the field being typed in and drop the text; redraw once focus leaves it.
+    if (typing()) { held = true; return; }
+    held = false;
     var root = $('v-opt');
     var f = focusInfo(root);
     var tops = Array.prototype.map.call(root.querySelectorAll('.sc'), function (n) { return n.scrollTop; });
@@ -1187,6 +1252,25 @@
     });
   }
 
+  // ---- live pill: seconds since the last snapshot, ticking every second ----
+  var pulseTimer = 0;
+  function livePill() {
+    var p = $('livep');
+    if (!status || !status.generatedAt) { p.hidden = true; return; }
+    var age = Math.max(0, Math.round((Date.now() - Date.parse(status.generatedAt)) / 1000));
+    var stale = status.state === 'stale' || status.state === 'error';
+    p.hidden = false;
+    p.classList.toggle('stale', stale);
+    $('livet').textContent = (stale ? '멈춤' : '실시간') + ' · ' + (age < 2 ? '방금' : age < 60 ? age + '초 전' : Math.floor(age / 60) + '분 전');
+    p.title = status.refreshSec + '초마다 새로 읽습니다';
+  }
+  function pulse() {
+    var p = $('livep');
+    p.classList.remove('pulse'); void p.offsetWidth; p.classList.add('pulse');
+    clearTimeout(pulseTimer); pulseTimer = setTimeout(function () { p.classList.remove('pulse'); }, 1000);
+  }
+  setInterval(livePill, 1000);
+
   // ---- status ----
   function badge() {
     var n = status && status.counts ? (status.counts.warn || 0) + (status.counts.bad || 0) : 0;
@@ -1200,8 +1284,10 @@
     var prevHome = status ? homeKey(status) : '';
     status = s;
     badge();
+    livePill();
     loadFrameUrl();
     if (s.generatedAt && s.generatedAt !== frameRev) {
+      if (frameRev) pulse();
       frameRev = String(s.generatedAt);
       if (frameUrl && tab !== 'codex' && tab !== 'opt' && tab !== 'rt') setFrame();
     }
@@ -1209,7 +1295,7 @@
     if (key !== cxKey) { cxKey = key; loadCodex(); }
     if (s.findingsRev !== lastRev) { lastRev = s.findingsRev; loadFindings(); }
     else if (prevBusy !== s.busyFindingId) redraw();
-    else if (prevHome !== homeKey(s) && !(document.activeElement && document.activeElement.classList.contains('tm'))) renderOpt(); // a finding became stable; never while a time is being typed
+    else if (prevHome !== homeKey(s)) renderOpt(); // a finding became stable
     else renderCodex();
     if (tab === 'rt') loadRoutines(false);
   }

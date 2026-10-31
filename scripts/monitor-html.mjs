@@ -1415,7 +1415,8 @@ save();
 if(!k||typeof k!=='object'||!v0||k.id!==v0.id)return;
 var v=v0,p=parts(v);
 // Restored again after load: a frame being loaded may not have its final size yet.
-function back(){(k.s||[]).forEach(function(r){var e=p.all[r[0]];if(e){e.scrollTop=r[1];e.scrollLeft=r[2]}});if(k.y)window.scrollTo(0,k.y)}
+// It saves again after: a restored offset fires no scroll event, and the next reload must still see it.
+function back(){(k.s||[]).forEach(function(r){var e=p.all[r[0]];if(e){e.scrollTop=r[1];e.scrollLeft=r[2]}});if(k.y)window.scrollTo(0,k.y);later(150)}
 back();requestAnimationFrame(back);window.addEventListener('load',back);
 if(reduce||v.classList.contains('anim'))return;
 var w=k.w||[];if(w.length===p.bars.length)[].forEach.call(p.bars,function(b,i){var to=b.style.width;if(!w[i]||w[i]===to)return;
@@ -1447,6 +1448,11 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2 { flex: 1 1 0; min-height: 0; }
 .embed .g12, .embed .g22, .embed .view > .grid2 { align-items: stretch; grid-auto-rows: minmax(0, 1fr); }
 .embed .g12 { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+/* overview: "오늘 작업" takes its own height (at most a quarter), the two chart rows share the rest */
+.embed #v-ov > .g12 { grid-template-rows: fit-content(25%) minmax(0, 1fr) minmax(0, 1fr); }
+/* card scrollbars show on hover or focus only, so a page of cards reads as one dashboard, not a stack of scroll boxes */
+.embed .panel { scrollbar-color: transparent transparent; }
+.embed .panel:hover, .embed .panel:focus-within { scrollbar-color: var(--line-strong) transparent; }
 .embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
 .embed .view > .grid2 > .col { min-height: 0; } .embed .view > .grid2 > .col > .panel { flex: 1 1 0; min-height: 0; }
 .embed .panel .grid2 { gap: var(--sp-3); }

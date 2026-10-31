@@ -21,6 +21,9 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `notify`, `updateCheck`, `autoUpdate` | boolean |
 | `theme` | one of `"system"`, `"light"`, `"dark"` |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
+| `liveSec` | one of `3`, `5`, `10` (refresh period while the main window is on screen) |
+| `idleSec` | one of `10`, `30`, `60` (refresh period while only the strip shows) |
+| `claudeHome`, `codexHome` | string up to 400 chars without NUL/CR/LF, `""` (automatic). `settings:set` trims and resolves a local absolute path, then requires an existing folder that holds a `projects/` folder (Claude) or a `sessions/` folder (Codex); network paths (`\\server`, `//server`) are refused. Else `BAD_FOLDER` |
 | all objects | no keys other than those listed; max serialized size 1 KB |
 
 - Who may call. `IpcRouter` maps `event.sender.id` to the window role it registered when it created the window, and also checks `event.senderFrame.url` equals that window's own page. Anything else answers `FORBIDDEN`. The monitor iframe has no preload and cannot call IPC at all.
@@ -55,6 +58,7 @@ Error codes (all channels)
 | `NO_SNAPSHOT` | no data yet | first run has not finished |
 | `INVALID_STATE` | action not allowed in this state | transition not in the table of the arch doc section 2 |
 | `FIX_BUSY` | another fix is running | one fix at a time; the lock covers the whole apply/restore call, including the stale check (C1 re-runs its dry run). Also returned by preview, apply, restore and `app:quit` while an auto-update pass runs (the message text stays the same) |
+| `BAD_FOLDER` | folder not found or not a Claude/Codex home | `settings:set` with a `claudeHome` / `codexHome` that fails the folder check in section 1 |
 | `PREVIEW_STALE` | the target changed since the preview | recomputed `previewId` differs (for C4: live or repo `settings.json` changed); state returns to `proposed` |
 | `NOT_RESTORABLE` | this fix cannot be undone here | `restorable` is false (C1) |
 | `RESTORE_CONFLICT` | the file changed after the fix | the target (`config.toml` for X1/X4, repo `claude/settings.json` for C4) differs from its hash right after apply; nothing is written |
@@ -261,14 +265,14 @@ RoutinesDetail = {
 ### `settings:get`
 Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
-- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`. Quiet hours apply only when both are set.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, theme: "system" | "light" | "dark", liveSec: 3 | 5 | 10, idleSec: 10 | 30 | 60, claudeHome: string, codexHome: string }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`, `liveSec: 5`, `idleSec: 30`, folders `""` (automatic: `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, else `~/.claude` / `~/.codex`). Quiet hours apply only when both are set. A saved folder that no longer passes the folder check reads as `""`.
 - Errors: `FORBIDDEN`, `INTERNAL`.
 
 ### `settings:set`
 - Direction: renderer to main, invoke. Caller: main window.
-- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, theme }` (rules in section 1).
-- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `notify: false` stops toasts.
-- Errors: `BAD_REQUEST`, `FORBIDDEN`, `INTERNAL`.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, theme, liveSec, idleSec, claudeHome, codexHome }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `notify: false` stops toasts; `liveSec` / `idleSec` set the refresh period at once (live while the main window is shown and not minimized, idle otherwise; a shorter period runs at once). A changed `claudeHome` / `codexHome` restarts the app just after the reply (new caches, sources and fix journal paths); refused with `FIX_BUSY` while a fix or an auto-update pass runs.
+- Errors: `BAD_REQUEST`, `BAD_FOLDER`, `FIX_BUSY`, `FORBIDDEN`, `INTERNAL`.
 
 ### `app:open-main`
 - Direction: renderer to main, invoke. Callers: strip, main.

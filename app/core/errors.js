@@ -13,6 +13,7 @@ export const MESSAGES = {
   PREVIEW_FAILED: 'preview failed',
   APPLY_FAILED: 'apply failed',
   RESTORE_FAILED: 'restore failed',
+  BAD_FOLDER: 'folder not found or not a Claude/Codex home',
 };
 
 export class CoreError extends Error {

@@ -32,11 +32,13 @@ const realClock = {
 const codexState = (res, findings) => (res.status === 'missing' ? 'missing' : findings.some((f) => f.severity === 'bad') ? 'bad' : findings.some((f) => f.severity === 'warn') ? 'warn' : 'ok');
 
 // Local wall-clock time, as the user reads it on the strip.
-const maxLimit = (rate) => { const p = [rate?.primary?.usedPercent, rate?.secondary?.usedPercent].filter(Number.isFinite); return p.length ? Math.max(...p) : null; };
+const clampSec = (s) => Math.min(86400, Math.max(3, Number(s) || 10)); // 3 s minimum like parseArgs in monitor.mjs
+const maxLimit =(rate) => { const p = [rate?.primary?.usedPercent, rate?.secondary?.usedPercent].filter(Number.isFinite); return p.length ? Math.max(...p) : null; };
 const localStamp =(iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 export class MonitorService {
   #snapshot = null;
+  #snapSec = 0; // refresh period when the last snapshot's run started
   #claude = null;
   #failures = 0;
   #runId = 0;
@@ -53,7 +55,7 @@ export class MonitorService {
     this.repo = repo ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     this.homes = homes ?? { claude: env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), codex: env.CODEX_HOME || path.join(os.homedir(), '.codex') };
     this.env = env;
-    this.refreshSec = Math.min(86400, Math.max(3, Number(refreshSec) || 10)); // 3 s minimum like parseArgs in monitor.mjs
+    this.refreshSec = clampSec(refreshSec);
     this.sources = sources ?? Object.values(sourceModules).map((S) => new S(sourceDeps));
     // Optional NotificationPolicy: when given, only its stable findings count toward state, counts and health.
     this.policy = policy;
@@ -86,6 +88,20 @@ export class MonitorService {
     if (this.#timer) return;
     this.#timer = this.clock.setInterval(() => this.#tick(), this.refreshSec * 1000);
     this.#tick();
+  }
+
+  // Faster while someone looks at the main window, slower in the background. A shorter period runs at once.
+  setRefreshSec(sec) {
+    const next = clampSec(sec);
+    if (next === this.refreshSec) return this.refreshSec;
+    const sooner = next < this.refreshSec;
+    this.refreshSec = next;
+    if (this.#timer) {
+      this.clock.clearInterval(this.#timer);
+      this.#timer = this.clock.setInterval(() => this.#tick(), next * 1000);
+      if (sooner) this.#tick();
+    }
+    return next;
   }
 
   stop() {
@@ -132,7 +148,7 @@ export class MonitorService {
 
   #startRun() {
     const id = ++this.#runId;
-    const run = { id, startedAt: this.clock.now(), done: null };
+    const run = { id, startedAt: this.clock.now(), sec: this.refreshSec, done: null };
     this.#inflight = run;
     const live = () => this.#inflight?.id === id;
     let timer = null;
@@ -156,6 +172,7 @@ export class MonitorService {
     run.done = Promise.race([work, timeout]).then((snapshot) => {
       if (!live() || !snapshot) return;
       this.#snapshot = snapshot;
+      this.#snapSec = run.sec;
       this.#claude = snapshot.sources.claude?.data ?? null;
       this.#failures = 0;
     }, () => { if (live()) this.#failures++; }).finally(() => {
@@ -208,7 +225,8 @@ export class MonitorService {
     // error is checked first: with no snapshot ever, 3 failures must not read as "starting" forever
     if (this.#failures >= ERROR_AFTER) state = 'error';
     else if (!snap) state = 'starting';
-    else if (now - Date.parse(snap.generatedAt) > 3 * this.refreshSec * 1000) state = 'stale';
+    // against the longer of the period now and the one the last snapshot was taken under, so speeding up never reads as stale
+    else if (now - Date.parse(snap.generatedAt) > 3 * Math.max(this.refreshSec, this.#snapSec) * 1000) state = 'stale';
     else if (allMissing) state = 'nodata';
     else if (count('bad')) state = 'bad';
     else if (count('warn')) state = 'warn';
