@@ -15,9 +15,11 @@ This file is the only definition of the channels between a renderer (strip or ma
 
 | Field | Rule |
 |---|---|
-| `findingId` | string, 3 to 80 chars, `^[CX][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
+| `findingId` | string, 3 to 80 chars, `^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
 | `tab` | one of `ov flow orch route tok sav set codex opt` |
+| `notify`, `updateCheck` | boolean |
+| `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | all objects | no keys other than those listed; max serialized size 1 KB |
 
 - Who may call. `IpcRouter` maps `event.sender.id` to the window role it registered when it created the window, and also checks `event.senderFrame.url` equals that window's own page. Anything else answers `FORBIDDEN`. The monitor iframe has no preload and cannot call IPC at all.
@@ -38,6 +40,8 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `fix:preview` | no | yes |
 | `fix:apply` | no | yes |
 | `fix:restore` | no | yes |
+| `settings:get` | no | yes |
+| `settings:set` | no | yes |
 
 Error codes (all channels)
 
@@ -63,7 +67,7 @@ Error codes (all channels)
 Result<T>   = { ok: true, data: T } | { ok: false, error: { code, message, detail? } }
 
 Severity    = "ok" | "info" | "warn" | "bad"
-SourceId    = "claude" | "codex"
+SourceId    = "claude" | "codex" | "updates"
 FixState    = "proposed" | "previewed" | "applying" | "applied" | "restoring" | "restored"
             | "previewFailed" | "applyFailed" | "restoreFailed"
 
@@ -74,15 +78,16 @@ MonitorState = "starting" | "ok" | "warn" | "bad" | "stale" | "nodata" | "error"
   2. starting  no snapshot has finished yet
   3. stale     now - generatedAt > 3 x refreshSec x 1000
   4. nodata    every Claude section of the snapshot has status "missing" and the Codex source is missing
-  5. bad       at least one finding with severity "bad"
-  6. warn      at least one finding with severity "warn"
+  5. bad       at least one stable finding with severity "bad"
+  6. warn      at least one stable finding with severity "warn"
   7. ok
 
 Status = {
   generatedAt:   string | null,      // ISO time of the last finished snapshot
   refreshSec:    number,             // 3 .. 86400
   state:         MonitorState,
-  counts:        { warn: number, bad: number },   // findings by severity; ok and info are not counted
+  counts:        { warn: number, bad: number },   // stable findings by severity (seen for minAge: 3 min, C1 30 min); ok and info are not counted
+  health:        number | null,      // 0..100 = 100 - 15 x bad - 5 x warn (stable counts); null when starting, stale, nodata or error
   findingsRev:   number,             // grows when the finding list or a fix state changed; refetch findings:list on change
   routing:       { ok: number, total: number },   // from summarize()
   live:          { sessions: number, agents: number },
@@ -107,7 +112,7 @@ Status = {
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C5", "X1" .. "X6"
+  checkId:    string,                // "C1" .. "C5", "X1" .. "X6", "U1" .. "U2"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
@@ -215,6 +220,18 @@ CodexDetail = {
 - Errors: `BAD_REQUEST`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `FIX_BUSY`, `NOT_RESTORABLE` (C1), `RESTORE_CONFLICT`, `RESTORE_FAILED`.
 - After an app restart X1/X4 stay restorable while their backup file exists (see `history:list`); C4 is not restorable after a restart (use git), C1 never.
 
+### `settings:get`
+Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
+- Direction: renderer to main, invoke. Caller: main window. Request: none.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`. Quiet hours apply only when both are set.
+- Errors: `FORBIDDEN`, `INTERNAL`.
+
+### `settings:set`
+- Direction: renderer to main, invoke. Caller: main window.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `updateCheck: false` stops update network calls from the next run; `notify: false` stops toasts.
+- Errors: `BAD_REQUEST`, `FORBIDDEN`, `INTERNAL`.
+
 ### `app:open-main`
 - Direction: renderer to main, invoke. Callers: strip, main.
 - Request: `{ tab?: string }` or none. `tab` is one of the allowed tab ids; default `ov`.
@@ -260,8 +277,10 @@ Added because the spec's right-click menu on the strip (열기, 지금 새로 �
 | `monitor.refresh()` | `app:refresh` | `Promise<Result<{ started }>>` |
 | `monitor.quit()` | `app:quit` | `Promise<Result<{ quitting }>>` |
 | `monitor.showStripMenu()` | `app:strip-menu` | `Promise<Result<{ shown }>>` |
+| `monitor.getSettings()` | `settings:get` | `Promise<Result<Settings>>` |
+| `monitor.setSettings(patch)` | `settings:set` | `Promise<Result<Settings>>`; `patch` is passed as the request object |
 
-The 14 methods map one to one to the 14 channels (13 invoke channels and the `status:changed` push). The preload packs the arguments into the request objects above (`{ findingId }`, `{ findingId, previewId }`, `{ tab }`) and does no other logic. The strip and the Main window load the same preload; the main process, not the preload, decides which window may call what.
+The 16 methods map one to one to the 16 channels (15 invoke channels and the `status:changed` push). The preload packs the arguments into the request objects above (`{ findingId }`, `{ findingId, previewId }`, `{ tab }`) and does no other logic. The strip and the Main window load the same preload; the main process, not the preload, decides which window may call what.
 
 ## 5. Contract tests
 

@@ -171,6 +171,14 @@ Shapes (prose, the contract file has the wire form)
 
 Ponytail check on abstractions: `Source` has two real implementations (Claude, Codex), `Check` has seven, `Fix` has two. No other interface or factory exists. `TomlLite` (section 6) is a module of functions, not a class.
 
+### Added 2026-10-31: health, notifications, settings, updates
+
+- `UpdateSource` (`core/sources/update-source.js`, id `updates`): built with `sourceDeps` (`{ runner, fetchJson, updateCheck }`) that `MonitorService` passes to every source constructor. Without them it does nothing, so tests never touch the network. `collect()` returns the cached result at once and starts a background refresh when it is older than 6 hours; it never awaits the network. Reads `claude --version`, the npm dist-tag that matches `autoUpdatesChannel`, `git ls-remote origin refs/heads/main` and local `rev-parse`/`cat-file`/`rev-list` (read-only git, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`). `httpsJson` allows `https://registry.npmjs.org/` only, 5 s, 64 KB.
+- Checks `U1ClaudeCodeUpdate`, `U2RepoBehind` (info, report only). `C3SectionHealth` adds per-plugin pin evidence and `bash scripts/install-plugins.sh` to `C3:plugins`.
+- `NotificationPolicy` (`core/notification-policy.js`): first-seen time per warn/bad finding id; `isStable(f)` after 3 min (C1 30 min). `MonitorService` takes it as `policy` and counts only stable findings for `state`, `counts` and `health`. `decide(prev, status, findings)` returns a toast or null: stable warn/bad, cooldown 24 h (C2 7 days) unless severity rose, one toast per hour (batched), none when notify is off or in quiet hours (held, not marked), the collection-error toast once per streak. `userData/notify-state.json` holds ids and times only, written only on change. It replaces `noticeFor` of `main/placement.js`.
+- `SettingsStore` (`core/settings-store.js`): `userData/settings.json`, keys `notify`, `quietStart`, `quietEnd`, `updateCheck`, each validated, atomic write. IPC `settings:get` / `settings:set`.
+- `Status.health` = `100 - 15 x bad - 5 x warn` (stable counts, clamped), null when starting, stale, nodata or error.
+
 ### What lives where
 
 | Layer | Folder | Classes | Needs Electron |

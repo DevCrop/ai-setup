@@ -1,0 +1,133 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { test } from 'node:test';
+import { NotificationPolicy, inQuietHours, minAgeMs } from '../core/notification-policy.js';
+import { SettingsStore, DEFAULT_SETTINGS } from '../core/settings-store.js';
+import { tmpDir } from './helpers.mjs';
+
+const MIN = 60000;
+const f = (id, severity = 'warn', title = id) => ({ id, checkId: id.split(':')[0], severity, title });
+const at = (h, m = 0) => new Date(2026, 9, 31, h, m).getTime();
+
+function policy({ settings = { notify: true }, file = null, start = at(12) } = {}) {
+  const clock = { t: start };
+  const p = new NotificationPolicy({ file, now: () => clock.t, settings: () => settings });
+  return { p, clock };
+}
+
+test('inQuietHours: plain range, a range over midnight, and off when an end is empty', () => {
+  const s = { quietStart: '22:00', quietEnd: '07:00' };
+  assert.equal(inQuietHours(s, at(23)), true);
+  assert.equal(inQuietHours(s, at(6, 59)), true);
+  assert.equal(inQuietHours(s, at(7)), false);
+  assert.equal(inQuietHours(s, at(12)), false);
+  assert.equal(inQuietHours({ quietStart: '09:00', quietEnd: '17:00' }, at(10)), true);
+  assert.equal(inQuietHours({ quietStart: '09:00', quietEnd: '17:00' }, at(18)), false);
+  assert.equal(inQuietHours({ quietStart: '22:00', quietEnd: '' }, at(23)), false);
+});
+
+test('a finding counts only after its min age; leaving resets it; C1 waits 30 minutes', () => {
+  const { p, clock } = policy();
+  const w = f('C2:x'); const c1 = f('C1:drift'); const info = f('U1:claude-code', 'info');
+  p.observe([w, c1, info]);
+  assert.equal(p.isStable(w), false);
+  assert.equal(p.isStable(info), true);
+  clock.t += minAgeMs('C2');
+  assert.equal(p.isStable(w), true);
+  assert.equal(p.isStable(c1), false);
+  clock.t += 30 * MIN;
+  assert.equal(p.isStable(c1), true);
+  p.observe([c1]); // w gone
+  p.observe([w, c1]); // and back: counts from now
+  assert.equal(p.isStable(w), false);
+});
+
+test('toast: stable warn/bad only, batched, once per hour, cooldown per finding, re-alert when severity rises', () => {
+  const { p, clock } = policy();
+  const a = f('C3:hooks'); const b = f('X1:abc');
+  p.observe([a, b]);
+  assert.equal(p.decide(null, { state: 'warn' }, [a, b]), null); // not stable yet
+  clock.t += 3 * MIN;
+  const n = p.decide(null, { state: 'warn' }, [a, b]);
+  assert.match(n.title, /확인 필요/);
+  assert.match(n.body, /외 1건/);
+  clock.t += 10 * MIN;
+  const c = f('X5:z');
+  p.observe([a, b, c]);
+  clock.t += 3 * MIN;
+  assert.equal(p.decide(null, { state: 'warn' }, [a, b, c]), null); // within the hour: held, not marked
+  clock.t += 60 * MIN;
+  assert.equal(p.decide(null, { state: 'warn' }, [a, b, c]).body, 'X5:z.'); // a and b are in cooldown
+  clock.t += 2 * 60 * MIN;
+  const worse = f('C3:hooks', 'bad');
+  assert.match(p.decide(null, { state: 'bad' }, [worse, b, c]).title, /문제/); // severity rose
+  clock.t += 2 * 60 * MIN;
+  assert.equal(p.decide(null, { state: 'bad' }, [worse, b, c]), null);
+  clock.t += 24 * 60 * MIN;
+  assert.match(p.decide(null, { state: 'bad' }, [worse, b, c]).body, /외 2건/); // cooldown over
+});
+
+test('toast: C2 cools down for 7 days; notify off and quiet hours hold the toast without marking it', () => {
+  const settings = { notify: false, quietStart: '', quietEnd: '' };
+  const { p, clock } = policy({ settings });
+  const r = f('C2:explorer');
+  p.observe([r]);
+  clock.t += 3 * MIN;
+  assert.equal(p.decide(null, { state: 'warn' }, [r]), null);
+  settings.notify = true; settings.quietStart = '00:00'; settings.quietEnd = '23:59';
+  assert.equal(p.decide(null, { state: 'warn' }, [r]), null);
+  settings.quietStart = '';
+  assert.ok(p.decide(null, { state: 'warn' }, [r]));
+  clock.t += 6 * 24 * 60 * MIN;
+  p.observe([r]);
+  assert.equal(p.decide(null, { state: 'warn' }, [r]), null);
+  clock.t += 25 * 60 * MIN;
+  assert.ok(p.decide(null, { state: 'warn' }, [r]));
+});
+
+test('toast: collection error once per error streak, not on the first status', () => {
+  const { p } = policy();
+  assert.equal(p.decide(null, { state: 'error' }, []), null);
+  assert.match(p.decide({ state: 'ok' }, { state: 'error' }, []).title, /수집 오류/);
+  assert.equal(p.decide({ state: 'error' }, { state: 'error' }, []), null);
+  p.decide({ state: 'error' }, { state: 'ok' }, []);
+  assert.ok(p.decide({ state: 'ok' }, { state: 'error' }, []));
+});
+
+test('notify-state.json keeps ids and times only, survives a restart, and is written only on change', () => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'notify-state.json');
+  const { p, clock } = policy({ file });
+  const a = f('C3:hooks', 'warn', 'secret-looking title');
+  p.observe([a]);
+  const text1 = fs.readFileSync(file, 'utf8');
+  fs.writeFileSync(file, text1 + ' '); // a marker: an unchanged observe must not rewrite it
+  p.observe([a]);
+  assert.equal(fs.readFileSync(file, 'utf8'), text1 + ' ');
+  clock.t += 3 * MIN;
+  assert.ok(p.decide(null, { state: 'warn' }, [a]));
+  assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /secret-looking/);
+  const again = new NotificationPolicy({ file, now: () => clock.t, settings: () => ({ notify: true }) });
+  assert.equal(again.isStable(a), true); // first-seen time came back
+  clock.t += 2 * 60 * MIN;
+  assert.equal(again.decide(null, { state: 'warn' }, [a]), null); // still in cooldown after the restart
+  fs.writeFileSync(file, '{broken');
+  assert.equal(new NotificationPolicy({ file, now: () => clock.t }).isStable(a), false);
+});
+
+test('SettingsStore: defaults, checked keys, atomic write, broken file reads as defaults', () => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'settings.json');
+  const s = new SettingsStore({ file });
+  assert.deepEqual(s.get(), DEFAULT_SETTINGS);
+  assert.deepEqual(s.set({ notify: false, quietStart: '22:00', quietEnd: '07:00' }), { notify: false, quietStart: '22:00', quietEnd: '07:00', updateCheck: true });
+  assert.equal(new SettingsStore({ file }).get().quietEnd, '07:00');
+  assert.throws(() => s.set({ notify: 'no' }), TypeError);
+  assert.throws(() => s.set({ quietStart: '25:00' }), TypeError);
+  assert.throws(() => s.set({ theme: 'x' }), TypeError);
+  fs.writeFileSync(file, JSON.stringify({ notify: 'bad', updateCheck: false, extra: 1 }));
+  assert.deepEqual(new SettingsStore({ file }).get(), { ...DEFAULT_SETTINGS, updateCheck: false });
+  fs.writeFileSync(file, 'nope');
+  assert.deepEqual(new SettingsStore({ file }).get(), DEFAULT_SETTINGS);
+});

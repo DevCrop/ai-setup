@@ -51,7 +51,7 @@ test('starting before the first snapshot, then ok with the status shape of the a
   await flush();
   const s = svc.status();
   assert.equal(s.state, 'ok');
-  assert.deepEqual(Object.keys(s).sort(), ['busyFindingId', 'cacheHit7d', 'claudeMem', 'codex', 'counts', 'findingsRev', 'generatedAt', 'live', 'refreshSec', 'routing', 'state', 'todayOutput'].sort());
+  assert.deepEqual(Object.keys(s).sort(), ['busyFindingId', 'cacheHit7d', 'claudeMem', 'codex', 'counts', 'findingsRev', 'generatedAt', 'health', 'live', 'refreshSec', 'routing', 'state', 'todayOutput'].sort());
   assert.equal(s.generatedAt, new Date(NOW).toISOString());
   assert.deepEqual([s.routing, s.live, s.todayOutput, s.cacheHit7d, s.claudeMem], [{ ok: 1, total: 2 }, { sessions: 1, agents: 2 }, 5, 0.5, true]);
   assert.deepEqual(s.codex, { state: 'ok', model: 'm', reasoningEffort: 'high', approval: 'a', sandbox: 's', plugins: 1, mcpServers: 1, trustedProjects: 2, missingProjects: 1, sessions7d: 4, backups: 2 });

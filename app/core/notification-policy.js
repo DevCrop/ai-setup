@@ -1,0 +1,108 @@
+import fs from 'node:fs';
+import { writeAtomic } from '../../scripts/monitor.mjs';
+import { SEVERITY_RANK } from './finding.js';
+
+const MIN = 60 * 1000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+// How long a finding must stay before it counts (strip, state, score, toast), and how long one toast covers it.
+const MIN_AGE = { C1: 30 * MIN };
+const COOLDOWN = { C2: 7 * DAY };
+const TOAST_GAP = HOUR;
+const KEEP_NOTIFIED = 7 * DAY;
+const MAX_IDS = 500;
+
+export const minAgeMs = (checkId) => MIN_AGE[checkId] ?? 3 * MIN;
+export const cooldownMs = (checkId) => COOLDOWN[checkId] ?? DAY;
+
+const minutes = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+
+// Quiet hours may wrap midnight (22:00-07:00). Off when either end is empty or both are equal.
+export function inQuietHours(settings, nowMs) {
+  const { quietStart: a, quietEnd: b } = settings ?? {};
+  if (!a || !b || a === b) return false;
+  const d = new Date(nowMs);
+  const m = d.getHours() * 60 + d.getMinutes();
+  const s = minutes(a); const e = minutes(b);
+  return s < e ? m >= s && m < e : m >= s || m < e;
+}
+
+const sevOf = (f) => f.severity === 'bad' || f.severity === 'warn';
+
+// Decides which findings are stable (seen long enough) and when a desktop toast goes out.
+// State on disk (notify-state.json): finding ids with first-seen and last-notified times only, never evidence.
+export class NotificationPolicy {
+  #file;
+  #now;
+  #settings;
+  #seen = {};      // id -> first seen ms (warn/bad findings present in the last run)
+  #notified = {};  // id -> { at, sev }
+  #lastToast = 0;
+  #errorShown = false;
+
+  constructor({ file = null, now = () => Date.now(), settings = () => ({ notify: true }) } = {}) {
+    this.#file = file;
+    this.#now = now;
+    this.#settings = settings;
+    if (file) {
+      try {
+        const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+        const nums = (o) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).filter(([, v]) => Number.isFinite(v)).slice(0, MAX_IDS));
+        this.#seen = nums(j.seen);
+        for (const [id, v] of Object.entries(j.notified && typeof j.notified === 'object' ? j.notified : {}).slice(0, MAX_IDS)) {
+          if (Number.isFinite(v?.at) && (v.sev === 'warn' || v.sev === 'bad')) this.#notified[id] = { at: v.at, sev: v.sev };
+        }
+        if (Number.isFinite(j.lastToast)) this.#lastToast = j.lastToast;
+      } catch { /* a fresh start */ }
+    }
+  }
+
+  #save() {
+    if (!this.#file) return;
+    try { writeAtomic(this.#file, JSON.stringify({ seen: this.#seen, notified: this.#notified, lastToast: this.#lastToast })); } catch { /* toast memory is a convenience */ }
+  }
+
+  // Called after each finished run with the whole finding list. A finding that leaves and comes back starts its age again.
+  observe(findings) {
+    const now = this.#now();
+    const ids = new Set(findings.filter(sevOf).map((f) => f.id));
+    let changed = false;
+    for (const id of Object.keys(this.#seen)) if (!ids.has(id)) { delete this.#seen[id]; changed = true; }
+    for (const id of ids) if (!Object.hasOwn(this.#seen, id)) { this.#seen[id] = now; changed = true; }
+    for (const [id, v] of Object.entries(this.#notified)) if (now - v.at > KEEP_NOTIFIED) { delete this.#notified[id]; changed = true; }
+    if (changed) this.#save();
+  }
+
+  // warn/bad findings count only once they lasted minAge; ok and info always pass (they are never counted anyway).
+  isStable(f) {
+    if (!sevOf(f)) return true;
+    const at = this.#seen[f.id];
+    return at !== undefined && this.#now() - at >= minAgeMs(f.checkId);
+  }
+
+  // Toast text or null. `status` is the new Status, `prev` the one before; `findings` the current list.
+  decide(prev, status, findings) {
+    const s = this.#settings() ?? {};
+    const now = this.#now();
+    if (status?.state !== 'error') this.#errorShown = false;
+    if (s.notify === false || inQuietHours(s, now)) return null; // held back, nothing marked: it comes later
+    if (status?.state === 'error' && prev && !this.#errorShown) {
+      this.#errorShown = true;
+      return { title: 'Claude Monitor: 수집 오류', body: '설정을 3번 연속 읽지 못했습니다.' };
+    }
+    const due = findings.filter((f) => sevOf(f) && this.isStable(f)).filter((f) => {
+      const n = this.#notified[f.id];
+      return !n || now - n.at >= cooldownMs(f.checkId) || SEVERITY_RANK[f.severity] < SEVERITY_RANK[n.sev];
+    });
+    if (!due.length || now - this.#lastToast < TOAST_GAP) return null;
+    for (const f of due) this.#notified[f.id] = { at: now, sev: f.severity };
+    this.#lastToast = now;
+    this.#save();
+    const bad = due.filter((f) => f.severity === 'bad');
+    const first = (bad[0] ?? due[0]).title;
+    const more = due.length > 1 ? ` 외 ${due.length - 1}건` : '';
+    return bad.length
+      ? { title: 'Claude Monitor: 문제', body: `${first}${more}. 눌러서 확인하세요.` }
+      : { title: 'Claude Monitor: 확인 필요', body: `${first}${more}.` };
+  }
+}
