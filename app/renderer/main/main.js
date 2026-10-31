@@ -494,10 +494,8 @@
     var sel = count(list, isOn);
     var rec = count(list, function (f) { return f.recommended; });
     var bar = el('div', 'optbar');
-    var b = btn(list.length ? '지금 최적화' : '고칠 항목 없음', 'opt|start', batchStart, 'prim', !list.length || !sel || isBusy());
-    if (list.length) b.appendChild(el('span', 'bsub', '선택 ' + sel + ' / ' + list.length + '건 · Claude ' + nc + ' · Codex ' + nx));
-    bar.appendChild(b);
     if (list.length) {
+      bar.appendChild(el('span', 'cap', '고칠 수 있는 것 ' + list.length + '건 중 ' + sel + '건 선택 · Claude ' + nc + ' · Codex ' + nx));
       var lock = !!batch || isBusy();
       bar.appendChild(btn('권장만 (' + rec + ')', 'opt|rec', function () { list.forEach(function (f) { picks[f.id] = !!f.recommended; }); redraw(); }, 'sm', lock));
       bar.appendChild(btn('전체 선택', 'opt|all', function () { list.forEach(function (f) { picks[f.id] = true; }); redraw(); }, 'sm', lock));
@@ -747,21 +745,44 @@
 
   // ---- home: health score, updates, settings ----
   function scoreWord(h) {
-    if (h == null) return '점수 준비 중';
-    return h >= 90 ? '좋음' : h >= 70 ? '확인할 것이 조금 있음' : '정리가 필요함';
+    if (h == null) return '확인 중';
+    return h >= 90 ? '상태 좋음' : h >= 70 ? '확인할 것이 조금 있음' : '정리가 필요함';
   }
+  function tone(h) { return h == null ? 'none' : h >= 90 ? 'ok' : h >= 70 ? 'warn' : 'bad'; }
   function updateItems() {
     return (findings || []).filter(function (f) { return f.source === 'updates' || f.id === 'C3:plugins'; });
   }
-  function homeBand() {
-    var band = el('div', 'band k3');
+  // One focal point: the score ring, the verdict, and the single primary action of the tab.
+  function hero() {
     var h = status ? status.health : null;
-    band.appendChild(kpi('건강 점수', h == null ? '–' : h + ' / 100', scoreWord(h)));
     var c = status && status.counts ? status.counts : { warn: 0, bad: 0 };
-    band.appendChild(kpi('문제 · 주의', c.bad + ' · ' + c.warn, '몇 분 이상 계속된 것만 셉니다'));
+    var sec = el('section', 'hero t-' + tone(h));
+    sec.setAttribute('aria-label', '상태 요약');
+    var ring = el('div', 'ring');
+    ring.setAttribute('role', 'img');
+    ring.setAttribute('aria-label', h == null ? '건강 점수 없음' : '건강 점수 ' + h + '점, 100점 만점');
+    ring.style.setProperty('--p', String(h == null ? 0 : h)); // CSSOM, allowed by the style-src CSP
+    ring.appendChild(el('span', 'num', h == null ? '–' : String(h)));
+    sec.appendChild(ring);
+    var txt = el('div', 'txt');
+    txt.appendChild(el('h2', null, scoreWord(h)));
     var nu = updateItems().length;
-    band.appendChild(kpi('업데이트', nu ? nu + '건' : '없음', prefs && !prefs.updateCheck ? '확인 꺼짐' : '6시간마다 확인'));
-    return band;
+    var bits = ['문제 ' + c.bad, '주의 ' + c.warn, '업데이트 ' + (prefs && !prefs.updateCheck ? '확인 꺼짐' : nu)];
+    if (status && status.generatedAt) bits.push(when(status.generatedAt) + ' 확인');
+    txt.appendChild(el('p', 'cap', bits.join(' · ')));
+    sec.appendChild(txt);
+    var act = el('div', 'act');
+    var list = (findings || []).filter(batchable);
+    var sel = count(list, isOn);
+    var refresh = function () { api.refresh().then(function () { announce('다시 확인하는 중'); }); };
+    if (list.length) {
+      act.appendChild(btn('지금 최적화 (' + sel + '건)', 'opt|start', batchStart, 'prim', !sel || isBusy()));
+      act.appendChild(btn('다시 확인', 'opt|refresh', refresh, 'sm'));
+    } else {
+      act.appendChild(btn('다시 확인', 'opt|refresh', refresh, 'prim'));
+    }
+    sec.appendChild(act);
+    return sec;
   }
   function updatesPanel() {
     var list = updateItems();
@@ -840,8 +861,8 @@
     var f = focusInfo(root);
     var tops = Array.prototype.map.call(root.querySelectorAll('.sc'), function (n) { return n.scrollTop; });
     root.replaceChildren();
-    root.appendChild(homeBand());
-    if (findings && findings.length) root.appendChild(optBar());
+    root.appendChild(hero());
+    if (findings && count(findings, batchable)) root.appendChild(optBar());
     var up = updatesPanel();
     if (up) root.appendChild(up);
     if (batch) root.appendChild(batchPanel());

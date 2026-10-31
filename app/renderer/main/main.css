@@ -32,7 +32,7 @@ button { font: inherit; cursor: pointer; }
 .brand { display: flex; align-items: center; gap: var(--sp-2); }
 .mark { color: var(--accent); font-family: var(--serif); font-size: var(--t-lg); }
 .brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; white-space: nowrap; }
-.tabs { justify-self: start; display: flex; gap: 2px; max-width: 100%; min-width: 0; overflow-x: auto; background: var(--fill); border-radius: var(--r-md); padding: 3px; scrollbar-width: none; }
+.tabs { position: relative; justify-self: start; display: flex; gap: 2px; max-width: 100%; min-width: 0; overflow-x: auto; background: var(--fill); border-radius: var(--r-md); padding: 3px; scrollbar-width: none; }
 .tabs button { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; min-height: 30px; font-size: var(--t-sm); color: var(--muted); background: none; border: 0; border-radius: var(--r-sm); padding: 0 var(--sp-3); }
 .tabs button:hover { color: var(--fg); }
 .tabs button[aria-current="page"] { color: var(--fg); font-weight: 500; background: var(--raise); box-shadow: 0 1px 2px rgba(20, 20, 19, .12), 0 0 0 1px var(--line); }
@@ -183,8 +183,31 @@ h3.sub:first-child { margin-top: 0; }
 .hrow .hb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-family: var(--mono); min-width: 0; }
 #v-opt > .panel.batch ~ .panel.hist { flex: 0 0 168px; }
 
-/* home band, updates and settings on the opt tab (docs/design-claude-monitor.md 4.5) */
-.band.k3 { flex: none; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* opt tab head: score ring, verdict, one primary action (docs/design-claude-monitor.md 4.5) */
+.hero { --tone: var(--line-strong); flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3) var(--sp-5);
+  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--tone); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: var(--sp-4) var(--pad); }
+.hero.t-ok { --tone: var(--ok); }
+.hero.t-warn { --tone: var(--warn); }
+.hero.t-bad { --tone: var(--bad); }
+.ring { --p: 0; position: relative; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--tone) calc(var(--p) * 1%), var(--fill) 0); transition: background .4s ease; }
+.ring::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--panel); }
+.ring .num { position: relative; font: 600 26px/1 var(--serif); letter-spacing: -.01em; color: var(--fg); }
+.hero .txt { min-width: 0; }
+.hero h2 { margin: 0; font-size: var(--t-lg); font-weight: 600; line-height: 1.3; color: var(--fg); word-break: keep-all; }
+.hero .txt .cap { margin-top: var(--sp-1); overflow-wrap: anywhere; }
+.hero .act { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+@media (max-width: 760px) {
+  /* narrow: the opt tab scrolls as one page; each list keeps its own short scroll */
+  .stage:has(#v-opt:not([hidden])) { overflow: auto; }
+  #v-opt:not([hidden]) { height: auto; }
+  #v-opt > .panel { flex: none; }
+  #v-opt > .panel .sc { flex: none; max-height: 320px; }
+  .hero { grid-template-columns: auto minmax(0, 1fr); }
+  .hero .act { grid-column: 1 / -1; justify-content: stretch; }
+  .hero .act .btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .ring { transition: none; } }
 #v-opt > .panel.upd { flex: none; padding: var(--sp-3); gap: var(--sp-2); }
 .urow { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); padding: var(--sp-1) 0; border-top: 1px solid var(--line); }
 .urow:first-child { border-top: 0; }
@@ -193,7 +216,7 @@ h3.sub:first-child { margin-top: 0; }
 #v-opt > .panel.prefs { flex: none; padding: var(--sp-2) var(--sp-3); }
 .prow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); }
 .prow h2 { margin: 0; font-size: var(--t-sm); }
-.prow .pl { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--t-sm); }
+.prow .pl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--t-sm); white-space: nowrap; }
 .prow .tm { font: inherit; font-size: var(--t-xs); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px var(--sp-1); }
 .prow .cap.bad { color: var(--bad); }
 .panel.upd .sc { flex: none; max-height: 132px; }
