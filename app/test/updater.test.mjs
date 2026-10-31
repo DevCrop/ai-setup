@@ -44,7 +44,7 @@ function fakeRunner({ changed = ['claude/CLAUDE.md'], dirty = false, branch = 'm
 
 const make = (o = {}) => {
   let t = o.t0 ?? 1000;
-  const u = new AutoUpdater({ file: o.file ?? path.join(tmpDir(), 'update-state.json'), repo: o.repo ?? '/repo', runner: o.runner, enabled: () => o.enabled ?? true, now: () => t, homeDir: HOME, onDone: o.onDone });
+  const u = new AutoUpdater({ file: o.file ?? path.join(tmpDir(), 'update-state.json'), repo: o.repo ?? '/repo', runner: o.runner, enabled: () => o.enabled ?? true, now: () => t, homeDir: HOME, onDone: o.onDone, applySetup: () => o.applySetup ?? true, claudeHome: () => o.claudeHome ?? null });
   return { u, advance: (ms) => { t += ms; } };
 };
 
@@ -95,6 +95,21 @@ test('AutoUpdater: a pull that changes claude/, the pins and app/ runs apply and
   assert.ok(cmds.indexOf('bash scripts/apply.sh') < cmds.indexOf('bash scripts/install-plugins.sh'));
   assert.equal(u.consider(snapOf()), null); // the source still says behind until it re-checks: the done key holds
   assert.equal(u.status().restartNeeded, true);
+});
+
+test('AutoUpdater: with applying the setup off, a pull still lands but apply.sh and the plugins never run; on, they get the Claude folder', async () => {
+  const off = fakeRunner({ changed: ['claude/CLAUDE.md', 'claude/settings.json'] });
+  const a = make({ runner: off.run, applySetup: false });
+  const res = await a.u.consider(snapOf({ plugins: [{ name: 'p', status: 'off' }] }));
+  assert.deepEqual(res.done, ['repo']);
+  assert.ok(!off.cmds().some((c) => /apply\.sh|install-plugins/.test(c)));
+  assert.equal(a.u.status().applySetup, false);
+  const on = fakeRunner({ changed: ['claude/CLAUDE.md', 'claude/settings.json'] });
+  const b = make({ runner: on.run, claudeHome: '/home/u/claude-home' });
+  assert.deepEqual((await b.u.consider(snapOf())).done, ['repo', 'apply', 'plugins']);
+  const bash = on.calls.filter((c) => c.a.startsWith('bash'));
+  assert.equal(bash.length, 2);
+  assert.ok(bash.every((c) => c.opts.env?.CLAUDE_CONFIG_DIR === '/home/u/claude-home'));
 });
 
 test('AutoUpdater: a pull outside claude/ runs no apply; a dirty tree blocks the pull and its followers but not claude update', async () => {

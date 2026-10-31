@@ -19,17 +19,21 @@ export class ApplyRepoFix extends Fix {
   #repo;
   #runner;
   #homeDir;
+  #claudeHome;
 
-  constructor({ id, repo, runner = execRunner, homeDir = os.homedir() }) {
+  // claudeHome: the folder the monitor reads; apply.sh writes there too (CLAUDE_CONFIG_DIR), so C1 and its fix agree.
+  constructor({ id, repo, runner = execRunner, homeDir = os.homedir(), claudeHome = null }) {
     super(id);
     this.#repo = repo;
     this.#runner = runner;
     this.#homeDir = homeDir;
+    this.#claudeHome = claudeHome;
   }
 
   // The only two commands this class can run.
   #run(dry) {
-    return this.#runner('bash', dry ? ['scripts/apply.sh', '--dry-run'] : ['scripts/apply.sh'], { cwd: this.#repo });
+    const env = this.#claudeHome ? { CLAUDE_CONFIG_DIR: this.#claudeHome } : undefined;
+    return this.#runner('bash', dry ? ['scripts/apply.sh', '--dry-run'] : ['scripts/apply.sh'], { cwd: this.#repo, env });
   }
 
   async #dryRun() {

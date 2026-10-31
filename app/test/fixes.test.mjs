@@ -120,7 +120,7 @@ test('X1 never touches auth.json, secrets/ or .sandbox-secrets/ (tree outside co
 
 const fakeRunner = (script = {}) => {
   const calls = [];
-  const fn = async (file, args, opts) => { calls.push({ file, args, cwd: opts?.cwd }); return script[args.join(' ')] ?? { code: 0, stdout: `plan ${args.length}\n`, stderr: '' }; };
+  const fn = async (file, args, opts) => { calls.push({ file, args, cwd: opts?.cwd, env: opts?.env }); return script[args.join(' ')] ?? { code: 0, stdout: `plan ${args.length}\n`, stderr: '' }; };
   fn.calls = calls;
   return fn;
 };
@@ -140,11 +140,20 @@ test('C1: runs only bash scripts/apply.sh (dry run, dry run again, real), always
   assert.deepEqual(runner.calls.map((c) => [c.file, ...c.args]), [
     ['bash', 'scripts/apply.sh', '--dry-run'], ['bash', 'scripts/apply.sh', '--dry-run'], ['bash', 'scripts/apply.sh'],
   ]);
-  assert.ok(runner.calls.every((c) => c.cwd === '/the/repo'));
+  assert.ok(runner.calls.every((c) => c.cwd === '/the/repo' && c.env === undefined));
   assert.deepEqual(tree(home), before);
   assert.equal(fix.restorable, false);
   assert.equal(await code(fix.restore()), 'NOT_RESTORABLE');
   assert.equal(runner.calls.length, 3);
+});
+
+test('C1: with a Claude folder set, apply.sh gets it as CLAUDE_CONFIG_DIR on every run, so it writes where the monitor reads', async () => {
+  const runner = fakeRunner();
+  const fix = new ApplyRepoFix({ id: 'C1:drift', repo: '/r', runner, claudeHome: '/home/u/claude-home' });
+  const { previewId } = await fix.preview();
+  await fix.apply(previewId);
+  assert.equal(runner.calls.length, 3);
+  assert.ok(runner.calls.every((c) => c.env?.CLAUDE_CONFIG_DIR === '/home/u/claude-home'));
 });
 
 test('C1: PREVIEW_STALE when the dry run output changed; the real command is not run', async () => {
