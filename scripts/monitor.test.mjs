@@ -533,6 +533,9 @@ test('page: the embedded frame is reloaded by the app and keeps state in window.
   assert.match(render(d), /location\.reload\(\)\},10000\)/);
   const html = render(d, { embed: true });
   assert.doesNotMatch(html, /location\.reload/);
+  // the app reloads the frame per snapshot, so live dots pulse once per load there; the standalone page keeps the endless pulse
+  assert.match(html, /\.embed \.pip\.live \{ animation-iteration-count: 1; \}/);
+  assert.doesNotMatch(render(d), /animation-iteration-count/);
   // Run the head script where Web Storage throws, as in the app's sandboxed frame.
   const head = /<script>(try\{var t=localStorage[\s\S]*?)<\/script>/.exec(html)[1];
   const deny = { get() { throw new Error('SecurityError'); } };
