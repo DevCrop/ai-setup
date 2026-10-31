@@ -29,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/set
 3. `workroot`: 프로젝트(`<client>/<stage>/<name>`)가 들어갈 작업 폴더를 묻고(기본 `D:\work` 또는 `$HOME\work`) 만든 뒤 `$HOME\.ai-setup\machine.json`에 저장합니다. 작업 폴더가 필요한 모듈은 이 파일을 읽으면 됩니다(지금 읽는 모듈은 없음). 저장소에는 들어가지 않습니다. `-WorkRoot`를 주면 저장된 값보다 우선합니다.
 4. 모듈: `bootstrap/modules.json`에 적힌 순서대로 실행합니다.
    - `ai-setup`: Git Bash로 `bash scripts/apply.sh` (전역 Claude 설정 복사, `CLAUDE_CONFIG_DIR`가 있으면 그 경로)
-   - `claude-plugins`: `ponytail@ponytail`, `claude-mem@thedotmack` 설치 후 `bash scripts/setup-claude-mem.sh`
+   - `claude-plugins`: `ponytail@ponytail`, `claude-mem@thedotmack`, `tokeneconomizer@tokeneconomizer` 설치(`scripts/install-plugins.sh`, tokeneconomizer는 Python 3.10+ 필요) 후 `bash scripts/setup-claude-mem.sh`
    - `monitor`: `node scripts/monitor.mjs` (설정 상태 페이지 경로 출력)
    - `machine`: `node machine/scan.mjs` (디스크 지도, 읽기만 함, 몇 분 걸릴 수 있음)
    - `claude-monitor`: `node app/install.mjs`가 Claude Monitor 앱(Electron)을 받고(Electron이 없거나 `package-lock.json`이 바뀌었을 때만, 켜져 있는 앱을 먼저 끈 뒤 `npm ci`) 시작 프로그램에 바로 가기(`Claude Monitor.lnk`)를 둔 뒤 한 번 켭니다. 작업 표시줄 위 작은 상태 막대가 항상 떠 있고, 누르면 앱 창이 열립니다. 이미 bootstrap을 돌린 PC는 `-Only claude-monitor`로 한 번만 실행하면 됩니다. 끄려면 상태 막대 오른쪽 클릭 → 끝내기, 자동 시작을 없애려면 시작 프로그램 폴더(`shell:startup`)에서 바로 가기를 지웁니다.

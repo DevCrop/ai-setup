@@ -1069,7 +1069,27 @@ function viewSavings(d) {
     return `<div>${on}</div><div class="ubars">${lines}</div>` +
       `<p class="cap">공개 벤치마크 수치, 이 PC 측정 아님 · ${txt(s.source)}</p>`;
   }, { hint: '기준선 = 스킬 없는 실행' });
-    return `${savingsKpis(d)}<div class="g22">${rtkPanel(d)}${pony}${cache}${mem}</div>`;
+  return `${savingsKpis(d)}<div class="g22">${rtkPanel(d)}${pony}${cache}${mem}</div>${tePanel(d)}`;
+}
+
+const TE_MODE = { off: '꺼짐', on: '켜짐', propose: '제안만', nudge: '힌트', envfacts: '실패에서만' };
+// TokenEconomizer: its switches, then per repository the sessions it folded, its own model overhead and its interventions.
+function tePanel(d) {
+  const sec = isObj(d.tokenEconomizer) ? d.tokenEconomizer : null;
+  if (!sec || sec.status === 'missing') return '';
+  return panel('TokenEconomizer', sec, (s) => {
+    const c = isObj(s.config) ? s.config : {};
+    const mode = (v) => esc(TE_MODE[v] || txt(v));
+    const tiles = [['마이크로스킬', c.microskills], ['도구 정리', c.toolprune], ['루프 가드', c.loopguard]]
+      .map(([l, v]) => `<div class="tile"><span class="n">${mode(v)}</span><span class="l">${l}</span></div>`).join('');
+    const rows = arr(s.repos).slice(0, 8).map((r) => {
+      const over = r.effectiveTokens > 0 ? fixed1((r.overheadTokens / r.effectiveTokens) * 100) + '%' : DASH;
+      return `<div class="kv"><span title="${esc(r.label)}">${txt(r.label)}</span><span>세션 ${fmtInt(r.sessions)} · 오버헤드 ${over} · 개입 ${fmtInt(r.nudges)} · 정리 제안 ${fmtInt(r.proposed)}</span></div>`;
+    }).join('');
+    return `<div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">${tiles}</div>` +
+      (rows || `<p class="cap">아직 기록된 세션이 없습니다</p>`) +
+      `<p class="cap">이 PC 측정 · 최근 7일 · 오버헤드 = 플러그인 자체 모델 호출 비중</p>`;
+  }, { hint: '토큰 절감 플러그인' });
 }
 
 function viewSettings(d) {
@@ -1395,7 +1415,7 @@ const EMBED_CSS = `
 body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh; min-height: 0; overflow: hidden; }
 .embed .stage { height: 100vh; padding: var(--gap) var(--edge); display: flex; flex-direction: column; overflow: hidden; }
 .embed .view:not([hidden]) { flex: 1 1 auto; min-height: 0; max-width: none; margin: 0; gap: var(--gap); }
-.embed .view > .band { flex: none; }
+.embed .view > .band, .embed #v-sav > .panel { flex: none; }
 .embed .kpi { padding: 8px var(--pad); gap: 0; }
 .embed .kpi .v { font-size: 22px; line-height: 1.25; }
 .embed .tile .n { font-size: 17px; } .embed .big { font-size: 20px; }

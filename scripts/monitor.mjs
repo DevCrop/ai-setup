@@ -467,7 +467,8 @@ export function collectPlugins(home, repo = REPO) {
       pinnedRef: p.ref, pinnedSha: p.sha, status: 'missing',
     };
     if (inst) {
-      const versionOk = !p.ref || inst.version === String(p.ref).replace(/^v/, '');
+      // A branch ref (e.g. "main" pinned by sha) says nothing about the version; only a version tag is compared.
+      const versionOk = !p.ref || !/^v?\d/.test(String(p.ref)) || inst.version === String(p.ref).replace(/^v/, '');
       const shaOk = !p.sha || inst.gitCommitSha === p.sha;
       item.status = enabled && versionOk && shaOk ? 'ok' : 'warn';
     }
@@ -569,6 +570,46 @@ export function buildSavings({ scan, rtk, mem, home, nowMs }) {
   };
 }
 
+// TokenEconomizer state (~/.tokeneconomizer): its mode switches and, per repository, the sessions it folded in the window.
+// Reads only counts from its ledger; never prompts or tool output.
+export function collectTokenEconomizer(teHome, nowMs) {
+  let config;
+  try { config = readJson(path.join(teHome, 'config.json')); } catch { return { status: 'missing', note: 'TokenEconomizer state (~/.tokeneconomizer) not found.', config: null, repos: [] }; }
+  // Unset switches show the plugin's defaults (v0.1.0 README and `te status`).
+  const mode = (k, def) => (isPlainObj(config) && typeof config[k] === 'string' && /^[a-z]{1,16}$/.test(config[k]) ? config[k] : def);
+  const n0 = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
+  const since = nowMs / 1000 - WINDOW_DAYS * 86400;
+  let dirs = [];
+  try { dirs = fs.readdirSync(path.join(teHome, 'repos'), { withFileTypes: true }).filter((d) => d.isDirectory()).slice(0, 100); } catch { /* no repository seen yet */ }
+  const repos = [];
+  for (const d of dirs) {
+    const base = path.join(teHome, 'repos', d.name);
+    let label = d.name.slice(0, 80);
+    try { const r = readJson(path.join(base, 'repo.json')); if (typeof r.label === 'string') label = r.label.slice(0, 80); } catch { /* keep the folder name */ }
+    let text;
+    try {
+      const file = path.join(base, 'claude', 'ledger.jsonl');
+      if (fs.statSync(file).size > 5e6) continue; // shortcut: a ledger over 5 MB is skipped, read its tail if that ever happens
+      text = fs.readFileSync(file, 'utf8');
+    } catch { continue; }
+    const r = { label, sessions: 0, effectiveTokens: 0, overheadTokens: 0, nudges: 0, proposed: 0 };
+    for (const line of text.split('\n')) {
+      let e;
+      try { e = JSON.parse(line); } catch { continue; }
+      if (!isPlainObj(e) || e.kind !== 'session' || !(e.ended >= since)) continue;
+      const o = isPlainObj(e.overhead) ? e.overhead : {};
+      r.sessions += 1;
+      r.effectiveTokens += n0(e.effective_tokens);
+      r.overheadTokens += n0(o.optimizer_tokens) + n0(o.spiral_judge_tokens) + n0(o.spiral_nudge_writer_tokens);
+      r.nudges += n0(e.nudges);
+      if (isPlainObj(e.untool) && Array.isArray(e.untool.proposal)) r.proposed = e.untool.proposal.length; // latest session wins
+    }
+    if (r.sessions) repos.push(r);
+  }
+  repos.sort((a, b) => b.sessions - a.sessions);
+  return { status: 'ok', note: '', config: { microskills: mode('microskills', 'off'), toolprune: mode('toolprune', 'on'), loopguard: mode('loopguard', 'nudge') }, repos };
+}
+
 const guard = async (fn, extra = {}) => {
   try { return await fn(); }
   catch (e) { return { status: 'missing', note: `Collector failed (${e?.code || e?.name || 'error'}).`, ...extra }; }
@@ -600,6 +641,7 @@ export async function collect(opts = {}) {
     claudeMem: await guard(() => collectClaudeMem(env), { url: null, portSource: null, reachable: false, version: null }),
     hooks: await guard(() => collectHooks(home), { items: [] }),
     savings, orchestration,
+    tokenEconomizer: await guard(() => collectTokenEconomizer(path.resolve(opts.teHome || path.join(os.homedir(), '.tokeneconomizer')), nowMs), { config: null, repos: [] }),
     setup: await guard(() => collectSetupFlow(home, opts.repo), { agents: [], rules: { delegate: null, routing: null, lanes: null, failure: null }, skills: [], drift: [], driftCount: 0 }),
   };
 }

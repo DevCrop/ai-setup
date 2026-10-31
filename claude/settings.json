@@ -105,11 +105,33 @@
           }
         ]
       }
+    },
+    "tokeneconomizer": {
+      "source": {
+        "source": "settings",
+        "name": "tokeneconomizer",
+        "owner": {
+          "name": "DevCrop"
+        },
+        "plugins": [
+          {
+            "name": "tokeneconomizer",
+            "source": {
+              "source": "git-subdir",
+              "url": "https://github.com/microsoft/TokenEconomizer.git",
+              "path": "plugin",
+              "ref": "main",
+              "sha": "e428fc91b0f8ffecb5a596d56b14fe2f1485a5f9"
+            }
+          }
+        ]
+      }
     }
   },
   "enabledPlugins": {
     "ponytail@ponytail": true,
     "claude-mem@thedotmack": true,
+    "tokeneconomizer@tokeneconomizer": true,
     "desktop-commander@synced": false
   },
   "tui": "fullscreen",
