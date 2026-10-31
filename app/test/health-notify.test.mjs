@@ -176,6 +176,9 @@ test('SettingsStore: refresh periods from a fixed list; a home folder must be ab
   assert.equal(normHome('relative'), 'relative');
   assert.equal(normHome(String.raw`\\server\share`), String.raw`\\server\share`);
   assert.equal(normHome(''), '');
+  assert.equal(normHome('   '), ''); // blank means automatic
+  fs.writeFileSync(path.join(cfg, 'sessions'), '');
+  assert.equal(validHome('codexHome', cfg), false);
   for (const bad of ['relative/path', path.join(dir, 'missing'), path.join(codex, 'config.toml'), `${claude}\n`, 7]) assert.throws(() => s.set({ claudeHome: bad }), TypeError, String(bad));
   assert.equal(s.set({ claudeHome: '' }).claudeHome, '');
   // a saved folder that was removed reads as automatic

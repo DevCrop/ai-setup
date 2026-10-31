@@ -1048,7 +1048,13 @@
   function savePrefs(patch) {
     var folder = 'claudeHome' in patch || 'codexHome' in patch;
     api.setSettings(patch).then(function (res) {
-      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; drafts = {}; paintTheme(); announce(folder ? '폴더를 저장했습니다. 앱이 다시 시작됩니다' : '설정 저장됨'); }
+      if (res && res.ok && res.data) {
+        var moved = folder && prefs && (res.data.claudeHome !== prefs.claudeHome || res.data.codexHome !== prefs.codexHome);
+        prefs = res.data; prefsErr = '';
+        if (folder) drafts = {};
+        paintTheme();
+        announce(moved ? '폴더를 저장했습니다. 앱이 다시 시작됩니다' : '설정 저장됨');
+      }
       else {
         if (folder) for (var k in patch) drafts[k] = patch[k];
         prefsErr = res && res.error && res.error.code === 'BAD_FOLDER' ? '저장 실패: 이 PC에 있는 폴더의 전체 경로여야 하고, 그 안에 Claude는 projects 폴더, Codex는 sessions 폴더가 있어야 합니다' : '저장 실패: ' + errText(res);

@@ -12,7 +12,8 @@ const HHMM = /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 // A home folder setting must be a normalized absolute local path to a folder holding the folder only that tool writes
 // (session transcripts), so a typo, the repo's own claude/ or another tool's config folder cannot point the monitor
-// (and its fixes) elsewhere. Network paths are refused: a dead share would hang the main process. '' means automatic.
+// (and its fixes) elsewhere. UNC paths are refused (a dead share would hang the main process); a mapped drive letter or a
+// link to a share still passes. '' means automatic.
 const MARKER = { claudeHome: 'projects', codexHome: 'sessions' };
 const NETWORK = /^[\\/]{2}/;
 const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
@@ -25,8 +26,9 @@ export function validHome(key, v) {
 // What the user typed, made comparable: a local absolute path is resolved (slashes, '..', trailing separator); anything
 // else is returned as is for validHome to refuse.
 export function normHome(v) {
-  const t = typeof v === 'string' ? v.trim() : v;
-  return typeof t === 'string' && t && path.isAbsolute(t) && !NETWORK.test(t) ? path.resolve(t) : v;
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  return t && path.isAbsolute(t) && !NETWORK.test(t) ? path.resolve(t) : t;
 }
 
 // The folders the monitor reads: the setting, else the tool's own env variable, else the default under the home folder.
