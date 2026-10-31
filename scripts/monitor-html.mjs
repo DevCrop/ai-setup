@@ -1415,7 +1415,8 @@ save();
 if(!k||typeof k!=='object'||!v0||k.id!==v0.id)return;
 var v=v0,p=parts(v);
 // Restored again after load: a frame being loaded may not have its final size yet.
-function back(){(k.s||[]).forEach(function(r){var e=p.all[r[0]];if(e){e.scrollTop=r[1];e.scrollLeft=r[2]}});if(k.y)window.scrollTo(0,k.y)}
+// It saves again after: a restored offset fires no scroll event, and the next reload must still see it.
+function back(){(k.s||[]).forEach(function(r){var e=p.all[r[0]];if(e){e.scrollTop=r[1];e.scrollLeft=r[2]}});if(k.y)window.scrollTo(0,k.y);later(150)}
 back();requestAnimationFrame(back);window.addEventListener('load',back);
 if(reduce||v.classList.contains('anim'))return;
 var w=k.w||[];if(w.length===p.bars.length)[].forEach.call(p.bars,function(b,i){var to=b.style.width;if(!w[i]||w[i]===to)return;

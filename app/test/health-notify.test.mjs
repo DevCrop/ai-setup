@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { NotificationPolicy, inQuietHours, minAgeMs } from '../core/notification-policy.js';
-import { SettingsStore, DEFAULT_SETTINGS } from '../core/settings-store.js';
+import { SettingsStore, DEFAULT_SETTINGS, resolveHomes, validHome } from '../core/settings-store.js';
 import { tmpDir } from './helpers.mjs';
 
 const MIN = 60000;
@@ -139,7 +139,7 @@ test('SettingsStore: defaults, checked keys, atomic write, broken file reads as 
   const file = path.join(dir, 'settings.json');
   const s = new SettingsStore({ file });
   assert.deepEqual(s.get(), DEFAULT_SETTINGS);
-  assert.deepEqual(s.set({ notify: false, quietStart: '22:00', quietEnd: '07:00' }), { notify: false, quietStart: '22:00', quietEnd: '07:00', updateCheck: true, autoUpdate: true, theme: 'system' });
+  assert.deepEqual(s.set({ notify: false, quietStart: '22:00', quietEnd: '07:00' }), { ...DEFAULT_SETTINGS, notify: false, quietStart: '22:00', quietEnd: '07:00' });
   assert.equal(s.set({ theme: 'dark' }).theme, 'dark');
   assert.equal(new SettingsStore({ file }).get().quietEnd, '07:00');
   assert.throws(() => s.set({ notify: 'no' }), TypeError);
@@ -150,6 +150,27 @@ test('SettingsStore: defaults, checked keys, atomic write, broken file reads as 
   assert.deepEqual(new SettingsStore({ file }).get(), { ...DEFAULT_SETTINGS, updateCheck: false });
   fs.writeFileSync(file, 'nope');
   assert.deepEqual(new SettingsStore({ file }).get(), DEFAULT_SETTINGS);
+});
+
+test('SettingsStore: refresh periods from a fixed list; a home folder must be absolute, exist and look like that home', () => {
+  const dir = tmpDir();
+  const file = path.join(dir, 'settings.json');
+  const s = new SettingsStore({ file });
+  assert.equal(s.set({ liveSec: 3, idleSec: 60 }).liveSec, 3);
+  assert.throws(() => s.set({ liveSec: 1 }), TypeError);
+  assert.throws(() => s.set({ idleSec: '30' }), TypeError);
+  const claude = path.join(dir, 'c'); fs.mkdirSync(path.join(claude, 'projects'), { recursive: true });
+  const codex = path.join(dir, 'x'); fs.mkdirSync(codex); fs.writeFileSync(path.join(codex, 'config.toml'), '');
+  assert.equal(s.set({ claudeHome: claude, codexHome: codex }).claudeHome, claude);
+  assert.equal(validHome('claudeHome', codex), false); // a Codex folder is not a Claude home
+  for (const bad of ['relative/path', path.join(dir, 'missing'), path.join(codex, 'config.toml'), `${claude}\n`, 7]) assert.throws(() => s.set({ claudeHome: bad }), TypeError, String(bad));
+  assert.equal(s.set({ claudeHome: '' }).claudeHome, '');
+  // a saved folder that was removed reads as automatic
+  s.set({ claudeHome: claude });
+  fs.rmSync(claude, { recursive: true });
+  assert.equal(new SettingsStore({ file }).get().claudeHome, '');
+  assert.deepEqual(resolveHomes({ claudeHome: '', codexHome: codex }, { CLAUDE_CONFIG_DIR: '/env/claude' }, '/home/u'), { claude: '/env/claude', codex });
+  assert.deepEqual(resolveHomes({ claudeHome: '', codexHome: '' }, {}, '/home/u'), { claude: path.join('/home/u', '.claude'), codex: path.join('/home/u', '.codex') });
 });
 
 test('digest: once a day from 18:00 with counts only; held by notify off, quiet hours, no output or a bad state; survives a restart', () => {

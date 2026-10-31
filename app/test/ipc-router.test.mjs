@@ -49,6 +49,10 @@ test('bad payloads answer BAD_REQUEST and never reach the handler', async () => 
     ['settings:set', { quietStart: '24:00' }],
     ['settings:set', { quietEnd: '7:00' }],
     ['settings:set', { theme: 'blue' }],
+    ['settings:set', { liveSec: 1 }],
+    ['settings:set', { idleSec: '30' }],
+    ['settings:set', { claudeHome: 'C:\\x\nrm' }],
+    ['settings:set', { codexHome: 'x'.repeat(401) }],
     ['settings:get', {}],
     ['fix:preview', { findingId: 'U1x' }],
   ];

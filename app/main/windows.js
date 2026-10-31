@@ -86,9 +86,11 @@ export class StripWindow extends AppWindow {
 }
 
 export class MainWindow extends AppWindow {
-  constructor(frameUrl) {
+  // onSeen(bool): called when the window becomes visible or is hidden, minimized or closed.
+  constructor(frameUrl, onSeen = () => {}) {
     super('main');
     this.frameUrl = frameUrl;
+    this.onSeen = onSeen;
   }
 
   open(tab = 'ov') {
@@ -100,6 +102,8 @@ export class MainWindow extends AppWindow {
       this.win.setMenu(null);
       lockDown(this.win, this.pageUrl, this.frameUrl);
       this.win.once('ready-to-show', () => this.win.show());
+      for (const ev of ['show', 'restore']) this.win.on(ev, () => this.onSeen(true));
+      for (const ev of ['hide', 'minimize', 'closed']) this.win.on(ev, () => this.onSeen(false));
       this.win.loadURL(`${this.pageUrl}#${tab}`);
       return;
     }

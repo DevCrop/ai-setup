@@ -6,7 +6,7 @@ import { MonitorService } from '../core/monitor-service.js';
 import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
 import { NotificationPolicy } from '../core/notification-policy.js';
-import { SettingsStore } from '../core/settings-store.js';
+import { resolveHomes, SettingsStore, validHome } from '../core/settings-store.js';
 import { AutoUpdater } from '../core/updater.js';
 import { AppLog, errText } from '../core/app-log.js';
 import { httpsJson } from '../core/sources/update-source.js';
@@ -48,13 +48,15 @@ if (!app.requestSingleInstanceLock()) {
       toast(policy.updated(r, Object.fromEntries(updater.steps.map((s) => [s.id, s.label]))));
     },
   });
-  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy, updater });
+  const monitor = new MonitorService({ outDir, repo: REPO, homes: resolveHomes(settings.get()), refreshSec: settings.get().idleSec, runner, sourceDeps, policy, updater });
+  let seen = false; // main window on screen: refresh at the live period
+  const pace = () => monitor.setRefreshSec(seen ? settings.get().liveSec : settings.get().idleSec);
   const stripFile = path.join(outDir, 'strip.json');
   const strip = new StripWindow({
     load: () => { try { return JSON.parse(fs.readFileSync(stripFile, 'utf8')); } catch { return null; } },
     save: (pos) => { try { fs.writeFileSync(stripFile, JSON.stringify(pos)); } catch { /* position memory is a convenience */ } },
   });
-  const main = new MainWindow(() => monitor.getViewFileUrl());
+  const main = new MainWindow(() => monitor.getViewFileUrl(), (on) => { seen = on; pace(); });
   const log = (line) => appLog.warn(line);
 
   const quit = () => {
@@ -100,7 +102,18 @@ if (!app.requestSingleInstanceLock()) {
       'fix:apply': ({ findingId, previewId }) => monitor.optimizer.apply(findingId, previewId),
       'fix:restore': ({ findingId }) => monitor.optimizer.restore(findingId),
       'settings:get': () => settings.get(),
-      'settings:set': (patch) => { const s = settings.set(patch); nativeTheme.themeSource = s.theme; return s; },
+      'settings:set': (patch) => {
+        const before = settings.get();
+        const moved = ['claudeHome', 'codexHome'].some((k) => Object.hasOwn(patch, k) && patch[k] !== before[k]);
+        // new folders mean new caches, journal paths and sources: a clean restart, never while a fix or update runs
+        if (moved && (monitor.optimizer.busyFindingId() || updater.running)) throw new CoreError('FIX_BUSY');
+        for (const k of ['claudeHome', 'codexHome']) if (Object.hasOwn(patch, k) && !validHome(k, patch[k])) throw new CoreError('BAD_FOLDER');
+        const s = settings.set(patch);
+        nativeTheme.themeSource = s.theme;
+        pace();
+        if (moved) { appLog.info('folders changed, restarting'); setImmediate(() => { app.relaunch(); app.quit(); }); }
+        return s;
+      },
     },
   });
 
