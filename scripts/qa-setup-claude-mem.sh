@@ -80,5 +80,15 @@ exit 0
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && [ "$(jq -c . "$t/cfg/settings.json")" = '{"model":"opus","env":{"KEEP":"1","TE_PYTHON":"C:/py/python.exe"}}' ] \
   && pass "install-plugins: sets env.TE_PYTHON and keeps the rest" || bad "install-plugins TE_PYTHON (rc=$rc; $(cat "$t/cfg/settings.json"))"
+# Unreadable live settings, or a mv that fails: warn, leave the file and no temp copy, exit 0.
+printf '{bad' > "$t/cfg/settings.json"
+out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
+[ "$rc" = 0 ] && [ "$(cat "$t/cfg/settings.json")" = '{bad' ] && ! ls "$t/cfg"/*.te.* >/dev/null 2>&1 && printf '%s' "$out" | grep -q 'TE_PYTHON not set' \
+  && pass "install-plugins: bad live settings are left alone" || bad "install-plugins bad settings (rc=$rc; $out)"
+printf '{}' > "$t/cfg/settings.json"; printf '#!/bin/sh\nexit 1\n' > "$t/cl/mv"; chmod +x "$t/cl/mv"
+out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
+rm -f "$t/cl/mv"
+[ "$rc" = 0 ] && [ "$(cat "$t/cfg/settings.json")" = '{}' ] && ! ls "$t/cfg"/*.te.* >/dev/null 2>&1 \
+  && pass "install-plugins: a failed mv exits 0 and cleans up" || bad "install-plugins mv fail (rc=$rc; $out)"
 echo "failures: $fail"
 [ "$fail" -eq 0 ]
