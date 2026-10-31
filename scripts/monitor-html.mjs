@@ -381,6 +381,23 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
   .anim .nd::before { transform-origin: left; animation: grow .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 80ms); }
   .anim .nd::after, .anim .nd .tr { transform-origin: top; animation: growy .3s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms + 120ms); }
 }
+
+/* 6 readout layer: dot-grid paper, mono figures, tick meters, underline tabs. Overrides the base rules above on purpose. */
+:root { --ticks: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px); }
+:root:not([data-theme="dark"]) { --bg: #f4f4f1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1f1e1d; } }
+html { background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line-strong) 70%, transparent) 1px, transparent 0); background-size: 16px 16px; background-repeat: repeat; }
+.kpi .v, .tile .n, .big, .hit, .ubar-v, .utable td.num, .dlg b, .lrow .lv, .cd .cv-v, .yax, .meta time { font-family: var(--mono); letter-spacing: -.02em; }
+.kpi .v, .tile .n, .big, .hit { font-weight: 500; }
+.ring text, .dn .dv { font-family: var(--mono); letter-spacing: -.03em; }
+.kpi .k, .lr.lh, .utable th { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.ubar-track, .mb { height: 14px; border-radius: 0; background: color-mix(in srgb, var(--line-strong) 75%, transparent); -webkit-mask: var(--ticks); mask: var(--ticks); }
+.ubar-fill, .mb i { border-radius: 0; background: var(--fc, var(--accent)); }
+.mb { margin: var(--sp-2) 0 var(--sp-1); }
+.brand h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tabs { background: none; padding: 0; gap: var(--sp-4); border-radius: 0; }
+.tabs button { padding: 0 2px; border-radius: 0; box-shadow: inset 0 -2px 0 transparent; }
+.tabs button[aria-current="page"] { background: none; box-shadow: inset 0 -2px 0 var(--fg); }
 `;
 
 // Lookup that ignores inherited keys such as "constructor".
