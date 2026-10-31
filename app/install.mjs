@@ -28,7 +28,7 @@ export function plan({ appDir, startupDir, exists, start, lockHash = null, stamp
     // Case-insensitive file systems see "Claude monitor.lnk" and LINK_NAME as one file; the new shortcut overwrites it instead.
     if (name.toLowerCase() !== LINK_NAME.toLowerCase() && exists(p)) steps.push({ kind: 'remove', path: p });
   }
-  steps.push({ kind: 'shortcut', path: path.join(startupDir, LINK_NAME), target: exe, args: `"${appDir}"`, cwd: appDir });
+  steps.push({ kind: 'shortcut', path: path.join(startupDir, LINK_NAME), target: exe, args: `"${appDir}"`, cwd: appDir, icon: path.join(appDir, 'assets', 'icon.ico') });
   if (start) steps.push({ kind: 'start', target: exe, args: [appDir] });
   return { steps };
 }
@@ -39,8 +39,8 @@ function startupDir() {
 
 // Shortcuts need the Windows shell; values go in through environment variables, never into the script text.
 function writeShortcut(s) {
-  const ps = '$l=(New-Object -ComObject WScript.Shell).CreateShortcut($env:CM_LINK);$l.TargetPath=$env:CM_TARGET;$l.Arguments=$env:CM_ARGS;$l.WorkingDirectory=$env:CM_CWD;$l.Description="Claude Monitor";$l.Save()';
-  execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { env: { ...process.env, CM_LINK: s.path, CM_TARGET: s.target, CM_ARGS: s.args, CM_CWD: s.cwd }, stdio: 'inherit' });
+  const ps = '$l=(New-Object -ComObject WScript.Shell).CreateShortcut($env:CM_LINK);$l.TargetPath=$env:CM_TARGET;$l.Arguments=$env:CM_ARGS;$l.WorkingDirectory=$env:CM_CWD;$l.IconLocation=$env:CM_ICON;$l.Description="Claude Monitor";$l.Save()';
+  execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { env: { ...process.env, CM_LINK: s.path, CM_TARGET: s.target, CM_ARGS: s.args, CM_CWD: s.cwd, CM_ICON: s.icon }, stdio: 'inherit' });
 }
 
 const sha = (file) => { try { return createHash('sha256').update(fs.readFileSync(file)).digest('hex'); } catch { return null; } };

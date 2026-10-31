@@ -387,7 +387,7 @@ i.sw.ln { width: 14px; height: 2px; border-radius: 1px; background-color: var(--
 :root:not([data-theme="dark"]) { --bg: #f4f4f1; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1f1e1d; } }
 html { background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--line-strong) 70%, transparent) 1px, transparent 0); background-size: 16px 16px; background-repeat: repeat; }
-.kpi .v, .tile .n, .big, .hit, .ubar-v, .utable td.num, .dlg b, .lrow .lv, .cd .cv-v, .yax, .meta time { font-family: var(--mono); letter-spacing: -.02em; }
+.kpi .v, .tile .n, .big, .hit, .ubar-v, .utable td.num, .dlg b, .lrow .lv, .meta time { font-family: var(--mono); letter-spacing: -.02em; }
 .kpi .v, .tile .n, .big, .hit { font-weight: 500; }
 .ring text, .dn .dv { font-family: var(--mono); letter-spacing: -.03em; }
 .kpi .k, .lr.lh, .utable th { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
@@ -718,8 +718,8 @@ function kpiRow(d) {
   const okN = agents.filter((a) => a.verdict === 'ok').length;
   const up = reach(mem);
   return `<div class="kpis band">` +
-    coreKpis(d, false) +
-    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준') +
+    coreKpis(d, true) +
+    kpi('라우팅 일치', agents.length ? `${okN}/${agents.length}` : DASH, '기대 모델이 있는 에이전트 기준', '', { bar: agents.length ? okN / agents.length : NaN }) +
     kpi('claude-mem 상태', up.label, `워커 ${txt(mem.version)}`, up.st === 'missing' ? 'bad' : '') + `</div>`;
 }
 
@@ -1344,7 +1344,7 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 .embed .kpi .v { font-size: 22px; line-height: 1.25; }
 .embed .tile .n { font-size: 17px; } .embed .big { font-size: 20px; }
 .embed .ring { width: 72px; height: 72px; } .embed .dn { width: 96px; height: 96px; }
-.embed .panel { overflow: auto; gap: var(--sp-2); scrollbar-width: thin; }
+.embed .panel { overflow: hidden auto; gap: var(--sp-2); scrollbar-width: thin; }
 .embed .panel > * { flex-shrink: 0; }
 .embed .ph { position: sticky; top: calc(var(--pad) * -1); z-index: 1; margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 0; padding: var(--pad) var(--pad) var(--sp-1); background: var(--panel); }
 .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2 { flex: 1 1 0; min-height: 0; }

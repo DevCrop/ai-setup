@@ -1,5 +1,5 @@
 // Electron entry: single instance, security switches, wires MonitorService and IpcRouter to the two windows.
-import { app, clipboard, ipcMain, Menu, Notification, session } from 'electron';
+import { app, clipboard, ipcMain, Menu, nativeTheme, Notification, session } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { MonitorService } from '../core/monitor-service.js';
@@ -22,6 +22,8 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   const outDir = app.getPath('userData');
   const settings = new SettingsStore({ file: path.join(outDir, 'settings.json') });
+  // One switch for every window and the monitor iframe: prefers-color-scheme follows themeSource.
+  nativeTheme.themeSource = settings.get().theme;
   const policy = new NotificationPolicy({ file: path.join(outDir, 'notify-state.json'), settings: () => settings.get() });
   const sourceDeps = { runner, fetchJson: (url) => httpsJson(url), updateCheck: () => settings.get().updateCheck };
   const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy });
@@ -76,7 +78,7 @@ if (!app.requestSingleInstanceLock()) {
       'fix:apply': ({ findingId, previewId }) => monitor.optimizer.apply(findingId, previewId),
       'fix:restore': ({ findingId }) => monitor.optimizer.restore(findingId),
       'settings:get': () => settings.get(),
-      'settings:set': (patch) => settings.set(patch),
+      'settings:set': (patch) => { const s = settings.set(patch); nativeTheme.themeSource = s.theme; return s; },
     },
   });
 

@@ -973,9 +973,21 @@
     sec.appendChild(ul);
     return sec;
   }
+  // header theme switch: the main process applies it to every window (nativeTheme), this only marks the pressed button
+  function paintTheme() {
+    var cur = (prefs && prefs.theme) || 'system';
+    Array.prototype.forEach.call($('theme-seg').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-theme') === cur));
+      b.disabled = !prefs;
+    });
+  }
+  $('theme-seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b && prefs && b.getAttribute('data-theme') !== prefs.theme) savePrefs({ theme: b.getAttribute('data-theme') });
+  });
   function savePrefs(patch) {
     api.setSettings(patch).then(function (res) {
-      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; announce('설정 저장됨'); }
+      if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; paintTheme(); announce('설정 저장됨'); }
       else { prefsErr = '저장 실패: ' + errText(res); announce(prefsErr); }
       renderOpt();
     }, function () { prefsErr = '저장 실패: 요청을 처리하지 못했습니다'; announce(prefsErr); renderOpt(); });
@@ -1022,6 +1034,7 @@
     if (!api || !api.getSettings) return;
     api.getSettings().then(function (res) {
       if (res && res.ok && res.data) { prefs = res.data; prefsErr = ''; } else prefsErr = '설정을 읽지 못했습니다: ' + errText(res);
+      paintTheme();
       renderOpt();
     }, function () { prefsErr = '설정을 읽지 못했습니다'; renderOpt(); });
   }
