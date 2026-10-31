@@ -86,6 +86,8 @@ test('codex automations: no line inside any multi-line string form ever becomes 
     ['prompt = """', 'x \\"""', 'name = "LEAK7"', '"""'],
     ["prompt = '''", 'name = "LEAK8"', "'''"],
     ['note = "it\'\'\'s"', 'p = """one""" # """', 'name = "OK"'],
+    ['  [target]', 'name = "LEAK9"'],
+    ['target = {', 'name = "LEAK10",', '}'],
   ];
   const h = homes();
   cases.forEach((lines, i) => {
@@ -96,7 +98,7 @@ test('codex automations: no line inside any multi-line string form ever becomes 
   const got = readCodexAutomations(h.codex, mask);
   assert.ok(!JSON.stringify(got).includes('LEAK'), JSON.stringify(got));
   assert.equal(got.find((a) => a.id === 'a8').name, 'OK');
-  assert.ok(got.every((a) => a.status === 'active'));
+  assert.ok(got.filter((a) => !['a9', 'a10'].includes(a.id)).every((a) => a.status === 'active')); // a9, a10 stop at the table (fail-safe)
 });
 
 test('source: off Windows or without a runner reads the files only; one refresh at a time; cached until the TTL', async () => {

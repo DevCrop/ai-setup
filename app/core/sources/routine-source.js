@@ -106,7 +106,9 @@ export function readCodexAutomations(codexHome, mask = masker()) {
       const start = inMulti;
       inMulti = multiState(line, inMulti);
       if (start) continue; // this line began inside a multi-line string: never a key
-      if (line.startsWith('[')) break; // only top-level keys
+      if (/^\s*\[/.test(line)) break; // only top-level keys
+      // a multi-line inline table (TOML 1.1) could hold a nested name: stop there too (fail-safe, later keys are lost)
+      if (/=\s*\{[^}]*$/.test(line)) break;
       const m = /^([a-z_]+)\s*=\s*(.*)$/.exec(line); // unindented bare keys only; anything else is skipped
       if (!m || !CODEX_KEYS.has(m[1])) continue;
       const v = /^"((?:[^"\\]|\\.)*)"(?!")/.exec(m[2])?.[1] ?? /^'([^']*)'(?!')/.exec(m[2])?.[1] ?? /^(\d+)\s*(?:#.*)?$/.exec(m[2])?.[1];
