@@ -1080,15 +1080,16 @@ function tePanel(d) {
   return panel('TokenEconomizer', sec, (s) => {
     const c = isObj(s.config) ? s.config : {};
     const mode = (v) => (typeof v === 'string' && Object.hasOwn(TE_MODE, v) ? TE_MODE[v] : txt(v));
-    const tiles = [['마이크로스킬', c.microskills], ['도구 정리', c.toolprune], ['루프 가드', c.loopguard]]
-      .map(([l, v]) => `<div class="tile"><span class="n">${mode(v)}</span><span class="l">${l}</span></div>`).join('');
+    const fast = s.fastHook === true ? '빠름' : s.fastHook === false ? '느림' : DASH;
+    const tiles = [['마이크로스킬', mode(c.microskills)], ['도구 정리', mode(c.toolprune)], ['루프 가드', mode(c.loopguard)], ['훅 실행', fast]]
+      .map(([l, v]) => `<div class="tile"><span class="n">${v}</span><span class="l">${l}</span></div>`).join('');
     const rows = arr(s.repos).slice(0, 8).map((r) => {
       const over = r.effectiveTokens > 0 ? fixed1((r.overheadTokens / r.effectiveTokens) * 100) + '%' : DASH;
       return `<div class="kv"><span title="${esc(r.label)}">${txt(r.label)}</span><span>세션 ${fmtInt(r.sessions)} · 오버헤드 ${over} · 개입 ${fmtInt(r.nudges)} · 정리 제안 ${fmtInt(r.proposed)}</span></div>`;
     }).join('');
-    return `<div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">${tiles}</div>` +
+    return `<div class="tiles" style="grid-template-columns:repeat(4,minmax(0,1fr))">${tiles}</div>` +
       (rows || `<p class="cap">아직 기록된 세션이 없습니다</p>`) +
-      `<p class="cap">이 PC 측정 · 최근 7일 · 오버헤드 = 플러그인 자체 모델 호출 비중</p>`;
+      `<p class="cap">이 PC 측정 · 최근 7일 · 오버헤드 = 플러그인 자체 모델 호출 비중 · 훅 실행 느림 = Python 경로 미지정, install-plugins.sh 다시 실행</p>`;
   }, { hint: '토큰 절감 플러그인' });
 }
 
