@@ -109,14 +109,16 @@ Status = {
     trustedProjects:  number,
     missingProjects:  number,
     sessions7d:       number,                  // counted from file names or mtimes
-    backups:          number                   // config.toml.bak* files
+    backups:          number,                  // config.toml.bak* files
+    todayOutput:      number,                  // Codex output tokens today (usage scan), 0 when unknown
+    limitPercent:     number | null            // primary usage limit as last reported, null when unknown or reset
   },
   busyFindingId: string | null       // the fix whose apply/restore call is running (its stale check included), else null
 }
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C11", "X1" .. "X6", "U1" .. "U3"
+  checkId:    string,                // "C1" .. "C11", "X1" .. "X8", "U1" .. "U3"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
@@ -159,7 +161,7 @@ Decision: the monitor html is loaded as a file, not passed as a string. The file
 - Errors: `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
 
 ### `codex:detail`
-Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session content.
+Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<CodexDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
@@ -185,6 +187,13 @@ CodexDetail = {
   logs:       { name: string, bytes: number }[],
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
+  usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days
+    days:   { date: string, input: number, cached: number, output: number }[],
+    today:  { output, input, cached, sessions: number, projects: { projectName: string, sessions, output, cached, input: number, lastAt: string | null }[] },
+    rate:   null | { at: string, primary: Limit, secondary: Limit | null },   // Limit = { usedPercent, windowMinutes | null, resetsAt (ms) | null }
+    live:   { projectName: string, tokens: number, window: number, at: string }[],  // last request size, sessions active in 15 min
+    models: { model: string, output: number }[]
+  },
   findings:   string[]                            // ids of current codex findings (details via findings:list)
 }
 ```

@@ -199,6 +199,8 @@ export class MonitorService {
       plugins: cfg?.plugins.enabled ?? 0, mcpServers: cfg?.mcpServers.enabled ?? 0,
       trustedProjects: projects.length, missingProjects: projects.filter((p) => p.exists === false).length,
       sessions7d: codexRes.data?.sessions?.last7d ?? 0, backups: codexRes.data?.backups?.length ?? 0,
+      todayOutput: codexRes.data?.usage?.today?.output ?? 0,
+      limitPercent: codexRes.data?.usage?.rate?.primary?.usedPercent ?? null,
     } : null;
     const allMissing = (!claude || CLAUDE_SECTIONS.every((k) => claude[k]?.status === 'missing')) && (!codexRes || codexRes.status === 'missing');
     let state;
@@ -289,6 +291,7 @@ export class MonitorService {
       logs: sizes(d?.logs),
       backups: (d?.backups ?? []).map((b) => ({ name: b.name, bytes: b.size ?? 0, mtime: Number.isFinite(b.mtimeMs) ? new Date(b.mtimeMs).toISOString() : '' })).sort((a, b) => a.name.localeCompare(b.name)),
       worktrees: d?.worktrees?.count ?? 0,
+      usage: d?.usage?.status === 'ok' ? structuredClone(d.usage) : null, // counts, folder names and model names only
       findings: codexFindings.map((f) => f.id),
     };
   }

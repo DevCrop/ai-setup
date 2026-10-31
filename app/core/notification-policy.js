@@ -142,6 +142,7 @@ export class NotificationPolicy {
       status.todayProjects > 0 ? `프로젝트 ${status.todayProjects}곳` : null,
       `출력 ${k(status.todayOutput)} 토큰`,
       status.todaySavedInput > 0 ? `캐시로 입력 ${k(status.todaySavedInput)} 절약` : null,
+      status.codex?.todayOutput > 0 ? `Codex 출력 ${k(status.codex.todayOutput)}` : null,
       tips ? `개선 제안 ${tips}건` : '개선 제안 없음',
     ].filter(Boolean);
     return { title: 'Claude Monitor: 오늘 요약', body: `${parts.join(' · ')}.` };

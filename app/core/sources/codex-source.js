@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { localDates } from '../../../scripts/monitor.mjs';
+import { scanCodexUsage } from '../codex-usage.js';
 import { isDenied, readGuarded } from '../guard.js';
 import { Source, guardSource } from '../source.js';
 import { readConfig } from '../toml-lite.js';
@@ -64,6 +65,13 @@ function countSessionsByDate(dir, codexHome, nowMs) {
 export class CodexSource extends Source {
   id = 'codex';
   label = 'Codex';
+  #usageCache = new Map();
+  #usageRun = null; // a scan still running from a timed-out collect is joined, never run twice over one cache
+
+  #usage(home, now) {
+    this.#usageRun ??= scanCodexUsage(home, now, this.#usageCache).finally(() => { this.#usageRun = null; });
+    return this.#usageRun;
+  }
 
   async collect(ctx) {
     return guardSource(async () => {
@@ -90,7 +98,8 @@ export class CodexSource extends Source {
       const agentsMd = safe(() => listDir(path.join(home, 'agents'), home, /^AGENTS\.md$/)[0]?.size, null) ?? safe(() => listDir(home, home, /^AGENTS\.md$/)[0]?.size, null) ?? null;
       const skills = safe(() => listDirs(path.join(home, 'skills'), home), []);
       const worktrees = safe(() => scanWorktrees(path.join(home, 'worktrees'), home), { count: 0, oldestMtimeMs: null });
-      return { status, note, data: { config, backups, logs, sessions, agents, agentsMd, skills, worktrees } };
+      const usage = await this.#usage(home, ctx.now).catch(() => null);
+      return { status, note, data: { config, backups, logs, sessions, agents, agentsMd, skills, worktrees, usage } };
     });
   }
 }

@@ -52,6 +52,9 @@ Codex (출처 `~/.codex`):
 - X4 없는 파일을 가리키는 훅 상태(`[hooks.state.'<key>']`) → 고침: 그 표만 지움(백업, 되돌리기).
 - X5 켜졌지만 `command`도 `url`도 없는 MCP 서버 → 보고만.
 - X6 worktree가 20개 이상이거나 30일 넘은 것이 있음 → 보고만.
+- X7 Codex 사용 한도(기본·보조 창)가 80% 이상 → 주의(warn), 재설정 시각 표시(2026-10-31 추가).
+- X8 최근 15분 안에 작업한 Codex 세션의 마지막 요청이 문맥 창의 60% 이상 → 참고(info), 폴더 이름별 하나(2026-10-31 추가).
+- Codex 사용량(2026-10-31 추가): 최근 7일 `sessions/**/rollout-*.jsonl`에서 `session_meta`(폴더 이름), `turn_context`(모델 이름), `event_msg/token_count`(토큰 수와 사용 한도 %)만 읽는다. 다른 줄은 따옴표 붙은 표지 문자열이 없으면 JSON으로 읽지도 않고, 읽은 줄의 글은 버린다. 파일은 늘어난 부분만 8MB 조각으로 읽는다. Codex 탭 "사용량" 카드, 하루 요약의 Codex 출력.
 업데이트 (출처 `updates`, 6시간마다, 실패하면 30분 뒤 다시, 설정에서 끌 수 있음, 2026-10-31 추가):
 - U1 Claude Code 새 버전: 설치된 `claude --version`이 `autoUpdatesChannel`에 맞는 npm 태그(`latest`/`stable`)보다 낮음 → info, 명령 `claude update` 표시.
 - U2 저장소가 원격보다 뒤처짐: `main`이 체크아웃돼 있을 때만, `git ls-remote origin refs/heads/main`의 커밋이 로컬 `HEAD`에 없음(다른 브랜치면 보고 안 함) → info, 명령 `git pull` 다음 `bash scripts/apply.sh` 표시.
@@ -84,7 +87,7 @@ Codex (출처 `~/.codex`):
 - 실패 판단: 마지막 결과가 오류 비트가 켜진 코드(0x8…, 0xC…)이거나 일반 종료 코드(1..0xFFFF)면 실패. 0, 실행 중(0x41301), 아직 안 돔(0x41303), 대기(0x41325), 0x4…로 시작하는 알림 코드는 실패가 아니다. 꺼진 작업은 실패로 세지 않는다. 결과 코드는 16진수 그대로 보인다.
 
 ## Safety rules
-- 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수·모델·시각만 센다(본문 금지).
+- 읽지 않는 것: `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, 키·토큰 값. Codex 세션은 개수와 위의 세 줄 종류의 수치·폴더 이름·모델 이름만(대화·도구 글 금지).
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
 - Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다. 자동 업데이트도 위의 네 명령만 돌린다(`reset`, `checkout`, `clean`, `npm` 없음).
 - Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 화면은 로컬 파일만 읽음(렌더러 CSP `connect-src 'none'` 그대로), CSP, 단일 인스턴스.
@@ -109,4 +112,4 @@ Codex (출처 `~/.codex`):
 - 2026-10-25 developer 설계 반영: "node 없음" 대신 "수집 오류"; C1(apply.sh)은 되돌리기 없음(apply.sh가 백업을 남기지 않음), 되돌리기는 X1만; 심각도 C3 warn→warn, missing→bad, X2 info; 오른쪽 클릭 메뉴는 main의 기본 메뉴(app:strip-menu).
 - 2026-10-25 사용자 요청 반영: Codex 상세(codex:detail), 점검 X4(없는 훅 상태, 고침)·X5·X6, C4 고침, "최적화하기"(골라서 한꺼번에 미리보기 → 한 번 클릭 → 차례로 적용, 항목마다 백업, 모두 되돌리기; 위의 "모두 고치기 없음"은 이것으로 대체), 막대 위치 기억, 악화 시 데스크톱 알림, 한 화면 배치.
 - 2026-10-31 사용자 요청(PC Manager처럼) 1·2단계: 건강 점수, 안정된 발견만 세기·알림 규칙, 설정 저장, 보고만 하는 업데이트 확인 U1·U2(네트워크는 메인 프로세스만), C3:plugins 근거 보강.
-- 2026-10-31 사용자 요청: 자동 업데이트(저장소·apply.sh·플러그인·Claude Code, U3), rtk 결과 60초 재사용.
+- 2026-10-31 사용자 요청: 자동 업데이트(저장소·apply.sh·플러그인·Claude Code, U3), rtk 결과 60초 재사용; Codex 사용량·X7·X8.

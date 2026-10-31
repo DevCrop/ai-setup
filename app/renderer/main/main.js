@@ -259,6 +259,54 @@
       b.appendChild(r);
     });
   }
+  function tok(n) {
+    if (typeof n !== 'number' || !isFinite(n)) return '–';
+    return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n);
+  }
+  function hhmm(ms) { var t = new Date(ms); return (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); }
+  function bar(label, value, max, right) {
+    var r = el('div', 'br');
+    r.appendChild(el('span', 'bl', label));
+    var tr = el('span', 'bt');
+    tr.setAttribute('aria-hidden', 'true');
+    var fl = el('span', 'bf');
+    fl.style.width = (max ? Math.min(100, value / max * 100) : 0).toFixed(1) + '%'; // CSSOM, allowed by the style-src 'self' CSP
+    tr.appendChild(fl);
+    r.appendChild(tr);
+    r.appendChild(el('span', 'bv', right));
+    return r;
+  }
+  // Token use and limits read from the session files' token_count lines: counts, folder and model names only.
+  function cardUsage(root, d) {
+    var u = d.usage;
+    var t = u && u.today;
+    var b = card(root, 'use', '사용량', t ? '오늘 출력 ' + tok(t.output) + ' · 세션 ' + t.sessions : '');
+    if (!u) { none(b, '세션 파일에서 사용량을 읽지 못했습니다.'); return; }
+    subhead(b, '사용 한도');
+    var lims = [['기본', u.rate && u.rate.primary], ['보조', u.rate && u.rate.secondary]].filter(function (x) { return x[1]; });
+    if (!lims.length) none(b, '최근 보고된 한도가 없습니다.');
+    lims.forEach(function (x) {
+      var l = x[1];
+      var w = l.windowMinutes ? (l.windowMinutes % 1440 === 0 ? l.windowMinutes / 1440 + '일' : l.windowMinutes % 60 === 0 ? l.windowMinutes / 60 + '시간' : l.windowMinutes + '분') : '';
+      var row = bar(x[0] + (w ? ' ' + w : ''), l.usedPercent, 100, Math.round(l.usedPercent) + '%');
+      if (l.usedPercent >= 80) row.classList.add('warn');
+      b.appendChild(row);
+      if (l.resetsAt) b.appendChild(el('p', 'cap', x[0] + ' 창 재설정 ' + hhmm(l.resetsAt)));
+    });
+    subhead(b, '오늘 프로젝트');
+    if (!t.projects.length) none(b, '오늘 Codex 작업이 없습니다.');
+    t.projects.forEach(function (p) {
+      b.appendChild(crow(true, p.projectName, tok(p.output), ['세션 ' + p.sessions, '캐시 ' + tok(p.cached)]));
+    });
+    subhead(b, '7일 출력');
+    var days = u.days.slice().sort(function (x, y) { return x.date < y.date ? -1 : 1; });
+    var max = Math.max.apply(null, days.map(function (x) { return x.output; })) || 1;
+    days.forEach(function (x) { b.appendChild(bar(x.date.slice(5), x.output, max, tok(x.output))); });
+    if (u.models.length) {
+      subhead(b, '모델별 출력 (7일)');
+      u.models.forEach(function (m) { b.appendChild(crow(true, m.model, tok(m.output), null, true)); });
+    }
+  }
   function cardRepo(root, d) {
     var b = card(root, 'repo', '저장소 정리', '작업트리 ' + d.worktrees);
     subhead(b, '로그 DB');
@@ -300,10 +348,10 @@
     root.appendChild(codexKpis(c, d));
     var grid = el('div', 'cxg');
     if (d) {
-      cardSettings(grid, d); cardPlugins(grid, d); cardMcp(grid, d); cardProjects(grid, d);
+      cardUsage(grid, d); cardSettings(grid, d); cardPlugins(grid, d); cardMcp(grid, d); cardProjects(grid, d);
       cardAgents(grid, d); cardSessions(grid, d); cardRepo(grid, d);
     } else {
-      [['set', '설정'], ['plug', '플러그인'], ['mcp', 'MCP 서버'], ['proj', '신뢰 프로젝트'], ['agent', '에이전트 · 스킬'], ['sess', '세션'], ['repo', '저장소 정리']].forEach(function (n) {
+      [['use', '사용량'], ['set', '설정'], ['plug', '플러그인'], ['mcp', 'MCP 서버'], ['proj', '신뢰 프로젝트'], ['agent', '에이전트 · 스킬'], ['sess', '세션'], ['repo', '저장소 정리']].forEach(function (n) {
         none(card(grid, n[0], n[1]), cxErr ? '자세한 정보를 불러오지 못했습니다: ' + cxErr : '불러오는 중…');
       });
     }
