@@ -46,7 +46,7 @@ export class MonitorService {
   #cache = new Map();
 
   // Everything with a side effect is passed in: sources, optimizer, clock, folders, env.
-  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, sourceDeps = {}, policy = null, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal } = {}) {
+  constructor({ outDir, homes, repo, env = process.env, refreshSec = 10, sources, sourceDeps = {}, policy = null, optimizer, runner, clock = realClock, renderFn = render, runTimeoutMs, journal, updater = null } = {}) {
     if (!outDir) throw new TypeError('outDir is required');
     this.outDir = outDir;
     this.repo = repo ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -65,6 +65,20 @@ export class MonitorService {
     this.renderFn = renderFn;
     this.runTimeoutMs = runTimeoutMs ?? Math.max(30000, 3 * this.refreshSec * 1000);
     this.optimizer.subscribe(() => this.#emit());
+    // Optional AutoUpdater: considered after every run; a fix and an update never run at the same time.
+    this.updater = updater;
+    if (updater) {
+      const prev = this.optimizer.externalBusy ?? (() => false);
+      this.optimizer.externalBusy = () => updater.running || prev();
+      updater.isBusy = () => !!this.optimizer.busyFindingId();
+    }
+  }
+
+  // After a pass that changed something: check for updates again at once and show the result.
+  #afterUpdate(result) {
+    if (!result) return;
+    if (result.done.length) for (const s of this.sources) s.invalidate?.();
+    this.#refresh();
   }
 
   start() {
@@ -128,9 +142,10 @@ export class MonitorService {
       const snapshot = new Snapshot({
         generatedAt: new Date(run.startedAt).toISOString(),
         sources: Object.fromEntries(this.sources.map((s, i) => [s.id, results[i]])),
-        ctx: { repo: this.repo, homes: this.homes },
+        ctx: { repo: this.repo, homes: this.homes, autoUpdate: this.updater?.status() ?? null },
       });
       this.optimizer.run(snapshot);
+      this.updater?.consider(snapshot)?.then((r) => this.#afterUpdate(r), () => {});
       // a source that could not be read this run keeps its findings' ages (no reset to 'just seen')
       this.policy?.observe(this.optimizer.findings(), this.sources.filter((s, i) => results[i]?.data == null && results[i]?.status === 'missing' && s.id !== 'updates').map((s) => s.id));
       this.#write(snapshot);

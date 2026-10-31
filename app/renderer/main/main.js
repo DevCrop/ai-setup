@@ -964,7 +964,7 @@
     sec.setAttribute('aria-label', '업데이트');
     var ph = el('div', 'ph');
     ph.appendChild(el('h2', null, '업데이트'));
-    ph.appendChild(el('span', 'hint', '앱은 직접 실행하지 않습니다. 명령을 골라 복사해 터미널에서 실행하세요.'));
+    ph.appendChild(el('span', 'hint', prefs && prefs.autoUpdate && prefs.updateCheck ? '자동 업데이트가 켜져 있어 앱이 차례로 받습니다. 바로 하려면 명령을 터미널에서 실행하세요.' : '자동 업데이트가 꺼져 있습니다. 명령을 골라 복사해 터미널에서 실행하세요.'));
     sec.appendChild(ph);
     var ul = el('ul', 'pitems sc');
     ul.tabIndex = 0; // keyboard can scroll it: it holds no focusable item
@@ -1034,6 +1034,7 @@
     q.appendChild(time('quietEnd', '조용한 시간 끝'));
     row.appendChild(q);
     row.appendChild(toggle('updateCheck', '업데이트 확인'));
+    row.appendChild(toggle('autoUpdate', '자동 업데이트'));
     if (prefsErr) row.appendChild(el('span', 'cap bad', prefsErr));
     sec.appendChild(row);
     return sec;

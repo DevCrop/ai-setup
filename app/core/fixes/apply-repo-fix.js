@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import os from 'node:os';
 import { CoreError } from '../errors.js';
 import { Fix } from '../fix.js';
+import { maskHome } from '../mask-home.js';
 
 // CommandRunner: (file, args, opts) -> Promise<{ code, stdout, stderr }>; never rejects.
 export const execRunner = (file, args, opts = {}) => new Promise((resolve) => {
@@ -31,15 +32,6 @@ export class ApplyRepoFix extends Fix {
     return this.#runner('bash', dry ? ['scripts/apply.sh', '--dry-run'] : ['scripts/apply.sh'], { cwd: this.#repo });
   }
 
-  // The home folder as bash prints it (/c/Users/x, C:/Users/x) or Windows does (C:\Users\x) becomes ~.
-  #maskHome(text) {
-    const h = this.#homeDir;
-    if (!h) return text;
-    const fwd = h.replaceAll('\\', '/');
-    const msys = fwd.replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`);
-    return [h, fwd, msys].reduce((t, v) => t.split(v).join('~'), text);
-  }
-
   async #dryRun() {
     const r = await this.#run(true);
     if (r.code !== 0) throw new Error('dry run failed');
@@ -56,7 +48,7 @@ export class ApplyRepoFix extends Fix {
     const r = await this.#run(false);
     if (r.code !== 0) {
       // mask first: cutting first could leave half a home path that no longer matches
-      const tail = this.#maskHome(`${r.stdout}\n${r.stderr}`.trim()).slice(-400);
+      const tail = maskHome(`${r.stdout}\n${r.stderr}`.trim(), this.#homeDir).slice(-400);
       throw new CoreError('APPLY_FAILED', { detail: tail });
     }
     return {};

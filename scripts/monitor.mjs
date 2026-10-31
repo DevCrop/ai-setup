@@ -462,6 +462,8 @@ const run = (bin, args) => new Promise((resolve, reject) => {
   execFile(bin, args, { timeout: 5000, windowsHide: true, maxBuffer: 8 << 20 }, (e, out) => (e ? reject(e) : resolve(out)));
 });
 
+export const RTK_TTL_MS = 60 * 1000;
+
 // Two rtk calls: `gain -f json --daily` (summary + per-day saved) and plain `gain` (the only source of per-command rows).
 export async function fetchRtk(bin) {
   const r = { missing: false, summary: null, daily: [], topCommands: [] };
@@ -679,7 +681,12 @@ export async function collect(opts = {}) {
   const tokens = await guard(() => (scan ? buildTokens(scan) : noScan({ days: [], totals: null })), { days: [], totals: null });
   const orchestration = await guard(() => (scan ? buildOrchestration(scan, expected()) : noScan({ sessions: [] })), { sessions: [] });
   const activity = await guard(() => (scan ? buildActivity(scan) : noScan({ projects: [] })), { projects: [] });
-  const rtkRaw = await fetchRtk(bin).catch(() => ({ missing: false, summary: null, daily: [], topCommands: [] }));
+  // Two rtk processes cost ~270 ms of a ~400 ms run on Windows and its totals move slowly: `opts.memo` (an object the
+  // caller keeps between runs) holds the result for RTK_TTL_MS. Without it every run asks rtk.
+  const memo = opts.memo?.rtk;
+  const rtkRaw = memo && memo.bin === bin && nowMs - memo.at >= 0 && nowMs - memo.at < RTK_TTL_MS ? memo.value
+    : await fetchRtk(bin).catch(() => ({ missing: false, summary: null, daily: [], topCommands: [] }));
+  if (opts.memo && rtkRaw !== memo?.value) opts.memo.rtk = { bin, at: nowMs, value: rtkRaw };
   const mem = await fetchMemStats(env);
   const savings = await guard(() => buildSavings({ scan, rtk: rtkRaw, mem, home, nowMs }), { rtk: null, cache: null, claudeMem: null, ponytail: null, delegation: [] });
   return {

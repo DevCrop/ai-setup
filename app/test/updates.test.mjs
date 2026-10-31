@@ -59,7 +59,7 @@ test('UpdateSource: collect never waits for the network, caches for the TTL, use
   release();
   await src.settle();
   const second = await src.collect(ctxFor(home, 1050));
-  assert.deepEqual(second.data, { claudeCode: { installed: '2.1.310', latest: '2.1.312', channel: 'stable' }, repo: { behind: 3 } });
+  assert.deepEqual(second.data, { claudeCode: { installed: '2.1.310', latest: '2.1.312', channel: 'stable' }, repo: { behind: 3, remote: REMOTE } });
   assert.equal(urls.length, 1); // inside the TTL: no new fetch
   await src.collect(ctxFor(home, 1200));
   await src.settle();
@@ -80,9 +80,9 @@ test('UpdateSource: offline, a missing claude, a bad version string and an unkno
   };
   assert.deepEqual(await one({ remote: null, version: null }, async () => { throw new Error('offline'); }), { claudeCode: null, repo: null });
   assert.deepEqual((await one({}, async () => ({ latest: '2.1.316; rm -rf /' }))).claudeCode, null);
-  assert.deepEqual((await one({ known: false }, async () => ({ latest: '2.1.316' }))).repo, { behind: null });
-  assert.deepEqual((await one({ remote: HEAD }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0 });
-  assert.deepEqual((await one({ branch: 'feat/x' }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0, branch: 'other' }); // feature branch: no 'git pull' advice
+  assert.deepEqual((await one({ known: false }, async () => ({ latest: '2.1.316' }))).repo, { behind: null, remote: REMOTE });
+  assert.deepEqual((await one({ remote: HEAD }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0, remote: HEAD });
+  assert.deepEqual((await one({ branch: 'feat/x' }, async () => ({ latest: '2.1.316' }))).repo, { behind: 0, branch: 'other', remote: REMOTE }); // feature branch: no 'git pull' advice
 });
 
 test('httpsJson: registry host only, size limit, http errors throw', async () => {

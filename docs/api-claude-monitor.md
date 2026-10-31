@@ -18,7 +18,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `findingId` | string, 3 to 80 chars, `^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
 | `tab` | one of `ov flow orch route tok sav set codex rt opt` |
-| `notify`, `updateCheck` | boolean |
+| `notify`, `updateCheck`, `autoUpdate` | boolean |
 | `theme` | one of `"system"`, `"light"`, `"dark"` |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | all objects | no keys other than those listed; max serialized size 1 KB |
@@ -116,7 +116,7 @@ Status = {
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C11", "X1" .. "X6", "U1" .. "U2"
+  checkId:    string,                // "C1" .. "C11", "X1" .. "X6", "U1" .. "U3"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
@@ -252,13 +252,13 @@ RoutinesDetail = {
 ### `settings:get`
 Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
-- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `theme: "system"`. Quiet hours apply only when both are set.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, theme: "system" | "light" | "dark" }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`. Quiet hours apply only when both are set.
 - Errors: `FORBIDDEN`, `INTERNAL`.
 
 ### `settings:set`
 - Direction: renderer to main, invoke. Caller: main window.
-- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, theme }` (rules in section 1).
-- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run; `notify: false` stops toasts.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, theme }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `notify: false` stops toasts.
 - Errors: `BAD_REQUEST`, `FORBIDDEN`, `INTERNAL`.
 
 ### `app:open-main`

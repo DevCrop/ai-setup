@@ -8,7 +8,7 @@ const SEMVER = /^\d{1,4}\.\d{1,4}\.\d{1,6}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const DIST_TAGS = 'https://registry.npmjs.org/-/package/@anthropic-ai/claude-code/dist-tags';
 // git must never open a credential window or prompt in the background.
-const GIT_ENV = { GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
+export const GIT_ENV = { GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' };
 
 // HTTPS GET of a small JSON document, registry.npmjs.org only, 5 s limit. Used by main.js; tests pass their own fetchJson.
 export async function httpsJson(url, fetchFn = globalThis.fetch) {
@@ -55,6 +55,9 @@ export class UpdateSource extends Source {
   // Exposed for tests: resolves when a background refresh started by collect() has finished.
   settle() { return this.#inflight ?? Promise.resolve(); }
 
+  // After the auto-updater changed something: the next collect() checks again instead of waiting out the TTL.
+  invalidate() { this.#cache = null; }
+
   async refresh(ctx) {
     const [claudeCode, repo] = await Promise.all([this.#claudeCode(ctx).catch(() => null), this.#repo(ctx).catch(() => null)]);
     return { claudeCode, repo };
@@ -77,11 +80,11 @@ export class UpdateSource extends Source {
     const head = (await git('rev-parse', 'HEAD')).stdout.trim();
     if (!remote || !SHA.test(head)) return null;
     // On another branch (feature work) "git pull" would pull that branch: compare only when main is checked out.
-    if ((await git('rev-parse', '--abbrev-ref', 'HEAD')).stdout.trim() !== 'main') return { behind: 0, branch: 'other' };
-    if (remote === head) return { behind: 0 };
+    if ((await git('rev-parse', '--abbrev-ref', 'HEAD')).stdout.trim() !== 'main') return { behind: 0, branch: 'other', remote };
+    if (remote === head) return { behind: 0, remote };
     // The remote commit is known locally: count exactly. Unknown: the remote has commits this checkout has not fetched.
-    if ((await git('cat-file', '-e', `${remote}^{commit}`)).code !== 0) return { behind: null };
+    if ((await git('cat-file', '-e', `${remote}^{commit}`)).code !== 0) return { behind: null, remote };
     const n = Number((await git('rev-list', '--count', `HEAD..${remote}`)).stdout.trim());
-    return { behind: Number.isFinite(n) ? n : null };
+    return { behind: Number.isFinite(n) ? n : null, remote };
   }
 }

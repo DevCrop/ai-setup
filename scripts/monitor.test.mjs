@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { collect, summarize, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
+import { RTK_TTL_MS, collect, summarize, collectSetupFlow, parseOrchestrate, localDates, parseRtkTopCommands, parseTranscriptLine, readExpectedModels, scanTranscripts, buildTokens, buildRouting, buildOrchestration } from './monitor.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -282,6 +282,19 @@ test('rtk end to end with a fake rtk: summary, 7-day saved sum and top commands'
     { command: 'rtk git status', count: 2, saved: '1.0K', pct: '10.0%' },
   ]);
   assert.deepEqual(d.savings.rtk, { saved7d: 1500, savedAll: 9000, savedPct: 45.5 });
+});
+
+test('rtk memo: a kept result is reused inside RTK_TTL_MS, asked again after it or when the binary changes', async () => {
+  const fake = path.join(here, 'fixtures', 'monitor', 'fake-rtk.mjs');
+  const memo = {};
+  const at = (ms, bin = fake) => collect({ home, now: new Date(Date.parse(NOW) + ms).toISOString(), env: { ...ENV, MONITOR_RTK_BIN: bin }, memo });
+  assert.equal((await at(0)).rtk.status, 'ok');
+  const kept = memo.rtk.value;
+  await at(RTK_TTL_MS - 1);
+  assert.equal(memo.rtk.value, kept); // reused, no rtk process
+  assert.equal((await at(RTK_TTL_MS)).rtk.status, 'ok');
+  assert.notEqual(memo.rtk.value, kept);
+  assert.equal((await at(RTK_TTL_MS + 1, path.join(tmp, 'no-such-rtk'))).rtk.status, 'missing');
 });
 
 // A throwaway copy of the repo's agents, skills and apply.sh, so a test can rename a rule or change a model.

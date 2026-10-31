@@ -7,6 +7,7 @@ import { CoreError } from '../core/errors.js';
 import { execRunner } from '../core/fixes/apply-repo-fix.js';
 import { NotificationPolicy } from '../core/notification-policy.js';
 import { SettingsStore } from '../core/settings-store.js';
+import { AutoUpdater } from '../core/updater.js';
 import { httpsJson } from '../core/sources/update-source.js';
 import { IpcRouter } from './ipc-router.js';
 import { StripWindow, MainWindow } from './windows.js';
@@ -26,7 +27,19 @@ if (!app.requestSingleInstanceLock()) {
   nativeTheme.themeSource = settings.get().theme;
   const policy = new NotificationPolicy({ file: path.join(outDir, 'notify-state.json'), settings: () => settings.get() });
   const sourceDeps = { runner, fetchJson: (url) => httpsJson(url), updateCheck: () => settings.get().updateCheck };
-  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy });
+  const toast = (notice) => {
+    if (!notice || !Notification.isSupported()) return;
+    const n = new Notification({ ...notice, silent: true });
+    n.on('click', () => main.open('opt'));
+    n.show();
+  };
+  // Acts only on facts the update check found, so turning the check off also stops it.
+  const updater = new AutoUpdater({
+    file: path.join(outDir, 'update-state.json'), repo: REPO, runner,
+    enabled: () => settings.get().autoUpdate && settings.get().updateCheck,
+    onDone: (r) => toast(policy.updated(r, Object.fromEntries(updater.steps.map((s) => [s.id, s.label])))),
+  });
+  const monitor = new MonitorService({ outDir, repo: REPO, runner, sourceDeps, policy, updater });
   const stripFile = path.join(outDir, 'strip.json');
   const strip = new StripWindow({
     load: () => { try { return JSON.parse(fs.readFileSync(stripFile, 'utf8')); } catch { return null; } },
@@ -36,7 +49,7 @@ if (!app.requestSingleInstanceLock()) {
   const log = (line) => console.log(line);
 
   const quit = () => {
-    if (monitor.optimizer.busyFindingId()) throw new CoreError('FIX_BUSY');
+    if (monitor.optimizer.busyFindingId() || updater.running) throw new CoreError('FIX_BUSY');
     setImmediate(() => app.quit());
     return { quitting: true };
   };
@@ -97,12 +110,12 @@ if (!app.requestSingleInstanceLock()) {
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
-      const notice = policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings());
+      toast(policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings()));
       last = status;
-      if (notice && Notification.isSupported()) {
-        const n = new Notification({ ...notice, silent: true });
-        n.on('click', () => main.open('opt'));
-        n.show();
+      // New app code came in with a pull: restart while nobody is looking (main window closed, no fix or update running).
+      if (updater.restartNeeded && !updater.status().npmNeeded && !main.isAlive() && !updater.running && !monitor.optimizer.busyFindingId()) {
+        app.relaunch();
+        app.quit();
       }
     });
     strip.create();

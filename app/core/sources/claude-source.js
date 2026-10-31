@@ -43,14 +43,18 @@ export class ClaudeSource extends Source {
   label = 'Claude';
 
   // collectFn is the seam for tests; the default is collect() of scripts/monitor.mjs, unchanged.
+  #memo = {}; // slow-moving results collect() may reuse between runs (rtk)
+
   constructor({ collectFn = collect } = {}) {
     super();
     this.collectFn = collectFn;
   }
 
+  invalidate() { this.#memo = {}; }
+
   async collect(ctx) {
     return guardSource(async () => {
-      const data = await this.collectFn({ home: ctx.homes.claude, repo: ctx.repo, env: ctx.env, cache: ctx.cache, refreshSec: ctx.refreshSec, now: new Date(ctx.now).toISOString() });
+      const data = await this.collectFn({ home: ctx.homes.claude, repo: ctx.repo, env: ctx.env, cache: ctx.cache, memo: this.#memo, refreshSec: ctx.refreshSec, now: new Date(ctx.now).toISOString() });
       const summary = summarize(data);
       return { status: summary.status, note: '', data: { ...data, summary, ...liveKeys(ctx.homes.claude, ctx.repo), missingHookScripts: hookScripts(ctx) } };
     });
