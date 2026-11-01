@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WINDOW_DAYS = 7; // routing, tokens, savings and orchestration all use the same window
 const LIVE_MS = 120000;
+const WAIT_MS = 30 * 60000; // a finished turn counts as "waiting for you" this long
 const MAX_SESSIONS = 8;
 const FAMILY_RE = /opus|sonnet|haiku|fable/;
 const OUT_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation'];
@@ -64,7 +65,18 @@ export function parseTranscriptLine(line) {
     output: num(u.output_tokens),
     cacheRead: num(u.cache_read_input_tokens),
     cacheCreation: num(u.cache_creation_input_tokens),
+    end: r.message.stop_reason === 'end_turn', // the turn is over and the session waits for the user (metadata only)
   };
+}
+
+// Time of a prompt the user really sent, or null. Tool results (most user lines, some huge) are skipped without parsing.
+export function parsePromptTs(line) {
+  if (!line.includes('"type":"user"') || line.includes('"tool_result"')) return null;
+  let r;
+  try { r = JSON.parse(line); } catch { return null; }
+  if (!r || r.type !== 'user' || r.isMeta || r.isCompactSummary || r.isSidechain) return null;
+  const ts = Date.parse(r.timestamp);
+  return Number.isNaN(ts) ? null : ts;
 }
 
 // Frontmatter of each <repo>/claude/agents/*.md: model (family, raw value, or null when absent), description and preloaded skills.
@@ -200,7 +212,15 @@ async function readAppended(file, size, st) {
       if (st.skipping) { start = buf.indexOf(10) + 1; st.skipping = false; }
       for (const line of buf.toString('utf8', start, end + 1).split('\n')) {
         const r = parseTranscriptLine(line);
-        if (r && (!st.best.has(r.id) || r.output >= st.best.get(r.id).output)) st.best.set(r.id, r);
+        if (!r) {
+          const ts = parsePromptTs(line);
+          if (ts > st.lastPrompt) st.lastPrompt = ts;
+          continue;
+        }
+        const b = st.best.get(r.id);
+        if (b?.end) { r.end = true; r.ts = b.ts; } // the kept line may not hold stop_reason; the end's time identifies the turn
+        if (!b || r.output >= b.output) st.best.set(r.id, r);
+        else if (r.end) b.end = true;
       }
       st.offset += end + 1;
       await new Promise(setImmediate); // a first read of a big file must not freeze the Electron main process
@@ -208,7 +228,7 @@ async function readAppended(file, size, st) {
   } finally { fs.closeSync(fd); }
 }
 
-function fileInfo(file, rel, best) {
+function fileInfo(file, rel, best, lastPrompt) {
   const parts = rel.split('/');
   const si = parts.lastIndexOf('subagents');
   const isSub = si > 1;
@@ -221,6 +241,7 @@ function fileInfo(file, rel, best) {
     agentType: typeof meta.agentType === 'string' ? meta.agentType.slice(0, 60) : 'unknown',
     metaModel: typeof meta.model === 'string' ? meta.model.slice(0, 80) : null,
     records: [...best.values()],
+    lastPrompt,
     mainEntry: isSub ? null : [...best.values()][0]?.entrypoint ?? null,
   };
 }
@@ -253,10 +274,10 @@ export async function scanTranscripts(home, nowMs, cache = new Map(), { fullEver
       const ino = `${st.ino}|${st.birthtimeMs}`;
       let entry = cache.get(file);
       // a replaced or shrunk file is read again from the start
-      if (!entry || entry.ino !== ino || st.size < entry.offset) entry = { rel, ino, offset: 0, best: new Map(), skipping: false, key: null, f: null };
+      if (!entry || entry.ino !== ino || st.size < entry.offset) entry = { rel, ino, offset: 0, best: new Map(), lastPrompt: 0, skipping: false, key: null, f: null };
       if (entry.key !== key) {
         await readAppended(file, st.size, entry);
-        entry.f = fileInfo(file, slash(rel), entry.best);
+        entry.f = fileInfo(file, slash(rel), entry.best, entry.lastPrompt);
         entry.key = key;
         parsed++;
       }
@@ -450,7 +471,7 @@ export function buildActivity(scan) {
   const today = dateStr(new Date(scan.nowMs));
   const by = new Map();
   // A session belongs to the folder it started in (a later `cd` into a subfolder keeps it there); its subagents follow it.
-  const first = new Map(); const last = new Map(); // project/session -> earliest / latest main record with a cwd
+  const first = new Map(); const last = new Map(); // project/session -> earliest / latest main record
   for (const f of scan.files) {
     if (f.isSub) continue;
     for (const x of f.records) {
@@ -460,6 +481,16 @@ export function buildActivity(scan) {
       if (!last.has(key) || x.ts > last.get(key).ts) last.set(key, x);
     }
   }
+  // A session waits for its user when its last main message ended the turn and no prompt came after it; the turn began at
+  // that prompt. Within WAIT_MS only: an old finished session is not "waiting".
+  const waiting = new Map(); // project/session -> { at, turnSec }
+  for (const f of scan.files) {
+    if (f.isSub) continue;
+    const key = `${f.project}/${f.sessionId}`;
+    const end = last.get(key);
+    if (!end?.end || scan.nowMs - end.ts > WAIT_MS || f.lastPrompt > end.ts) continue;
+    waiting.set(key, { at: end.ts, turnSec: f.lastPrompt ? Math.round((end.ts - f.lastPrompt) / 1000) : 0 });
+  }
   for (const f of scan.files) {
     const ctxRec = f.isSub ? null : last.get(`${f.project}/${f.sessionId}`);
     const sessionCwd = first.get(`${f.project}/${f.sessionId}`)?.cwdBase;
@@ -467,20 +498,24 @@ export function buildActivity(scan) {
       const role = roleOf(f, r);
       if ((role !== 'main' && role !== 'subagent') || dateStr(new Date(r.ts)) !== today) continue;
       const k = sessionCwd || r.cwdBase || null;
-      if (!by.has(k)) by.set(k, { projectName: k, sessions: new Set(), messages: 0, output: 0, cacheRead: 0, lastAt: 0, live: false, context: 0 });
+      if (!by.has(k)) by.set(k, { projectName: k, sessions: new Set(), messages: 0, output: 0, cacheRead: 0, lastAt: 0, live: false, context: 0, waitAt: 0, turnSec: 0 });
       const p = by.get(k);
       p.sessions.add(f.sessionId); p.messages += 1; p.output += r.output; p.cacheRead += r.cacheRead;
       p.lastAt = Math.max(p.lastAt, r.ts);
       if (scan.nowMs - r.ts <= LIVE_MS) p.live = true;
     }
     const ck = sessionCwd || ctxRec?.cwdBase || null;
+    const w = f.isSub ? null : waiting.get(`${f.project}/${f.sessionId}`);
+    if (w && by.has(ck) && w.at > by.get(ck).waitAt) Object.assign(by.get(ck), { waitAt: w.at, turnSec: w.turnSec });
     // 15 minutes, not LIVE_MS: a short pause must not clear the context (and C10 with it) only to raise it again
     if (ctxRec && scan.nowMs - ctxRec.ts <= 15 * 60000 && by.has(ck)) {
       const p = by.get(ck);
       p.context = Math.max(p.context, ctxRec.input + ctxRec.cacheRead + ctxRec.cacheCreation);
     }
   }
-  const projects = [...by.values()].map((p) => ({ ...p, sessions: p.sessions.size, savedInput: Math.round(p.cacheRead * 0.9), lastAt: iso(p.lastAt) }))
+  // waiting only while no message came after the end (a newer turn in another session of the folder clears it)
+  const projects = [...by.values()].map(({ waitAt, turnSec, ...p }) => ({ ...p, sessions: p.sessions.size, savedInput: Math.round(p.cacheRead * 0.9), lastAt: iso(p.lastAt),
+    waiting: waitAt > 0 && waitAt >= p.lastAt ? { at: iso(waitAt), turnSec } : null }))
     .sort((a, b) => b.live - a.live || b.lastAt.localeCompare(a.lastAt));
   return {
     status: 'ok', note: 'Today, per project folder. Live = a message in the last 2 minutes; context = the last prompt size of a session active in the last 15 minutes.',
@@ -769,6 +804,9 @@ export function summarize(d) {
     todaySavedInput: Number(x.activity?.totals?.savedInput) || projects.reduce((n, p) => n + (Number(p?.savedInput) || 0), 0),
     cacheHit7d: Number.isFinite(hit) ? hit : null,
     claudeMem: typeof x.claudeMem?.reachable === 'boolean' ? x.claudeMem.reachable : null,
+    // folders whose session finished a turn and waits for the user: name (basename), when, how long the turn ran
+    // null when transcripts were not read: unknown, so it must not count as the app's first look at ended turns
+    waiting: x.activity?.status !== 'ok' ? null : projects.filter((p) => p?.waiting && typeof p.waiting.at === 'string').map((p) => ({ projectName: String(p.projectName ?? '').slice(0, 60), at: p.waiting.at, turnSec: Number(p.waiting.turnSec) || 0 })),
   };
 }
 
