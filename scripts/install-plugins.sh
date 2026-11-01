@@ -30,7 +30,7 @@ case $te_sha in [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;; *)
 if ! "$py" -m pip install --user --quiet "tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@$te_sha"; then
   echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0
 fi
-# Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo keeps no deny rules.
+# Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo's own deny rules cover secret files only.
 "$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global \
   || echo "tokeneconomizer: could not set toolprune=propose; run /tokeneconomizer:config set toolprune=propose --global" >&2
 # Its hook launcher probes each candidate Python before use; on Windows `python3` is a WindowsApps alias and the probe
