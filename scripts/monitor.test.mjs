@@ -606,6 +606,8 @@ test('activity from transcript lines: the turn runs from the last real prompt, a
   // the kept line of a message may not be the one holding stop_reason
   assert.ok(await run([u(300), a('m5', 60, 'end_turn', 5), a('m5', 59, null, 9)]));
   assert.ok(await run([u(300), a('m6', 60, null, 9), a('m6', 59, 'end_turn', 5)]));
+  // a later line of an ended message keeps the end's time, so one turn cannot toast twice
+  assert.equal((await run([u(300), a('m7', 60, 'end_turn', 5), a('m7', 59, null, 9)])).at, t(60));
 });
 
 test('activity: a session whose last main message ended the turn waits for its user; the turn runs from its prompt', async () => {

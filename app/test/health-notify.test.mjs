@@ -219,7 +219,8 @@ test('done: a long turn that ended toasts once with its folder; ends seen at sta
   const settings = { notify: true, quietStart: '', quietEnd: '' };
   const { p } = policy({ settings, start: at(12) });
   const w = (name, at, turnSec) => ({ generatedAt: 'g', waiting: [{ projectName: name, at, turnSec }] });
-  assert.equal(p.done({ generatedAt: null, waiting: [] }), null); // the "starting" status comes before the first real read
+  assert.equal(p.done({ generatedAt: null, waiting: null }), null); // the "starting" status comes before the first real read
+  assert.equal(p.done({ generatedAt: 'g', waiting: null }), null); // and a failed first read knows nothing about turns either
   assert.equal(p.done(w('old', 't0', 600)), null); // already there when the app started
   assert.equal(p.done(w('old', 't0', 600)), null);
   assert.equal(p.done(w('quick', 't1', 20)), null); // a quick reply is not worth a toast
@@ -235,4 +236,5 @@ test('done: a long turn that ended toasts once with its folder; ends seen at sta
   Object.assign(settings, { quietStart: '', quietEnd: '' });
   assert.equal(p.done(w('d', 't6', 600)), null);
   assert.equal(p.done({ generatedAt: 'g' }), null);
+  assert.match(p.done(w('e', 't7', 7170)).body, /^e: 2시간 0분 /); // never "1시간 60분"
 });

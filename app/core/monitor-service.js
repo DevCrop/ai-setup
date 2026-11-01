@@ -245,7 +245,7 @@ export class MonitorService {
       todaySavedInput: sum?.todaySavedInput ?? 0,
       cacheHit7d: sum?.cacheHit7d ?? null,
       claudeMem: sum?.claudeMem ?? null,
-      waiting: Array.isArray(sum?.waiting) ? sum.waiting : [],
+      waiting: Array.isArray(sum?.waiting) ? sum.waiting : null, // null: nothing read yet, which is not "no turn ended"
       codex,
       busyFindingId: this.optimizer.busyFindingId(),
     };

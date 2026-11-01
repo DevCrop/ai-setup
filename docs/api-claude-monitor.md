@@ -100,7 +100,7 @@ Status = {
   todayOutput:   number,             // output tokens today
   todayProjects: number,             // project folders with main or subagent messages today (activity.totals, all folders)
   todaySavedInput: number,           // today's cache reads x 0.9, input tokens not billed at full price
-  waiting:       { projectName: string, at: string, turnSec: number }[], // folders (basename) whose session ended a turn in the last 30 min and waits for the user; metadata only
+  waiting:       { projectName: string, at: string, turnSec: number }[] | null, // folders (basename, among the six shown on the overview) whose session ended a turn in the last 30 min and waits for the user; metadata only. null until a read succeeds
   cacheHit7d:    number | null,
   claudeMem:     boolean | null,
   codex:         null | {

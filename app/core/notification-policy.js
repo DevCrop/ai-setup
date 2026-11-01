@@ -121,15 +121,15 @@ export class NotificationPolicy {
   // A long turn ended and its session waits for the user. Each end is seen once; ends present at the first status (app start)
   // never toast. Names the folder (basename) only. Held back by notify off or quiet hours and then dropped: it is stale later.
   done(status) {
-    if (!status?.generatedAt) return null; // the "starting" status has no reads yet and must not count as the first status
-    const list = Array.isArray(status?.waiting) ? status.waiting : [];
+    if (!Array.isArray(status?.waiting)) return null; // no successful read yet: this must not count as the first status
+    const list = status.waiting;
     const keys = list.map((w) => `${w.projectName}|${w.at}`);
     const first = this.#doneSeen === null;
     const fresh = first ? [] : list.filter((w, i) => !this.#doneSeen.has(keys[i]) && w.turnSec >= LONG_TURN_SEC);
     this.#doneSeen = new Set([...(this.#doneSeen ?? []), ...keys].slice(-MAX_IDS));
     const s = this.#settings() ?? {};
     if (!fresh.length || s.notify === false || inQuietHours(s, this.#now())) return null;
-    const mins = (sec) => (sec >= 3600 ? `${Math.floor(sec / 3600)}시간 ${Math.round((sec % 3600) / 60)}분` : `${Math.max(1, Math.round(sec / 60))}분`);
+    const mins = (sec) => { const m = Math.max(1, Math.round(sec / 60)); return m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`; };
     const w = fresh[0];
     const more = fresh.length > 1 ? ` 외 ${fresh.length - 1}곳` : '';
     return { title: 'Claude Monitor: 작업 끝', body: `${w.projectName || '(폴더 없음)'}${more}: ${mins(w.turnSec)} 걸린 작업이 끝나 답을 기다립니다.` };

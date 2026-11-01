@@ -218,7 +218,7 @@ async function readAppended(file, size, st) {
           continue;
         }
         const b = st.best.get(r.id);
-        if (b?.end) r.end = true; // the line kept for its output may not be the one holding stop_reason
+        if (b?.end) { r.end = true; r.ts = b.ts; } // the kept line may not hold stop_reason; the end's time identifies the turn
         if (!b || r.output >= b.output) st.best.set(r.id, r);
         else if (r.end) b.end = true;
       }
