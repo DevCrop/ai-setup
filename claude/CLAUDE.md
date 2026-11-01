@@ -18,6 +18,7 @@
 - Commit messages are English Conventional Commits: `type: summary`, and a body that gives the reason and how the change was checked. Code comments are English; text the user sees keeps the project's language.
 - A bug fix starts with a test that reproduces it. New logic with a branch, a parser or a security effect ships with a test.
 - Never declare completion from your own judgment; confirm with a command result, a test, or a source check.
+- For a desktop app no browser tool can reach, use the `agent-desktop` CLI: run `agent-desktop skills get desktop` once, then read with `snapshot --app X -i --compact` (`--skeleton` first on dense apps). In PowerShell call `agent-desktop.cmd` and quote refs. Snapshots hold private screen content; keep them out of logs and commits.
 
 ## Orchestration
 - Work in the main loop by default: Opus plans, decides and writes the code itself, loading skills as needed. Delegate to subagents only for independent parallel parts, a broad search, verification, or when the user asks for subagents. The `orchestrate` skill has the details, model lanes and failure path.
