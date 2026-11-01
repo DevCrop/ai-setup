@@ -536,7 +536,7 @@ test('page: short windows scroll the page, and cards that still scroll show a cu
   assert.ok(short.includes('body.embed, .embed .stage { height: auto; overflow: visible; }'));
   // these rows carry an id selector, which would otherwise outrank the page-scroll rule
   assert.ok(short.includes('.embed #v-ov > .g12, .embed #v-flow > .g22 { grid-template-rows: none;'));
-  assert.ok(short.includes('.embed .panel > .legend { position: static;'));
+  assert.ok(short.includes('.embed #v-ov .panel > .legend { position: static;'));
   assert.ok(html.includes('#v-ov > .g12 { grid-template-rows: fit-content(25%) minmax(250px, 1fr) minmax(0, 1fr); }'));
   assert.ok(/\.embed \.panel \{ --cue:[^}]*no-repeat local,[^}]*no-repeat scroll,/.test(html));
   const css = fs.readFileSync(new URL('../app/renderer/main/main.css', import.meta.url), 'utf8');

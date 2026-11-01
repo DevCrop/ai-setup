@@ -1458,7 +1458,7 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 /* with the bar hidden, a soft bottom shadow says "more below": the first layer scrolls with the content and covers the shadow at the very end */
 .embed .panel { --cue: color-mix(in srgb, var(--fg) 14%, transparent); background: linear-gradient(transparent, var(--panel) 60%) bottom / 100% 32px no-repeat local, linear-gradient(transparent, var(--cue)) left bottom / calc(100% - var(--pad)) 16px no-repeat scroll, var(--panel); }
 /* a chart's legend names its colors, so a short card must not cut it off under a hidden scrollbar */
-.embed .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin: 0 calc(var(--pad) * -1) calc(var(--pad) * -1); padding: var(--sp-1) var(--pad) var(--pad); background: var(--panel); animation: legend-cue linear; animation-timeline: scroll(nearest); }
+.embed #v-ov .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin: 0 calc(var(--pad) * -1) calc(var(--pad) * -1); padding: var(--sp-1) var(--pad) var(--pad); background: var(--panel); animation: legend-cue linear; animation-timeline: scroll(nearest); }
 /* the legend sits over the panel's own cue, so it carries one; a panel with nothing to scroll has no timeline and shows none */
 @keyframes legend-cue { from, 95% { box-shadow: 0 -10px 10px -8px var(--cue); } to { box-shadow: none; } }
 .embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
@@ -1479,7 +1479,7 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
   .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2, .embed .view > .grid2 > .col > .panel { flex: none; }
   .embed .g12, .embed .g22, .embed .view > .grid2, .embed #v-ov > .g12, .embed #v-flow > .g22 { grid-template-rows: none; grid-auto-rows: auto; }
   .embed .panel { overflow: visible; }
-  .embed .panel > .legend { position: static; margin: 0; padding: 0; animation: none; }
+  .embed #v-ov .panel > .legend { position: static; margin: 0; padding: 0; animation: none; }
 }
 `;
 

@@ -20,7 +20,7 @@ Settings win from top to bottom: managed, `--settings`, project local, shared pr
 2. **`AGENTS.md`**, if the repo has one for other tools: keep it as the source. Claude reads it only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists, so if you add any of them, start the `CLAUDE.md` with `@AGENTS.md`.
 3. **`.claude/rules/<area>.md`** for rules that only matter for some files. Add `paths:` frontmatter so they load only when Claude touches those files.
 4. **`.claude/settings.json`**:
-   - `permissions.deny` for `Read(**/.env*)`, `Read(**/.credentials*)` and `Read(**/credentials.json)`. The global layer has no deny rules, and deny still blocks in bypass mode.
+   - `permissions.deny` for `Read(**/.env*)`, `Read(**/.credentials*)` and `Read(**/credentials.json)`. The global deny rules do not reach cloud sessions or teammates without this setup, and deny still blocks in bypass mode.
    - `permissions.allow` for read-only check commands (test, lint, typecheck); these matter in cloud sessions, which do not read `~/.claude`.
    - Never set `defaultMode`: `auto` and `bypassPermissions` are not honored from project settings, and putting them there drops you out of the global bypass mode.
 5. **`.gitignore`**: `CLAUDE.local.md`, `.claude/settings.local.json` and `.claude/handoff.md`.
