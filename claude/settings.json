@@ -38,7 +38,16 @@
       "Bash(rtk rg * *.credentials*)",
       "Bash(rtk bypass * .env*)",
       "Bash(rtk bypass * */.env*)",
-      "Bash(rtk bypass * *.credentials*)"
+      "Bash(rtk bypass * *.credentials*)",
+      "Bash(rtk diff *.env*)",
+      "Bash(rtk diff *.credentials*)",
+      "Bash(rtk jq *.env*)",
+      "Bash(rtk jq *.credentials*)",
+      "PowerShell(Get-Content *.env*)",
+      "PowerShell(Get-Content *.credentials*)",
+      "PowerShell(Select-String * .env*)",
+      "PowerShell(Select-String *\\.env*)",
+      "PowerShell(Select-String *.credentials*)"
     ],
     "defaultMode": "bypassPermissions"
   },
