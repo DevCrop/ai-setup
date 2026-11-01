@@ -528,6 +528,30 @@ test('tokeneconomizer: modes and per-repository counts from its ledger, window a
   assert.doesNotMatch(render({ generatedAt: NOW, tokenEconomizer: { status: 'missing' } }), /TokenEconomizer<\//);
 });
 
+test('page: short windows scroll the page, and cards that still scroll show a cue', async () => {
+  const { render } = await import('./monitor-html.mjs');
+  const html = render({ generatedAt: NOW }, { embed: true });
+  // from 899 px down the cards stack in one column, so the page must scroll there too
+  const start = html.indexOf('@media (max-width: 899px), (max-height: 700px) {');
+  assert.notEqual(start, -1);
+  const short = html.slice(start, html.indexOf('\n}', start));
+  // other tabs' legends sit between or above text, so sticky stays on the overview
+  assert.ok(!html.includes('.embed .panel > .legend'));
+  assert.ok(short.includes('body.embed, .embed .stage { height: auto; overflow: visible; }'));
+  // these rows carry an id selector, which would otherwise outrank the page-scroll rule
+  assert.ok(short.includes('.embed #v-ov > .g12, .embed #v-flow > .g22 { grid-template-rows: none;'));
+  assert.ok(short.includes('.embed #v-ov .panel > .legend { position: static;'));
+  assert.ok(html.includes('#v-ov > .g12 { grid-template-rows: fit-content(25%) minmax(250px, 1fr) minmax(0, 1fr); }'));
+  assert.ok(/\.embed \.panel \{ --cue:[^}]*no-repeat local,[^}]*no-repeat scroll,/.test(html));
+  const css = fs.readFileSync(new URL('../app/renderer/main/main.css', import.meta.url), 'utf8');
+  const optStart = css.indexOf('@media (max-width: 760px), (max-height: 750px) {');
+  assert.notEqual(optStart, -1);
+  const optShort = css.slice(optStart, css.indexOf('\n}', optStart));
+  // a fixed-height history would cut its rows and their undo buttons once its list stops scrolling inside
+  assert.ok(optShort.includes('#v-opt > .panel.hist, #v-opt > .panel.batch ~ .panel.hist { flex: none; }'));
+  assert.ok(css.includes('.panel.hist:not(:has(.hrows)) .sc { flex: none; }'));
+});
+
 test('page: the embedded frame is reloaded by the app and keeps state in window.name', async () => {
   const { render } = await import('./monitor-html.mjs');
   const vm = await import('node:vm');
