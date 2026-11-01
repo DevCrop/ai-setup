@@ -46,6 +46,8 @@ One measurement on the Claude Monitor window. Sizes change with the screen it sh
 | `EnumWindows failed` | Running inside Codex's sandbox | Run with escalated permissions |
 | `about_Execution_Policies` error | PowerShell picked `agent-desktop.ps1` | Call `agent-desktop.cmd` |
 | `TIMEOUT`, or only a few refs | An Electron or Chrome window is still settling, its controls sit below the depth limit, or other windows cover it (the Monitor gave few refs and `TIMEOUT` while unfocused, and all its tabs once focused) | Raise `--timeout-ms`, then try `--max-depth` or `--root`, then uncover the window and take a new snapshot |
+| `click` returns `delivered_unverified` and the screen does not change (Monitor), or `POLICY_DENIED` (Notepad) | The window is minimized | Check `minimized` in `list-windows`, run `restore`, then take a new snapshot |
+| `AMBIGUOUS_TARGET` | The app has several windows, as the Monitor does | Pick an `id` from the `data` array of `list-windows` and pass `--window-id` |
 | `PERM_DENIED` with `E_ACCESSDENIED` | The target app runs as administrator | Run the terminal as administrator, or skip that app |
 | Empty or failed reads on everything | The PC is locked or a UAC prompt is open | Unlock it or answer the prompt |
 
