@@ -12,6 +12,7 @@ const TOAST_GAP = HOUR;
 const KEEP_NOTIFIED = 7 * DAY;
 const DIGEST_HOUR = 18; // the daily summary goes out on the first quiet run from 18:00 local time
 const MAX_IDS = 500;
+const LONG_TURN_SEC = 60; // a turn this long is worth a toast when it ends; a quick reply is not
 
 export const minAgeMs = (checkId) => MIN_AGE[checkId] ?? 3 * MIN;
 export const cooldownMs = (checkId) => COOLDOWN[checkId] ?? DAY;
@@ -43,6 +44,7 @@ export class NotificationPolicy {
   #lastToast = 0;
   #lastDigest = ''; // local date of the last daily summary
   #errorShown = false;
+  #doneSeen = null; // `${folder}|${at}` of finished turns already seen, memory only; null until the first status
 
   constructor({ file = null, now = () => Date.now(), settings = () => ({ notify: true }) } = {}) {
     this.#file = file;
@@ -114,6 +116,23 @@ export class NotificationPolicy {
     return bad.length
       ? { title: 'Claude Monitor: 문제', body: `${first}${more}. 눌러서 확인하세요.` }
       : { title: 'Claude Monitor: 확인 필요', body: `${first}${more}.` };
+  }
+
+  // A long turn ended and its session waits for the user. Each end is seen once; ends present at the first status (app start)
+  // never toast. Names the folder (basename) only. Held back by notify off or quiet hours and then dropped: it is stale later.
+  done(status) {
+    if (!Array.isArray(status?.waiting)) return null; // no successful read yet: this must not count as the first status
+    const list = status.waiting;
+    const keys = list.map((w) => `${w.projectName}|${w.at}`);
+    const first = this.#doneSeen === null;
+    const fresh = first ? [] : list.filter((w, i) => !this.#doneSeen.has(keys[i]) && w.turnSec >= LONG_TURN_SEC);
+    this.#doneSeen = new Set([...(this.#doneSeen ?? []), ...keys].slice(-MAX_IDS));
+    const s = this.#settings() ?? {};
+    if (!fresh.length || s.notify === false || inQuietHours(s, this.#now())) return null;
+    const mins = (sec) => { const m = Math.max(1, Math.round(sec / 60)); return m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`; };
+    const w = fresh[0];
+    const more = fresh.length > 1 ? ` 외 ${fresh.length - 1}곳` : '';
+    return { title: 'Claude Monitor: 작업 끝', body: `${w.projectName || '(폴더 없음)'}${more}: ${mins(w.turnSec)} 걸린 작업이 끝나 답을 기다립니다.` };
   }
 
   // After an auto-update pass that finished at least one step. Names fixed step labels only, never command output.

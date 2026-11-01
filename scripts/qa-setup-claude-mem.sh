@@ -38,8 +38,7 @@ exit 0
 te_sha="$(jq -r '.extraKnownMarketplaces.tokeneconomizer.source.plugins[0].source.sha' "$repo/claude/settings.json")"
 stub 'exit 0'
 out="$(PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" 2>&1)"; rc=$?
-want="$(printf 'plugin marketplace list
--p ok
+want="$(printf -- '-p ok
 plugin install ponytail@ponytail
 plugin update ponytail@ponytail
 plugin install claude-mem@thedotmack
@@ -49,10 +48,18 @@ plugin update tokeneconomizer@tokeneconomizer
 py -m pip install --user --quiet tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@%s
 py -m tokeneconomizer.plugin.cli config set toolprune=propose --global' "$te_sha")"
 [ "$rc" = 0 ] && [ "$(cat "$log")" = "$want" ] && pass "install-plugins: registers marketplaces, installs and updates all three, pins the core, proposes tool pruning" || bad "install-plugins order (rc=$rc; $(cat "$log"); $out)"
-stub '[ "$1 $2 $3" = "plugin marketplace list" ] && echo tokeneconomizer; exit 0'
+mkdir "$t/cfg/plugins"; known="$t/cfg/plugins/known_marketplaces.json"
+jq .extraKnownMarketplaces "$repo/claude/settings.json" > "$known"
+stub 'exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
 [ "$(cat "$log")" = "$(printf '%s
-' "$want" | grep -v '^-p ok')" ] && pass "install-plugins: no headless session when already registered, both still installed" || bad "install-plugins registered path ($(cat "$log"))"
+' "$want" | grep -v '^-p ok')" ] && pass "install-plugins: no headless session when the registered pins match, all still installed" || bad "install-plugins registered path ($(cat "$log"))"
+# A bumped pin stays unseen by `plugin update` ("already at the latest") until a session refreshes the registered copy.
+jq '.ponytail.source.plugins[0].source.sha = "old"' "$known" > "$known.x" && mv "$known.x" "$known"
+stub 'exit 0'
+PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1
+[ "$(cat "$log")" = "$want" ] && pass "install-plugins: a pin differing from the registered copy opens a session before updating" || bad "install-plugins stale pin ($(cat "$log"))"
+rm -f "$known"
 stub '[ "$2" = install ] && exit 1; exit 0'
 PATH="$t/cl:$PATH" bash "$repo/scripts/install-plugins.sh" >/dev/null 2>&1; rc=$?
 [ "$rc" != 0 ] && pass "install-plugins: a failed install exits non-zero" || bad "install-plugins: failed install hidden (rc=$rc)"

@@ -147,7 +147,7 @@ if (!app.requestSingleInstanceLock()) {
     monitor.onChange((status) => {
       strip.send('status:changed', status);
       main.send('status:changed', status);
-      toast(policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings()));
+      toast(policy.done(status) ?? policy.decide(last, status, monitor.optimizer.findings()) ?? policy.digest(status, monitor.optimizer.findings()));
       if (status.state !== last?.state && (status.state === 'error' || status.state === 'stale' || last?.state === 'error')) appLog.warn(`state ${last?.state ?? '-'} -> ${status.state}`);
       last = status;
       // New app code came in with a pull: restart while nobody is looking (main window closed, no fix or update running).
