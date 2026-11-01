@@ -940,7 +940,7 @@ function activityPanel(d) {
   return panel('오늘 작업', d.activity, (s) => `<div class="pitems">${arr(s.projects).map((p) => {
     const ctx = nz(p.context) > 0 ? ` · 컨텍스트 ${compactKo(p.context)}${p.context >= CTX_BIG ? ' (크다)' : ''}` : '';
     const name = typeof p.projectName === 'string' && p.projectName ? p.projectName : '(폴더 없음)';
-    return `<div class="lrow"><span class="dt${p.live ? ' ok' : ''}" aria-hidden="true"></span><span class="ln" title="${esc(name)}">${txt(name)}${p.live ? ' · 지금 작업 중' : ''}</span>` +
+    return `<div class="lrow"><span class="dt${p.waiting ? ' warn' : p.live ? ' ok' : ''}" aria-hidden="true"></span><span class="ln" title="${esc(name)}">${txt(name)}${p.waiting ? ' · 답 기다림' : p.live ? ' · 지금 작업 중' : ''}</span>` +
       `<span class="lv wrap${p.context >= CTX_BIG ? ' warn' : ''}">세션 ${fmtInt(p.sessions)} · 출력 ${compactKo(p.output)} · 캐시로 아낀 입력 ${compactKo(p.savedInput)}${ctx}</span></div>`;
   }).join('')}</div>`, { hint: '프로젝트 폴더별 · 오늘', cls: 'c12', isEmpty: (s) => arr(s.projects).length === 0 });
 }
@@ -1455,6 +1455,8 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 /* card scrollbars show on hover or focus only, so a page of cards reads as one dashboard, not a stack of scroll boxes */
 .embed .panel { scrollbar-color: transparent transparent; }
 .embed .panel:hover, .embed .panel:focus-within { scrollbar-color: var(--line-strong) transparent; }
+/* a chart's legend names its colors, so a short card must not cut it off under a hidden scrollbar */
+.embed #v-ov .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin-bottom: calc(var(--pad) * -1); padding: var(--sp-1) 0 var(--pad); background: var(--panel); }
 .embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
 .embed .view > .grid2 > .col { min-height: 0; } .embed .view > .grid2 > .col > .panel { flex: 1 1 0; min-height: 0; }
 .embed .panel .grid2 { gap: var(--sp-3); }

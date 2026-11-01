@@ -50,8 +50,10 @@ test('parseTranscriptLine skips malformed, non-assistant and synthetic lines and
   assert.equal(parseTranscriptLine('{"type":"user"}'), null);
   assert.equal(parseTranscriptLine('{"type":"assistant","timestamp":"2026-10-19T09:00:00Z","message":{"id":"x","model":"<synthetic>"}}'), null);
   const r = parseTranscriptLine('{"type":"assistant","timestamp":"2026-10-19T09:00:00Z","message":{"id":"x","model":"claude-opus-5-5","content":"CANARY_MSG_TEXT_42","usage":{"input_tokens":3}}}');
-  assert.deepEqual(Object.keys(r).sort(), ['cacheCreation', 'cacheRead', 'cwdBase', 'entrypoint', 'id', 'input', 'model', 'output', 'ts']);
+  assert.deepEqual(Object.keys(r).sort(), ['cacheCreation', 'cacheRead', 'cwdBase', 'end', 'entrypoint', 'id', 'input', 'model', 'output', 'ts']);
   assert.equal(r.input, 3);
+  assert.equal(r.end, false);
+  assert.equal(parseTranscriptLine('{"type":"assistant","timestamp":"2026-10-19T09:00:00Z","message":{"id":"x","model":"claude-opus-5-5","stop_reason":"end_turn"}}').end, true);
   assert.ok(!JSON.stringify(r).includes('CANARY'));
 });
 
@@ -488,7 +490,7 @@ test('summarize: status bar state is counts only, worst section wins, garbage gi
   assert.equal(junk.status, 'missing');
   assert.equal(junk.issues.length, 9);
   assert.deepEqual([junk.todayOutput, junk.cacheHit7d, junk.claudeMem, junk.generatedAt], [0, null, null, null]);
-  assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput', 'todayProjects', 'todaySavedInput']);
+  assert.deepEqual(Object.keys(summarize(data)).sort(), ['cacheHit7d', 'claudeMem', 'generatedAt', 'issues', 'live', 'refreshSec', 'routing', 'status', 'todayOutput', 'todayProjects', 'todaySavedInput', 'waiting']);
 });
 
 test('tokeneconomizer: modes and per-repository counts from its ledger, window and bad lines respected', async () => {
@@ -578,6 +580,63 @@ test('activity: today per project folder, live flag and the live session context
   assert.match(html, /ai-setup · 지금 작업 중/);
   assert.match(html, /컨텍스트 [^<]*\(크다\)/);
   assert.equal(summarize({ generatedAt: NOW, activity: a }).todayProjects, 2);
+  assert.deepEqual(a.projects.map((p) => p.waiting), [null, null]);
+});
+
+test('activity from transcript lines: the turn runs from the last real prompt, a reply clears waiting, an end survives more lines of its message', async () => {
+  const { buildActivity } = await import('./monitor.mjs');
+  const now = Date.parse(NOW);
+  const home = fs.mkdtempSync(path.join(tmp, 'wait-'));
+  const dir = path.join(home, 'projects', 'D--a');
+  fs.mkdirSync(dir, { recursive: true });
+  const t = (ago) => new Date(now - ago * 1000).toISOString();
+  const a = (id, ago, stop, output = 1) => JSON.stringify({ type: 'assistant', timestamp: t(ago), cwd: 'D:\\ai-setup', entrypoint: 'cli', message: { id, model: 'claude-opus-5-5', stop_reason: stop, usage: { output_tokens: output } } });
+  const u = (ago, extra = {}, content = 'CANARY_PROMPT') => JSON.stringify({ type: 'user', timestamp: t(ago), message: { role: 'user', content }, ...extra });
+  const result = (ago) => u(ago, {}, [{ type: 'tool_result', tool_use_id: 'x', content: 'CANARY_PROMPT' }]);
+  const run = async (lines) => {
+    fs.writeFileSync(path.join(dir, 's1.jsonl'), `${lines.join('\n')}\n`);
+    return buildActivity(await scanTranscripts(home, now, new Map())).projects[0].waiting;
+  };
+  // tool results, meta lines and a compact summary do not start a turn
+  assert.equal((await run([u(300), a('m1', 280, 'tool_use'), result(200), u(150, { isMeta: true }), u(120, { isCompactSummary: true }), a('m2', 60, 'end_turn')])).turnSec, 240);
+  // one long answer still counts, and an earlier turn with no end does not stretch this one over the idle hours
+  assert.equal((await run([u(18000), a('old', 17990, 'tool_use'), u(300), a('m3', 60, 'end_turn')])).turnSec, 240);
+  // the user already answered: not waiting, even before the next assistant line
+  assert.equal(await run([u(300), a('m4', 60, 'end_turn'), u(10)]), null);
+  // the kept line of a message may not be the one holding stop_reason
+  assert.ok(await run([u(300), a('m5', 60, 'end_turn', 5), a('m5', 59, null, 9)]));
+  assert.ok(await run([u(300), a('m6', 60, null, 9), a('m6', 59, 'end_turn', 5)]));
+  // a later line of an ended message keeps the end's time, so one turn cannot toast twice
+  assert.equal((await run([u(300), a('m7', 60, 'end_turn', 5), a('m7', 59, null, 9)])).at, t(60));
+});
+
+test('activity: a session whose last main message ended the turn waits for its user; the turn runs from its prompt', async () => {
+  const { buildActivity } = await import('./monitor.mjs');
+  const { render } = await import('./monitor-html.mjs');
+  const now = Date.parse(NOW);
+  const rec = (ago, o = {}) => ({ id: `m${ago}`, model: 'claude-opus-5-5', ts: now - ago, entrypoint: 'cli', cwdBase: 'ai-setup', input: 1, output: 1, cacheRead: 0, cacheCreation: 0, end: false, ...o });
+  const files = (s1, s2 = []) => ({ nowMs: now, files: [
+    { isSub: false, project: 'D--a', sessionId: 's1', mainEntry: 'cli', records: s1, lastPrompt: now - 600000 },
+    { isSub: false, project: 'D--b', sessionId: 's2', mainEntry: 'cli', records: s2 },
+  ] });
+  // previous turn ended 20 min ago; this turn ran from 10 min ago to 1 min ago
+  const s1 = [rec(1500000), rec(1200000, { end: true }), rec(600000), rec(300000), rec(60000, { end: true })];
+  const a = buildActivity(files(s1));
+  assert.deepEqual(a.projects[0].waiting, { at: new Date(now - 60000).toISOString(), turnSec: 540 });
+  assert.deepEqual(summarize({ generatedAt: NOW, activity: a }).waiting, [{ projectName: 'ai-setup', at: new Date(now - 60000).toISOString(), turnSec: 540 }]);
+  assert.match(render({ generatedAt: NOW, activity: a }, { embed: true }), /ai-setup · 답 기다림/);
+  // still working (last message wants a tool), ended longer than 30 min ago, or a subagent's end: not waiting
+  assert.equal(buildActivity(files([rec(60000, { end: true }), rec(30000)])).projects[0].waiting, null);
+  assert.equal(buildActivity(files([rec(31 * 60000, { end: true })])).projects[0].waiting, null);
+  const sub = files([rec(120000)]);
+  sub.files.push({ isSub: true, project: 'D--a', sessionId: 's1', agentType: 'explorer', records: [rec(10000, { end: true, id: 'sub' })] });
+  assert.equal(buildActivity(sub).projects[0].waiting, null);
+  // transcripts not read: unknown (null), which is not "no turn ended" ([])
+  assert.equal(summarize({ activity: { status: 'missing', projects: [] } }).waiting, null);
+  assert.deepEqual(summarize({ activity: { status: 'ok', projects: [] } }).waiting, []);
+  // a newer message in another session of the same folder clears it
+  const two = files([rec(120000, { end: true })], [rec(30000, { cwdBase: 'ai-setup' })]);
+  assert.equal(buildActivity(two).projects[0].waiting, null);
 });
 
 test('overview: routing KPI counts like the strip (no-data agents left out) and big 만 values have no decimal', async () => {

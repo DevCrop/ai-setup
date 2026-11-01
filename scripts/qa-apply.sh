@@ -79,7 +79,9 @@ jq '.permissions.allow=["Bash(*)"] | .permissions.deny=["Bash(ls)"] | .autoMode.
     | .extraKnownMarketplaces.evil={"source":{"source":"github","repo":"evil/evil"}} | .permissions.defaultMode="default" | .permissions.disableBypassPermissionsMode="x" | .skillOverrides={}' "$cfg/settings.json" > "$base/x" && cp "$base/x" "$cfg/settings.json"
 out="$(apply)"
 if [ "$(sorted "$cfg/settings.json" | jq -c '[.permissions.allow, has("autoMode"), (.hooks|has("Stop")), (.extraKnownMarketplaces|has("evil")), .permissions.defaultMode, .permissions.disableBypassPermissionsMode]')" = '[[],false,false,false,"bypassPermissions",null]' ] \
-   && [ "$(live '.permissions|has("deny")')" = false ] \
+   && [ "$(live '.permissions.deny|tojson')" = "$(jq -r '.permissions.deny|tojson' "$repo/claude/settings.json")" ] \
+   && [ "$(jq -r '.permissions.deny|map(select(test("\\.env|\\.credentials")))|length' "$repo/claude/settings.json")" -ge 2 ] \
+   && jq -e '.permissions.deny|any(startswith("PowerShell("))' "$repo/claude/settings.json" >/dev/null \
    && [ "$(live 'has("skillOverrides")')" = false ] && printf '%s' "$out" | grep -q "replaced live value of" \
    && ! printf '%s' "$out" | grep "kept machine-only keys" | grep -qE "autoMode|skillOverrides"; then
   pass "5 hand-added allow/autoMode/hook/marketplace/mode and a hand-set deny or bypass lock are replaced by the repo values and reported"
