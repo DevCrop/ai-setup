@@ -36,6 +36,8 @@ curl -fsSL https://raw.githubusercontent.com/DevCrop/ai-setup/main/bootstrap/set
 
 끝에 단계별 표(step, status ok/skipped/failed, note)를 보여 줍니다. 한 단계가 실패해도 나머지는 계속하고, 뒤 단계가 그 단계에 기대는 경우만 건너뜁니다.
 
+Codex 셋업은 이 설치에 들어 있지 않습니다. DevCrop/codex-setup을 따로 설치하고, Claude Monitor는 그 상태만 보여 줍니다. agent-desktop도 자동으로 깔지 않습니다. 쓰려면 `docs/agent-desktop.md`대로 설치하고 Codex가 있는 PC에서는 `AGENT_DESKTOP_HOME`을 프로필 밖 폴더로 정합니다. 매일 점검 루틴은 `docs/daily-setup-check.md`로 앱에서 만듭니다.
+
 ## 옵션
 
 | 옵션 | 뜻 |

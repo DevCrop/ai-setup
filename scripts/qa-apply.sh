@@ -245,5 +245,22 @@ if [ -f "$sk" ]; then
 else refs_bad="SKILL.md missing"; fi
 [ -z "$refs_bad" ] && pass "15c every references/*.md path in developing/SKILL.md exists" || bad "15c referenced file missing:$refs_bad"
 
+# 16. a hand edit is saved before it is overwritten; an untouched file, even one the repo has moved past, is not
+newcfg; apply >/dev/null
+printf 'mine\n' >> "$cfg/RTK.md"
+out="$(dryrun)"
+printf '%s' "$out" | grep -q "would save local edit: RTK.md" && [ ! -d "$cfg/.ai-setup-local-edits" ] \
+  && pass "16a dry run names the local edit and writes nothing" || bad "16a dry run ($out)"
+out="$(apply)"
+copy="$(find "$cfg/.ai-setup-local-edits" -name RTK.md 2>/dev/null)"
+[ -n "$copy" ] && [ "$(tail -n 1 "$copy")" = mine ] && cmp -s "$cfg/RTK.md" "$repo/claude/RTK.md" && printf '%s' "$out" | grep -q "local edit saved: RTK.md" \
+  && pass "16b the edit is saved, reported, and the repo file restored" || bad "16b local edit ($out)"
+rm -rf "$cfg/.ai-setup-local-edits"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && pass "16c a second apply saves nothing" || bad "16c second apply saved a copy"
+printf 'older repo text\n' > "$cfg/RTK.md"; sum="$(cd "$cfg" && cksum RTK.md)"
+grep -v ' RTK.md$' "$cfg/.ai-setup-hashes" > "$cfg/h.tmp"; echo "$sum" >> "$cfg/h.tmp"; mv "$cfg/h.tmp" "$cfg/.ai-setup-hashes"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && cmp -s "$cfg/RTK.md" "$repo/claude/RTK.md" && pass "16d a repo update over an untouched file saves nothing" || bad "16d repo update saved a copy"
+[ "$(jq -r .env.MSYS "$repo/claude/settings.json")" = noglob ] && pass "16e MSYS=noglob keeps grep patterns intact through rtk on Windows" || bad "16e MSYS is not noglob"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]
