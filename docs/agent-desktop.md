@@ -26,7 +26,7 @@ Why: Codex's sandbox setup grants its sandbox users read access to folders in th
 
 ## Spending fewer tokens
 
-One measurement on the Claude Monitor window. Sizes change with the screen it shows; the ratio is what matters:
+One measurement on the Claude Monitor window. Sizes change with the screen it shows:
 
 | Command | Output | Refs |
 |---|---|---|
@@ -45,7 +45,7 @@ One measurement on the Claude Monitor window. Sizes change with the screen it sh
 | `private file DACL grants an untrusted principal` | The state folder is in the profile, or the app started before the variable was set | Follow the setup above, then restart the app |
 | `EnumWindows failed` | Running inside Codex's sandbox | Run with escalated permissions |
 | `about_Execution_Policies` error | PowerShell picked `agent-desktop.ps1` | Call `agent-desktop.cmd` |
-| `TIMEOUT`, or only a few refs | An Electron or Chrome window is still settling, its controls sit below the depth limit, or other windows cover it (seen on the Monitor while covered) | Raise `--timeout-ms`, then try `--max-depth` or `--root`, then uncover the window and take a new snapshot |
+| `TIMEOUT`, or only a few refs | An Electron or Chrome window is still settling, its controls sit below the depth limit, or other windows cover it (the Monitor gave few refs and `TIMEOUT` while unfocused, and all its tabs once focused) | Raise `--timeout-ms`, then try `--max-depth` or `--root`, then uncover the window and take a new snapshot |
 | `PERM_DENIED` with `E_ACCESSDENIED` | The target app runs as administrator | Run the terminal as administrator, or skip that app |
 | Empty or failed reads on everything | The PC is locked or a UAC prompt is open | Unlock it or answer the prompt |
 
@@ -59,7 +59,7 @@ icacls $env:AGENT_DESKTOP_HOME
 Get-Content "$env:USERPROFILE\.codex\.sandbox\sandbox.$(Get-Date -Format yyyy-MM-dd).log" -Tail 20
 ```
 
-`LogonUI` means the PC is locked or at the sign-in screen, and `consent` means a UAC prompt is open. A `Codex` line in the `icacls` output means the sandbox has reached the state folder.
+`LogonUI` usually means the PC is locked or at the sign-in screen, and `consent` a UAC prompt. This is general Windows behavior, not tested here. A `Codex` line in the `icacls` output means the sandbox has reached the state folder.
 
 ## Limits
 
