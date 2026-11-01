@@ -1473,8 +1473,8 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
   .embed #v-flow > .panel:nth-child(2) { grid-column: 2; }
   .embed #v-flow > .g22 { grid-column: 2; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
 }
-/* Narrow or short windows: one-screen fitting would squeeze every panel to a sliver, so the page scrolls instead. */
-@media (max-width: 640px), (max-height: 700px) {
+/* Windows that stack the cards (under 900 px) or are short: one-screen fitting would squeeze every panel to a sliver, so the page scrolls instead. */
+@media (max-width: 899px), (max-height: 700px) {
   body.embed, .embed .stage { height: auto; overflow: visible; }
   .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2, .embed .view > .grid2 > .col > .panel { flex: none; }
   .embed .g12, .embed .g22, .embed .view > .grid2, .embed #v-ov > .g12, .embed #v-flow > .g22 { grid-template-rows: none; grid-auto-rows: auto; }

@@ -213,7 +213,7 @@ h3.sub:first-child { margin-top: 0; }
   /* narrow or short: the opt tab scrolls as one page; each list keeps its own short scroll */
   .stage:has(#v-opt:not([hidden])) { overflow: auto; }
   #v-opt:not([hidden]) { height: auto; }
-  #v-opt > .panel, #v-opt > .panel.batch, #v-opt > .panel.batch ~ .panel { flex: none; }
+  #v-opt > .panel, #v-opt > .panel.batch, #v-opt > .panel.batch ~ .panel, #v-opt > .panel.hist, #v-opt > .panel.batch ~ .panel.hist { flex: none; }
   #v-opt > .panel .sc { flex: none; max-height: 320px; }
 }
 @media (max-width: 760px) {
