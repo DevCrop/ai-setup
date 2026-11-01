@@ -18,7 +18,7 @@ This file is the only definition of the channels between a renderer (strip or ma
 | `findingId` | string, 3 to 80 chars, `^[CXU][0-9]{1,2}:[A-Za-z0-9._-]{1,64}$`, and must exist in the current finding list or the kept fixes, else `NOT_FOUND` |
 | `previewId` | string, exactly 64 chars, `^[0-9a-f]{64}$` |
 | `tab` | one of `ov flow orch route tok sav set codex rt opt` |
-| `notify`, `updateCheck`, `autoUpdate` | boolean |
+| `notify`, `updateCheck`, `autoUpdate`, `applySetup` | boolean (`applySetup`, default true: auto-update may run `apply.sh` and `install-plugins.sh` after a pull) |
 | `theme` | one of `"system"`, `"light"`, `"dark"` |
 | `quietStart`, `quietEnd` | string, `""` (off) or `HH:MM` 24-hour |
 | `liveSec` | one of `3`, `5`, `10` (refresh period while the main window is on screen) |
@@ -265,13 +265,13 @@ RoutinesDetail = {
 ### `settings:get`
 Added 2026-10-31. The user's app settings from `<userData>/settings.json` (defaults when missing or broken).
 - Direction: renderer to main, invoke. Caller: main window. Request: none.
-- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, theme: "system" | "light" | "dark", liveSec: 3 | 5 | 10, idleSec: 10 | 30 | 60, claudeHome: string, codexHome: string }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`, `liveSec: 5`, `idleSec: 30`, folders `""` (automatic: `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, else `~/.claude` / `~/.codex`). Quiet hours apply only when both are set. A saved folder that no longer passes the folder check reads as `""`.
+- Response: `Result<Settings>`, `Settings = { notify: boolean, quietStart: string, quietEnd: string, updateCheck: boolean, autoUpdate: boolean, applySetup: boolean, theme: "system" | "light" | "dark", liveSec: 3 | 5 | 10, idleSec: 10 | 30 | 60, claudeHome: string, codexHome: string }`. Defaults: `notify: true`, quiet hours `""` (off), `updateCheck: true`, `autoUpdate: true`, `theme: "system"`, `liveSec: 5`, `idleSec: 30`, folders `""` (automatic: `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, else `~/.claude` / `~/.codex`). Quiet hours apply only when both are set. A saved folder that no longer passes the folder check reads as `""`.
 - Errors: `FORBIDDEN`, `INTERNAL`.
 
 ### `settings:set`
 - Direction: renderer to main, invoke. Caller: main window.
-- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, theme, liveSec, idleSec, claudeHome, codexHome }` (rules in section 1).
-- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `notify: false` stops toasts; `liveSec` / `idleSec` set the refresh period at once (live while the main window is shown and not minimized, idle otherwise; a shorter period runs at once). A changed `claudeHome` / `codexHome` restarts the app just after the reply (new caches, sources and fix journal paths); refused with `FIX_BUSY` while a fix or an auto-update pass runs.
+- Request: any subset of `{ notify, quietStart, quietEnd, updateCheck, autoUpdate, applySetup, theme, liveSec, idleSec, claudeHome, codexHome }` (rules in section 1).
+- Response: `Result<Settings>`, the whole settings after the change, written atomically. Takes effect at once: `theme` sets Electron `nativeTheme.themeSource`, so every window and the monitor frame follow it; `updateCheck: false` stops update network calls from the next run and with them the auto-updater; `autoUpdate: false` stops the auto-updater only; `applySetup: false` keeps it pulling but stops `apply.sh` and `install-plugins.sh`; `notify: false` stops toasts; `liveSec` / `idleSec` set the refresh period at once (live while the main window is shown and not minimized, idle otherwise; a shorter period runs at once). A changed `claudeHome` / `codexHome` restarts the app just after the reply (new caches, sources and fix journal paths); refused with `FIX_BUSY` while a fix or an auto-update pass runs.
 - Errors: `BAD_REQUEST`, `BAD_FOLDER`, `FIX_BUSY`, `FORBIDDEN`, `INTERNAL`.
 
 ### `app:open-main`

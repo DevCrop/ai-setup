@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { writeAtomic } from '../../scripts/monitor.mjs';
 
-export const DEFAULT_SETTINGS = Object.freeze({ notify: true, quietStart: '', quietEnd: '', updateCheck: true, autoUpdate: true, theme: 'system', liveSec: 5, idleSec: 30, claudeHome: '', codexHome: '' });
+export const DEFAULT_SETTINGS = Object.freeze({ notify: true, quietStart: '', quietEnd: '', updateCheck: true, autoUpdate: true, applySetup: true, theme: 'system', liveSec: 5, idleSec: 30, claudeHome: '', codexHome: '' });
 export const THEMES = ['system', 'light', 'dark'];
 // Refresh period in seconds while the main window is on screen (live) and while only the strip shows (idle).
 export const LIVE_SECS = [3, 5, 10];
@@ -44,6 +44,7 @@ const VALID = {
   notify: (v) => typeof v === 'boolean',
   updateCheck: (v) => typeof v === 'boolean',
   autoUpdate: (v) => typeof v === 'boolean',
+  applySetup: (v) => typeof v === 'boolean',
   quietStart: (v) => v === '' || (typeof v === 'string' && HHMM.test(v)),
   quietEnd: (v) => v === '' || (typeof v === 'string' && HHMM.test(v)),
   liveSec: (v) => LIVE_SECS.includes(v),
