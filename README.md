@@ -11,7 +11,7 @@ The full setup before this was slimmed down (AO, Codex, dashboard, daily routine
 | Situation | Do this |
 |---|---|
 | Take the latest `main` | `git pull && bash scripts/apply.sh` (Git Bash on Windows, not PowerShell) |
-| After a plugin pin changes | Apply, open and close one Claude Code session (it refreshes the local marketplace copy), then `claude plugin update ponytail@ponytail` and `claude plugin update claude-mem@thedotmack`, then start a new session. Apply alone does not upgrade plugins |
+| After a plugin pin changes | Apply, then `bash scripts/install-plugins.sh` (it refreshes the local marketplace copy when a pin changed, then updates the plugins), then start a new session. Apply alone does not upgrade plugins |
 | Preview an apply | `bash scripts/apply.sh --dry-run` |
 | Check the setup is working | `node scripts/monitor.mjs` writes one HTML page to the temp folder and prints its path; add `--watch` to refresh it every 10 s (it then also writes `status.json` next to the page). It reads local files and the local claude-mem worker only. The Claude Monitor desktop app in `app/` (Electron) shows that status as a small always-on-top strip above the Windows taskbar and opens a full window with Codex and optimizer tabs; `bootstrap/setup.ps1 -Only claude-monitor` installs it to start at login |
 | Set up a project | Run `/project-setup` in it; `docs/project-setup.md` says what it should produce |

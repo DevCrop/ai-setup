@@ -107,11 +107,13 @@ fi
 
 # ---- plugins (need a logged-in claude; apply.sh has already added their marketplaces to settings.json)
 if command -v claude >/dev/null 2>&1 || [ "$dry" = 1 ]; then
-  # Marketplaces declared in settings.json are only registered when a session starts; `plugin install` alone reports
-  # "not found in marketplace". One one-word headless session registers them (a few tokens; fails if not logged in).
+  # Marketplaces declared in settings.json register, and their pins refresh, only when a session starts; until then
+  # `plugin install` reports "not found in marketplace" and `plugin update` stays on the old pin. One one-word headless
+  # session does it (a few tokens; fails if not logged in), skipped only when the registered copies already match.
   if [ "$dry" = 1 ]; then
     echo "[dry-run] claude -p ok"
-  elif ! claude plugin marketplace list 2>/dev/null | grep -q 'thedotmack'; then
+  elif ! jq -e --slurpfile k "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/known_marketplaces.json" \
+    '.extraKnownMarketplaces | to_entries | all(.value.source == $k[0][.key].source)' "$repo/claude/settings.json" >/dev/null 2>&1; then
     claude -p "ok" >/dev/null 2>&1 || true
   fi
   for p in ponytail@ponytail claude-mem@thedotmack; do
