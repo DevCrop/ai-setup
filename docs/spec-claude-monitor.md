@@ -106,7 +106,7 @@ Codex (출처 `~/.codex`):
 - Codex 고침: 미리보기 diff, 항목마다 사용자 클릭, 적용 전 `~/.codex/backups/claude-monitor/<시각>-config.toml` 백업, 되돌리기 한 번 클릭. 항목을 골라 한 번에 미리 보고 적용하는 "최적화하기"는 있다(항목마다 백업·되돌리기).
 - Claude 고침은 저장소에서 `apply.sh`를 돌리는 것(C1)과 저장소 `claude/settings.json`에 키를 넣는 것(C4)뿐. 라이브 `~/.claude`를 직접 쓰지 않는다. 자동 업데이트도 위의 네 명령만 돌린다(`reset`, `checkout`, `clean`, `npm` 없음).
 - Electron: contextIsolation 켜기, nodeIntegration 끄기, IPC 계약과 똑같은 좁은 preload API, 화면은 로컬 파일만 읽음(렌더러 CSP `connect-src 'none'` 그대로), CSP, 단일 인스턴스.
-- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음. 자동 업데이트를 켜 두면 그 네 명령도 네트워크를 쓴다: `git pull`, `claude update`, `install-plugins.sh`(플러그인 받기, pip; 마켓플레이스가 등록 안 돼 있으면 `claude -p ok` 한 번으로 몇 토큰을 쓴다).
+- 네트워크: 업데이트 확인(U1·U2)만, 메인 프로세스에서만. `https://registry.npmjs.org`에 HTTPS GET(5초 제한, 버전 문자열은 semver 모양만 받음)과 `git ls-remote`(창 띄우는 자격 증명 질문 끔). 설정에서 끄면 네트워크를 쓰지 않는다. 실패·오프라인이면 발견 없음. 자동 업데이트를 켜 두면 그 네 명령도 네트워크를 쓴다: `git pull`, `claude update`, `install-plugins.sh`(플러그인 받기, pip; 등록된 마켓플레이스가 핀과 다르면 `claude -p ok` 한 번으로 몇 토큰을 쓴다).
 
 ## Acceptance criteria (v1 완료 기준)
 1. 로그인 뒤 Claude Monitor 프로세스 묶음이 하나만 돈다(두 번 실행해도 하나).
