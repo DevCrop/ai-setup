@@ -25,6 +25,16 @@
   },
   "permissions": {
     "allow": [],
+    "deny": [
+      "Read(**/.env*)",
+      "Read(**/.credentials*)",
+      "Read(~/.claude/.credentials*)",
+      "Bash(rtk read *.env*)",
+      "Bash(rtk read *.credentials*)",
+      "Bash(rtk grep * *.env)",
+      "Bash(rtk grep * *.env.*)",
+      "Bash(rtk grep * *.credentials*)"
+    ],
     "defaultMode": "bypassPermissions"
   },
   "hooks": {
