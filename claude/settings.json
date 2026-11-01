@@ -47,6 +47,7 @@
       "PowerShell(Get-Content *.credentials*)",
       "PowerShell(Select-String * .env*)",
       "PowerShell(Select-String *\\.env*)",
+      "PowerShell(Select-String */.env*)",
       "PowerShell(Select-String *.credentials*)"
     ],
     "defaultMode": "bypassPermissions"
