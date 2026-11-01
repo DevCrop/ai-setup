@@ -631,6 +631,9 @@ test('activity: a session whose last main message ended the turn waits for its u
   const sub = files([rec(120000)]);
   sub.files.push({ isSub: true, project: 'D--a', sessionId: 's1', agentType: 'explorer', records: [rec(10000, { end: true, id: 'sub' })] });
   assert.equal(buildActivity(sub).projects[0].waiting, null);
+  // transcripts not read: unknown (null), which is not "no turn ended" ([])
+  assert.equal(summarize({ activity: { status: 'missing', projects: [] } }).waiting, null);
+  assert.deepEqual(summarize({ activity: { status: 'ok', projects: [] } }).waiting, []);
   // a newer message in another session of the same folder clears it
   const two = files([rec(120000, { end: true })], [rec(30000, { cwdBase: 'ai-setup' })]);
   assert.equal(buildActivity(two).projects[0].waiting, null);

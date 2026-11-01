@@ -805,7 +805,8 @@ export function summarize(d) {
     cacheHit7d: Number.isFinite(hit) ? hit : null,
     claudeMem: typeof x.claudeMem?.reachable === 'boolean' ? x.claudeMem.reachable : null,
     // folders whose session finished a turn and waits for the user: name (basename), when, how long the turn ran
-    waiting: projects.filter((p) => p?.waiting && typeof p.waiting.at === 'string').map((p) => ({ projectName: String(p.projectName ?? '').slice(0, 60), at: p.waiting.at, turnSec: Number(p.waiting.turnSec) || 0 })),
+    // null when transcripts were not read: unknown, so it must not count as the app's first look at ended turns
+    waiting: x.activity?.status !== 'ok' ? null : projects.filter((p) => p?.waiting && typeof p.waiting.at === 'string').map((p) => ({ projectName: String(p.projectName ?? '').slice(0, 60), at: p.waiting.at, turnSec: Number(p.waiting.turnSec) || 0 })),
   };
 }
 
