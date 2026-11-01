@@ -42,6 +42,7 @@ One measurement on the Claude Monitor window. Sizes change with the screen it sh
 
 | Output | Cause | Fix |
 |---|---|---|
+| `command not found` | `apply.sh` copies the rule but does not install the CLI | The agent reports it and stops; the user runs `npm install -g agent-desktop` |
 | `private file DACL grants an untrusted principal` | The state folder is in the profile, or the app started before the variable was set | Follow the setup above, then restart the app |
 | `EnumWindows failed` | Running inside Codex's sandbox | Run with escalated permissions |
 | `about_Execution_Policies` error | PowerShell picked `agent-desktop.ps1` | Call `agent-desktop.cmd` |
