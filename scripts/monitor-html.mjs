@@ -1450,13 +1450,17 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2 { flex: 1 1 0; min-height: 0; }
 .embed .g12, .embed .g22, .embed .view > .grid2 { align-items: stretch; grid-auto-rows: minmax(0, 1fr); }
 .embed .g12 { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
-/* overview: "오늘 작업" takes its own height (at most a quarter), the two chart rows share the rest */
-.embed #v-ov > .g12 { grid-template-rows: fit-content(25%) minmax(0, 1fr) minmax(0, 1fr); }
+/* overview: "오늘 작업" takes its own height (at most a quarter), the two chart rows share the rest; the chart row never gets shorter than the chart, or the legend covers its date axis */
+.embed #v-ov > .g12 { grid-template-rows: fit-content(25%) minmax(250px, 1fr) minmax(0, 1fr); }
 /* card scrollbars show on hover or focus only, so a page of cards reads as one dashboard, not a stack of scroll boxes */
 .embed .panel { scrollbar-color: transparent transparent; }
 .embed .panel:hover, .embed .panel:focus-within { scrollbar-color: var(--line-strong) transparent; }
+/* with the bar hidden, a soft bottom shadow says "more below": the first layer scrolls with the content and covers the shadow at the very end */
+.embed .panel { --cue: color-mix(in srgb, var(--fg) 14%, transparent); background: linear-gradient(transparent, var(--panel) 60%) bottom / 100% 32px no-repeat local, linear-gradient(transparent, var(--cue)) left bottom / calc(100% - var(--pad)) 16px no-repeat scroll, var(--panel); }
 /* a chart's legend names its colors, so a short card must not cut it off under a hidden scrollbar */
-.embed .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin-bottom: calc(var(--pad) * -1); padding: var(--sp-1) 0 var(--pad); background: var(--panel); }
+.embed .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin: 0 calc(var(--pad) * -1) calc(var(--pad) * -1); padding: var(--sp-1) var(--pad) var(--pad); background: var(--panel); animation: legend-cue linear; animation-timeline: scroll(nearest); }
+/* the legend sits over the panel's own cue, so it carries one; a panel with nothing to scroll has no timeline and shows none */
+@keyframes legend-cue { from, 95% { box-shadow: 0 -10px 10px -8px var(--cue); } to { box-shadow: none; } }
 .embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
 .embed .view > .grid2 > .col { min-height: 0; } .embed .view > .grid2 > .col > .panel { flex: 1 1 0; min-height: 0; }
 .embed .panel .grid2 { gap: var(--sp-3); }
@@ -1469,12 +1473,13 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
   .embed #v-flow > .panel:nth-child(2) { grid-column: 2; }
   .embed #v-flow > .g22 { grid-column: 2; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(0, 1fr); }
 }
-/* Narrow windows stack every panel; one-screen fitting would squeeze them, so the page scrolls instead. */
-@media (max-width: 640px) {
+/* Narrow or short windows: one-screen fitting would squeeze every panel to a sliver, so the page scrolls instead. */
+@media (max-width: 640px), (max-height: 700px) {
   body.embed, .embed .stage { height: auto; overflow: visible; }
   .embed .view > .panel, .embed .view > .g12, .embed .view > .g22, .embed .view > .grid2, .embed .view > .grid2 > .col > .panel { flex: none; }
-  .embed .g12, .embed .g22, .embed .view > .grid2 { grid-template-rows: none; grid-auto-rows: auto; }
+  .embed .g12, .embed .g22, .embed .view > .grid2, .embed #v-ov > .g12, .embed #v-flow > .g22 { grid-template-rows: none; grid-auto-rows: auto; }
   .embed .panel { overflow: visible; }
+  .embed .panel > .legend { position: static; margin: 0; padding: 0; animation: none; }
 }
 `;
 
