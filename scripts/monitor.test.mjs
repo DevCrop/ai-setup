@@ -404,10 +404,33 @@ test('setup: usage badge shows 7-day runs and flags the actual model when it dif
   assert.ok(html.includes('data-tab="flow"') && html.includes('id="v-flow"'));
 });
 
+test('setup: drift covers the rule files and the deny list, not the rest of the merged settings', () => {
+  const r = fs.mkdtempSync(path.join(tmp, 'repo-'));
+  const h = fs.mkdtempSync(path.join(tmp, 'live-'));
+  for (const d of [r, h]) fs.mkdirSync(path.join(d, d === r ? 'claude/skills/one' : 'skills/one'), { recursive: true });
+  fs.mkdirSync(path.join(r, 'scripts'));
+  fs.writeFileSync(path.join(r, 'scripts', 'apply.sh'), 'items="CLAUDE.md settings.json hooks skills/one"\n');
+  const put = (rel, text) => { for (const [d, p] of [[r, 'claude/' + rel], [h, rel]]) { fs.mkdirSync(path.dirname(path.join(d, p)), { recursive: true }); fs.writeFileSync(path.join(d, p), text); } };
+  put('CLAUDE.md', 'rules');
+  put('hooks/a.sh', 'x');
+  put('skills/one/SKILL.md', 's');
+  fs.writeFileSync(path.join(r, 'claude', 'settings.json'), JSON.stringify({ model: 'a', permissions: { deny: ['Read(x)'] } }));
+  fs.writeFileSync(path.join(h, 'settings.json'), JSON.stringify({ model: 'b', permissions: { deny: ['Read(x)'] } }));
+  assert.deepEqual(collectSetupFlow(h, r).drift, []); // a different merged key is not drift
+  fs.writeFileSync(path.join(h, 'settings.json'), JSON.stringify({ permissions: {} }));
+  fs.writeFileSync(path.join(h, 'CLAUDE.md'), 'old');
+  fs.rmSync(path.join(h, 'hooks', 'a.sh'));
+  assert.deepEqual(collectSetupFlow(h, r).drift, [
+    { path: 'CLAUDE.md', kind: 'differs' },
+    { path: 'hooks/a.sh', kind: 'missing' },
+    { path: 'settings.json:permissions.deny', kind: 'differs' },
+  ]);
+});
+
 test('setup: drift is clean when home matches the repo, home-only extras are ignored, a changed file is flagged', () => {
   const h = fs.mkdtempSync(path.join(tmp, 'live-'));
   fs.cpSync(path.join(repo, 'claude', 'agents'), path.join(h, 'agents'), { recursive: true });
-  fs.cpSync(path.join(repo, 'claude', 'skills'), path.join(h, 'skills'), { recursive: true });
+  fs.cpSync(path.join(repo, 'claude'), h, { recursive: true });
   fs.mkdirSync(path.join(h, 'skills', 'synced'));
   fs.writeFileSync(path.join(h, 'skills', 'synced', 'x.md'), 'x');
   assert.deepEqual(collectSetupFlow(h, repo).drift, []);

@@ -189,7 +189,7 @@ Ponytail check on abstractions: `Source` has three real implementations (Claude,
 
 | Layer | Folder | Classes | Needs Electron |
 |---|---|---|---|
-| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C11, X1..X8, U1..U3, Finding, AutoUpdater, UpdateStep, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
+| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C11, X1..X10, U1..U3, Finding, AutoUpdater, UpdateStep, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
 | Main | `app/main/` | StripWindow, MainWindow, IpcRouter, `main.js` (wires everything, single-instance lock) | yes, except `IpcRouter` |
 
 `IpcRouter` receives `ipcMain` and a `senderRole(event)` function as arguments and never imports `electron`, so its validation and permission rules are tested on CI with a fake `ipcMain`. `MonitorService` is in `core` because it needs only timers, files and the injected Sources; Electron only subscribes to its change callback.
@@ -275,6 +275,8 @@ All finding texts shown to the user are Korean (project language); ids, evidence
 | X6 many worktrees | `X6ManyWorktrees` (`x6-many-worktrees.js`) | codex | `data.worktrees` (count, oldest mtime) | `X6:worktrees` when count >= 20 or the oldest is over 30 days | info | none |
 | X7 Codex limit | `X7CodexLimit` (`x7-codex-limit.js`) | codex | `data.usage.rate` | `X7:primary`, `X7:secondary` when usedPercent >= 80 | warn | none |
 | X8 big Codex context | `X8CodexBigContext` (`x8-codex-big-context.js`) | codex | `data.usage.live` | `X8:<sha1 12 of folder>` when the last request is >= 60% of the window | info | none |
+| X9 Codex setup | `X9CodexSetup` (`x9-codex-setup.js`) | codex | `data.setup` (allow-listed fields from TRACE state) | `X9:version`, `X9:software`, `X9:stale` (over 14 days) | info | none; detail points to codex-setup |
+| X10 agent-desktop state | `X10AgentDesktopState` (`x10-agent-desktop-state.js`) | codex | `data.sharedAgentDesktop` | `X10:state` when installed and the state folder is in the profile | warn | none |
 
 The severities of C3 and X2 are proposals the spec does not fix; each is one constant in its check file.
 

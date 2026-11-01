@@ -265,7 +265,7 @@ test('codexDetail: NO_SNAPSHOT before the first run; then the CodexDetail shape 
   assert.throws(() => svc.codexDetail(), { code: 'NO_SNAPSHOT' });
   await svc.refreshNow();
   const d = svc.codexDetail();
-  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'usage', 'findings']);
+  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'usage', 'findings', 'setup', 'sharedAgentDesktop']);
   assert.equal(d.generatedAt, new Date(NOW).toISOString());
   assert.deepEqual([d.state, d.note], ['warn', '']);
   assert.equal(d.settings.length, 10);

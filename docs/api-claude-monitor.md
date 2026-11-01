@@ -123,7 +123,7 @@ Status = {
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C11", "X1" .. "X8", "U1" .. "U3"
+  checkId:    string,                // "C1" .. "C11", "X1" .. "X10", "U1" .. "U3"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
@@ -192,6 +192,10 @@ CodexDetail = {
   logs:       { name: string, bytes: number }[],
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
+  setup: { found: false } | {                     // allow-listed fields of TRACE Setup's state; never original_config or health-fingerprint.key
+    found: true, version: string | null, appliedAt: string | null, recordedVersion: string | null, verifiedAt: string | null,
+    softwareStatus: string | null, agentDesktop: null | { version: string | null, runtimeVersion: string | null, acceptedAt: string | null } },
+  sharedAgentDesktop: null | { installed: boolean, version: string | null, stateInProfile: boolean },  // agent-desktop on PATH
   usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days
     days:   { date: string, input: number, cached: number, output: number }[],
     today:  { output, input, cached, sessions: number, projects: { projectName: string, sessions, output, cached, input: number, lastAt: string | null }[] },

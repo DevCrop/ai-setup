@@ -1276,7 +1276,7 @@ function viewSetup(d) {
   const flow = panel('설정 구조', sub(!r.delegate || !r.lanes || !r.routing), (x) => setupFlow(x, d), { hint: '실행할 때마다 repo 파일에서 읽음' });
   const fail = panel('실패하면', sub(!r.failure), failStrip, { hint: '위임한 일이 실패할 때 순서' });
   const chips = panel('켜져 있는 구성', sub(false), (x) => setupChips(x, d));
-  const drift = panel('repo ↔ ~/.claude', sub(s && (s.driftCount > 0 || arr(s.drift).length > 0)), driftBlock, { hint: 'agents · 설치 대상 스킬' });
+  const drift = panel('repo ↔ ~/.claude', sub(s && (s.driftCount > 0 || arr(s.drift).length > 0)), driftBlock, { hint: 'apply.sh가 복사하는 파일 · deny 규칙' });
   return `${flow}${fail}<div class="g22">${chips}${drift}</div>`;
 }
 
