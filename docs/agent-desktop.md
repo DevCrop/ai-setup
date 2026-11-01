@@ -35,7 +35,7 @@ One measurement on the Claude Monitor window. Sizes change with the screen it sh
 | `snapshot --skeleton -i --compact` | 1.7 KB | 2 |
 
 - Start with `--skeleton` on a dense app, then read one region with `--root <ref>`.
-- Read `agent-desktop skills get desktop` (6 KB) once per task, and `skills get platform` (8 KB) only when something behaves differently.
+- Read `agent-desktop skills get desktop` (6 KB) and `skills get platform` (8 KB) once before first use, as upstream asks, and not again in the same task.
 - Pass `--window-id` when an app has several windows, as the Monitor does.
 
 ## When it fails
