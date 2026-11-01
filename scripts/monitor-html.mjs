@@ -1455,6 +1455,8 @@ body.embed { --gap: 10px; --pad: 12px; --edge: 14px; --sp-5: 16px; height: 100vh
 /* card scrollbars show on hover or focus only, so a page of cards reads as one dashboard, not a stack of scroll boxes */
 .embed .panel { scrollbar-color: transparent transparent; }
 .embed .panel:hover, .embed .panel:focus-within { scrollbar-color: var(--line-strong) transparent; }
+/* a chart's legend names its colors, so a short card must not cut it off under a hidden scrollbar */
+.embed #v-ov .panel > .legend { position: sticky; bottom: calc(var(--pad) * -1); margin-bottom: calc(var(--pad) * -1); padding: var(--sp-1) 0 var(--pad); background: var(--panel); }
 .embed .view > .grid2 { grid-template-rows: minmax(0, 1fr); }
 .embed .view > .grid2 > .col { min-height: 0; } .embed .view > .grid2 > .col > .panel { flex: 1 1 0; min-height: 0; }
 .embed .panel .grid2 { gap: var(--sp-3); }
