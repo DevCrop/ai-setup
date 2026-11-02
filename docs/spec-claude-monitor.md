@@ -69,8 +69,8 @@ Codex (출처 `~/.codex`):
 - X6 worktree가 20개 이상이거나 30일 넘은 것이 있음 → 보고만.
 - X7 Codex 사용 한도(기본·보조 창)가 80% 이상 → 주의(warn), 재설정 시각 표시(2026-10-31 추가).
 - X8 최근 15분 안에 작업한 Codex 세션의 마지막 요청이 문맥 창의 60% 이상 → 참고(info), 폴더 이름별 하나(2026-10-31 추가).
-- X9 Codex 셋업(TRACE Setup) 기록의 버전 불일치, 소프트웨어 점검 요청, 14일 넘은 검증 → 참고(info), 수정은 codex-setup 쪽. 설치 기록에서 정해진 칸만 읽고 `original_config`와 `health-fingerprint.key`는 읽지 않는다(2026-11-01 추가).
-- X10 agent-desktop 상태 폴더가 사용자 프로필 안(Codex 샌드박스와 충돌) → 주의(warn), 프로필 밖 `AGENT_DESKTOP_HOME`을 안내(2026-11-01 추가).
+- X9 Codex 셋업(TRACE Setup) 기록의 소프트웨어 점검 요청(attention, failed), 14일 넘은 검증 → 참고(info), 수정은 codex-setup 쪽. 설치 기록에서 정해진 칸만 읽고 `original_config`와 `health-fingerprint.key`는 읽지 않는다(2026-11-01 추가).
+- X10 Windows에서 agent-desktop 상태 폴더가 사용자 프로필 안(Codex 샌드박스와 충돌) → 주의(warn), 프로필 밖 `AGENT_DESKTOP_HOME`을 안내(2026-11-01 추가).
 - Codex 사용량(2026-10-31 추가): 최근 7일 `sessions/**/rollout-*.jsonl`에서 `session_meta`(폴더 이름), `turn_context`(모델 이름), `event_msg/token_count`(토큰 수와 사용 한도 %)만 읽는다. 다른 줄은 따옴표 붙은 표지 문자열이 없으면 JSON으로 읽지도 않고, 읽은 줄의 글은 버린다. 파일은 늘어난 부분만 8MB 조각으로 읽는다. Codex 탭 "사용량" 카드, 하루 요약의 Codex 출력.
 업데이트 (출처 `updates`, 6시간마다, 실패하면 30분 뒤 다시, 설정에서 끌 수 있음, 2026-10-31 추가):
 - U1 Claude Code 새 버전: 설치된 `claude --version`이 `autoUpdatesChannel`에 맞는 npm 태그(`latest`/`stable`)보다 낮음 → info, 명령 `claude update` 표시.

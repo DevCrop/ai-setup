@@ -425,6 +425,8 @@ test('setup: drift covers the rule files and the deny list, not the rest of the 
     { path: 'hooks/a.sh', kind: 'missing' },
     { path: 'settings.json:permissions.deny', kind: 'differs' },
   ]);
+  fs.writeFileSync(path.join(h, 'settings.json'), '{nope');
+  assert.ok(collectSetupFlow(h, r).drift.some((d) => d.path === 'settings.json:permissions.deny')); // unreadable live settings: flagged, no throw
 });
 
 test('setup: drift is clean when home matches the repo, home-only extras are ignored, a changed file is flagged', () => {

@@ -166,7 +166,7 @@ Decision: the monitor html is loaded as a file, not passed as a string. The file
 - Errors: `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
 
 ### `codex:detail`
-Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
+Added 2026-10-25 because the Codex tab showed only counts. Names, flags, counts and TRACE and agent-desktop versions, states and times only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<CodexDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
@@ -193,7 +193,7 @@ CodexDetail = {
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
   setup: { found: false } | {                     // allow-listed fields of TRACE Setup's state; never original_config or health-fingerprint.key
-    found: true, version: string | null, appliedAt: string | null, recordedVersion: string | null, verifiedAt: string | null,
+    found: true, version: string | null, appliedAt: string | null, verifiedAt: string | null,
     softwareStatus: string | null, agentDesktop: null | { version: string | null, runtimeVersion: string | null, acceptedAt: string | null } },
   sharedAgentDesktop: null | { installed: boolean, version: string | null, stateInProfile: boolean },  // agent-desktop on PATH
   usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days

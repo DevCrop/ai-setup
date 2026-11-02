@@ -202,12 +202,12 @@
   function cardSetup(root, d) {
     var s = d.setup || { found: false };
     var a = d.sharedAgentDesktop;
-    var b = card(root, 'own', '셋업 소유', 'Codex 셋업은 codex-setup, Claude 셋업은 ai-setup이 맡습니다');
+    var b = card(root, 'own', '셋업 소유', '고치는 곳: codex-setup');
     if (s.found) {
-      b.appendChild(kvRow('TRACE Setup', dash(s.version) + (s.recordedVersion && s.recordedVersion !== s.version ? ' (점검 기록 ' + s.recordedVersion + ')' : '')));
+      b.appendChild(kvRow('TRACE Setup', dash(s.version)));
       b.appendChild(kvRow('마지막 검증', s.verifiedAt ? s.verifiedAt.slice(0, 10) : '기록 없음'));
       b.appendChild(kvRow('소프트웨어 점검', dash(s.softwareStatus)));
-      b.appendChild(kvRow('Codex agent-desktop', s.agentDesktop ? '스킬 ' + dash(s.agentDesktop.version) + ' · 런타임 ' + dash(s.agentDesktop.runtimeVersion) : '설치 안 됨'));
+      b.appendChild(kvRow('Codex agent-desktop', s.agentDesktop ? dash(s.agentDesktop.version) + ' · ' + dash(s.agentDesktop.runtimeVersion) : '설치 안 됨'));
     } else none(b, 'TRACE Setup 설치 기록이 없습니다.');
     b.appendChild(kvRow('Claude agent-desktop', !a ? '확인 못 함' : !a.installed ? '설치 안 됨' : dash(a.version) + (a.stateInProfile ? ' · 상태 폴더 위치 확인 필요' : '')));
   }
@@ -367,7 +367,7 @@
       cardUsage(grid, d); cardSetup(grid, d); cardSettings(grid, d); cardPlugins(grid, d); cardMcp(grid, d); cardProjects(grid, d);
       cardAgents(grid, d); cardSessions(grid, d); cardRepo(grid, d);
     } else {
-      [['use', '사용량'], ['set', '설정'], ['plug', '플러그인'], ['mcp', 'MCP 서버'], ['proj', '신뢰 프로젝트'], ['agent', '에이전트 · 스킬'], ['sess', '세션'], ['repo', '저장소 정리']].forEach(function (n) {
+      [['use', '사용량'], ['own', '셋업 소유'], ['set', '설정'], ['plug', '플러그인'], ['mcp', 'MCP 서버'], ['proj', '신뢰 프로젝트'], ['agent', '에이전트 · 스킬'], ['sess', '세션'], ['repo', '저장소 정리']].forEach(function (n) {
         none(card(grid, n[0], n[1]), cxErr ? '자세한 정보를 불러오지 못했습니다: ' + cxErr : '불러오는 중…');
       });
     }
