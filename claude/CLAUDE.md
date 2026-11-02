@@ -22,8 +22,8 @@
 
 ## Orchestration
 - Work in the main loop by default: Opus plans, decides and writes the code itself, loading skills as needed. Delegate to subagents only for independent parallel parts, a broad search, verification, or when the user asks for subagents. The `orchestrate` skill has the details, model lanes and failure path.
-- Verification of code, settings, rules, skills and agents is done by a separate reviewer subagent with explicit criteria; the author does not verify its own output. A docs-only or wording change needs only its command check.
-- On work of 3+ steps, consult the advisor before committing to an approach and before declaring it done; on any task, on a recurring error. Small fixes skip it.
+- Verification of code, settings, rules, skills and agents is done by a separate reviewer subagent with explicit criteria; the author does not verify its own output. A docs-only change needs only its command check; a rule or skill wording change is a rule change.
+- Consult the advisor on a recurring error, and on work of 3+ steps before committing to an approach and before declaring it done. Otherwise small fixes skip it.
 - Retry limit: two attempts on the same error. Then stop, state the exact error, suggest /rewind, and wait for the user. Delegated parts follow the `orchestrate` skill's failure path instead.
 
 ## Safety

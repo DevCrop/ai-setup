@@ -117,9 +117,12 @@ hashes="$dest/.ai-setup-hashes"
 # Paths recorded by the last apply whose content changed since then and is not simply the repo's.
 local_edits() {
   [ -f "$hashes" ] || return 0
-  cut -d' ' -f3- "$hashes" | (cd "$dest" && tr '\n' '\0' | xargs -0 cksum 2>/dev/null) > "$tmp/now.sums" || true
+  # Only validated paths reach cksum: the record is a file on disk, and a device or outside path must not be read.
+  cut -d' ' -f3- "$hashes" | while IFS= read -r p; do
+    if removable "$p"; then printf '%s\0' "$p"; fi
+  done | (cd "$dest" && xargs -0 cksum 2>/dev/null) > "$tmp/now.sums" || true
   grep -vxFf "$tmp/now.sums" "$hashes" | cut -d' ' -f3- | while IFS= read -r p; do
-    if removable "$p" && ! cmp -s "$src/$p" "$dest/$p"; then echo "$p"; fi
+    if removable "$p" && managed "$p" && ! cmp -s "$src/$p" "$dest/$p"; then echo "$p"; fi
   done || true
 }
 
@@ -159,9 +162,15 @@ fi
 
 # ---- local edits: keep a copy before anything below replaces or removes them ----
 saved="$dest/.ai-setup-local-edits/$(date +%Y%m%d-%H%M%S)"
-local_edits | while IFS= read -r p; do
-  mkdir -p "$(dirname "$saved/$p")" && cp "$dest/$p" "$saved/$p" && echo "local edit saved: $p -> $saved/$p"
-done
+local_edits > "$tmp/edits.list"
+if [ -s "$tmp/edits.list" ] && [ -L "$dest/.ai-setup-local-edits" ]; then
+  echo "apply: $dest/.ai-setup-local-edits is a link, so local edits cannot be saved safely; nothing was changed." >&2; exit 2
+fi
+while IFS= read -r p; do
+  { mkdir -p "$(dirname "$saved/$p")" && cp "$dest/$p" "$saved/$p"; } \
+    || { echo "apply: could not save the local edit $p; nothing was changed." >&2; exit 2; }
+  echo "local edit saved: $p -> $saved/$p"
+done < "$tmp/edits.list"
 
 # ---- copy ----
 for item in $items; do

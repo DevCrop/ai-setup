@@ -9,7 +9,7 @@ Source of truth for the global Claude Code setup: `claude/` is copied into `~/.c
 - Syntax and lint (same as CI): `bash -n scripts/*.sh claude/*.sh claude/hooks/*.sh`, `jq empty claude/settings.json scripts/owned-keys.json scripts/removed-keys.json`, `shellcheck -S warning scripts/*.sh bootstrap/*.sh claude/statusline.sh claude/hooks/*.sh`.
 
 ## Rules
-- Scope is Ponytail, RTK, claude-mem, TokenEconomizer, subagents (Opus works inline; subagents for parallel parts, broad searches, verification, or on request) and their skills, two session hooks, the status line, the `agent-desktop` CLI (`docs/agent-desktop.md`), the Claude Monitor desktop app (`app/`, docs in `docs/*-claude-monitor.md`) and the new-PC installer (`bootstrap/`). The Codex setup belongs to DevCrop/codex-setup; this repo never edits `~/.codex`, and the Monitor only shows it and points there. Do not add tooling outside that without the user asking.
+- Scope is Ponytail, RTK, claude-mem, TokenEconomizer, subagents (Opus works inline; subagents for parallel parts, broad searches, verification, or on request) and their skills, two session hooks, the status line, the `agent-desktop` CLI (`docs/agent-desktop.md`), the Claude Monitor desktop app (`app/`, docs in `docs/*-claude-monitor.md`) and the new-PC installer (`bootstrap/`). The Codex setup belongs to DevCrop/codex-setup; this repo never edits `~/.codex`. The Monitor shows it and points there; its one write is what `AGENTS.md` allows (a stale table, after the user clicks apply). Do not add tooling outside that without the user asking.
 - Keep `claude/CLAUDE.md` under 200 lines.
 - Never commit credentials or `.env*`.
 - Every commit has a body that gives the reason and how the change was checked.

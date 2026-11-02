@@ -260,7 +260,21 @@ rm -rf "$cfg/.ai-setup-local-edits"; apply >/dev/null
 printf 'older repo text\n' > "$cfg/RTK.md"; sum="$(cd "$cfg" && cksum RTK.md)"
 grep -v ' RTK.md$' "$cfg/.ai-setup-hashes" > "$cfg/h.tmp"; echo "$sum" >> "$cfg/h.tmp"; mv "$cfg/h.tmp" "$cfg/.ai-setup-hashes"; apply >/dev/null
 [ ! -d "$cfg/.ai-setup-local-edits" ] && cmp -s "$cfg/RTK.md" "$repo/claude/RTK.md" && pass "16d a repo update over an untouched file saves nothing" || bad "16d repo update saved a copy"
-[ "$(jq -r .env.MSYS "$repo/claude/settings.json")" = noglob ] && pass "16e MSYS=noglob keeps grep patterns intact through rtk on Windows" || bad "16e MSYS is not noglob"
+[ "$(jq -r .env.MSYS "$repo/claude/settings.json")" = noglob ] && pass "16e settings set MSYS=noglob" || bad "16e MSYS is not noglob"
+newcfg; apply >/dev/null
+sed 's/^[0-9]* [0-9]* RTK.md$/1 1 RTK.md/' "$cfg/.ai-setup-hashes" > "$cfg/h.tmp"; mv "$cfg/h.tmp" "$cfg/.ai-setup-hashes"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && pass "16f a file equal to the repo is not saved, whatever the record says" || bad "16f saved a file equal to the repo"
+printf 'secret\n' > "$base/s$n/outside.txt"
+mkdir -p "$cfg/skills/retired"; printf 'kept\n' > "$cfg/skills/retired/SKILL.md"
+printf '1 1 /dev/zero\n1 1 ../outside.txt\n1 1 skills/retired/SKILL.md\n' >> "$cfg/.ai-setup-hashes"
+out="$(apply)"; rc=$?
+[ "$rc" = 0 ] && [ ! -d "$cfg/.ai-setup-local-edits" ] && [ -f "$base/s$n/outside.txt" ] && [ -f "$cfg/skills/retired/SKILL.md" ] \
+  && pass "16g device, outside and dropped-item records save and read nothing" || bad "16g bad records (rc=$rc; $out)"
+newcfg; apply >/dev/null
+printf 'mine\n' >> "$cfg/RTK.md"; printf 'mine\n' >> "$cfg/CLAUDE.md"; printf 'file\n' > "$cfg/.ai-setup-local-edits"
+out="$(apply)"; rc=$?
+[ "$rc" != 0 ] && [ "$(tail -n 1 "$cfg/RTK.md")" = mine ] && [ "$(tail -n 1 "$cfg/CLAUDE.md")" = mine ] \
+  && pass "16h a failed save stops the apply and keeps every edit" || bad "16h failed save (rc=$rc; $out)"
 
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

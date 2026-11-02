@@ -16,7 +16,7 @@ export class C1ConfigDrift extends Check {
     return [new Finding({ recommended: true,
       id: 'C1:drift', checkId: this.id, source: this.source, severity: SEVERITY,
       title: `저장소와 ~/.claude 설정이 다릅니다 (${n}개)`,
-      detail: '저장소 claude/ 와 라이브 ~/.claude 의 지침·에이전트·스킬·훅 파일이나 deny 규칙이 다릅니다. 적용하면 저장소 내용이 라이브로 복사됩니다(apply.sh). apply.sh 는 백업을 남기지 않아 되돌리기가 없고, git 이 기록입니다.',
+      detail: '저장소 claude/ 와 라이브 ~/.claude 의 지침·에이전트·스킬·훅 파일이나 deny 규칙이 다릅니다. 적용하면 저장소 내용이 라이브로 복사됩니다(apply.sh). 되돌리기는 없고 git 이 기록입니다. 손으로 고친 파일은 먼저 ~/.claude/.ai-setup-local-edits 에 남깁니다.',
       evidence: drift.slice(0, 10).map((d) => `${d?.kind === 'missing' ? 'missing' : 'differs'}: ${String(d?.path ?? '')}`),
       fix: new ApplyRepoFix({ id: 'C1:drift', repo: snapshot.ctx.repo, runner: this.deps.runner ?? execRunner, claudeHome: snapshot.ctx.homes?.claude ?? null }),
     })];
