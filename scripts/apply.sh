@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Apply the managed files from claude/ into the Claude config directory.
 # Works in Git Bash on Windows (and bash on the linux CI runner). Needs jq. Never touches credentials, projects/, sessions/, plugins/ or any other
-# runtime data. There is no backup: git is the history. To go back, check out the older commit and run this script again.
+# runtime data. Git is the history: to go back, check out the older commit and run this script again.
+# The one copy kept: a managed file edited by hand since the last apply (per $dest/.ai-setup-hashes) and different from the repo is saved
+# under $dest/.ai-setup-local-edits/<time>/ before it is replaced or removed.
 #
 # settings.json is merged key by key, not replaced:
 #   - this repo owns the keys in scripts/owned-keys.json (top-level keys and permissions.* keys):
@@ -111,6 +113,19 @@ removable() {
   [ -f "$dest/$1" ] || [ -L "$dest/$1" ]
 }
 
+hashes="$dest/.ai-setup-hashes"
+# Paths recorded by the last apply whose content changed since then and is not simply the repo's.
+local_edits() {
+  [ -f "$hashes" ] || return 0
+  # Only validated paths reach cksum: the record is a file on disk, and a device or outside path must not be read.
+  cut -d' ' -f3- "$hashes" | while IFS= read -r p; do
+    if removable "$p"; then printf '%s\0' "$p"; fi
+  done | (cd "$dest" && xargs -0 cksum 2>/dev/null) > "$tmp/now.sums" || true
+  grep -vxFf "$tmp/now.sums" "$hashes" | cut -d' ' -f3- | while IFS= read -r p; do
+    if removable "$p" && managed "$p" && ! cmp -s "$src/$p" "$dest/$p"; then echo "$p"; fi
+  done || true
+}
+
 # ---- dry run: compare and report, write nothing ----
 if [ "$dry" = 1 ]; then
   for item in $items; do
@@ -123,6 +138,7 @@ if [ "$dry" = 1 ]; then
     else echo "would write: $item"
     fi
   done
+  local_edits | sed 's/^/would save local edit: /'
   sed 's/^/settings.json: /' "$tmp/report.txt"
   [ "$migrate" = 1 ] && echo "would rename: ${old_manifest##*/} -> ${manifest##*/}"
   if [ -f "$manifest_in" ]; then
@@ -143,6 +159,18 @@ if [ "$migrate" = 1 ]; then
   mv "$old_manifest" "$manifest"
   echo "renamed: ${old_manifest##*/} -> ${manifest##*/}"
 fi
+
+# ---- local edits: keep a copy before anything below replaces or removes them ----
+saved="$dest/.ai-setup-local-edits/$(date +%Y%m%d-%H%M%S)"
+local_edits > "$tmp/edits.list"
+if [ -s "$tmp/edits.list" ] && [ -L "$dest/.ai-setup-local-edits" ]; then
+  echo "apply: $dest/.ai-setup-local-edits is a link, so local edits cannot be saved safely; nothing was changed." >&2; exit 2
+fi
+while IFS= read -r p; do
+  { mkdir -p "$(dirname "$saved/$p")" && cp "$dest/$p" "$saved/$p"; } \
+    || { echo "apply: could not save the local edit $p; nothing was changed." >&2; exit 2; }
+  echo "local edit saved: $p -> $saved/$p"
+done < "$tmp/edits.list"
 
 # ---- copy ----
 for item in $items; do
@@ -184,6 +212,8 @@ if [ -s "$tmp/foreign.list" ]; then
 fi
 [ -f "$tmp/dropped.list" ] && sort -u "$tmp/dropped.list" >> "$tmp/new.list"  # keep reporting them until removed by hand
 cp "$tmp/new.list" "$manifest.new" && mv "$manifest.new" "$manifest"
+(cd "$dest" && tr '\n' '\0' < "$tmp/new.list" | xargs -0 cksum 2>/dev/null) > "$hashes.new" || true
+mv "$hashes.new" "$hashes"
 
 if ! command -v rtk >/dev/null 2>&1; then
   echo "warning: rtk not found in PATH. settings.json hooks it; Bash still runs, RTK filtering is off." >&2

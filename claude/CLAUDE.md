@@ -18,12 +18,12 @@
 - Commit messages are English Conventional Commits: `type: summary`, and a body that gives the reason and how the change was checked. Code comments are English; text the user sees keeps the project's language.
 - A bug fix starts with a test that reproduces it. New logic with a branch, a parser or a security effect ships with a test.
 - Never declare completion from your own judgment; confirm with a command result, a test, or a source check.
-- For a desktop app no browser tool can reach, use the `agent-desktop` CLI. If the command is missing, tell the user it needs `npm install -g agent-desktop` and stop. Otherwise run `agent-desktop skills get desktop` and `agent-desktop skills get platform` once, then read with `snapshot --app X -i --compact` (`--skeleton` first on dense apps). In PowerShell call `agent-desktop.cmd` and quote refs. Snapshots hold private screen content; keep them out of logs and commits.
+- For a web page use the built-in browser, then Claude in Chrome. Use the `agent-desktop` CLI only for a desktop app those cannot reach, or after both fail with a tool error; never after a policy or user stop. If the command is missing, tell the user it needs `npm install -g agent-desktop` and stop; if it fails twice, report the exact error and stop. Otherwise run `agent-desktop skills get desktop` and `agent-desktop skills get platform` once, then read with `snapshot --app X -i --compact` (`--skeleton` first on dense apps). In PowerShell call `agent-desktop.cmd` and quote refs. Snapshots hold private screen content; keep them out of logs and commits.
 
 ## Orchestration
 - Work in the main loop by default: Opus plans, decides and writes the code itself, loading skills as needed. Delegate to subagents only for independent parallel parts, a broad search, verification, or when the user asks for subagents. The `orchestrate` skill has the details, model lanes and failure path.
-- Verification is done by a separate reviewer subagent with explicit criteria. The author does not verify its own output.
-- Consult the advisor before committing to an approach, on a recurring error, and before declaring a task done.
+- Verification of code, settings, rules, skills and agents is done by a separate reviewer subagent with explicit criteria; the author does not verify its own output. A docs-only change needs only its command check; a rule or skill wording change is a rule change.
+- Consult the advisor on a recurring error, and on work of 3+ steps before committing to an approach and before declaring it done. Otherwise small fixes skip it.
 - Retry limit: two attempts on the same error. Then stop, state the exact error, suggest /rewind, and wait for the user. Delegated parts follow the `orchestrate` skill's failure path instead.
 
 ## Safety

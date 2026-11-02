@@ -2,6 +2,8 @@
 
 [agent-desktop](https://github.com/vercel-labs/agent-desktop) lets an agent read and operate apps on this PC through the Windows accessibility tree (UI Automation). It is not a remote-desktop tool: it needs the signed-in, unlocked desktop of the same PC.
 
+This page is the Claude side. Codex has its own isolated runtime: the `$codex-agent-desktop` skill from DevCrop/codex-setup, installed with `python -B scripts/agent_desktop.py install` there. It forbids the PATH copy described here.
+
 ## Setup on a Windows PC
 
 ```bash
@@ -11,18 +13,13 @@ agent-desktop version
 
 npm may skip the install script (seen on npm 10.9.9), which leaves the slower Node launcher. Run `node scripts/postinstall.js` once inside the package folder (`npm prefix -g`, then `node_modules/agent-desktop`). The `.cmd` shim then calls the native binary; the Git Bash shim keeps the launcher, which adds about 125 ms per call.
 
-If Codex is on the PC, move the state folder out of the user profile:
+If Codex is on the PC, move the state folder out of the user profile: set the User environment variable `AGENT_DESKTOP_HOME` to a folder outside it, such as `D:\PC-Storage\agent-desktop`, then restart Claude. The Claude Monitor warns when this is missing (check X10).
 
-1. Set the User environment variable `AGENT_DESKTOP_HOME` to a folder outside the profile, such as `D:\PC-Storage\agent-desktop`.
-2. Add the same path to `[shell_environment_policy.set]` in `~/.codex/config.toml`, when it has `[shell_environment_policy] inherit = "core"`, as this PC does, because Codex then passes only core variables to its commands.
-3. Restart Claude and Codex.
+Why: Codex's sandbox setup grants its sandbox users read access to folders in the profile, including `~/.agent-desktop`. agent-desktop then refuses that folder, so every snapshot fails.
 
-Why: Codex's sandbox setup grants its sandbox users read access to folders in the profile, including `~/.agent-desktop`. agent-desktop then refuses that folder, so every snapshot fails for Claude and Codex alike.
+## PowerShell
 
-## Codex
-
-- Codex's sandbox runs commands as another Windows user, which cannot see the desktop. Run agent-desktop with escalated permissions.
-- Call `agent-desktop.cmd`. `agent-desktop` can resolve to the npm script `agent-desktop.ps1`, which a restrictive PowerShell execution policy blocks, as seen in a `codex exec` run on this PC.
+Call `agent-desktop.cmd`. `agent-desktop` can resolve to the npm script `agent-desktop.ps1`, which a restrictive PowerShell execution policy blocks.
 
 ## Spending fewer tokens
 
@@ -44,7 +41,7 @@ One measurement on the Claude Monitor window. Sizes change with the screen it sh
 |---|---|---|
 | `command not found` | `apply.sh` copies the rule but does not install the CLI | The agent reports it and stops; the user runs `npm install -g agent-desktop` |
 | `private file DACL grants an untrusted principal` | The state folder is in the profile, or the app started before the variable was set | Follow the setup above, then restart the app |
-| `EnumWindows failed` | Running inside Codex's sandbox | Run with escalated permissions |
+| `EnumWindows failed` | Running inside Codex's sandbox | Use `$codex-agent-desktop` there, not this copy |
 | `about_Execution_Policies` error | PowerShell picked `agent-desktop.ps1` | Call `agent-desktop.cmd` |
 | `TIMEOUT`, or only a few refs | An Electron or Chrome window is still settling, its controls sit below the depth limit, or other windows cover it (the Monitor gave few refs and `TIMEOUT` while unfocused, and all its tabs once focused) | Raise `--timeout-ms`, then try `--max-depth` or `--root`, then uncover the window and take a new snapshot |
 | `click` returns `delivered_unverified` and the screen does not change (Monitor), or `POLICY_DENIED` (Notepad) | The window is minimized | Check `minimized` in `list-windows`, run `restore`, then take a new snapshot |

@@ -17,8 +17,8 @@ mkdir "$t/shim"; printf '#!/bin/sh\nexit 1\n' > "$t/shim/cp"; chmod +x "$t/shim/
 out="$(PATH="$t/shim:$PATH" run)"; rc=$?
 [ "$rc" != 0 ] && grep -q '"old"' "$mem/settings.json" && pass "a failed backup leaves settings.json unchanged" || bad "failed backup still changed the file (rc=$rc; $out)"
 out="$(run)"; rc=$?
-[ "$rc" = 0 ] && [ "$(jq -r .CLAUDE_MEM_REDACT_ENABLED "$mem/settings.json")" = true ] && [ "$(jq -r .X "$mem/settings.json")" = 1 ] \
-  && ls "$mem"/settings.json.bak-* >/dev/null 2>&1 && pass "apply sets the two keys, keeps the rest, leaves a backup" || bad "apply (rc=$rc; $out)"
+[ "$rc" = 0 ] && [ "$(jq -r .CLAUDE_MEM_REDACT_ENABLED "$mem/settings.json")" = true ] && [ "$(jq -r .CLAUDE_MEM_WORK_VIEW_AUTO_REFRESH "$mem/settings.json")" = false ] && [ "$(jq -r .X "$mem/settings.json")" = 1 ] \
+  && ls "$mem"/settings.json.bak-* >/dev/null 2>&1 && pass "apply sets the keys, keeps the rest, leaves a backup" || bad "apply (rc=$rc; $out)"
 out="$(run)"; rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q "already set" && pass "second run: already set" || bad "second run (rc=$rc; $out)"
 

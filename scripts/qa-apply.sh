@@ -245,5 +245,36 @@ if [ -f "$sk" ]; then
 else refs_bad="SKILL.md missing"; fi
 [ -z "$refs_bad" ] && pass "15c every references/*.md path in developing/SKILL.md exists" || bad "15c referenced file missing:$refs_bad"
 
+# 16. a hand edit is saved before it is overwritten; an untouched file, even one the repo has moved past, is not
+newcfg; apply >/dev/null
+printf 'mine\n' >> "$cfg/RTK.md"
+out="$(dryrun)"
+printf '%s' "$out" | grep -q "would save local edit: RTK.md" && [ ! -d "$cfg/.ai-setup-local-edits" ] \
+  && pass "16a dry run names the local edit and writes nothing" || bad "16a dry run ($out)"
+out="$(apply)"
+copy="$(find "$cfg/.ai-setup-local-edits" -name RTK.md 2>/dev/null)"
+[ -n "$copy" ] && [ "$(tail -n 1 "$copy")" = mine ] && cmp -s "$cfg/RTK.md" "$repo/claude/RTK.md" && printf '%s' "$out" | grep -q "local edit saved: RTK.md" \
+  && pass "16b the edit is saved, reported, and the repo file restored" || bad "16b local edit ($out)"
+rm -rf "$cfg/.ai-setup-local-edits"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && pass "16c a second apply saves nothing" || bad "16c second apply saved a copy"
+printf 'older repo text\n' > "$cfg/RTK.md"; sum="$(cd "$cfg" && cksum RTK.md)"
+grep -v ' RTK.md$' "$cfg/.ai-setup-hashes" > "$cfg/h.tmp"; echo "$sum" >> "$cfg/h.tmp"; mv "$cfg/h.tmp" "$cfg/.ai-setup-hashes"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && cmp -s "$cfg/RTK.md" "$repo/claude/RTK.md" && pass "16d a repo update over an untouched file saves nothing" || bad "16d repo update saved a copy"
+[ "$(jq -r .env.MSYS "$repo/claude/settings.json")" = noglob ] && pass "16e settings set MSYS=noglob" || bad "16e MSYS is not noglob"
+newcfg; apply >/dev/null
+sed 's/^[0-9]* [0-9]* RTK.md$/1 1 RTK.md/' "$cfg/.ai-setup-hashes" > "$cfg/h.tmp"; mv "$cfg/h.tmp" "$cfg/.ai-setup-hashes"; apply >/dev/null
+[ ! -d "$cfg/.ai-setup-local-edits" ] && pass "16f a file equal to the repo is not saved, whatever the record says" || bad "16f saved a file equal to the repo"
+printf 'secret\n' > "$base/s$n/outside.txt"
+mkdir -p "$cfg/skills/retired"; printf 'kept\n' > "$cfg/skills/retired/SKILL.md"
+printf '1 1 /dev/zero\n1 1 ../outside.txt\n1 1 skills/retired/SKILL.md\n' >> "$cfg/.ai-setup-hashes"
+out="$(apply)"; rc=$?
+[ "$rc" = 0 ] && [ ! -d "$cfg/.ai-setup-local-edits" ] && [ -f "$base/s$n/outside.txt" ] && [ -f "$cfg/skills/retired/SKILL.md" ] \
+  && pass "16g device, outside and dropped-item records save and read nothing" || bad "16g bad records (rc=$rc; $out)"
+newcfg; apply >/dev/null
+printf 'mine\n' >> "$cfg/RTK.md"; printf 'mine\n' >> "$cfg/CLAUDE.md"; printf 'file\n' > "$cfg/.ai-setup-local-edits"
+out="$(apply)"; rc=$?
+[ "$rc" != 0 ] && [ "$(tail -n 1 "$cfg/RTK.md")" = mine ] && [ "$(tail -n 1 "$cfg/CLAUDE.md")" = mine ] \
+  && pass "16h a failed save stops the apply and keeps every edit" || bad "16h failed save (rc=$rc; $out)"
+
 echo "failures: $fail"
 [ "$fail" -eq 0 ]

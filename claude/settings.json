@@ -9,7 +9,8 @@
   },
   "advisorModel": "opus",
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
+    "MSYS": "noglob"
   },
   "outputStyle": "Concise",
   "agentPushNotifEnabled": true,

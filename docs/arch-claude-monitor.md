@@ -232,7 +232,7 @@ stateDiagram-v2
 | applying | applied / applyFailed | system, when the work ends | X1: backup written first, then atomic rename |
 | applied | restoring | user: 되돌리기 (`fix:restore`) | `restorable` is true; current `config.toml` hash equals the hash right after apply, else `RESTORE_CONFLICT` and state stays applied |
 | restoring | restored / restoreFailed | system, when the work ends | |
-| applied (C1) | end | none | `ApplyRepoFix.restorable = false`: `apply.sh` keeps no backup (git is the history); `fix:restore` answers `NOT_RESTORABLE` |
+| applied (C1) | end | none | `ApplyRepoFix.restorable = false`: `apply.sh` keeps only hand edits under `.ai-setup-local-edits/`, and git is the history; `fix:restore` answers `NOT_RESTORABLE` |
 
 Fix classes
 - `ApplyRepoFix` (C1): `preview` runs `bash scripts/apply.sh --dry-run` in the repo root and returns its output as `diff`; `previewId = sha256(output)`. `apply` re-runs the dry run, compares the hash, then runs `bash scripts/apply.sh`. It never opens a file under `~/.claude` for writing; the only command it may run is `bash scripts/apply.sh` with optional `--dry-run` (checked by a test with a fake `CommandRunner`). `ApplyResult` has no `backupPath`.
@@ -327,7 +327,7 @@ Required tests (each maps to a spec acceptance item)
 
 Files and values the app never reads
 - `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, TRACE's `original_config` and `health-fingerprint.key`, any key, token or password value.
-- Session text: Claude transcripts go through the existing whitelist in `scripts/monitor.mjs` (`parseTranscriptLine`); Codex sessions are counted from directory and file names, with `mtime` as fallback, and their contents are never opened. Their layout is assumed to be a dated tree under `~/.codex/sessions` (not verified on this machine); the date comes from path segments or the file name, else from `mtime`.
+- Session text: Claude transcripts go through the existing whitelist in `scripts/monitor.mjs` (`parseTranscriptLine`); Codex sessions are counted from directory and file names, with `mtime` as fallback, and `core/codex-usage.js` opens them to parse token counts, model and folder names; their message text is never kept. Their layout is assumed to be a dated tree under `~/.codex/sessions` (not verified on this machine); the date comes from path segments or the file name, else from `mtime`.
 - Payloads and logs carry counts, states, key names, TRACE and agent-desktop versions, states and times, and the paths of Codex trust tables only (X1 evidence). Main-process logs are key=value lines with counts and finding ids, never evidence text.
 
 `CodexSource` config reading (`core/toml-lite.js`): line based, two layers.
