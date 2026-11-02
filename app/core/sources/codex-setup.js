@@ -34,14 +34,12 @@ export function readCodexSetup(home, opts = {}) {
   const part = path.join(dir, 'components', 'agent-desktop');
   const component = receipt(path.join(part, 'installed.json'), home);
   const runtime = receipt(path.join(part, 'runtime.json'), home);
-  const accepted = receipt(path.join(part, 'acceptance.json'), home);
   return {
     found: true,
     version: text(installed.version),
-    appliedAt: text(installed.applied_at),
     verifiedAt: text(routine?.last_verification?.checked_at),
     softwareStatus: text(routine?.software_updates?.status),
-    agentDesktop: component ? { version: text(component.version), runtimeVersion: text(runtime?.version), acceptedAt: text(accepted?.completed_at) } : null,
+    agentDesktop: component ? { version: text(component.version), runtimeVersion: text(runtime?.version) } : null,
   };
 }
 

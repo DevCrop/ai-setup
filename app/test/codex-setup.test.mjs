@@ -27,12 +27,13 @@ test('traceStateDir: the same folder codex-setup computes for a home', () => {
   // Values from codex-setup's own sha256(str(home))[:16].
   const known = process.platform === 'win32' ? ['C:\\Users\\edn_y\\.codex', '5d90019a112b7d2c'] : ['/home/x/.codex', 'dbb067886f744c6f'];
   assert.equal(path.basename(traceStateDir(known[0])), known[1]);
+  assert.equal(path.basename(traceStateDir(`${known[0].replaceAll('\\', '/')}/`)), known[1]); // slash forms hash the same
 });
 
 test('readCodexSetup: allow-listed fields only, never the config copy or free text', () => {
   const { home, env, homedir } = fixture();
   const r = readCodexSetup(home, { env, homedir });
-  assert.deepEqual(r, { found: true, version: '1.3.5', appliedAt: '2026-10-26T11:15:17Z', verifiedAt: '2026-10-20T00:00:00Z', softwareStatus: 'attention', agentDesktop: null });
+  assert.deepEqual(r, { found: true, version: '1.3.5', verifiedAt: '2026-10-20T00:00:00Z', softwareStatus: 'attention', agentDesktop: null });
   assert.ok(!JSON.stringify(r).includes('SECRET_CONFIG_COPY'));
   assert.ok(!JSON.stringify(r).includes('FREE_TEXT'));
 });
@@ -42,8 +43,7 @@ test('readCodexSetup: agent-desktop component, and a PC without the tool', () =>
   const part = path.join(dir, 'components', 'agent-desktop');
   write(path.join(part, 'installed.json'), JSON.stringify({ version: '1.1.0' }));
   write(path.join(part, 'runtime.json'), JSON.stringify({ version: '1.0.2', sha256: 'abc' }));
-  write(path.join(part, 'acceptance.json'), JSON.stringify({ completed_at: '2026-11-01T11:36:56Z' }));
-  assert.deepEqual(readCodexSetup(home, { env, homedir }).agentDesktop, { version: '1.1.0', runtimeVersion: '1.0.2', acceptedAt: '2026-11-01T11:36:56Z' });
+  assert.deepEqual(readCodexSetup(home, { env, homedir }).agentDesktop, { version: '1.1.0', runtimeVersion: '1.0.2' });
   assert.deepEqual(readCodexSetup(path.join(homedir, 'other'), { env, homedir }), { found: false });
 });
 
@@ -54,9 +54,9 @@ test('readCodexSetup: a broken receipt is treated as not found, never a throw', 
 });
 
 test('readCodexSetup: wrong types and oversized values become null; a receipt that is not an object, or too big, is not found', () => {
-  const { home, dir, env, homedir } = fixture({ installed: { version: 5, applied_at: 'x'.repeat(81) }, routine: { software_updates: { status: ['attention'] } } });
+  const { home, dir, env, homedir } = fixture({ installed: { version: 5 }, routine: { software_updates: { status: ['attention'] } } });
   const r = readCodexSetup(home, { env, homedir });
-  assert.deepEqual([r.found, r.version, r.appliedAt, r.softwareStatus], [true, null, null, null]);
+  assert.deepEqual([r.found, r.version, r.softwareStatus], [true, null, null]);
   for (const body of ['5', '[]', 'null', JSON.stringify({ version: '1', pad: 'x'.repeat(5 << 20) })]) {
     write(path.join(dir, 'installed.json'), body);
     assert.deepEqual(readCodexSetup(home, { env, homedir }), { found: false });
@@ -96,7 +96,7 @@ test('X9: reports what the owner recorded and says who fixes it; silent without 
   const out = new X9CodexSetup().run(withData({ setup }));
   assert.deepEqual(out.map((f) => f.id), ['X9:software', 'X9:stale']);
   assert.ok(out.every((f) => f.severity === 'info' && f.detail.includes('이 앱은 Codex 셋업을 고치지 않습니다')));
-  assert.ok(out[0].detail.includes('software_updates.py refresh-plugins'));
+  assert.ok(out[0].detail.includes('docs/software-updates.md'));
   assert.deepEqual(new X9CodexSetup().run(withData({ setup: { ...setup, softwareStatus: 'failed', verifiedAt: new Date(NOW).toISOString() } })).map((f) => f.id), ['X9:software']);
   assert.deepEqual(new X9CodexSetup().run(withData({ setup: { ...setup, softwareStatus: 'verified', verifiedAt: new Date(NOW - 13 * 86400000).toISOString() } })), []);
   assert.deepEqual(new X9CodexSetup().run(withData({ setup: { found: false } })), []);

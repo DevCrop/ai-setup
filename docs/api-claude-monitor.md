@@ -128,7 +128,7 @@ FindingDto = {
   severity:   Severity,
   title:      string,                // max 120, Korean
   detail:     string,                // max 400, Korean
-  evidence:   string[],              // max 20 items, each max 260: counts, key names, relative paths, Codex trust-table paths
+  evidence:   string[],              // max 20 items, each max 260: counts, key names, relative paths, Codex trust-table paths, TRACE states and times
   fixable:    boolean,
   restorable: boolean,               // false when not fixable
   fixState:   FixState | null,       // null when not fixable
@@ -193,8 +193,8 @@ CodexDetail = {
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
   setup: { found: false } | {                     // allow-listed fields of TRACE Setup's state; never original_config or health-fingerprint.key
-    found: true, version: string | null, appliedAt: string | null, verifiedAt: string | null,
-    softwareStatus: string | null, agentDesktop: null | { version: string | null, runtimeVersion: string | null, acceptedAt: string | null } },
+    found: true, version: string | null, verifiedAt: string | null,
+    softwareStatus: string | null, agentDesktop: null | { version: string | null, runtimeVersion: string | null } },
   sharedAgentDesktop: null | { installed: boolean, version: string | null, stateInProfile: boolean },  // agent-desktop on PATH
   usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days
     days:   { date: string, input: number, cached: number, output: number }[],

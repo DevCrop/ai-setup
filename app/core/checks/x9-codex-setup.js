@@ -2,7 +2,7 @@ import { Check } from '../check.js';
 import { Finding } from '../finding.js';
 
 const STALE_DAYS = 14;
-const SOFTWARE_HINT = 'codex-setup 저장소에서 python -B scripts/software_updates.py refresh-plugins 를 실행하세요. 이 앱은 Codex 셋업을 고치지 않습니다.';
+const SOFTWARE_HINT = 'codex-setup 저장소의 docs/software-updates.md 절차로 확인하세요. 이 앱은 Codex 셋업을 고치지 않습니다.';
 const STALE_HINT = 'Codex 루틴이 검증 결과를 기록합니다. 루틴이 돌고 있는지 codex-setup 쪽에서 확인하세요. 이 앱은 Codex 셋업을 고치지 않습니다.';
 
 // Health of the Codex setup as its own tool (TRACE Setup) recorded it. Absent on a PC without that tool, which is not a fault.

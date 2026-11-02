@@ -114,7 +114,7 @@
     });
   }
 
-  // ---- Codex tab: KPI row + 8 cards, each long list scrolls inside its card ----
+  // ---- Codex tab: KPI row + 10 cards, each long list scrolls inside its card ----
   var CX_MISSING = '이 PC에서 ~/.codex를 찾지 못했습니다.';
   function dash(v) { return v == null || v === '' ? '–' : String(v); }
   function bytes(n) {
