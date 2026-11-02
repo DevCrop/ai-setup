@@ -161,10 +161,10 @@ classDiagram
 Shapes (prose, the contract file has the wire form)
 - `SourceResult`: `{ status: ok|warn|missing, note: string, data }`. A Source never throws out of `collect`; a failure becomes `status: missing` with a fixed note (same `guard` idea as `collect()`).
 - `ClaudeSource.collect(ctx)` calls `collect({ home, repo, env, cache, refreshSec })` from `scripts/monitor.mjs` unchanged and keeps its result as `data` (plus `summary = summarize(data)`, plus `liveOnlyKeys`: top-level key names of live `settings.json` that are absent from the repo `claude/settings.json`; names only, never values).
-- `CodexSource.collect(ctx)` reads `~/.codex` read-only. `data` is `{ config, backups, logs, sessions }` (see section 6).
+- `CodexSource.collect(ctx)` reads `~/.codex` read-only, plus allow-listed fields of TRACE Setup's state folder and, for agent-desktop, the PATH folders. `data` is `{ config, backups, logs, sessions, agents, agentsMd, skills, worktrees, usage, setup, sharedAgentDesktop }` (see section 6).
 - `ctx` is `{ now, homes: { claude, codex }, repo, env, cache }`. Clock, paths and env are passed in, never read inside a Check.
 - `PreviewResult`: `{ diff: string, previewId: string }`. `ApplyResult`: `{ backupPath?: string }`. `RestoreResult`: `{ restored: true }`.
-- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `C5:hook-scripts`, `C6:<role>-<family>`, `C7:main-model`, `C8:unused`, `C8:untyped`, `C9:today`, `C10:<first 12 hex of sha1 of the project basename>` (or `C10:unknown`), `C11:slow-hook`, `C11:prune-<sha1 12 of the repo label>`, `C11:overhead-<sha1 12 of the repo label>`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`, `X4:<sha1 12 of the hook key>`, `X5:<server name>`, `X6:worktrees`.
+- `Finding.fix` is absent for report-only findings. `Finding.id` is stable across scans: `C1:drift`, `C2:<agentType>`, `C3:<section>`, `C4:live-only`, `C5:hook-scripts`, `C6:<role>-<family>`, `C7:main-model`, `C8:unused`, `C8:untyped`, `C9:today`, `C10:<first 12 hex of sha1 of the project basename>` (or `C10:unknown`), `C11:slow-hook`, `C11:prune-<sha1 12 of the repo label>`, `C11:overhead-<sha1 12 of the repo label>`, `X1:<first 12 hex of sha1 of the project path>`, `X2:backups`, `X3:logs`, `X4:<sha1 12 of the hook key>`, `X5:<server name>`, `X6:worktrees`, `X7:primary`, `X7:secondary`, `X8:<sha1 12 of folder>`, `X9:software`, `X9:stale`, `X10:state`.
 - `Fix` is a template: the public `preview/apply/restore` enforce the transition table of section 2 (one table, anything else throws `INVALID_STATE`), then call the protected `do*` of the subclass. `restorable` is false for `ApplyRepoFix`.
 - `Optimizer.run` keeps `Fix` objects that are in `previewed`, `applying`, `applied`, `restoring` or a failed state across scans (so "되돌리기" stays visible after the finding itself is gone) (a kept `previewed` fix lets the user read the diff past one refresh; `apply` recomputes the preview id, so a changed target answers `PREVIEW_STALE`); `proposed` fixes are replaced by fresh ones. Only one fix may be in `applying` or `restoring` at a time (`FIX_BUSY`). State lives in memory only.
 - `CommandRunner` is a function `(file, args, opts) -> Promise<{ code, stdout, stderr }>` passed to `ApplyRepoFix`; it is the test seam that lets a test prove `apply.sh` is the only command run. Same for the clock passed to `MonitorService` (fake timers) and the injected `ipcMain` of `IpcRouter`.
@@ -189,7 +189,7 @@ Ponytail check on abstractions: `Source` has three real implementations (Claude,
 
 | Layer | Folder | Classes | Needs Electron |
 |---|---|---|---|
-| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C11, X1..X8, U1..U3, Finding, AutoUpdater, UpdateStep, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
+| Core | `app/core/` | Source, ClaudeSource, CodexSource, Snapshot, Check and C1..C11, X1..X10, U1..U3, Finding, AutoUpdater, UpdateStep, Severity, Fix, FixState, ApplyRepoFix, RemoveCodexProjectFix, Optimizer, MonitorService | no |
 | Main | `app/main/` | StripWindow, MainWindow, IpcRouter, `main.js` (wires everything, single-instance lock) | yes, except `IpcRouter` |
 
 `IpcRouter` receives `ipcMain` and a `senderRole(event)` function as arguments and never imports `electron`, so its validation and permission rules are tested on CI with a fake `ipcMain`. `MonitorService` is in `core` because it needs only timers, files and the injected Sources; Electron only subscribes to its change callback.
@@ -275,6 +275,8 @@ All finding texts shown to the user are Korean (project language); ids, evidence
 | X6 many worktrees | `X6ManyWorktrees` (`x6-many-worktrees.js`) | codex | `data.worktrees` (count, oldest mtime) | `X6:worktrees` when count >= 20 or the oldest is over 30 days | info | none |
 | X7 Codex limit | `X7CodexLimit` (`x7-codex-limit.js`) | codex | `data.usage.rate` | `X7:primary`, `X7:secondary` when usedPercent >= 80 | warn | none |
 | X8 big Codex context | `X8CodexBigContext` (`x8-codex-big-context.js`) | codex | `data.usage.live` | `X8:<sha1 12 of folder>` when the last request is >= 60% of the window | info | none |
+| X9 Codex setup | `X9CodexSetup` (`x9-codex-setup.js`) | codex | `data.setup` (allow-listed fields from TRACE state) | `X9:software` (attention or failed), `X9:stale` (over 14 days) | info | none; detail points to codex-setup |
+| X10 agent-desktop state | `X10AgentDesktopState` (`x10-agent-desktop-state.js`) | codex | `data.sharedAgentDesktop` | `X10:state` on Windows when installed and the state folder is in the profile | warn | none |
 
 The severities of C3 and X2 are proposals the spec does not fix; each is one constant in its check file.
 
@@ -324,9 +326,9 @@ Required tests (each maps to a spec acceptance item)
 ## 6. Security notes
 
 Files and values the app never reads
-- `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, any key, token or password value.
+- `.credentials*`, `.env*`, `~/.codex/auth.json`, `~/.codex/secrets/`, `~/.codex/.sandbox-secrets/`, TRACE's `original_config` and `health-fingerprint.key`, any key, token or password value.
 - Session text: Claude transcripts go through the existing whitelist in `scripts/monitor.mjs` (`parseTranscriptLine`); Codex sessions are counted from directory and file names, with `mtime` as fallback, and their contents are never opened. Their layout is assumed to be a dated tree under `~/.codex/sessions` (not verified on this machine); the date comes from path segments or the file name, else from `mtime`.
-- Payloads and logs carry counts, states, key names and the paths of Codex trust tables only (X1 evidence). Main-process logs are key=value lines with counts and finding ids, never evidence text.
+- Payloads and logs carry counts, states, key names, TRACE and agent-desktop versions, states and times, and the paths of Codex trust tables only (X1 evidence). Main-process logs are key=value lines with counts and finding ids, never evidence text.
 
 `CodexSource` config reading (`core/toml-lite.js`): line based, two layers.
 1. Allowlist: values are returned only for the keys in `SETTING_KEYS` of `toml-lite.js` (`model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `service_tier`, `approvals_reviewer`, `default_subagent_model`, `default_subagent_reasoning_effort`, `max_concurrent_threads_per_session`, `mcp_optional_startup_grace_ms`; from the top level or the first table that is not a secret, env, project, hook, plugin or MCP table), `trust_level` in `projects` tables and `enabled` in `plugins.*` and `mcp_servers.*` tables (key names are the Codex names as the spec's wording implies; verify against a real `config.toml` when writing the fixture). Every other key yields its name only, or nothing; tables such as `mcp_servers.<name>` and `plugins.<name>` are only counted, and nested env tables (`mcp_servers.<name>.env`) are never read, since a name like `GITHUB_PAT` would pass a pattern filter.

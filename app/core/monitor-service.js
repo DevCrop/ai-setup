@@ -313,6 +313,8 @@ export class MonitorService {
       worktrees: d?.worktrees?.count ?? 0,
       usage: d?.usage?.status === 'ok' ? structuredClone(d.usage) : null, // counts, folder names and model names only
       findings: codexFindings.map((f) => f.id),
+      setup: d?.setup ?? { found: false },
+      sharedAgentDesktop: d?.sharedAgentDesktop ?? null,
     };
   }
 

@@ -123,12 +123,12 @@ Status = {
 
 FindingDto = {
   id:         string,                // pattern of findingId above
-  checkId:    string,                // "C1" .. "C11", "X1" .. "X8", "U1" .. "U3"
+  checkId:    string,                // "C1" .. "C11", "X1" .. "X10", "U1" .. "U3"
   source:     SourceId,
   severity:   Severity,
   title:      string,                // max 120, Korean
   detail:     string,                // max 400, Korean
-  evidence:   string[],              // max 20 items, each max 260: counts, key names, relative paths, Codex trust-table paths
+  evidence:   string[],              // max 20 items, each max 260: counts, key names, relative paths, Codex trust-table paths, TRACE states and times
   fixable:    boolean,
   restorable: boolean,               // false when not fixable
   fixState:   FixState | null,       // null when not fixable
@@ -166,7 +166,7 @@ Decision: the monitor html is loaded as a file, not passed as a string. The file
 - Errors: `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
 
 ### `codex:detail`
-Added 2026-10-25 because the Codex tab showed only counts. Names, flags and counts only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
+Added 2026-10-25 because the Codex tab showed only counts. Names, flags, counts and TRACE and agent-desktop versions, states and times only; never a value of a secret-looking key, never env tables, never session text (usage holds counts, folder names and model names only).
 - Direction: renderer to main, invoke. Caller: main window.
 - Request: none.
 - Response: `Result<CodexDetail>`; errors `FORBIDDEN`, `NO_SNAPSHOT`, `INTERNAL`.
@@ -192,6 +192,10 @@ CodexDetail = {
   logs:       { name: string, bytes: number }[],
   backups:    { name: string, bytes: number, mtime: string }[],
   worktrees:  number,                             // entries under ~/.codex/worktrees
+  setup: { found: false } | {                     // allow-listed fields of TRACE Setup's state; never original_config or health-fingerprint.key
+    found: true, version: string | null, verifiedAt: string | null,
+    softwareStatus: string | null, agentDesktop: null | { version: string | null, runtimeVersion: string | null } },
+  sharedAgentDesktop: null | { installed: boolean, version: string | null, stateInProfile: boolean },  // agent-desktop on PATH
   usage: null | {                                 // from token_count lines of sessions/**/rollout-*.jsonl, last 7 days
     days:   { date: string, input: number, cached: number, output: number }[],
     today:  { output, input, cached, sessions: number, projects: { projectName: string, sessions, output, cached, input: number, lastAt: string | null }[] },
