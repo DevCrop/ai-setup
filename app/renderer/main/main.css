@@ -105,11 +105,11 @@ button { font: inherit; cursor: pointer; }
 .df .c { color: var(--muted); } .df .a { color: var(--ok); } .df .d { color: var(--bad); }
 .err { margin: 0; color: var(--bad); font-size: var(--t-xs); overflow-wrap: anywhere; }
 
-/* Codex tab: one screen, a KPI row and eight cards; each card body scrolls inside itself */
+/* Codex tab: one screen, a KPI row and ten cards; each card body scrolls inside itself */
 .stage:has(#v-codex:not([hidden])) { overflow: hidden; }
 #v-codex:not([hidden]) { height: 100%; gap: var(--sp-3); }
 #v-codex > .msg { margin: var(--sp-4) 0; }
-.cxg { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.cxg { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .cxg .panel { padding: var(--sp-3); gap: var(--sp-2); min-height: 0; }
 .sc { flex: 1 1 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 0; scrollbar-width: thin; }
 .sc > * { flex: none; }

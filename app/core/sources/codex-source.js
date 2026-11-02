@@ -4,6 +4,7 @@ import { localDates } from '../../../scripts/monitor.mjs';
 import { scanCodexUsage } from '../codex-usage.js';
 import { isDenied, readGuarded } from '../guard.js';
 import { Source, guardSource } from '../source.js';
+import { readCodexSetup, readSharedAgentDesktop } from './codex-setup.js';
 import { readConfig } from '../toml-lite.js';
 
 const MAX_CONFIG = 1 << 20;
@@ -99,7 +100,9 @@ export class CodexSource extends Source {
       const skills = safe(() => listDirs(path.join(home, 'skills'), home), []);
       const worktrees = safe(() => scanWorktrees(path.join(home, 'worktrees'), home), { count: 0, oldestMtimeMs: null });
       const usage = await this.#usage(home, ctx.now).catch(() => null);
-      return { status, note, data: { config, backups, logs, sessions, agents, agentsMd, skills, worktrees, usage } };
+      const setup = safe(() => readCodexSetup(home), { found: false });
+      const sharedAgentDesktop = safe(() => readSharedAgentDesktop(), null);
+      return { status, note, data: { config, backups, logs, sessions, agents, agentsMd, skills, worktrees, usage, setup, sharedAgentDesktop } };
     });
   }
 }

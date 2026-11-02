@@ -8,7 +8,8 @@ import { FixJournal } from '../core/fix-journal.js';
 import { FRAME_CSP, MonitorService } from '../core/monitor-service.js';
 import { Optimizer } from '../core/optimizer.js';
 import { CodexSource } from '../core/sources/codex-source.js';
-import { NOW, fakeClock, fakeCodex, flush, fullClaude, tmpDir } from './helpers.mjs';
+import { traceStateDir } from '../core/sources/codex-setup.js';
+import { NOW, fakeClock, fakeCodex, flush, fullClaude, tmpDir, write } from './helpers.mjs';
 
 // claude.flag decides the finding severity, so a test can steer warn and bad.
 class FlagCheck extends Check {
@@ -253,6 +254,24 @@ test('the sources get the clock, the folders and the refresh period through ctx'
   assert.ok(ctx.homes.claude && ctx.homes.codex && ctx.repo);
 });
 
+test('codexDetail: setup and the shared agent-desktop come from CodexSource with their values', async () => {
+  const codex = fakeCodex();
+  const base = tmpDir();
+  const saved = { HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA, XDG_STATE_HOME: process.env.XDG_STATE_HOME };
+  Object.assign(process.env, { HOME: base, LOCALAPPDATA: base, XDG_STATE_HOME: base });
+  try {
+    write(path.join(traceStateDir(codex.home), 'installed.json'), JSON.stringify({ version: '9.9.9' }));
+    const svc = new MonitorService({ outDir: path.join(tmpDir(), 'out'), homes: { claude: tmpDir(), codex: codex.home }, repo: tmpDir(), env: {}, clock: fakeClock(),
+      sources: [{ id: 'claude', async collect() { return { status: 'ok', note: '', data: fullClaude() }; } }, new CodexSource()] });
+    await svc.refreshNow();
+    const d = svc.codexDetail();
+    assert.equal(d.setup.version, '9.9.9');
+    assert.equal(typeof d.sharedAgentDesktop.installed, 'boolean');
+  } finally {
+    for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
 test('the run limit and refresh period are clamped: 3 s minimum', () => {
   assert.equal(make({ service: { refreshSec: 1 } }).svc.refreshSec, 3);
   assert.equal(make({ service: { refreshSec: 'x' } }).svc.refreshSec, 10);
@@ -265,7 +284,7 @@ test('codexDetail: NO_SNAPSHOT before the first run; then the CodexDetail shape 
   assert.throws(() => svc.codexDetail(), { code: 'NO_SNAPSHOT' });
   await svc.refreshNow();
   const d = svc.codexDetail();
-  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'usage', 'findings']);
+  assert.deepEqual(Object.keys(d), ['generatedAt', 'state', 'note', 'settings', 'plugins', 'mcpServers', 'projects', 'hooks', 'agents', 'agentsMd', 'skills', 'sessions', 'logs', 'backups', 'worktrees', 'usage', 'findings', 'setup', 'sharedAgentDesktop']);
   assert.equal(d.generatedAt, new Date(NOW).toISOString());
   assert.deepEqual([d.state, d.note], ['warn', '']);
   assert.equal(d.settings.length, 10);

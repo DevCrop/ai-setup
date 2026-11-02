@@ -138,26 +138,32 @@ const listFiles = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir, { recursive
 const sameText = (a, b) => { try { return fs.readFileSync(a, 'utf8').replace(/\r\n/g, '\n') === fs.readFileSync(b, 'utf8').replace(/\r\n/g, '\n'); } catch { return false; } };
 
 // Setup structure for the 구조 tab: agents, orchestration rules and skills from the repo, plus drift against the live ~/.claude.
-// Drift is checked repo -> home only, for agents/ and the skills apply.sh installs; home-only extras are never flagged. Paths stay relative.
+// Drift is checked repo -> home only, for everything apply.sh copies plus the deny list it owns in settings.json; home-only extras are never flagged. Paths stay relative.
 export function collectSetupFlow(home, repo = REPO) {
   const agents = readAgents(repo);
   let rules = { delegate: null, routing: null, lanes: null, failure: null };
   try { rules = parseOrchestrate(fs.readFileSync(path.join(repo, 'claude', 'skills', 'orchestrate', 'SKILL.md'), 'utf8')); } catch { /* all four stay null */ }
   const skillsDir = path.join(repo, 'claude', 'skills');
   const skills = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
-  let applied = skills;
+  let items = ['agents', ...skills.map((s) => `skills/${s}`)];
   try {
-    const items = fs.readFileSync(path.join(repo, 'scripts', 'apply.sh'), 'utf8').match(/^items="([^"]*)"/m)?.[1];
-    if (items) applied = items.split(/\s+/).filter((t) => t.startsWith('skills/')).map((t) => t.slice(7));
-  } catch { /* compare every repo skill */ }
+    const listed = fs.readFileSync(path.join(repo, 'scripts', 'apply.sh'), 'utf8').match(/^items="([^"]*)"/m)?.[1];
+    if (listed) items = listed.split(/\s+/).filter((t) => t && t !== 'settings.json'); // settings.json is merged, so only its owned deny list is compared below
+  } catch { /* compare agents and every repo skill */ }
   const drift = [];
-  for (const sub of ['agents', ...applied.map((s) => `skills/${s}`)]) {
-    for (const rel of listFiles(path.join(repo, 'claude', sub))) {
-      const live = path.join(home, sub, rel);
-      if (!fs.existsSync(live)) drift.push({ path: `${sub}/${rel}`, kind: 'missing' });
-      else if (!sameText(path.join(repo, 'claude', sub, rel), live)) drift.push({ path: `${sub}/${rel}`, kind: 'differs' });
+  for (const item of items) {
+    const src = path.join(repo, 'claude', item);
+    const isDir = fs.existsSync(src) && fs.statSync(src).isDirectory();
+    const rels = isDir ? listFiles(src).map((r) => `${item}/${r}`) : fs.existsSync(src) ? [item] : [];
+    for (const rel of rels) {
+      const live = path.join(home, rel);
+      if (!fs.existsSync(live)) drift.push({ path: rel, kind: 'missing' });
+      else if (!sameText(path.join(repo, 'claude', rel), live)) drift.push({ path: rel, kind: 'differs' });
     }
   }
+  const denyOf = (file) => { try { return JSON.stringify(JSON.parse(fs.readFileSync(file, 'utf8')).permissions?.deny ?? []); } catch { return null; } };
+  const wantDeny = denyOf(path.join(repo, 'claude', 'settings.json'));
+  if (wantDeny && wantDeny !== denyOf(path.join(home, 'settings.json'))) drift.push({ path: 'settings.json:permissions.deny', kind: 'differs' });
   const unread = Object.entries(rules).filter(([, v]) => !v).map(([k]) => k);
   return {
     status: unread.length || drift.length ? 'warn' : 'ok',
