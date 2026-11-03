@@ -101,6 +101,7 @@ rm -f "$t/cl/mv"
 [ "$rc" = 0 ] && [ "$(cat "$t/cfg/settings.json")" = '{}' ] && ! ls "$t/cfg"/*.te.* >/dev/null 2>&1 \
   && pass "install-plugins: a failed mv exits 0 and cleans up" || bad "install-plugins mv fail (rc=$rc; $out)"
 # Homebrew Python (PEP 668): --user is refused, so the core goes to a private venv and TE_PYTHON names its interpreter.
+# Matched by suffix: Git Bash rewrites the /tmp path it passes to jq.exe into C:/... form.
 printf '#!/bin/sh
 [ "$1" = -m ] && echo "venv $*" >> "%s" && exit 0
 case "$2" in *executable*) echo "$0" ;; esac
@@ -124,7 +125,7 @@ venv="$t/home/.tokeneconomizer/venv"
 [ "$rc" = 0 ] && grep -qF "py -m venv --clear $venv" "$log" \
   && grep -qF "venv -m pip install --quiet tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@$te_sha" "$log" \
   && grep -q '^venv -m tokeneconomizer.plugin.cli config set toolprune=propose --global' "$log" \
-  && [ "$(jq -r .env.TE_PYTHON "$t/cfg/settings.json")" = "$venv/bin/python" ] && ! printf '%s' "$out" | grep -q 'failed' \
+  && jq -r .env.TE_PYTHON "$t/cfg/settings.json" | grep -q '/home/.tokeneconomizer/venv/bin/python' && ! printf '%s' "$out" | grep -q 'failed' \
   && pass "install-plugins: a refused --user install falls back to a private venv" || bad "install-plugins venv fallback (rc=$rc; $(cat "$log"); $out)"
 # A working venv is reused; one whose interpreter stopped working (Python upgraded) is recreated.
 : > "$log"
