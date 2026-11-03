@@ -2,12 +2,13 @@
 # Install ponytail, claude-mem and tokeneconomizer at the versions claude/settings.json pins (Windows bootstrap: modules.json
 # claude-plugins). Run after apply.sh. Same steps as the plugin part of bootstrap/setup-mac.sh, which does not install
 # tokeneconomizer yet. Needs a logged-in claude, and jq and Python 3.10+ for tokeneconomizer.
-# tokeneconomizer is optional: without Python or pip it is skipped with a warning and the script still succeeds, so the
+# tokeneconomizer is optional: if its Python or pip step fails it is skipped with a warning and the script still succeeds, so the
 # bootstrap steps after it (setup-claude-mem.sh) run. Its hooks fail open, so an enabled plugin without its core is inert.
 set -eu
 repo=$(cd "$(dirname "$0")/.." && pwd)
 py=
-for c in python3 python; do
+# Homebrew's Python can sit behind an older /usr/bin/python3 on PATH, so its usual paths are tried last.
+for c in python3 python ${AI_SETUP_BREW_PYTHONS:-/opt/homebrew/bin/python3 /usr/local/bin/python3}; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then py=$c; break; fi
 done
 plugins="ponytail@ponytail claude-mem@thedotmack"
@@ -26,9 +27,22 @@ done
 # The plugin copy holds only the repo's plugin/ folder; its Python core is pip-installed from the same pinned commit.
 te_sha=$(jq -r '.extraKnownMarketplaces.tokeneconomizer.source.plugins[0].source.sha' "$repo/claude/settings.json")
 case $te_sha in [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;; *) echo "tokeneconomizer: no pinned sha in claude/settings.json" >&2; exit 1 ;; esac
-# A Homebrew or system Python may refuse --user installs (PEP 668); that only leaves tokeneconomizer inactive.
-if ! "$py" -m pip install --user --quiet "tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@$te_sha"; then
-  echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0
+te_pkg="tokeneconomizer @ git+https://github.com/microsoft/TokenEconomizer.git@$te_sha"
+# A Homebrew or system Python refuses --user installs (PEP 668), so the core then goes to a private venv; TE_PYTHON below names it.
+# It is recreated only when its pip stopped working (a brew upgrade of Python removes the interpreter it links to, or an earlier creation stopped halfway).
+# shortcut: only the Mac and Linux venv layout (bin/python), upgrade if a Windows Python ever refuses --user.
+# Any other pip failure shows pip's own error. Either way a failure only leaves tokeneconomizer inactive.
+if ! pip_err=$("$py" -m pip install --user --quiet "$te_pkg" 2>&1); then
+  venv="$HOME/.tokeneconomizer/venv"
+  case $pip_err in
+    *externally-managed-environment*)
+      if { "$venv/bin/python" -m pip --version >/dev/null 2>&1 || "$py" -m venv --clear "$venv"; } && "$venv/bin/python" -m pip install --quiet "$te_pkg"; then
+        py="$venv/bin/python"
+      else
+        echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0
+      fi ;;
+    *) printf '%s\n' "$pip_err" >&2; echo "tokeneconomizer: pip install of its core failed; its hooks stay inactive" >&2; exit 0 ;;
+  esac
 fi
 # Tool pruning only proposes deny rules (applied with /tokeneconomizer:toolprune apply); the repo's own deny rules cover secret files only.
 "$py" -m tokeneconomizer.plugin.cli config set toolprune=propose --global \
