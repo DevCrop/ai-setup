@@ -111,7 +111,7 @@ classDiagram
             +start() void
             +stop() void
             +refreshNow() Promise~void~
-            +getStatus() Status
+            +status() Status
             +getViewFileUrl() string
         }
     }

@@ -187,5 +187,3 @@ export function removeTable(text, parts) {
   // block: the raw table text, only ever hashed (it can hold secret values)
   return { text: [...lines.slice(0, t.header), ...lines.slice(last + 1)].join(''), removed, block: lines.slice(t.header, last + 1).join('') };
 }
-
-export const removeProjectTable = (text, projectPath) => removeTable(text, ['projects', projectPath]);

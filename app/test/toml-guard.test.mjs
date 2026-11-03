@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { test } from 'node:test';
 import { isDenied, readGuarded } from '../core/guard.js';
-import { parseHeader, readConfig, removeProjectTable, removeTable, scan } from '../core/toml-lite.js';
+import { parseHeader, readConfig, removeTable, scan } from '../core/toml-lite.js';
 import { CANARY, fakeCodex, tmpDir, write } from './helpers.mjs';
 import fs from 'node:fs';
 
@@ -40,16 +40,16 @@ test('scan keeps arrays and multi-line strings in one key range', () => {
   assert.deepEqual(tables[0].keys.map((k) => [k.name, k.start, k.end]), [['a', 0, 3], ['b', 4, 6], ['c', 7, 7]]);
 });
 
-test('removeProjectTable removes exactly the table lines, keeps the blank separator and CRLF endings', () => {
+test('removeTable removes exactly the table lines, keeps the blank separator and CRLF endings', () => {
   const text = "a = 1\r\n\r\n[projects.'/gone']\r\ntrust_level = \"trusted\"\r\napi_key = \"S3\"\r\n\r\n[projects.'/keep']\r\ntrust_level = \"trusted\"\r\n";
-  const r = removeProjectTable(text, '/gone');
+  const r = removeTable(text, ['projects', '/gone']);
   assert.equal(r.text, "a = 1\r\n\r\n\r\n[projects.'/keep']\r\ntrust_level = \"trusted\"\r\n");
   assert.deepEqual(r.removed, ["[projects.'/gone']", 'trust_level = "trusted"', 'api_key = ***']);
-  assert.equal(removeProjectTable(text, '/nope'), null);
+  assert.equal(removeTable(text, ['projects', '/nope']), null);
 });
 
-test('removeProjectTable handles the last table without a final newline', () => {
-  const r = removeProjectTable("a = 1\n[projects.'/g']\ntrust_level = \"t\"", '/g');
+test('removeTable handles the last table without a final newline', () => {
+  const r = removeTable("a = 1\n[projects.'/g']\ntrust_level = \"t\"", ['projects', '/g']);
   assert.equal(r.text, 'a = 1\n');
 });
 
