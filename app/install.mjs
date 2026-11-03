@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const LINK_NAME = 'Claude Monitor.lnk';
-export const LEGACY_LINKS = ['Claude monitor.lnk', 'claude-monitor.vbs']; // earlier status-bar starters this app replaces
+export const LEGACY_LINKS = ['claude-monitor.vbs']; // earlier status-bar starter this app replaces
 
 // Pure: what to do, given the folders and what exists. Kept separate so it is testable without Windows.
 export const STAMP = path.join('node_modules', '.claude-monitor-lock');
@@ -25,8 +25,7 @@ export function plan({ appDir, startupDir, exists, start, lockHash = null, stamp
   }
   for (const name of LEGACY_LINKS) {
     const p = path.join(startupDir, name);
-    // Case-insensitive file systems see "Claude monitor.lnk" and LINK_NAME as one file; the new shortcut overwrites it instead.
-    if (name.toLowerCase() !== LINK_NAME.toLowerCase() && exists(p)) steps.push({ kind: 'remove', path: p });
+    if (exists(p)) steps.push({ kind: 'remove', path: p });
   }
   steps.push({ kind: 'shortcut', path: path.join(startupDir, LINK_NAME), target: exe, args: `"${appDir}"`, cwd: appDir, icon: path.join(appDir, 'assets', 'icon.ico') });
   if (start) steps.push({ kind: 'start', target: exe, args: [appDir] });

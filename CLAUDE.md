@@ -14,4 +14,4 @@ Source of truth for the global Claude Code setup: `claude/` is copied into `~/.c
 - Never commit credentials or `.env*`.
 - Every commit has a body that gives the reason and how the change was checked.
 - Changes go through a branch and a PR; merge once CI is green and the reviewer subagent has no open findings.
-- The pre-slim setup (AO, Codex, dashboard, routine, deny rules, secret guard) is at tag `legacy-full`.
+- The pre-slim setup (AO, secret guard, the old daily routine, a longer deny list) is at commit `c74db7b`.

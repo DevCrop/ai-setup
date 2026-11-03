@@ -251,8 +251,6 @@ export class MonitorService {
     };
   }
 
-  getStatus() { return this.status(); }
-
   // Last 50 fix journal entries, newest first, for the UI: { at, findingId, checkId, source, action, backupName,
   // restorableAfterRestart, restorable }. No diff, hash or table name.
   history() { return this.optimizer.history?.(50) ?? []; }

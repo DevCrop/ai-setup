@@ -9,7 +9,7 @@ Node 22, ESM `.mjs`, zero dependencies, Windows 10 first (paths may use `\`). Te
 |---|---|
 | `scan.mjs`, `lib/walk.mjs`, `lib/detectors.mjs`, `test/walk.test.mjs`, `test/detectors.test.mjs` | scanner |
 | `page.mjs`, `test/page.test.mjs`, `test/fixtures/sample-scan.json` | page |
-| `clean.mjs`, `lib/deny.mjs`, `test/clean.test.mjs`, `test/fixtures/sample-plan.json` | cleaner |
+| `clean.mjs`, `lib/deny.mjs`, `test/clean.test.mjs` | cleaner |
 
 `scan.mjs` calls `renderPage(data)` from `./page.mjs`, writes the string to `path.join(os.tmpdir(), 'machine-map.html')` and prints that path.
 
